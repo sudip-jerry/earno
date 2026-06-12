@@ -68,13 +68,18 @@ function MoversPage() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => q.refetch()}
-          className="size-10 grid place-items-center rounded-full hover:bg-muted"
-          aria-label="Refresh"
-        >
-          <RefreshCw className={`size-4 ${q.isFetching ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex items-center gap-1">
+          <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
+            <HelpCircle className="size-5 text-muted-foreground" />
+          </Link>
+          <button
+            onClick={() => q.refetch()}
+            className="size-10 grid place-items-center rounded-full hover:bg-muted"
+            aria-label="Refresh"
+          >
+            <RefreshCw className={`size-4 ${q.isFetching ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </header>
 
       {errorMsg ? (

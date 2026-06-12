@@ -124,9 +124,14 @@ function Home() {
             {isLive ? "Trading with real funds" : "Paper trading"}
           </p>
         </div>
-        <Link to="/settings" className="size-10 grid place-items-center rounded-full hover:bg-muted">
-          <Settings className="size-5 text-muted-foreground" />
-        </Link>
+        <div className="flex items-center gap-1">
+          <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
+            <HelpCircle className="size-5 text-muted-foreground" />
+          </Link>
+          <Link to="/settings" className="size-10 grid place-items-center rounded-full hover:bg-muted">
+            <Settings className="size-5 text-muted-foreground" />
+          </Link>
+        </div>
       </header>
 
       {/* Mode toggle */}
