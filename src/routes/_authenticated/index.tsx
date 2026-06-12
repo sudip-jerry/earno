@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { updateConfig, killAll } from "@/lib/bot.functions";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { TabBar } from "@/components/tab-bar";
 import { toast } from "sonner";
 import { Settings, Power, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
 
@@ -114,7 +115,7 @@ function Home() {
     Math.max(positions.data?.length ?? 1, 1);
 
   return (
-    <div className="min-h-svh bg-background pb-24">
+    <div className="min-h-svh bg-background pb-40">
       {/* Header */}
       <header className="px-5 pt-6 pb-4 flex items-center justify-between">
         <div>
@@ -266,7 +267,7 @@ function Home() {
       </section>
 
       {/* Bottom action bar */}
-      <div className="fixed bottom-0 inset-x-0 bg-background/80 backdrop-blur border-t px-5 py-3 flex items-center gap-3">
+      <div className="fixed bottom-14 inset-x-0 bg-background/80 backdrop-blur border-t px-5 py-3 flex items-center gap-3 z-20">
         <Button
           variant={isRunning ? "outline" : "default"}
           className="flex-1 h-12 rounded-xl"
@@ -289,6 +290,8 @@ function Home() {
           <AlertTriangle className="size-4" />
         </Button>
       </div>
+
+      <TabBar />
     </div>
   );
 }
