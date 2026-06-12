@@ -290,6 +290,8 @@ function Home() {
           <AlertTriangle className="size-4" />
         </Button>
       </div>
+
+      <TabBar />
     </div>
   );
 }
