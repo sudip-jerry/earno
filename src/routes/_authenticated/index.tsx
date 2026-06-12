@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
 import { toast } from "sonner";
-import { Settings, Power, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
+import { Settings, HelpCircle, Power, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -124,9 +124,14 @@ function Home() {
             {isLive ? "Trading with real funds" : "Paper trading"}
           </p>
         </div>
-        <Link to="/settings" className="size-10 grid place-items-center rounded-full hover:bg-muted">
-          <Settings className="size-5 text-muted-foreground" />
-        </Link>
+        <div className="flex items-center gap-1">
+          <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
+            <HelpCircle className="size-5 text-muted-foreground" />
+          </Link>
+          <Link to="/settings" className="size-10 grid place-items-center rounded-full hover:bg-muted">
+            <Settings className="size-5 text-muted-foreground" />
+          </Link>
+        </div>
       </header>
 
       {/* Mode toggle */}

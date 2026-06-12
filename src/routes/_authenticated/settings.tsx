@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ChevronLeft, CheckCircle2, XCircle, LogOut } from "lucide-react";
+import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, LogOut } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -116,11 +116,16 @@ function SettingsPage() {
 
   return (
     <div className="min-h-svh bg-background pb-12">
-      <header className="px-5 pt-6 pb-4 flex items-center gap-2">
-        <Link to="/" className="size-9 grid place-items-center rounded-full hover:bg-muted -ml-2">
-          <ChevronLeft className="size-5" />
+      <header className="px-5 pt-6 pb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Link to="/" className="size-9 grid place-items-center rounded-full hover:bg-muted -ml-2">
+            <ChevronLeft className="size-5" />
+          </Link>
+          <h1 className="text-xl font-semibold">Settings</h1>
+        </div>
+        <Link to="/help" className="size-9 grid place-items-center rounded-full hover:bg-muted">
+          <HelpCircle className="size-5 text-muted-foreground" />
         </Link>
-        <h1 className="text-xl font-semibold">Settings</h1>
       </header>
 
       {/* CoinDCX credentials */}

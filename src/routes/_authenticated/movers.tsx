@@ -1,11 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
 import { Button } from "@/components/ui/button";
 import { TabBar } from "@/components/tab-bar";
 import { toast } from "sonner";
-import { Flame, RefreshCw, TrendingUp, TrendingDown } from "lucide-react";
+import { Flame, RefreshCw, HelpCircle, TrendingUp, TrendingDown } from "lucide-react";
 import { useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/movers")({
@@ -68,13 +68,18 @@ function MoversPage() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => q.refetch()}
-          className="size-10 grid place-items-center rounded-full hover:bg-muted"
-          aria-label="Refresh"
-        >
-          <RefreshCw className={`size-4 ${q.isFetching ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex items-center gap-1">
+          <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
+            <HelpCircle className="size-5 text-muted-foreground" />
+          </Link>
+          <button
+            onClick={() => q.refetch()}
+            className="size-10 grid place-items-center rounded-full hover:bg-muted"
+            aria-label="Refresh"
+          >
+            <RefreshCw className={`size-4 ${q.isFetching ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </header>
 
       {errorMsg ? (
