@@ -14,7 +14,219 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      api_credentials: {
+        Row: {
+          api_key: string
+          api_secret: string
+          created_at: string
+          is_valid: boolean
+          last_checked_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          api_key: string
+          api_secret: string
+          created_at?: string
+          is_valid?: boolean
+          last_checked_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          api_key?: string
+          api_secret?: string
+          created_at?: string
+          is_valid?: boolean
+          last_checked_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      bot_config: {
+        Row: {
+          allow_short: boolean
+          created_at: string
+          daily_loss_cap_pct: number
+          ema_fast: number
+          ema_slow: number
+          is_running: boolean
+          leverage: number
+          max_open_positions: number
+          mode: string
+          paper_equity: number
+          risk_per_trade_pct: number
+          scanner_top_n: number
+          stop_loss_pct: number
+          take_profit_pct: number
+          timeframe: string
+          trailing_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allow_short?: boolean
+          created_at?: string
+          daily_loss_cap_pct?: number
+          ema_fast?: number
+          ema_slow?: number
+          is_running?: boolean
+          leverage?: number
+          max_open_positions?: number
+          mode?: string
+          paper_equity?: number
+          risk_per_trade_pct?: number
+          scanner_top_n?: number
+          stop_loss_pct?: number
+          take_profit_pct?: number
+          timeframe?: string
+          trailing_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allow_short?: boolean
+          created_at?: string
+          daily_loss_cap_pct?: number
+          ema_fast?: number
+          ema_slow?: number
+          is_running?: boolean
+          leverage?: number
+          max_open_positions?: number
+          mode?: string
+          paper_equity?: number
+          risk_per_trade_pct?: number
+          scanner_top_n?: number
+          stop_loss_pct?: number
+          take_profit_pct?: number
+          timeframe?: string
+          trailing_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      bot_events: {
+        Row: {
+          created_at: string
+          id: string
+          level: string
+          message: string
+          meta: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level?: string
+          message: string
+          meta?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: string
+          message?: string
+          meta?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      positions: {
+        Row: {
+          closed_at: string | null
+          entry_price: number
+          exchange_order_id: string | null
+          exit_price: number | null
+          exit_reason: string | null
+          id: string
+          leverage: number
+          mark_price: number | null
+          mode: string
+          opened_at: string
+          pnl: number | null
+          pnl_pct: number | null
+          qty: number
+          side: string
+          status: string
+          stop_loss: number | null
+          symbol: string
+          take_profit: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          closed_at?: string | null
+          entry_price: number
+          exchange_order_id?: string | null
+          exit_price?: number | null
+          exit_reason?: string | null
+          id?: string
+          leverage: number
+          mark_price?: number | null
+          mode: string
+          opened_at?: string
+          pnl?: number | null
+          pnl_pct?: number | null
+          qty: number
+          side: string
+          status?: string
+          stop_loss?: number | null
+          symbol: string
+          take_profit?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          closed_at?: string | null
+          entry_price?: number
+          exchange_order_id?: string | null
+          exit_price?: number | null
+          exit_reason?: string | null
+          id?: string
+          leverage?: number
+          mark_price?: number | null
+          mode?: string
+          opened_at?: string
+          pnl?: number | null
+          pnl_pct?: number | null
+          qty?: number
+          side?: string
+          status?: string
+          stop_loss?: number | null
+          symbol?: string
+          take_profit?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
