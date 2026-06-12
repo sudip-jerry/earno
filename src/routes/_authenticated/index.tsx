@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
 import { toast } from "sonner";
-import { Settings, Power, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
+import { Settings, HelpCircle, Power, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({

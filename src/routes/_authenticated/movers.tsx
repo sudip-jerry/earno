@@ -5,7 +5,7 @@ import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.function
 import { Button } from "@/components/ui/button";
 import { TabBar } from "@/components/tab-bar";
 import { toast } from "sonner";
-import { Flame, RefreshCw, TrendingUp, TrendingDown } from "lucide-react";
+import { Flame, RefreshCw, HelpCircle, TrendingUp, TrendingDown } from "lucide-react";
 import { useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/movers")({

@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ChevronLeft, CheckCircle2, XCircle, LogOut } from "lucide-react";
+import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, LogOut } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
