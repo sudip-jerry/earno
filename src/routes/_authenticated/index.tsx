@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { updateConfig, killAll } from "@/lib/bot.functions";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { TabBar } from "@/components/tab-bar";
 import { toast } from "sonner";
 import { Settings, Power, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
 
