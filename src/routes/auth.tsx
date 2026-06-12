@@ -11,8 +11,8 @@ import { TrendingUp } from "lucide-react";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — Futures Bot" },
-      { name: "description", content: "Sign in to your CoinDCX automated futures trading bot." },
+      { title: "Sign in — EarnO" },
+      { name: "description", content: "Sign in to your EarnO automated futures trading bot." },
     ],
   }),
   component: AuthPage,
@@ -76,7 +76,7 @@ function AuthPage() {
           <div className="size-12 rounded-2xl bg-primary/10 grid place-items-center">
             <TrendingUp className="size-6 text-primary" />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Futures Bot</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">EarnO</h1>
           <p className="text-sm text-muted-foreground text-center">
             Automated CoinDCX futures trading
           </p>
