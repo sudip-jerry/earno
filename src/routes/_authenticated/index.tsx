@@ -115,7 +115,7 @@ function Home() {
     Math.max(positions.data?.length ?? 1, 1);
 
   return (
-    <div className="min-h-svh bg-background pb-24">
+    <div className="min-h-svh bg-background pb-40">
       {/* Header */}
       <header className="px-5 pt-6 pb-4 flex items-center justify-between">
         <div>
