@@ -267,7 +267,7 @@ function Home() {
       </section>
 
       {/* Bottom action bar */}
-      <div className="fixed bottom-0 inset-x-0 bg-background/80 backdrop-blur border-t px-5 py-3 flex items-center gap-3">
+      <div className="fixed bottom-14 inset-x-0 bg-background/80 backdrop-blur border-t px-5 py-3 flex items-center gap-3 z-20">
         <Button
           variant={isRunning ? "outline" : "default"}
           className="flex-1 h-12 rounded-xl"
