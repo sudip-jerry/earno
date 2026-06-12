@@ -27,7 +27,7 @@ import { ChevronLeft, CheckCircle2, XCircle, LogOut } from "lucide-react";
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
-      { title: "Settings — Futures Bot" },
+      { title: "Settings — EarnO" },
       { name: "description", content: "Configure your CoinDCX API keys, strategy, and risk caps." },
     ],
   }),

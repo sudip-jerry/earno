@@ -11,7 +11,7 @@ import { useState } from "react";
 export const Route = createFileRoute("/_authenticated/movers")({
   head: () => ({
     meta: [
-      { title: "Top Movers — Futures Bot" },
+      { title: "Top Movers — EarnO" },
       { name: "description", content: "Top gaining futures pairs with 1m, 5m, and 24h momentum." },
     ],
   }),

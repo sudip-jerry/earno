@@ -13,8 +13,8 @@ import { Settings, Power, AlertTriangle, TrendingUp, TrendingDown } from "lucide
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
-      { title: "Dashboard — Futures Bot" },
-      { name: "description", content: "Live status of your automated CoinDCX futures trading bot." },
+      { title: "Dashboard — EarnO" },
+      { name: "description", content: "Live status of your EarnO automated CoinDCX futures trading bot." },
     ],
   }),
   component: Home,
@@ -119,7 +119,7 @@ function Home() {
       {/* Header */}
       <header className="px-5 pt-6 pb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Futures Bot</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">EarnO</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             {isLive ? "Trading with real funds" : "Paper trading"}
           </p>
