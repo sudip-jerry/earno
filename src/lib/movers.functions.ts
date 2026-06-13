@@ -713,6 +713,7 @@ export const bookManualTrade = createServerFn({ method: "POST" })
     const stop_loss = data.side === "long" ? data.price * (1 - sl / 100) : data.price * (1 + sl / 100);
     const take_profit = data.side === "long" ? data.price * (1 + tp / 100) : data.price * (1 - tp / 100);
 
+    const instrument = data.market === "spot" ? "spot" : "futures";
     const { error } = await supabaseAdmin.from("positions").insert({
       user_id: context.userId,
       mode: cfg.mode,
@@ -727,6 +728,7 @@ export const bookManualTrade = createServerFn({ method: "POST" })
       pnl: 0,
       pnl_pct: 0,
       status: "open",
+      instrument,
       exchange_order_id: cfg.mode === "paper" ? `paper-manual-${Date.now()}` : null,
     });
     if (error) throw new Error(error.message);
