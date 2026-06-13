@@ -542,6 +542,7 @@ async function enrichMover(
   }
 
   const r = computeRecommendation({ c1m: c1, c5m: c5, c30m: c30, c24h: base.change24h }, market);
+  ({ tpPct, slPct } = autoTpSlForConfidence(r.confidence));
   const bias: Bias = r.rec === "long" ? "long" : r.rec === "short" ? "short" : "wait";
 
   // Watchlist allowance: 5m trend aligned with bias, 1m still forming.
