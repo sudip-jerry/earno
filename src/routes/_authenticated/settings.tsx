@@ -23,6 +23,21 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, LogOut, Zap, AlertTriangle } from "lucide-react";
+import { useTheme, type ThemeMode } from "@/hooks/use-theme";
+
+function ThemeSelect() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <Select value={theme} onValueChange={(v) => setTheme(v as ThemeMode)}>
+      <SelectTrigger className="w-32 h-9"><SelectValue /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="light">Light</SelectItem>
+        <SelectItem value="dark">Dark</SelectItem>
+        <SelectItem value="system">System</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -468,6 +483,19 @@ function SettingsPage() {
           />
         </div>
       </section>
+
+      <section className="px-5 mt-6">
+        <h2 className="text-sm font-semibold mb-2">Appearance</h2>
+        <div className="rounded-xl border bg-card p-3 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium">Theme</div>
+            <div className="text-xs text-muted-foreground">Choice is saved on this device.</div>
+          </div>
+          <ThemeSelect />
+        </div>
+      </section>
+
+
 
       <section className="px-5 mt-8">
         <Button variant="ghost" className="w-full text-muted-foreground" onClick={signOut}>
