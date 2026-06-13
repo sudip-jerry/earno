@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { closeManualTrade } from "@/lib/movers.functions";
+import { closeManualTrade, updatePositionTpSl } from "@/lib/movers.functions";
 import { Button } from "@/components/ui/button";
 import { TabBar } from "@/components/tab-bar";
 import { PositionsStrip } from "@/components/positions-strip";
