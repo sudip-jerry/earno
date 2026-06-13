@@ -8,14 +8,8 @@ async function isAuthorized(request: Request): Promise<boolean> {
   if (envSecret && token === envSecret) return true;
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data } = await supabaseAdmin
-      .schema("vault" as never)
-      .from("decrypted_secrets" as never)
-      .select("decrypted_secret")
-      .eq("name", "cron_secret")
-      .maybeSingle();
-    const vaultSecret = (data as { decrypted_secret?: string } | null)?.decrypted_secret;
-    return !!vaultSecret && token === vaultSecret;
+    const { data } = await supabaseAdmin.rpc("verify_cron_secret", { _token: token });
+    return data === true;
   } catch {
     return false;
   }
