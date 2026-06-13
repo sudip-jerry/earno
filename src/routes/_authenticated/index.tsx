@@ -1,25 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { updateConfig, killAll } from "@/lib/bot.functions";
-import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
 import { getDashboardStats } from "@/lib/stats.functions";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { OpportunityCard } from "@/components/opportunity-card";
-import { useStrictness } from "@/hooks/use-strictness";
+import { PositionsStrip } from "@/components/positions-strip";
 import { toast } from "sonner";
 import {
   Settings,
   HelpCircle,
   Power,
   AlertTriangle,
-  Flame,
-  RefreshCw,
 } from "lucide-react";
 
 
