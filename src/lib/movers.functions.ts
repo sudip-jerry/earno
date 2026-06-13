@@ -663,7 +663,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
       // Rank by 24h quote volume so the scanner sees the deepest 30-50 USDT pairs.
       rows.sort((a, b) => b.volume24h - a.volume24h);
       const top = rows.slice(0, 40).map((r, i) => ({ ...r, rank24h: i + 1 }));
-      const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 30, tpPct, slPct)));
+      const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 30, tpPct, slPct, preset)));
       // Sort enriched output by confidence so highest setups surface first.
       enriched.sort((a, b) => b.confidence - a.confidence);
       return { ok: true, movers: enriched };
