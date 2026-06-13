@@ -261,105 +261,25 @@ function Home() {
         />
       </section>
 
-      {/* Recommendation tier counts */}
-      <section className="px-5 mt-3 grid grid-cols-3 gap-2">
-        <TierTile label="Auto-book" value={autoEligible.length} tone="primary" />
-        <TierTile label="Watchlist" value={watchlist.length} tone="amber" />
-        <TierTile label="Avoided" value={avoidedCount} tone="muted" />
-      </section>
-
-
-
-      {/* Best Opportunities */}
-      <section className="px-5 mt-6">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Flame className="size-4 text-primary" />
-            <div className="min-w-0">
-              <h2 className="text-sm font-medium">Best opportunities now</h2>
-              <p className="text-xs text-muted-foreground truncate">
-                Ranked by confidence
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <Link
-              to="/scanner"
-              className="h-7 px-2.5 inline-flex items-center text-[11px] rounded-full border text-muted-foreground hover:text-foreground"
-            >
-              Open scanner
-            </Link>
-            <button
-              onClick={() => movers.refetch()}
-              className="size-8 grid place-items-center rounded-full border hover:bg-muted"
-              aria-label="Refresh"
-            >
-              <RefreshCw className={`size-3.5 ${movers.isFetching ? "animate-spin" : ""}`} />
-            </button>
-          </div>
-        </div>
-
-        {moversError ? (
-          <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
-            {moversError}
-          </div>
-        ) : null}
-
-        <ul className="space-y-2">
-          {movers.isLoading && !movers.data
-            ? Array.from({ length: 3 }).map((_, i) => (
-                <li key={i} className="h-28 rounded-2xl border bg-card animate-pulse" />
-              ))
-            : null}
-
-          {opportunities.map((m) => {
-            const side: "long" | "short" = m.bias === "short" ? "short" : "long";
-            const booking = pendingTrade === `${m.symbol}:${side}`;
-            return (
-              <li key={m.symbol}>
-                <OpportunityCard
-                  mover={m}
-                  tpPct={tpPct}
-                  slPct={slPct}
-                  riskAmountUsd={riskAmount}
-                  dailyRiskAvailable={dailyRiskAvailable}
-                  booking={booking}
-                  onBook={(s) => book.mutate({ m, side: s })}
-                />
-              </li>
-            );
-          })}
-
-          {!movers.isLoading && opportunities.length === 0 && !moversError ? (
-            <li className="rounded-2xl border border-dashed bg-card/50 p-6 text-center text-sm text-muted-foreground">
-              No clear setups right now.
-            </li>
-          ) : null}
-        </ul>
-      </section>
-
-      {/* Positions summary → full page in Positions tab */}
       <section className="px-5 mt-6">
         <Link
-          to="/positions"
+          to="/scanner"
           className="block rounded-2xl border bg-card p-4 hover:bg-muted/40 transition"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium">Open positions</p>
+              <p className="text-sm font-medium">Open scanner</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {positions.data?.length ?? 0} open · live PNL in Positions tab
+                Auto-book, watchlist and weak setups ranked by confidence
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Open</p>
-              <p className="text-2xl font-semibold tabular-nums leading-none mt-0.5">
-                {positions.data?.length ?? 0}
-              </p>
-            </div>
+            <span className="text-[11px] px-2 h-6 inline-flex items-center rounded-full border text-muted-foreground">
+              View
+            </span>
           </div>
         </Link>
       </section>
+
 
 
       {/* Bottom action bar */}
