@@ -86,11 +86,12 @@ function PositionsPage() {
   }, [qc]);
 
   const close = useMutation({
-    mutationFn: async (positionId: string) => closeFn({ data: { positionId } }),
-    onMutate: (id) => setPending(id),
+    mutationFn: async (v: { positionId: string; limitPrice: number }) =>
+      closeFn({ data: { positionId: v.positionId, limitPrice: v.limitPrice } }),
+    onMutate: (v) => setPending(v.positionId),
     onSettled: () => setPending(null),
     onSuccess: () => {
-      toast.success("Position closed");
+      toast.success("Limit close submitted");
       qc.invalidateQueries({ queryKey: ["positions_open"] });
       qc.invalidateQueries({ queryKey: ["dashboard_stats"] });
     },
@@ -258,15 +259,27 @@ function PositionsPage() {
                 <Button
                   variant="outline"
                   className="w-full h-9 rounded-lg"
-                  disabled={closing}
+                  disabled={closing || !live}
                   onClick={() => {
-                    if (confirm(`Close ${p.side.toUpperCase()} ${p.symbol} at market?`)) {
-                      close.mutate(p.id);
+                    if (!live) return;
+                    if (
+                      confirm(
+                        `Place LIMIT close for ${p.side.toUpperCase()} ${p.symbol} at ${fmtNum(live, 6)}? (Lower fee than market.)`,
+                      )
+                    ) {
+                      close.mutate({ positionId: p.id, limitPrice: live });
                     }
                   }}
                 >
-                  {closing ? "Closing…" : "Close"}
+                  {closing
+                    ? "Submitting…"
+                    : live
+                    ? `Close · Limit @ ${fmtNum(live, 6)}`
+                    : "Waiting for live price…"}
                 </Button>
+                <p className="text-[10px] text-muted-foreground mt-1 text-center">
+                  Limit orders pay lower CoinDCX fees than market orders.
+                </p>
               </div>
             </li>
           );
