@@ -40,6 +40,16 @@ type PositionRow = {
   opened_at: string;
 };
 
+function pct(n: number | null | undefined, digits = 1) {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return `${n >= 0 ? "+" : ""}${n.toFixed(digits)}%`;
+}
+
+function momentumClass(n: number | null | undefined) {
+  if (n == null || !Number.isFinite(n)) return "text-muted-foreground";
+  return n >= 0 ? "text-emerald-600" : "text-destructive";
+}
+
 function Home() {
   const qc = useQueryClient();
   const updateFn = useServerFn(updateConfig);
