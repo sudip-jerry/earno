@@ -40,6 +40,8 @@ function AdminPage() {
   const togglePaywallFn = useServerFn(adminTogglePaywall);
   const createCouponFn = useServerFn(adminCreateCoupon);
   const listCouponsFn = useServerFn(adminListCoupons);
+  const listTradesFn = useServerFn(adminListTrades);
+  const listEventsFn = useServerFn(adminListEvents);
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
   const users = useQuery({
@@ -52,6 +54,23 @@ function AdminPage() {
     queryFn: () => listCouponsFn(),
     enabled: !!ent.data?.isAdmin,
   });
+  const [tradeStatus, setTradeStatus] = useState<"all" | "open" | "closed">("all");
+  const trades = useQuery({
+    queryKey: ["admin_trades", tradeStatus],
+    queryFn: () => listTradesFn({ data: { status: tradeStatus, limit: 100 } }),
+    enabled: !!ent.data?.isAdmin,
+    refetchInterval: 15_000,
+  });
+  const [eventLevel, setEventLevel] = useState<
+    "all" | "info" | "signal" | "trade" | "warn" | "error"
+  >("all");
+  const events = useQuery({
+    queryKey: ["admin_events", eventLevel],
+    queryFn: () => listEventsFn({ data: { level: eventLevel, limit: 150 } }),
+    enabled: !!ent.data?.isAdmin,
+    refetchInterval: 15_000,
+  });
+
 
   const [couponCode, setCouponCode] = useState("");
   const [couponTier, setCouponTier] = useState<"reco" | "auto5" | "unlimited">("reco");
