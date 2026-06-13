@@ -99,23 +99,6 @@ function MoversPage() {
         </div>
       </header>
 
-      <div className="px-5">
-        <div className="inline-flex rounded-full border bg-muted/40 p-0.5 text-xs font-medium">
-          {(["futures", "spot"] as const).map((opt) => (
-            <button
-              key={opt}
-              onClick={() => setMarket(opt)}
-              className={`px-4 h-8 rounded-full capitalize transition ${
-                market === opt
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {errorMsg ? (
         <div className="mx-5 mt-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
