@@ -12,6 +12,14 @@ const PUB_HEADERS = {
 };
 
 type Strictness = "less" | "moderate" | "strict";
+type PlanTier = "free" | "reco" | "auto5" | "unlimited";
+
+const AUTO_PLAN_DAILY_LIMIT: Record<PlanTier, number> = {
+  free: 0,
+  reco: 0,
+  auto5: 5,
+  unlimited: 9999,
+};
 
 type TickerEntry = {
   s?: string;
@@ -145,11 +153,18 @@ type BotConfig = {
   max_open_positions: number;
   cooldown_minutes: number;
   max_trades_per_day: number;
+  auto_close_minutes: number;
   daily_loss_cap_pct: number | null;
   min_scalp_score: number | null;
   allow_short: boolean;
   strategy: string | null;
 };
+
+async function getPlanTier(supabase: SupabaseClient, userId: string): Promise<PlanTier> {
+  const { data, error } = await supabase.rpc("current_plan_tier", { _user_id: userId });
+  if (error) return "free";
+  return data === "auto5" || data === "unlimited" || data === "reco" ? data : "free";
+}
 
 async function logEvent(
   supabase: SupabaseClient,
@@ -158,6 +173,18 @@ async function logEvent(
   message: string,
 ) {
   await supabase.from("bot_events").insert({ user_id: userId, level, message });
+}
+
+async function logPauseEvent(supabase: SupabaseClient, userId: string, message: string) {
+  const since = new Date(Date.now() - 30 * 60_000).toISOString();
+  const { data } = await supabase
+    .from("bot_events")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("message", message)
+    .gte("created_at", since)
+    .limit(1);
+  if (!data?.length) await logEvent(supabase, userId, "warn", message);
 }
 
 /** Run one auto-book pass for all eligible users. */
@@ -170,7 +197,7 @@ export async function runAutoBookPass(supabase: SupabaseClient): Promise<{
   const { data: cfgs } = await supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,daily_loss_cap_pct,min_scalp_score,allow_short,strategy",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,strategy",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -190,12 +217,21 @@ export async function runAutoBookPass(supabase: SupabaseClient): Promise<{
     let opened = 0;
     let skipped = 0;
 
+    const planTier = await getPlanTier(supabase, cfg.user_id);
+    const planDailyLimit = AUTO_PLAN_DAILY_LIMIT[planTier];
+    if (planDailyLimit <= 0) {
+      await logPauseEvent(supabase, cfg.user_id, "Auto-book skipped: current plan does not include automation");
+      result.details.push({ user: cfg.user_id, opened: 0, skipped: setups.length, reason: "plan does not allow auto-book" });
+      result.skipped += setups.length;
+      continue;
+    }
+
     // Daily loss cap check.
     const startOfDay = new Date();
     startOfDay.setUTCHours(0, 0, 0, 0);
     const { data: todayPos } = await supabase
       .from("positions")
-      .select("pnl,status,opened_at")
+      .select("pnl,status,opened_at,exchange_order_id")
       .eq("user_id", cfg.user_id)
       .gte("opened_at", startOfDay.toISOString());
 
@@ -204,15 +240,24 @@ export async function runAutoBookPass(supabase: SupabaseClient): Promise<{
     if (cfg.daily_loss_cap_pct != null && equity > 0) {
       const cap = (Number(cfg.daily_loss_cap_pct) / 100) * equity;
       if (todayPnl <= -cap) {
-        await logEvent(supabase, cfg.user_id, "warn", `Auto-book paused: daily loss cap hit (${todayPnl.toFixed(2)} USDT)`);
+        await logPauseEvent(supabase, cfg.user_id, `Auto-book paused: daily loss cap hit (${todayPnl.toFixed(2)} USDT)`);
         result.details.push({ user: cfg.user_id, opened: 0, skipped: setups.length, reason: "daily loss cap" });
         result.skipped += setups.length;
         continue;
       }
     }
 
-    const todayCount = (todayPos ?? []).length;
-    const remainingToday = Math.max(0, (cfg.max_trades_per_day ?? 999) - todayCount);
+    const todayAutoCount = (todayPos ?? []).filter((p) =>
+      String(p.exchange_order_id ?? "").startsWith("paper-auto-"),
+    ).length;
+    const dailyLimit = Math.min(cfg.max_trades_per_day ?? 999, planDailyLimit);
+    const remainingToday = Math.max(0, dailyLimit - todayAutoCount);
+    if (remainingToday <= 0) {
+      await logPauseEvent(supabase, cfg.user_id, `Auto-book paused: daily auto-book limit reached (${todayAutoCount}/${dailyLimit})`);
+      result.details.push({ user: cfg.user_id, opened: 0, skipped: setups.length, reason: "daily trade limit" });
+      result.skipped += setups.length;
+      continue;
+    }
 
     const { data: openRows, count: openCount } = await supabase
       .from("positions")
@@ -222,6 +267,12 @@ export async function runAutoBookPass(supabase: SupabaseClient): Promise<{
 
     let openSlot = Math.max(0, (cfg.max_open_positions ?? 5) - (openCount ?? 0));
     const openSymbols = new Set((openRows ?? []).map((r) => r.symbol as string));
+    if (openSlot <= 0) {
+      await logPauseEvent(supabase, cfg.user_id, `Auto-book paused: max open positions reached (${openCount ?? 0}/${cfg.max_open_positions ?? 5})`);
+      result.details.push({ user: cfg.user_id, opened: 0, skipped: setups.length, reason: "max open positions" });
+      result.skipped += setups.length;
+      continue;
+    }
 
     // Cooldown: last opened time per symbol (last 24h window covers any sensible cooldown).
     const cooldownMs = (cfg.cooldown_minutes ?? 15) * 60_000;
@@ -320,10 +371,19 @@ export async function runMarkPass(supabase: SupabaseClient): Promise<{
 }> {
   const { data: open } = await supabase
     .from("positions")
-    .select("id,user_id,symbol,side,leverage,qty,entry_price,take_profit,stop_loss")
+    .select("id,user_id,symbol,side,leverage,qty,entry_price,take_profit,stop_loss,opened_at")
     .eq("status", "open");
   const positions = open ?? [];
   if (!positions.length) return { updated: 0, closed: 0 };
+
+  const userIds = Array.from(new Set(positions.map((p) => p.user_id as string)));
+  const { data: cfgRows } = await supabase
+    .from("bot_config")
+    .select("user_id,auto_close_minutes")
+    .in("user_id", userIds);
+  const autoCloseByUser = new Map(
+    (cfgRows ?? []).map((c) => [c.user_id as string, Number(c.auto_close_minutes ?? 30)]),
+  );
 
   const symbols = Array.from(new Set(positions.map((p) => p.symbol as string)));
   const marks = await fetchMarkPrices(symbols);
@@ -341,12 +401,16 @@ export async function runMarkPass(supabase: SupabaseClient): Promise<{
     const pnlPct = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul * lev : 0;
     const tp = p.take_profit != null ? Number(p.take_profit) : null;
     const sl = p.stop_loss != null ? Number(p.stop_loss) : null;
+    const autoCloseMinutes = autoCloseByUser.get(p.user_id as string) ?? 30;
+    const openedAt = new Date(p.opened_at as string).getTime();
+    const hitTimeExit =
+      autoCloseMinutes > 0 && Number.isFinite(openedAt) && Date.now() - openedAt >= autoCloseMinutes * 60_000;
 
     const hitTp = tp != null && (p.side === "long" ? mark >= tp : mark <= tp);
     const hitSl = sl != null && (p.side === "long" ? mark <= sl : mark >= sl);
 
-    if (hitTp || hitSl) {
-      const reason = hitTp ? "take_profit" : "stop_loss";
+    if (hitTp || hitSl || hitTimeExit) {
+      const reason = hitTp ? "take_profit" : hitSl ? "stop_loss" : "time_exit";
       const { error } = await supabase
         .from("positions")
         .update({
