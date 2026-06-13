@@ -10,7 +10,7 @@ import { PositionsStrip } from "@/components/positions-strip";
 import { useLivePrices } from "@/hooks/use-live-prices";
 import { useCurrency } from "@/hooks/use-currency";
 import { toast } from "sonner";
-import { Briefcase, RefreshCw, HelpCircle } from "lucide-react";
+import { Briefcase, RefreshCw, HelpCircle, Pencil, Target, Shield } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/positions")({
   head: () => ({
@@ -397,21 +397,34 @@ function TpSlEditor({
     : null;
 
   if (!editing) {
+    const hasTp = takeProfit != null;
+    const hasSl = stopLoss != null;
     return (
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="mt-3 w-full rounded-lg border bg-muted/40 px-3 py-2 text-[11px] flex items-center justify-between hover:bg-muted transition-colors"
+        className="mt-3 w-full rounded-lg border bg-muted/40 px-3 py-2 text-[11px] flex items-center justify-between gap-2 hover:bg-muted hover:border-primary/40 transition-colors text-left"
+        aria-label="Edit take profit and stop loss"
       >
-        <span className="text-muted-foreground">
-          TP <span className="tabular-nums text-emerald-500">{fmtNum(takeProfit, 6)}</span>
-          {tpPct != null ? <span className="text-muted-foreground ml-1">({tpPct >= 0 ? "+" : ""}{tpPct.toFixed(2)}%)</span> : null}
+        <span className="flex items-center gap-1.5 min-w-0">
+          <Target className="size-3.5 text-emerald-500 shrink-0" />
+          <span className="text-muted-foreground">TP</span>
+          <span className={`tabular-nums ${hasTp ? "text-emerald-500 font-medium" : "text-muted-foreground italic"}`}>
+            {hasTp ? fmtNum(takeProfit, 6) : "not set"}
+          </span>
+          {tpPct != null ? <span className="text-muted-foreground">({tpPct >= 0 ? "+" : ""}{tpPct.toFixed(2)}%)</span> : null}
         </span>
-        <span className="text-muted-foreground">
-          SL <span className="tabular-nums text-destructive">{fmtNum(stopLoss, 6)}</span>
-          {slPct != null ? <span className="text-muted-foreground ml-1">(-{Math.abs(slPct).toFixed(2)}%)</span> : null}
+        <span className="flex items-center gap-1.5 min-w-0">
+          <Shield className="size-3.5 text-destructive shrink-0" />
+          <span className="text-muted-foreground">SL</span>
+          <span className={`tabular-nums ${hasSl ? "text-destructive font-medium" : "text-muted-foreground italic"}`}>
+            {hasSl ? fmtNum(stopLoss, 6) : "not set"}
+          </span>
+          {slPct != null ? <span className="text-muted-foreground">(-{Math.abs(slPct).toFixed(2)}%)</span> : null}
         </span>
-        <span className="text-primary text-[10px] font-medium">Edit</span>
+        <span className="flex items-center gap-1 text-primary text-[10px] font-medium shrink-0">
+          <Pencil className="size-3" /> Edit
+        </span>
       </button>
     );
   }
