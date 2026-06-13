@@ -165,9 +165,12 @@ function Home() {
   const s = stats.data;
   const dailyCap = Number(c?.daily_loss_cap_pct ?? 6);
 
-  const opportunities: Mover[] = movers.data?.ok
-    ? movers.data.movers.filter((m) => m.action !== "wait").slice(0, 5)
-    : [];
+  const allMovers: Mover[] = movers.data?.ok ? movers.data.movers : [];
+  const autoEligible = allMovers.filter((m) => m.tier === "auto");
+  const watchlist = allMovers.filter((m) => m.tier === "watch");
+  const avoidedCount = allMovers.filter((m) => m.tier === "avoid").length;
+  // Show auto-eligible first, then watchlist, up to 6 cards.
+  const opportunities: Mover[] = [...autoEligible, ...watchlist].slice(0, 6);
   const moversError = movers.data && !movers.data.ok ? movers.data.error : null;
 
   const tpPct = Number(c?.take_profit_pct ?? 0.6);
