@@ -30,6 +30,7 @@ import {
   ArrowUpRight,
   Flame,
   ChevronRight,
+  Zap,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
