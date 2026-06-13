@@ -7,12 +7,13 @@ import { useCurrency } from "@/hooks/use-currency";
 
 type Props = {
   mover: Mover;
+  /** Auto-derived defaults; user can override via inline inputs. */
   tpPct: number;
   slPct: number;
   riskAmountUsd: number;
   dailyRiskAvailable?: boolean;
   booking?: boolean;
-  onBook: (side: "long" | "short") => void;
+  onBook: (side: "long" | "short", overrides: { tpPct: number; slPct: number }) => void;
   /** Compact layout for tables/scanner. */
   compact?: boolean;
 };
