@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { closeManualTrade } from "@/lib/movers.functions";
+import { closeManualTrade, updatePositionTpSl } from "@/lib/movers.functions";
 import { Button } from "@/components/ui/button";
 import { TabBar } from "@/components/tab-bar";
 import { PositionsStrip } from "@/components/positions-strip";
@@ -294,14 +294,14 @@ function PositionsPage() {
                   </div>
                 </div>
 
-                <div className="mt-3 rounded-lg border bg-muted/40 px-3 py-2 text-[11px] flex items-center justify-between">
-                  <span className="text-muted-foreground">
-                    TP <span className="tabular-nums text-foreground">{fmtNum(p.take_profit, 6)}</span>
-                  </span>
-                  <span className="text-muted-foreground">
-                    SL <span className="tabular-nums text-foreground">{fmtNum(p.stop_loss, 6)}</span>
-                  </span>
-                </div>
+                <TpSlEditor
+                  positionId={p.id}
+                  side={p.side}
+                  entry={entry}
+                  takeProfit={p.take_profit}
+                  stopLoss={p.stop_loss}
+                />
+
 
                 <div className="mt-3">
                   <Button
@@ -351,6 +351,131 @@ function PositionsPage() {
     </div>
   );
 }
+
+function TpSlEditor({
+  positionId,
+  side,
+  entry,
+  takeProfit,
+  stopLoss,
+}: {
+  positionId: string;
+  side: "long" | "short";
+  entry: number;
+  takeProfit: number | null;
+  stopLoss: number | null;
+}) {
+  const qc = useQueryClient();
+  const updateFn = useServerFn(updatePositionTpSl);
+  const [editing, setEditing] = useState(false);
+  const [tp, setTp] = useState<string>(takeProfit != null ? String(takeProfit) : "");
+  const [sl, setSl] = useState<string>(stopLoss != null ? String(stopLoss) : "");
+
+  useEffect(() => {
+    if (!editing) {
+      setTp(takeProfit != null ? String(takeProfit) : "");
+      setSl(stopLoss != null ? String(stopLoss) : "");
+    }
+  }, [editing, takeProfit, stopLoss]);
+
+  const save = useMutation({
+    mutationFn: async (v: { takeProfit: number | null; stopLoss: number | null }) =>
+      updateFn({ data: { positionId, takeProfit: v.takeProfit, stopLoss: v.stopLoss } }),
+    onSuccess: () => {
+      toast.success("TP/SL updated");
+      setEditing(false);
+      qc.invalidateQueries({ queryKey: ["positions_open"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
+  });
+
+  const tpPct = takeProfit != null && entry > 0
+    ? ((takeProfit - entry) / entry) * 100 * (side === "long" ? 1 : -1)
+    : null;
+  const slPct = stopLoss != null && entry > 0
+    ? ((entry - stopLoss) / entry) * 100 * (side === "long" ? 1 : -1)
+    : null;
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="mt-3 w-full rounded-lg border bg-muted/40 px-3 py-2 text-[11px] flex items-center justify-between hover:bg-muted transition-colors"
+      >
+        <span className="text-muted-foreground">
+          TP <span className="tabular-nums text-emerald-500">{fmtNum(takeProfit, 6)}</span>
+          {tpPct != null ? <span className="text-muted-foreground ml-1">({tpPct >= 0 ? "+" : ""}{tpPct.toFixed(2)}%)</span> : null}
+        </span>
+        <span className="text-muted-foreground">
+          SL <span className="tabular-nums text-destructive">{fmtNum(stopLoss, 6)}</span>
+          {slPct != null ? <span className="text-muted-foreground ml-1">(-{Math.abs(slPct).toFixed(2)}%)</span> : null}
+        </span>
+        <span className="text-primary text-[10px] font-medium">Edit</span>
+      </button>
+    );
+  }
+
+  const tpNum = tp.trim() === "" ? null : Number(tp);
+  const slNum = sl.trim() === "" ? null : Number(sl);
+  const tpInvalid = tpNum != null && (!Number.isFinite(tpNum) || tpNum <= 0 || (side === "long" ? tpNum <= entry : tpNum >= entry));
+  const slInvalid = slNum != null && (!Number.isFinite(slNum) || slNum <= 0 || (side === "long" ? slNum >= entry : slNum <= entry));
+
+  return (
+    <div className="mt-3 rounded-lg border bg-muted/40 p-3 space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <label className="text-[10px] text-muted-foreground space-y-1">
+          <span>Take Profit ({side === "long" ? ">" : "<"} {fmtNum(entry, 6)})</span>
+          <input
+            type="number"
+            step="any"
+            inputMode="decimal"
+            value={tp}
+            onChange={(e) => setTp(e.target.value)}
+            placeholder="—"
+            className={`w-full rounded-md border bg-background px-2 h-8 text-xs tabular-nums ${tpInvalid ? "border-destructive" : ""}`}
+          />
+        </label>
+        <label className="text-[10px] text-muted-foreground space-y-1">
+          <span>Stop Loss ({side === "long" ? "<" : ">"} {fmtNum(entry, 6)})</span>
+          <input
+            type="number"
+            step="any"
+            inputMode="decimal"
+            value={sl}
+            onChange={(e) => setSl(e.target.value)}
+            placeholder="—"
+            className={`w-full rounded-md border bg-background px-2 h-8 text-xs tabular-nums ${slInvalid ? "border-destructive" : ""}`}
+          />
+        </label>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 flex-1"
+          onClick={() => setEditing(false)}
+          disabled={save.isPending}
+        >
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          className="h-8 flex-1"
+          disabled={save.isPending || tpInvalid || slInvalid}
+          onClick={() => save.mutate({ takeProfit: tpNum, stopLoss: slNum })}
+        >
+          {save.isPending ? "Saving…" : "Save"}
+        </Button>
+      </div>
+      <p className="text-[10px] text-muted-foreground">
+        Leave blank to clear. The bot will auto-close when LTP crosses these levels.
+      </p>
+    </div>
+  );
+}
+
+
 
 function ClosedSummary({ rows }: { rows: ClosedRow[] }) {
   const { fmt } = useCurrency();

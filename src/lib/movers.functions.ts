@@ -821,6 +821,57 @@ export const closeManualTrade = createServerFn({ method: "POST" })
     return { ok: true, pnl, pnlPct };
   });
 
+const updateTpSlSchema = z.object({
+  positionId: z.string().uuid(),
+  takeProfit: z.number().positive().nullable().optional(),
+  stopLoss: z.number().positive().nullable().optional(),
+});
+
+export const updatePositionTpSl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => updateTpSlSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: pos, error: posErr } = await supabaseAdmin
+      .from("positions")
+      .select("id,user_id,side,entry_price,status")
+      .eq("id", data.positionId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (posErr || !pos) throw new Error(posErr?.message ?? "Position not found");
+    if (pos.status !== "open") throw new Error("Position is not open");
+
+    const entry = Number(pos.entry_price);
+    const tp = data.takeProfit ?? null;
+    const sl = data.stopLoss ?? null;
+    if (tp != null) {
+      if (pos.side === "long" && tp <= entry) throw new Error("TP must be above entry for long");
+      if (pos.side === "short" && tp >= entry) throw new Error("TP must be below entry for short");
+    }
+    if (sl != null) {
+      if (pos.side === "long" && sl >= entry) throw new Error("SL must be below entry for long");
+      if (pos.side === "short" && sl <= entry) throw new Error("SL must be above entry for short");
+    }
+
+    const patch: { take_profit?: number | null; stop_loss?: number | null } = {};
+    if (data.takeProfit !== undefined) patch.take_profit = tp;
+    if (data.stopLoss !== undefined) patch.stop_loss = sl;
+    if (Object.keys(patch).length === 0) return { ok: true as const };
+
+    const { error } = await supabaseAdmin.from("positions").update(patch).eq("id", pos.id);
+    if (error) throw new Error(error.message);
+
+
+    await supabaseAdmin.from("bot_events").insert({
+      user_id: context.userId,
+      level: "info",
+      message: `Updated TP/SL on position ${pos.id}: TP=${tp ?? "—"} SL=${sl ?? "—"}`,
+    });
+    return { ok: true as const };
+  });
+
+
+
 
 const livePricesSchema = z.object({
   symbols: z.array(z.string().min(1).max(40).regex(/^[A-Z0-9_\-\/]+$/)).min(1).max(50),
