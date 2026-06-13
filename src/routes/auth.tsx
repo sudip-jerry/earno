@@ -118,6 +118,16 @@ function AuthPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="remember"
+              checked={rememberMe}
+              onCheckedChange={(v) => setRememberMe(v === true)}
+            />
+            <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
+              Keep me logged in for 24 hours
+            </Label>
+          </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {mode === "signup" ? "Create account" : "Sign in"}
           </Button>
