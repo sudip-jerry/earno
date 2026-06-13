@@ -563,6 +563,60 @@ function ProductRow({ to, icon, title, desc }: { to: string; icon: React.ReactNo
   );
 }
 
+function NextRunCard({ disabled, onRun }: { disabled: boolean; onRun: () => void | Promise<void> }) {
+  const [now, setNow] = useState(() => Date.now());
+  const [pending, setPending] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Cron schedule: every 2 minutes (*/2 * * * *).
+  const next = new Date(now);
+  next.setSeconds(0, 0);
+  const minutesToAdd = next.getMinutes() % 2 === 0 ? 2 : 1;
+  next.setMinutes(next.getMinutes() + minutesToAdd);
+  const secs = Math.max(0, Math.round((next.getTime() - now) / 1000));
+  const mm = Math.floor(secs / 60);
+  const ss = (secs % 60).toString().padStart(2, "0");
+  const cooldownLeft = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
+
+  const handleRun = async () => {
+    if (pending || cooldownLeft > 0 || disabled) return;
+    setPending(true);
+    try {
+      await onRun();
+    } finally {
+      setPending(false);
+      setCooldownUntil(Date.now() + 60_000);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border bg-card p-4 flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">Next auto run</p>
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {disabled ? "Bot stopped — start it to enable the scheduler" : `in ${mm}m ${ss}s`}
+        </p>
+      </div>
+      <Button
+        size="sm"
+        variant="outline"
+        className="rounded-xl shrink-0"
+        onClick={handleRun}
+        disabled={disabled || pending || cooldownLeft > 0}
+        aria-label="Run auto-book now"
+      >
+        <Zap className="size-4 mr-1.5" />
+        {pending ? "Running…" : cooldownLeft > 0 ? `Wait ${cooldownLeft}s` : "Run now"}
+      </Button>
+    </div>
+  );
+}
+
 function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-2xl border bg-card p-3.5">
