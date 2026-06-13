@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { updateConfig, killAll } from "@/lib/bot.functions";
+import { updateConfig, killAll, triggerMyAutoBookNow } from "@/lib/bot.functions";
 import { getDashboardStats } from "@/lib/stats.functions";
 import { getMyEntitlements } from "@/lib/plans.functions";
 import { PLAN_NAME, type PlanTier } from "@/lib/plans";
