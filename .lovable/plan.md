@@ -1,27 +1,31 @@
-## Change
+## What you'll get
 
-Make every position's "Close" button a **limit close at the current price** (CoinDCX limit fees are lower than market). Today the button calls a single `closeManualTrade` server fn that just exits at whatever `mark_price` is in the DB. We'll make it explicit and accurate.
+A **Currency** setting in your profile. Pick once in Settings and every money figure across the app (equity, today's PNL, drawdown, position PNL/size/margin, aggregate PNL in the top strip, opportunity risk amount) renders in that currency. **Default: INR (₹).** Choices: INR, USD, EUR, GBP, AED, SGD, JPY.
 
-## What you'll see on each position card
+Coin prices stay in USDT (they're not money — they're the quote asset of the pair).
 
-- Button label: **Close · Limit @ {live LTP}** (uses the same 3s ticker price the card already shows).
-- Disabled state when we have no live price yet, with helper text "Waiting for live price…".
-- Confirm dialog: "Place LIMIT close for {side} {symbol} at {price}? (Lower fee than market.)"
-- After close, the trade log entry reads "Manually closed via LIMIT at {price}".
+## How it works
 
-## Behind the scenes
-
-1. `closeManualTrade` (in `src/lib/movers.functions.ts`) gains an optional `limitPrice: number` input.
-   - Paper mode: uses `limitPrice` as the exit price for the PNL calc instead of falling back to `mark_price`.
-   - Live mode hook-up later: the same value is what we'll submit as `price` on a CoinDCX `limit_order` POST. Log message + `exit_reason` change to `manual_limit`.
-2. `src/routes/_authenticated/positions.tsx`:
-   - Pass the current live price from `useLivePrices` (already wired) into the close mutation.
-   - Update the button JSX, disabled-when-no-price logic, and confirm copy as above.
-   - Show the live limit price in a small caption under the button.
-
-No DB schema changes. Market-order close is removed entirely — every manual close is a limit at current LTP.
+- Store the choice in `public.profiles.currency` (text, default `'INR'`) — migration below. Persisted per user.
+- New `useCurrency()` hook reads/writes the profile field via Supabase, falls back to localStorage while loading.
+- New `getFxRates` server fn fetches USD→{INR,EUR,GBP,AED,SGD,JPY} from frankfurter.app every 30 min (cached in TanStack Query). USD→USD = 1.
+- New `formatMoney(amountUsd, { code, symbol, rate })` helper: returns e.g. `₹1,247.50`, signed when needed.
+- Settings page gets a "Display currency" segmented selector showing the current rate next to each option.
+- Replace every hardcoded `$` / `.toFixed(2)` USD render across the app with the helper.
 
 ## Files
 
-- Edit `src/lib/movers.functions.ts` — extend `closeSchema` with `limitPrice`, use it in the handler, update the `bot_events` log message and `exit_reason`.
-- Edit `src/routes/_authenticated/positions.tsx` — pass live price, relabel button, update confirm dialog, gate on price availability.
+- **Migration**: `alter table public.profiles add column currency text not null default 'INR' check (currency in ('INR','USD','EUR','GBP','AED','SGD','JPY'))`.
+- **New** `src/lib/fx.functions.ts` — `getFxRates` server fn (frankfurter.app, no key, graceful fallback to last-known/static map on failure).
+- **New** `src/hooks/use-currency.ts` — returns `{ code, symbol, rate, fmt(usd, opts?), setCurrency }`. Loads profile row, subscribes to changes, caches rates.
+- **Edit** `src/routes/_authenticated/settings.tsx` — add "Display currency" section with the 7-option selector.
+- **Edit** money renders in:
+  - `src/routes/_authenticated/index.tsx` — equity, today PNL, max drawdown.
+  - `src/routes/_authenticated/positions.tsx` — `fmtUsd` total PNL strip, per-card Active PNL, Size, Margin.
+  - `src/components/positions-strip.tsx` — aggregate PNL.
+  - `src/components/opportunity-card.tsx` — risk amount.
+
+## Out of scope
+
+- Converting CoinDCX coin prices (entry/mark/LTP, target/stop %) — those stay in their native quote (USDT). The close-limit price stays in USDT for parity with the exchange order.
+- Historical PNL re-conversion at the rate-of-trade-time. Conversion uses the current FX snapshot.
