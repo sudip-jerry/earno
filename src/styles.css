@@ -63,39 +63,39 @@
 
 :root {
   --radius: 0.625rem;
-  /* Brand: Primary #0D1B3D, Secondary #1E3A8A, Accent #2563EB, Success #16A34A, Danger #DC2626 */
+  /* EarnO brand: Primary #082567, Secondary #0D3DBA, Accent #3D7BFF, Success #16A34A, Danger #DC2626 */
   --background: #ffffff;
-  --foreground: #0D1B3D;
+  --foreground: #0D1117;
   --card: #ffffff;
-  --card-foreground: #0D1B3D;
+  --card-foreground: #0D1117;
   --popover: #ffffff;
-  --popover-foreground: #0D1B3D;
-  --primary: #0D1B3D;
+  --popover-foreground: #0D1117;
+  --primary: #082567;
   --primary-foreground: #ffffff;
   --secondary: #F3F4F6;
-  --secondary-foreground: #0D1B3D;
+  --secondary-foreground: #082567;
   --muted: #F3F4F6;
-  --muted-foreground: #374151;
-  --accent: #2563EB;
+  --muted-foreground: #4B5563;
+  --accent: #3D7BFF;
   --accent-foreground: #ffffff;
   --destructive: #DC2626;
   --destructive-foreground: #ffffff;
   --border: #E5E7EB;
   --input: #E5E7EB;
-  --ring: #2563EB;
-  --chart-1: #2563EB;
+  --ring: #3D7BFF;
+  --chart-1: #3D7BFF;
   --chart-2: #16A34A;
   --chart-3: #DC2626;
-  --chart-4: #1E3A8A;
-  --chart-5: #9CA3AF;
+  --chart-4: #0D3DBA;
+  --chart-5: #4B5563;
   --sidebar: #ffffff;
-  --sidebar-foreground: #0D1B3D;
-  --sidebar-primary: #0D1B3D;
+  --sidebar-foreground: #0D1117;
+  --sidebar-primary: #082567;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #F3F4F6;
-  --sidebar-accent-foreground: #0D1B3D;
+  --sidebar-accent-foreground: #082567;
   --sidebar-border: #E5E7EB;
-  --sidebar-ring: #2563EB;
+  --sidebar-ring: #3D7BFF;
 }
 
 .dark {
@@ -136,6 +136,10 @@
 @layer base {
   * {
     border-color: var(--color-border);
+  }
+
+  html, body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 
   body {
