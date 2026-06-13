@@ -550,7 +550,20 @@ function SettingsPage() {
       </section>
 
       <section className="px-5 mt-6">
+        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+          Display currency
+        </h2>
+        <div className="rounded-2xl border bg-card p-4">
+          <CurrencyControl />
+          <p className="text-[11px] text-muted-foreground mt-2">
+            All money values across the app render in this currency. Coin prices stay in USDT.
+          </p>
+        </div>
+      </section>
+
+      <section className="px-5 mt-6">
         <h2 className="text-sm font-semibold mb-2">Appearance</h2>
+
         <div className="rounded-xl border bg-card p-3 flex items-center justify-between">
           <div>
             <div className="text-sm font-medium">Theme</div>
