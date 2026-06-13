@@ -280,7 +280,108 @@ function AdminPage() {
           ))}
         </div>
       </section>
+
+      <section className="px-5 mt-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            All trades ({trades.data?.length ?? 0})
+          </h2>
+          <Select value={tradeStatus} onValueChange={(v) => setTradeStatus(v as typeof tradeStatus)}>
+            <SelectTrigger className="w-28 h-7 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="open">Open</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          {(trades.data ?? []).map((t) => {
+            const pnl = t.pnl == null ? null : Number(t.pnl);
+            const pnlPct = t.pnl_pct == null ? null : Number(t.pnl_pct);
+            return (
+              <div key={t.id} className="rounded-lg border bg-card p-2.5 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium">
+                      {t.symbol} <span className={t.side === "long" ? "text-emerald-500" : "text-destructive"}>{t.side.toUpperCase()}</span> ×{t.leverage}
+                      <span className="text-muted-foreground"> · {t.mode}</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {t.email ?? t.user_id.slice(0, 8)} · {new Date(t.opened_at).toLocaleString()}
+                      {t.closed_at ? ` → ${new Date(t.closed_at).toLocaleTimeString()}` : ""}
+                      {t.exit_reason ? ` · ${t.exit_reason}` : ""}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`font-medium tabular-nums ${pnl == null ? "text-muted-foreground" : pnl >= 0 ? "text-emerald-500" : "text-destructive"}`}>
+                      {pnl == null ? (t.status === "open" ? "open" : "—") : `${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}`}
+                    </p>
+                    {pnlPct != null && (
+                      <p className="text-[10px] text-muted-foreground tabular-nums">
+                        {pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {trades.data?.length === 0 && (
+            <p className="text-xs text-muted-foreground">No trades yet.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="px-5 mt-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Event logs ({events.data?.length ?? 0})
+          </h2>
+          <Select value={eventLevel} onValueChange={(v) => setEventLevel(v as typeof eventLevel)}>
+            <SelectTrigger className="w-28 h-7 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="info">Info</SelectItem>
+              <SelectItem value="signal">Signal</SelectItem>
+              <SelectItem value="trade">Trade</SelectItem>
+              <SelectItem value="warn">Warn</SelectItem>
+              <SelectItem value="error">Error</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          {(events.data ?? []).map((e) => {
+            const tone =
+              e.level === "error" ? "text-destructive" :
+              e.level === "warn" ? "text-amber-500" :
+              e.level === "trade" ? "text-emerald-500" :
+              e.level === "signal" ? "text-primary" :
+              "text-muted-foreground";
+            return (
+              <div key={e.id} className="rounded-lg border bg-card p-2.5 text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 break-words">
+                    <span className={`uppercase text-[10px] font-medium mr-1.5 ${tone}`}>{e.level}</span>
+                    {e.message}
+                  </p>
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    {new Date(e.created_at).toLocaleTimeString()}
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                  {e.email ?? e.user_id.slice(0, 8)}
+                </p>
+              </div>
+            );
+          })}
+          {events.data?.length === 0 && (
+            <p className="text-xs text-muted-foreground">No events yet.</p>
+          )}
+        </div>
+      </section>
     </div>
+
   );
 }
 
