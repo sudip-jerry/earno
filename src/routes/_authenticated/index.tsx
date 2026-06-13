@@ -165,9 +165,12 @@ function Home() {
   const s = stats.data;
   const dailyCap = Number(c?.daily_loss_cap_pct ?? 6);
 
-  const opportunities: Mover[] = movers.data?.ok
-    ? movers.data.movers.filter((m) => m.action !== "wait").slice(0, 5)
-    : [];
+  const allMovers: Mover[] = movers.data?.ok ? movers.data.movers : [];
+  const autoEligible = allMovers.filter((m) => m.tier === "auto");
+  const watchlist = allMovers.filter((m) => m.tier === "watch");
+  const avoidedCount = allMovers.filter((m) => m.tier === "avoid").length;
+  // Show auto-eligible first, then watchlist, up to 6 cards.
+  const opportunities: Mover[] = [...autoEligible, ...watchlist].slice(0, 6);
   const moversError = movers.data && !movers.data.ok ? movers.data.error : null;
 
   const tpPct = Number(c?.take_profit_pct ?? 0.6);
@@ -295,6 +298,15 @@ function Home() {
           sub={s && s.consecutiveLosses > 0 ? `${s.consecutiveLosses} loss streak` : undefined}
         />
       </section>
+
+      {/* Recommendation tier counts */}
+      <section className="px-5 mt-3 grid grid-cols-3 gap-2">
+        <TierTile label="Auto-book" value={autoEligible.length} tone="primary" />
+        <TierTile label="Watchlist" value={watchlist.length} tone="amber" />
+        <TierTile label="Avoided" value={avoidedCount} tone="muted" />
+      </section>
+
+
 
       {/* Best Opportunities */}
       <section className="px-5 mt-6">
@@ -455,6 +467,19 @@ function StatTile({ label, value, sub }: { label: string; value: string; sub?: s
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="text-lg font-semibold tabular-nums mt-0.5 leading-tight">{value}</p>
       {sub ? <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p> : null}
+    </div>
+  );
+}
+
+function TierTile({ label, value, tone }: { label: string; value: number; tone: "primary" | "amber" | "muted" }) {
+  const cls =
+    tone === "primary" ? "text-primary"
+    : tone === "amber" ? "text-amber-500"
+    : "text-muted-foreground";
+  return (
+    <div className="rounded-xl border bg-card p-3">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={`text-lg font-semibold tabular-nums mt-0.5 leading-tight ${cls}`}>{value}</p>
     </div>
   );
 }

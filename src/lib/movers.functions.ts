@@ -5,6 +5,17 @@ import { z } from "zod";
 export type Bias = "long" | "short" | "wait";
 export type Action = "long" | "short" | "wait" | "avoid";
 export type ConfidenceLabel = "High" | "Medium" | "Low" | "Avoid";
+export type Tier = "auto" | "watch" | "weak" | "avoid";
+export type ReasonLabel =
+  | "Ready for auto-book"
+  | "Waiting for pullback"
+  | "Waiting for volume confirmation"
+  | "Waiting for candle close"
+  | "Overextended"
+  | "Spread too wide"
+  | "Choppy market"
+  | "Low liquidity"
+  | "Watching for setup";
 export type SpreadTier = "tight" | "normal" | "wide";
 export type VolumeTier = "low" | "ok" | "high";
 export type TrendArrow = "up" | "down" | "flat" | "unknown";
@@ -51,6 +62,9 @@ export type Mover = {
   shortReason: string;
   decisionSentence: string;
   checks: ChecklistSections;
+  // New: tier + reason label
+  tier: Tier;
+  reasonLabel: ReasonLabel;
 };
 
 const PUBLIC_FUTURES_TICKER =
@@ -215,17 +229,24 @@ function computeRecommendation(s: Signals, market: "spot" | "futures") {
 }
 
 // ── User-facing derivation ─────────────────────────────────────────────────
-function confidenceLabelFor(score: number, eligible: boolean): ConfidenceLabel {
-  if (!eligible) return "Avoid";
-  if (score >= 65) return "High";
-  if (score >= 45) return "Medium";
-  if (score >= 25) return "Low";
+function confidenceLabelFor(tier: Tier): ConfidenceLabel {
+  if (tier === "auto") return "High";
+  if (tier === "watch") return "Medium";
+  if (tier === "weak") return "Low";
   return "Avoid";
 }
 
-function actionFor(bias: Bias, eligible: boolean): Action {
-  if (bias === "wait") return "wait";
-  return eligible ? bias : "avoid";
+function tierFor(confidence: number, bias: Bias, riskOk: boolean): Tier {
+  if (bias === "wait" || confidence < 55) return "avoid";
+  if (confidence >= 80 && riskOk) return "auto";
+  if (confidence >= 65) return "watch";
+  return "weak";
+}
+
+function actionForTier(tier: Tier, bias: Bias): Action {
+  if (tier === "auto" && (bias === "long" || bias === "short")) return bias;
+  if (tier === "avoid") return "avoid";
+  return "wait";
 }
 
 type CheckInput = {
@@ -362,6 +383,37 @@ const SPOT_TICKER = "https://api.coindcx.com/exchange/ticker";
 type SpotRow = { market: string; last_price: string; change_24_hour: string; volume: string };
 const marketSchema = z.object({ market: z.enum(["spot", "futures"]).optional() });
 
+// Map context → reason label per spec.
+function deriveReasonLabel(p: {
+  tier: Tier;
+  spreadTier: SpreadTier;
+  volumeTier: VolumeTier;
+  rsi: number | null;
+  bias: Bias;
+  volumeSpike: boolean;
+  vwapDistPct: number | null;
+  c1m: number | null;
+  c5m: number | null;
+  trend30: TrendArrow | "mixed";
+}): ReasonLabel {
+  if (p.tier === "auto") return "Ready for auto-book";
+  // Hard blockers first
+  if (p.spreadTier === "wide") return "Spread too wide";
+  if (p.volumeTier === "low") return "Low liquidity";
+  if (p.rsi != null) {
+    if (p.bias === "long" && p.rsi > 74) return "Overextended";
+    if (p.bias === "short" && p.rsi < 26) return "Overextended";
+  }
+  if (p.trend30 === "mixed" && (p.c5m == null || Math.abs(p.c5m) < 0.05)) return "Choppy market";
+  // Watch/weak refinements
+  if (!p.volumeSpike) return "Waiting for volume confirmation";
+  if (p.vwapDistPct != null && Math.abs(p.vwapDistPct) > 0.25) return "Waiting for pullback";
+  if (p.bias !== "wait" && p.c1m != null && Math.sign(p.c1m) !== (p.bias === "long" ? 1 : -1)) {
+    return "Waiting for candle close";
+  }
+  return "Watching for setup";
+}
+
 async function enrichMover(
   base: { symbol: string; price: number; change24h: number; volume24h: number; rank24h: number },
   candlePair: string,
@@ -377,14 +429,18 @@ async function enrichMover(
   if (!withCandles) {
     const r = computeRecommendation({ c1m: null, c5m: null, c30m: null, c24h: base.change24h }, market);
     const bias: Bias = r.rec === "long" ? "long" : r.rec === "short" ? "short" : "wait";
-    const eligible = false;
-    const action = actionFor(bias, eligible);
-    const confidenceLabel = confidenceLabelFor(r.confidence, eligible);
+    const tier: Tier = "avoid";
+    const action = actionForTier(tier, bias);
+    const confidenceLabel = confidenceLabelFor(tier);
     const shortReason = r.reasons[0] ?? "Not enough data";
     const checks = buildChecks({
       bias, change1m: null, change5m: null, rsi: null,
       emaTrend: "unknown", vwapStatus: "unknown", vwapDistPct: null,
       spread, volumeSpike: false, tpPct, slPct,
+    });
+    const reasonLabel = deriveReasonLabel({
+      tier, spreadTier: spread, volumeTier, rsi: null, bias,
+      volumeSpike: false, vwapDistPct: null, c1m: null, c5m: null, trend30: r.trend30,
     });
     return {
       ...base,
@@ -405,13 +461,15 @@ async function enrichMover(
       spread,
       volumeTier,
       volumeSpike: false,
-      eligible,
+      eligible: false,
       rejectReason: "Not enough data",
       action,
       confidenceLabel,
       shortReason,
       decisionSentence: decisionSentenceFor(action, confidenceLabel, shortReason),
       checks,
+      tier,
+      reasonLabel,
     };
   }
 
@@ -441,27 +499,57 @@ async function enrichMover(
   }
 
   let volumeSpike = false;
+  let volumeRatio = 0;
   if (c5Raw && c5Raw.length >= 11) {
     const last = c5Raw[c5Raw.length - 1].volume ?? 0;
     const prev = c5Raw.slice(-11, -1);
     const avg = prev.reduce((a, b) => a + (b.volume ?? 0), 0) / Math.max(prev.length, 1);
-    volumeSpike = avg > 0 && last > avg * 1.8;
+    volumeRatio = avg > 0 ? last / avg : 0;
+    volumeSpike = volumeRatio >= 1.2; // display threshold
   }
 
   const r = computeRecommendation({ c1m: c1, c5m: c5, c30m: c30, c24h: base.change24h }, market);
   const bias: Bias = r.rec === "long" ? "long" : r.rec === "short" ? "short" : "wait";
 
-  let rejectReason: string | null = null;
-  const burstAligned = c1 != null && c5 != null && Math.sign(c1) === Math.sign(c5) && Math.abs(c5) > 0.1;
-  if (r.confidence < 25) rejectReason = "Score too low";
-  else if (volumeTier === "low" && !burstAligned) rejectReason = "Volume too thin";
-  else if (rsi != null && bias === "long" && rsi > 82) rejectReason = "Overbought (RSI)";
-  else if (rsi != null && bias === "short" && rsi < 18) rejectReason = "Oversold (RSI)";
-  const eligible = rejectReason == null && bias !== "wait";
+  // Watchlist allowance: 5m trend aligned with bias, 1m still forming.
+  const fiveAligned = c5 != null && bias !== "wait" && Math.sign(c5) === (bias === "long" ? 1 : -1) && Math.abs(c5) >= 0.05;
 
-  const action = actionFor(bias, eligible);
-  const confidenceLabel = confidenceLabelFor(r.confidence, eligible);
-  const shortReason = rejectReason ?? r.reasons[0] ?? "Watching for confirmation";
+  // Hard reject (Avoid tier) for fundamentally unworkable setups.
+  let rejectReason: string | null = null;
+  if (rsi != null && bias === "long" && rsi > 78) rejectReason = "Overbought (RSI)";
+  else if (rsi != null && bias === "short" && rsi < 22) rejectReason = "Oversold (RSI)";
+  // Liquidity hard floor — too thin even for watchlist
+  else if (base.volume24h < 250_000) rejectReason = "Liquidity too low";
+
+  // Strict risk-OK check for auto-book eligibility
+  const rr = slPct > 0 ? tpPct / slPct : 0;
+  const rsiOkForAuto =
+    rsi == null
+      ? true
+      : bias === "long" ? rsi >= 50 && rsi <= 74
+      : bias === "short" ? rsi >= 26 && rsi <= 50
+      : true;
+  const pullbackOkForAuto = vwapDistPct == null || Math.abs(vwapDistPct) <= 0.25;
+  const riskOk =
+    rejectReason == null &&
+    bias !== "wait" &&
+    spread !== "wide" &&
+    volumeTier !== "low" &&
+    rr >= 1.2 &&
+    rsiOkForAuto &&
+    pullbackOkForAuto &&
+    volumeRatio >= 1.5 &&
+    fiveAligned;
+
+  const tier: Tier = rejectReason ? "avoid" : tierFor(r.confidence, bias, riskOk);
+  const eligible = tier === "auto";
+  const action = actionForTier(tier, bias);
+  const confidenceLabel = confidenceLabelFor(tier);
+  const reasonLabel = deriveReasonLabel({
+    tier, spreadTier: spread, volumeTier, rsi, bias, volumeSpike,
+    vwapDistPct, c1m: c1, c5m: c5, trend30: r.trend30,
+  });
+  const shortReason = rejectReason ?? reasonLabel;
   const checks = buildChecks({
     bias, change1m: c1, change5m: c5, rsi, emaTrend, vwapStatus, vwapDistPct,
     spread, volumeSpike, tpPct, slPct,
@@ -493,6 +581,8 @@ async function enrichMover(
     shortReason,
     decisionSentence: decisionSentenceFor(action, confidenceLabel, shortReason),
     checks,
+    tier,
+    reasonLabel,
   };
 }
 
@@ -555,9 +645,12 @@ export const getTopMovers = createServerFn({ method: "GET" })
       if (Array.isArray(dict)) dict.forEach((r) => consume(undefined, r));
       else if (dict && typeof dict === "object") Object.entries(dict).forEach(([k, v]) => v && typeof v === "object" && consume(k, v as TickerRow));
 
-      rows.sort((a, b) => b.change24h - a.change24h);
-      const top = rows.slice(0, 20).map((r, i) => ({ ...r, rank24h: i + 1 }));
-      const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 12, tpPct, slPct)));
+      // Rank by 24h quote volume so the scanner sees the deepest 30-50 USDT pairs.
+      rows.sort((a, b) => b.volume24h - a.volume24h);
+      const top = rows.slice(0, 40).map((r, i) => ({ ...r, rank24h: i + 1 }));
+      const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 30, tpPct, slPct)));
+      // Sort enriched output by confidence so highest setups surface first.
+      enriched.sort((a, b) => b.confidence - a.confidence);
       return { ok: true, movers: enriched };
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : "fetch failed" };

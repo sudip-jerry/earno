@@ -71,6 +71,9 @@ export function OpportunityCard({
             <span className={`inline-flex items-center px-2 h-5 rounded text-[10px] font-semibold border ${meta.cls}`}>
               {meta.label}
             </span>
+            <span className="inline-flex items-center px-2 h-5 rounded text-[10px] font-medium border bg-muted/60 text-muted-foreground border-border">
+              {mover.reasonLabel}
+            </span>
           </div>
           <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{mover.shortReason}</p>
         </div>
