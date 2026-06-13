@@ -25,6 +25,32 @@ import { toast } from "sonner";
 import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, LogOut, Zap, AlertTriangle } from "lucide-react";
 import { useTheme, type ThemeMode } from "@/hooks/use-theme";
 import { useStrictness, STRICTNESS_PRESETS, type Strictness } from "@/hooks/use-strictness";
+import { useCurrency, CURRENCY_OPTIONS, CURRENCY_SYMBOL, type CurrencyCode } from "@/hooks/use-currency";
+
+function CurrencyControl() {
+  const { code, setCurrency, isUpdating } = useCurrency();
+  return (
+    <div className="grid grid-cols-4 gap-1.5 rounded-lg bg-muted p-1">
+      {CURRENCY_OPTIONS.map((c: CurrencyCode) => {
+        const active = code === c;
+        return (
+          <button
+            key={c}
+            type="button"
+            disabled={isUpdating}
+            onClick={() => setCurrency(c)}
+            className={`h-9 rounded-md text-xs font-medium transition ${
+              active ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <span className="mr-1">{CURRENCY_SYMBOL[c].trim()}</span>
+            {c}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 function StrictnessControl() {
   const { strictness, setStrictness } = useStrictness();
