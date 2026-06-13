@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
 import { TabBar } from "@/components/tab-bar";
 import { OpportunityCard } from "@/components/opportunity-card";
+import { useStrictness } from "@/hooks/use-strictness";
 import { toast } from "sonner";
 import { Radar, RefreshCw, HelpCircle, Filter } from "lucide-react";
 import { useMemo, useState } from "react";
