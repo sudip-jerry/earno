@@ -515,6 +515,15 @@ function SettingsPage() {
       </section>
 
       <section className="px-5 mt-6">
+        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+          Recommendation strictness
+        </h2>
+        <div className="rounded-2xl border bg-card p-4">
+          <StrictnessControl />
+        </div>
+      </section>
+
+      <section className="px-5 mt-6">
         <h2 className="text-sm font-semibold mb-2">Appearance</h2>
         <div className="rounded-xl border bg-card p-3 flex items-center justify-between">
           <div>
@@ -524,6 +533,7 @@ function SettingsPage() {
           <ThemeSelect />
         </div>
       </section>
+
 
 
 
