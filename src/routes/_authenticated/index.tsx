@@ -84,10 +84,10 @@ function Home() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bot_config")
-        .select("mode,is_running,leverage,take_profit_pct,stop_loss_pct,paper_equity,daily_loss_cap_pct,auto_book")
+        .select("mode,is_running,leverage,take_profit_pct,stop_loss_pct,paper_equity,daily_loss_cap_pct,auto_book,risk_per_trade_pct")
         .maybeSingle();
       if (error) throw error;
-      return data as ConfigRow | null;
+      return data as (ConfigRow & { risk_per_trade_pct: number }) | null;
     },
   });
 
@@ -173,9 +173,15 @@ function Home() {
   const dailyCap = Number(c?.daily_loss_cap_pct ?? 6);
 
   const opportunities: Mover[] = movers.data?.ok
-    ? movers.data.movers.filter((m) => m.bias !== "wait").slice(0, 5)
+    ? movers.data.movers.filter((m) => m.action !== "wait").slice(0, 5)
     : [];
   const moversError = movers.data && !movers.data.ok ? movers.data.error : null;
+
+  const tpPct = Number(c?.take_profit_pct ?? 0.6);
+  const slPct = Number(c?.stop_loss_pct ?? 0.4);
+  const riskPct = Number(c?.risk_per_trade_pct ?? 1);
+  const riskAmount = (equity * riskPct) / 100;
+  const dailyRiskAvailable = (s?.dailyLossUsedPct ?? 0) < 100;
 
   return (
     <div className="min-h-svh bg-background pb-44">
