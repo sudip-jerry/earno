@@ -86,11 +86,12 @@ function PositionsPage() {
   }, [qc]);
 
   const close = useMutation({
-    mutationFn: async (positionId: string) => closeFn({ data: { positionId } }),
-    onMutate: (id) => setPending(id),
+    mutationFn: async (v: { positionId: string; limitPrice: number }) =>
+      closeFn({ data: { positionId: v.positionId, limitPrice: v.limitPrice } }),
+    onMutate: (v) => setPending(v.positionId),
     onSettled: () => setPending(null),
     onSuccess: () => {
-      toast.success("Position closed");
+      toast.success("Limit close submitted");
       qc.invalidateQueries({ queryKey: ["positions_open"] });
       qc.invalidateQueries({ queryKey: ["dashboard_stats"] });
     },
