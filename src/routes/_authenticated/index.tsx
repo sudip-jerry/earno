@@ -1,10 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { updateConfig, killAll } from "@/lib/bot.functions";
 import { getDashboardStats } from "@/lib/stats.functions";
+import { getMyEntitlements } from "@/lib/plans.functions";
+import { PLAN_NAME, type PlanTier } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
@@ -20,6 +22,9 @@ import {
   AlertTriangle,
   Timer,
   TimerOff,
+  Crown,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 
 
