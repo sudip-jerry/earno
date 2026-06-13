@@ -58,7 +58,10 @@ export const getTopMovers = createServerFn({ method: "GET" })
     try {
       const res = await fetch(PUBLIC_FUTURES_TICKER, { signal: AbortSignal.timeout(6000) });
       if (!res.ok) return { ok: false, error: `Ticker HTTP ${res.status}` };
-      const raw = (await res.json()) as Record<string, TickerRow> | TickerRow[];
+      const raw = (await res.json()) as
+        | { prices: Record<string, TickerRow> }
+        | Record<string, TickerRow>
+        | TickerRow[];
 
       const rows: Array<{ symbol: string; price: number; change24h: number; volume24h: number }> = [];
       const consume = (sym: string | undefined, r: TickerRow) => {
@@ -70,10 +73,17 @@ export const getTopMovers = createServerFn({ method: "GET" })
         if (!price) return;
         rows.push({ symbol, price, change24h: change, volume24h: vol });
       };
-      if (Array.isArray(raw)) {
-        raw.forEach((r) => consume(undefined, r));
-      } else {
-        Object.entries(raw).forEach(([k, v]) => consume(k, v));
+      // Endpoint shape: { ts, vs, prices: { "B-BTC_USDT": {...}, ... } }
+      const dict =
+        raw && typeof raw === "object" && !Array.isArray(raw) && "prices" in raw
+          ? (raw as { prices: Record<string, TickerRow> }).prices
+          : raw;
+      if (Array.isArray(dict)) {
+        dict.forEach((r) => consume(undefined, r));
+      } else if (dict && typeof dict === "object") {
+        Object.entries(dict).forEach(([k, v]) => {
+          if (v && typeof v === "object") consume(k, v as TickerRow);
+        });
       }
 
       // Sort by 24h change desc, take top 15
