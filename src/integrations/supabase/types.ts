@@ -44,6 +44,27 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          id: number
+          paywall_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: number
+          paywall_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: number
+          paywall_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       bot_config: {
         Row: {
           allow_short: boolean
@@ -155,6 +176,77 @@ export type Database = {
         }
         Relationships: []
       }
+      coupon_redemptions: {
+        Row: {
+          coupon_id: string
+          id: string
+          redeemed_at: string
+          user_id: string
+        }
+        Insert: {
+          coupon_id: string
+          id?: string
+          redeemed_at?: string
+          user_id: string
+        }
+        Update: {
+          coupon_id?: string
+          id?: string
+          redeemed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_redemptions_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coupons: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          created_by: string | null
+          duration_days: number
+          id: string
+          max_uses: number | null
+          tier: Database["public"]["Enums"]["plan_tier"]
+          used_count: number
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          created_by?: string | null
+          duration_days?: number
+          id?: string
+          max_uses?: number | null
+          tier: Database["public"]["Enums"]["plan_tier"]
+          used_count?: number
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          duration_days?: number
+          id?: string
+          max_uses?: number | null
+          tier?: Database["public"]["Enums"]["plan_tier"]
+          used_count?: number
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
       positions: {
         Row: {
           closed_at: string | null
@@ -260,15 +352,83 @@ export type Database = {
         }
         Relationships: []
       }
+      user_plans: {
+        Row: {
+          expires_at: string | null
+          razorpay_customer_id: string | null
+          razorpay_subscription_id: string | null
+          source: string
+          started_at: string
+          status: string
+          tier: Database["public"]["Enums"]["plan_tier"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          expires_at?: string | null
+          razorpay_customer_id?: string | null
+          razorpay_subscription_id?: string | null
+          source?: string
+          started_at?: string
+          status?: string
+          tier?: Database["public"]["Enums"]["plan_tier"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          expires_at?: string | null
+          razorpay_customer_id?: string | null
+          razorpay_subscription_id?: string | null
+          source?: string
+          started_at?: string
+          status?: string
+          tier?: Database["public"]["Enums"]["plan_tier"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      current_plan_tier: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["plan_tier"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
+      plan_tier: "free" | "reco" | "auto5" | "unlimited"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -395,6 +555,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+      plan_tier: ["free", "reco", "auto5", "unlimited"],
+    },
   },
 } as const
