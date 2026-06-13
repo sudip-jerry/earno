@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Info } from "lucide-react";
 import type { Mover, Action, ConfidenceLabel } from "@/lib/movers.functions";
 import { RecommendationModal } from "@/components/recommendation-modal";
+import { useCurrency } from "@/hooks/use-currency";
 
 type Props = {
   mover: Mover;
