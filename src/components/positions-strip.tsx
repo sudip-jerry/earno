@@ -18,14 +18,10 @@ type Row = {
   instrument: "futures" | "spot" | null;
 };
 
-function fmtUsd(n: number) {
-  const sign = n >= 0 ? "+" : "−";
-  return `${sign}$${Math.abs(n).toFixed(2)}`;
-}
-
 export function PositionsStrip({ showMarketToggle = true }: { showMarketToggle?: boolean }) {
   const qc = useQueryClient();
   const { market, setMarket } = useMarketMode();
+  const { fmt } = useCurrency();
 
   const q = useQuery({
     queryKey: ["positions_open"],
