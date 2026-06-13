@@ -58,6 +58,7 @@ export function OpportunityCard({
   const [whyOpen, setWhyOpen] = useState(false);
   const meta = actionMeta(mover.action);
   const tradable = mover.action === "long" || mover.action === "short";
+  const isAutoEligible = mover.tier === "auto";
   const lowZone = formatPrice(mover.price * 0.999);
   const highZone = formatPrice(mover.price * 1.001);
 
@@ -112,6 +113,10 @@ export function OpportunityCard({
         </span>
       </div>
 
+      {tradable && !isAutoEligible ? (
+        <p className="mt-2 text-[10px] text-amber-500">Manual book — not auto-eligible</p>
+      ) : null}
+
       {/* Actions */}
       <div className="mt-3 flex items-center gap-2">
         <Button
@@ -132,6 +137,7 @@ export function OpportunityCard({
           Why?
         </button>
       </div>
+
 
       <RecommendationModal
         open={whyOpen}
