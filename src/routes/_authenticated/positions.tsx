@@ -97,11 +97,17 @@ function PositionsPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Close failed"),
   });
 
-  const rows = q.data ?? [];
-  const totalPnl = rows.reduce((acc, r) => acc + Number(r.pnl ?? 0), 0);
+  const totalPnl = rows.reduce((acc, r) => {
+    const entry = Number(r.entry_price);
+    const live = prices[r.symbol] ?? Number(r.mark_price ?? r.entry_price);
+    const qty = Number(r.qty);
+    const sideMul = r.side === "long" ? 1 : -1;
+    return acc + (live - entry) * qty * sideMul;
+  }, 0);
 
   return (
     <div className="min-h-svh bg-background pb-28">
+      <PositionsStrip showMarketToggle={false} />
       <header className="px-5 pt-6 pb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Briefcase className="size-5 text-primary" />
@@ -115,14 +121,15 @@ function PositionsPage() {
             <HelpCircle className="size-5 text-muted-foreground" />
           </Link>
           <button
-            onClick={() => q.refetch()}
+            onClick={() => { q.refetch(); refetchPrices(); }}
             className="size-10 grid place-items-center rounded-full hover:bg-muted"
             aria-label="Refresh positions"
           >
-            <RefreshCw className={`size-4 ${q.isFetching ? "animate-spin" : ""}`} />
+            <RefreshCw className={`size-4 ${q.isFetching || pricesFetching ? "animate-spin" : ""}`} />
           </button>
         </div>
       </header>
+
 
       <section className="px-5">
         <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
