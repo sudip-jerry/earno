@@ -48,6 +48,7 @@ function PositionsPage() {
   const qc = useQueryClient();
   const closeFn = useServerFn(closeManualTrade);
   const [pending, setPending] = useState<string | null>(null);
+  const { fmt } = useCurrency();
 
   const q = useQuery({
     queryKey: ["positions_open"],
