@@ -127,14 +127,14 @@ export const verifyRazorpayPayment = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .maybeSingle();
     const sameTierActive =
-      existing?.tier === tier &&
+      existing?.tier === paidTier &&
       existing?.expires_at &&
       new Date(existing.expires_at) > new Date();
     const base = sameTierActive ? new Date(existing!.expires_at!) : new Date();
     const expires_at = new Date(base.getTime() + 30 * 86_400_000).toISOString();
     await supabaseAdmin.from("user_plans").upsert({
       user_id: context.userId,
-      tier,
+      tier: paidTier,
       source: "razorpay",
       started_at: new Date().toISOString(),
       expires_at,
@@ -144,5 +144,5 @@ export const verifyRazorpayPayment = createServerFn({ method: "POST" })
       .from("payment_orders")
       .update({ status: "verified", verified_at: new Date().toISOString() })
       .eq("order_id", data.razorpay_order_id);
-    return { ok: true, tier, expires_at };
+    return { ok: true, tier: paidTier, expires_at };
   });
