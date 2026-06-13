@@ -166,12 +166,18 @@ function computeRecommendation(s: Signals, market: "spot" | "futures") {
   let score = 0;
 
   if (s.c1m != null) {
-    if (s.c1m > 0.05) { score += 12; reasons.push(`1m up ${s.c1m.toFixed(2)}%`); }
-    else if (s.c1m < -0.05) { score -= 12; reasons.push(`1m down ${s.c1m.toFixed(2)}%`); }
+    if (s.c1m > 0.03) { score += 20; reasons.push(`1m burst +${s.c1m.toFixed(2)}%`); }
+    else if (s.c1m < -0.03) { score -= 20; reasons.push(`1m drop ${s.c1m.toFixed(2)}%`); }
   }
   if (s.c5m != null) {
-    if (s.c5m > 0.1) { score += 22; reasons.push(`5m up ${s.c5m.toFixed(2)}%`); }
-    else if (s.c5m < -0.1) { score -= 22; reasons.push(`5m down ${s.c5m.toFixed(2)}%`); }
+    if (s.c5m > 0.05) { score += 30; reasons.push(`5m up ${s.c5m.toFixed(2)}%`); }
+    else if (s.c5m < -0.05) { score -= 30; reasons.push(`5m down ${s.c5m.toFixed(2)}%`); }
+  }
+  // Burst bonus: aligned 1m + 5m in same direction
+  if (s.c1m != null && s.c5m != null && Math.sign(s.c1m) === Math.sign(s.c5m) && Math.abs(s.c1m) > 0.05 && Math.abs(s.c5m) > 0.1) {
+    const dir = Math.sign(s.c1m);
+    score += dir * 15;
+    reasons.push(`${dir > 0 ? "Up" : "Down"} burst (1m+5m aligned)`);
   }
 
   let trend30: TrendArrow | "mixed" = "unknown";
@@ -181,27 +187,27 @@ function computeRecommendation(s: Signals, market: "spot" | "futures") {
     last30 = last3[last3.length - 1].pct;
     const ups = last3.filter((x) => x.pct > 0).length;
     const downs = last3.filter((x) => x.pct < 0).length;
-    if (ups === 3) { trend30 = "up"; score += 30; reasons.push("30m: 3/3 green"); }
+    if (ups === 3) { trend30 = "up"; score += 25; reasons.push("30m: 3/3 green"); }
     else if (downs === 3) {
       trend30 = "down";
-      const sharpLastDrop = last30 != null && last30 < -2.5;
-      const reversing = (s.c1m ?? 0) > 0.1 && (s.c5m ?? 0) > 0.1;
-      if (sharpLastDrop && reversing) { score += 15; reasons.push(`30m: 3 red but last ${last30.toFixed(2)}%, 1m/5m reversing — possible bounce`); }
-      else { score -= 35; reasons.push("30m: 3/3 red (downtrend)"); }
+      const sharpLastDrop = last30 != null && last30 < -2.0;
+      const reversing = (s.c1m ?? 0) > 0.05 && (s.c5m ?? 0) > 0.05;
+      if (sharpLastDrop && reversing) { score += 20; reasons.push(`30m: 3 red but last ${last30.toFixed(2)}%, 1m/5m reversing — possible bounce`); }
+      else { score -= 25; reasons.push("30m: 3/3 red (downtrend)"); }
     } else {
       trend30 = "mixed";
-      score += (ups - downs) * 8;
+      score += (ups - downs) * 6;
       reasons.push(`30m mixed: ${ups}↑ ${downs}↓`);
     }
   }
 
-  if (s.c24h > 5) { score += 12; reasons.push(`24h strong +${s.c24h.toFixed(1)}%`); }
+  if (s.c24h > 5) { score += 10; reasons.push(`24h strong +${s.c24h.toFixed(1)}%`); }
   else if (s.c24h > 0) score += 5;
-  else if (s.c24h < -5) { score -= 12; reasons.push(`24h weak ${s.c24h.toFixed(1)}%`); }
+  else if (s.c24h < -5) { score -= 10; reasons.push(`24h weak ${s.c24h.toFixed(1)}%`); }
 
   let rec: "long" | "short" | "neutral";
-  if (score >= 25) rec = "long";
-  else if (score <= -25) rec = market === "spot" ? "neutral" : "short";
+  if (score >= 18) rec = "long";
+  else if (score <= -18) rec = market === "spot" ? "neutral" : "short";
   else rec = "neutral";
 
   const confidence = Math.min(100, Math.round(Math.abs(score)));
@@ -211,9 +217,9 @@ function computeRecommendation(s: Signals, market: "spot" | "futures") {
 // ── User-facing derivation ─────────────────────────────────────────────────
 function confidenceLabelFor(score: number, eligible: boolean): ConfidenceLabel {
   if (!eligible) return "Avoid";
-  if (score >= 75) return "High";
-  if (score >= 55) return "Medium";
-  if (score >= 35) return "Low";
+  if (score >= 65) return "High";
+  if (score >= 45) return "Medium";
+  if (score >= 25) return "Low";
   return "Avoid";
 }
 
@@ -446,10 +452,11 @@ async function enrichMover(
   const bias: Bias = r.rec === "long" ? "long" : r.rec === "short" ? "short" : "wait";
 
   let rejectReason: string | null = null;
-  if (r.confidence < 35) rejectReason = "Score too low";
-  else if (volumeTier === "low") rejectReason = "Volume too thin";
-  else if (rsi != null && bias === "long" && rsi > 78) rejectReason = "Overbought (RSI)";
-  else if (rsi != null && bias === "short" && rsi < 22) rejectReason = "Oversold (RSI)";
+  const burstAligned = c1 != null && c5 != null && Math.sign(c1) === Math.sign(c5) && Math.abs(c5) > 0.1;
+  if (r.confidence < 25) rejectReason = "Score too low";
+  else if (volumeTier === "low" && !burstAligned) rejectReason = "Volume too thin";
+  else if (rsi != null && bias === "long" && rsi > 82) rejectReason = "Overbought (RSI)";
+  else if (rsi != null && bias === "short" && rsi < 18) rejectReason = "Oversold (RSI)";
   const eligible = rejectReason == null && bias !== "wait";
 
   const action = actionFor(bias, eligible);

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Info, TrendingUp, TrendingDown, Minus, Ban } from "lucide-react";
+import { Info } from "lucide-react";
 import type { Mover, Action, ConfidenceLabel } from "@/lib/movers.functions";
 import { RecommendationModal } from "@/components/recommendation-modal";
 
@@ -18,18 +18,18 @@ type Props = {
 
 function actionMeta(a: Action) {
   if (a === "long")
-    return { label: "LONG", btn: "Book Paper Trade", Icon: TrendingUp,
+    return { label: "LONG", btn: "Book Paper Trade",
       cls: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
       btnCls: "bg-emerald-600 hover:bg-emerald-700" };
   if (a === "short")
-    return { label: "SHORT", btn: "Book Paper Trade", Icon: TrendingDown,
+    return { label: "SHORT", btn: "Book Paper Trade",
       cls: "bg-destructive/10 text-destructive border-destructive/30",
       btnCls: "bg-destructive hover:bg-destructive/90" };
   if (a === "avoid")
-    return { label: "AVOID", btn: "Avoid", Icon: Ban,
+    return { label: "AVOID", btn: "Avoid",
       cls: "bg-destructive/10 text-destructive border-destructive/30",
       btnCls: "bg-muted text-muted-foreground" };
-  return { label: "WAIT", btn: "Wait", Icon: Minus,
+  return { label: "WAIT", btn: "Wait",
     cls: "bg-muted text-muted-foreground border-border",
     btnCls: "bg-muted text-muted-foreground" };
 }
@@ -57,7 +57,6 @@ export function OpportunityCard({
 }: Props) {
   const [whyOpen, setWhyOpen] = useState(false);
   const meta = actionMeta(mover.action);
-  const Icon = meta.Icon;
   const tradable = mover.action === "long" || mover.action === "short";
   const lowZone = formatPrice(mover.price * 0.999);
   const highZone = formatPrice(mover.price * 1.001);
@@ -69,8 +68,7 @@ export function OpportunityCard({
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-medium text-sm truncate">{mover.display}</p>
-            <span className={`inline-flex items-center gap-1 px-2 h-5 rounded text-[10px] font-semibold border ${meta.cls}`}>
-              <Icon className="size-3" />
+            <span className={`inline-flex items-center px-2 h-5 rounded text-[10px] font-semibold border ${meta.cls}`}>
               {meta.label}
             </span>
           </div>
