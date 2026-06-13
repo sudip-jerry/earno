@@ -159,33 +159,40 @@ function PositionsPage() {
 
         {rows.map((p) => {
           const entry = Number(p.entry_price);
-          const mark = p.mark_price != null ? Number(p.mark_price) : entry;
+          const live = prices[p.symbol];
+          const mark = live ?? (p.mark_price != null ? Number(p.mark_price) : entry);
           const qty = Number(p.qty);
           const lev = Number(p.leverage);
           const size = qty * mark;
           const margin = (qty * entry) / Math.max(1, lev);
-          const pnl = Number(p.pnl ?? 0);
-          const roe = Number(p.pnl_pct ?? 0);
+          const sideMul = p.side === "long" ? 1 : -1;
+          const pnl = (mark - entry) * qty * sideMul;
+          const roe = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul * lev : 0;
           const up = pnl >= 0;
           const sideCls =
             p.side === "long"
               ? "bg-emerald-500/10 text-emerald-500"
               : "bg-destructive/10 text-destructive";
+          const instr = p.instrument ?? (p.symbol.startsWith("B-") ? "futures" : "spot");
           const closing = pending === p.id;
 
           return (
             <li key={p.id} className="rounded-2xl border bg-card p-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 flex-wrap">
                   <span className="font-medium text-sm">{p.symbol}</span>
                   <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${sideCls}`}>
                     {p.side === "long" ? "Long" : "Short"} {lev}x
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded border text-foreground capitalize">
+                    {instr}
                   </span>
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">
                     {p.mode}
                   </span>
                 </div>
               </div>
+
 
               <div className="mt-3 flex items-start justify-between">
                 <div>
