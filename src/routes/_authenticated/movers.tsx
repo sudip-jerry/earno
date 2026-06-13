@@ -123,11 +123,11 @@ function MoversPage() {
             <li key={m.symbol}>
               <OpportunityCard
                 mover={m}
-                tpPct={tpPct}
-                slPct={slPct}
+                tpPct={m.tpPct}
+                slPct={m.slPct}
                 riskAmountUsd={riskAmount}
                 booking={booking}
-                onBook={(s) => book.mutate({ m, side: s })}
+                onBook={(s, ov) => book.mutate({ m, side: s, tpPct: ov.tpPct, slPct: ov.slPct })}
               />
             </li>
           );
