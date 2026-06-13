@@ -62,6 +62,9 @@ export type Mover = {
   shortReason: string;
   decisionSentence: string;
   checks: ChecklistSections;
+  // New: tier + reason label
+  tier: Tier;
+  reasonLabel: ReasonLabel;
 };
 
 const PUBLIC_FUTURES_TICKER =
