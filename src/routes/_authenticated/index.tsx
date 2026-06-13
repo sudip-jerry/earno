@@ -259,7 +259,7 @@ function Home() {
         />
         <StatTile
           label="Max drawdown"
-          value={s ? `$${s.maxDrawdown.toFixed(2)}` : "—"}
+          value={s ? fmt(s.maxDrawdown) : "—"}
           sub={s && s.consecutiveLosses > 0 ? `${s.consecutiveLosses} loss streak` : undefined}
         />
       </section>
