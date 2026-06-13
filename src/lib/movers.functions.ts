@@ -459,6 +459,7 @@ async function enrichMover(
   if (!withCandles) {
     const r = computeRecommendation({ c1m: null, c5m: null, c30m: null, c24h: base.change24h }, market);
     const bias: Bias = r.rec === "long" ? "long" : r.rec === "short" ? "short" : "wait";
+    ({ tpPct, slPct } = autoTpSlForConfidence(r.confidence));
     const tier: Tier = "avoid";
     const action = actionForTier(tier, bias);
     const confidenceLabel = confidenceLabelFor(tier);
