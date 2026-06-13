@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { updateConfig, killAll } from "@/lib/bot.functions";
 import { getDashboardStats } from "@/lib/stats.functions";
@@ -20,13 +20,17 @@ import {
   HelpCircle,
   Power,
   AlertTriangle,
-  Timer,
-  TimerOff,
   Crown,
   ShieldCheck,
   Sparkles,
+  Eye,
+  EyeOff,
+  Radar,
+  Briefcase,
+  ArrowUpRight,
+  Flame,
+  ChevronRight,
 } from "lucide-react";
-
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -41,32 +45,21 @@ export const Route = createFileRoute("/_authenticated/")({
 type ConfigRow = {
   mode: "paper" | "live";
   is_running: boolean;
-  leverage: number;
-  take_profit_pct: number;
-  stop_loss_pct: number;
   paper_equity: number;
   daily_loss_cap_pct: number;
-  auto_book: boolean;
-};
-type PositionRow = {
-  id: string;
-  symbol: string;
-  side: "long" | "short";
-  leverage: number;
-  entry_price: number;
-  mark_price: number | null;
-  pnl_pct: number | null;
-  opened_at: string;
 };
 
-function pct(n: number | null | undefined, digits = 1) {
+function pct(n: number | null | undefined, digits = 2) {
   if (n == null || !Number.isFinite(n)) return "—";
   return `${n >= 0 ? "+" : ""}${n.toFixed(digits)}%`;
 }
-function momentumClass(n: number | null | undefined) {
+function tone(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return "text-muted-foreground";
   return n >= 0 ? "text-emerald-500" : "text-destructive";
 }
+
+const TABS = ["Overview", "Bot", "Activity"] as const;
+type Tab = (typeof TABS)[number];
 
 function Home() {
   const qc = useQueryClient();
@@ -76,6 +69,9 @@ function Home() {
   const statsFn = useServerFn(getDashboardStats);
   const entFn = useServerFn(getMyEntitlements);
 
+  const [tab, setTab] = useState<Tab>("Overview");
+  const [hideBalance, setHideBalance] = useState(false);
+
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
 
   const cfg = useQuery({
@@ -83,10 +79,10 @@ function Home() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bot_config")
-        .select("mode,is_running,leverage,take_profit_pct,stop_loss_pct,paper_equity,daily_loss_cap_pct,auto_book,risk_per_trade_pct")
+        .select("mode,is_running,paper_equity,daily_loss_cap_pct")
         .maybeSingle();
       if (error) throw error;
-      return data as (ConfigRow & { risk_per_trade_pct: number }) | null;
+      return data as ConfigRow | null;
     },
   });
 
@@ -99,7 +95,7 @@ function Home() {
         .eq("status", "open")
         .order("opened_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as PositionRow[];
+      return data ?? [];
     },
     refetchInterval: 5000,
   });
@@ -151,9 +147,7 @@ function Home() {
       if (msg.startsWith("PAYMENT_REQUIRED")) {
         toast.error("Upgrade required to start the bot");
         navigate({ to: "/upgrade" });
-      } else if (!msg.includes("Upgrade required")) {
-        toast.error(msg);
-      }
+      } else if (!msg.includes("Upgrade required")) toast.error(msg);
     },
   });
 
@@ -173,201 +167,271 @@ function Home() {
   const s = stats.data;
   const dailyCap = Number(c?.daily_loss_cap_pct ?? 6);
 
-
-
+  const masked = "••••••";
 
   return (
     <div className="min-h-svh bg-background pb-44">
       <PositionsStrip />
+
       {/* Header */}
-      <header className="px-5 pt-6 pb-4 flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <img
-            src={earnoStacked.url}
-            alt="EarnO — Wealth, Engineered."
-            className="h-12 w-auto select-none"
-            draggable={false}
-          />
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <span
-              className={`inline-flex items-center gap-1 text-[11px] px-1.5 h-5 rounded-full ${
-                isRunning ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground"
-              }`}
-            >
-              <span className={`size-1.5 rounded-full ${isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"}`} />
-              Bot {isRunning ? "running" : "stopped"}
-            </span>
-            <span
-              className={`text-[11px] px-1.5 h-5 inline-flex items-center rounded-full ${
-                isLive ? "bg-destructive/15 text-destructive border border-destructive/40" : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {isLive ? "LIVE" : "PAPER"}
-            </span>
-            <span
-              title={isRunning ? "Auto-book cron is running every 2 min" : "Auto-book cron is paused"}
-              className={`text-[11px] px-1.5 h-5 inline-flex items-center gap-1 rounded-full ${
-                isRunning
-                  ? "bg-primary/10 text-primary"
-                  : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {isRunning ? <Timer className="size-3" /> : <TimerOff className="size-3" />}
-              Cron {isRunning ? "ON" : "OFF"}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
+      <header className="px-5 pt-5 pb-3 flex items-center justify-between gap-3">
+        <img
+          src={earnoStacked.url}
+          alt="EarnO"
+          className="h-9 w-auto select-none"
+          draggable={false}
+        />
+        <div className="flex items-center gap-0.5 shrink-0">
           <ThemeToggle />
-          {isAdmin ? (
-            <Link
-              to="/admin"
-              title="Admin"
-              className="size-10 grid place-items-center rounded-full hover:bg-muted"
-            >
+          {isAdmin && (
+            <Link to="/admin" title="Admin" className="size-9 grid place-items-center rounded-full hover:bg-muted">
               <ShieldCheck className="size-5 text-primary" />
             </Link>
-          ) : null}
+          )}
           <Link
             to="/upgrade"
             title={`Plan: ${PLAN_NAME[tier]}`}
-            className="size-10 grid place-items-center rounded-full hover:bg-muted relative"
+            className="size-9 grid place-items-center rounded-full hover:bg-muted"
           >
-            {tier === "unlimited" ? (
-              <Crown className="size-5 text-primary" />
-            ) : tier === "free" ? (
-              <Sparkles className="size-5 text-muted-foreground" />
-            ) : (
-              <Sparkles className="size-5 text-primary" />
-            )}
+            {tier === "unlimited" ? <Crown className="size-5 text-primary" /> :
+              tier === "free" ? <Sparkles className="size-5 text-muted-foreground" /> :
+              <Sparkles className="size-5 text-primary" />}
           </Link>
-          <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
+          <Link to="/help" className="size-9 grid place-items-center rounded-full hover:bg-muted">
             <HelpCircle className="size-5 text-muted-foreground" />
           </Link>
-          <Link to="/settings" className="size-10 grid place-items-center rounded-full hover:bg-muted">
+          <Link to="/settings" className="size-9 grid place-items-center rounded-full hover:bg-muted">
             <Settings className="size-5 text-muted-foreground" />
           </Link>
         </div>
       </header>
 
-      {!canRunBot ? (
-        <Link
-          to="/upgrade"
-          className="mx-5 mb-4 rounded-xl border border-primary/40 bg-primary/5 px-3 py-2 text-xs text-primary flex items-center justify-between gap-2"
-        >
-          <span className="flex items-center gap-2">
-            <Sparkles className="size-4 shrink-0" />
-            You're on <strong>{PLAN_NAME[tier]}</strong>. Upgrade to start auto-booking trades.
-          </span>
-          <span className="text-[11px] px-2 h-6 inline-flex items-center rounded-full bg-primary text-primary-foreground">
-            Upgrade
-          </span>
-        </Link>
-      ) : null}
-
-      {isLive ? (
-        <div className="mx-5 mb-4 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive flex items-center gap-2">
-          <AlertTriangle className="size-4 shrink-0" />
-          Live mode active. Real funds at risk.
-        </div>
-      ) : null}
-
-      {/* Mode toggle */}
-      <section className="px-5">
-        <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className={`size-2 rounded-full shrink-0 ${isLive ? "bg-destructive" : "bg-emerald-500"}`} />
-            <div className="min-w-0">
-              <p className="font-medium text-sm">{isLive ? "Live mode" : "Paper mode"}</p>
-              <p className="text-xs text-muted-foreground truncate">
-                {isLive ? "Real orders on CoinDCX" : "Simulated, no real money"}
-              </p>
-            </div>
-          </div>
-          <Switch
-            checked={isLive}
-            onCheckedChange={(v) => {
-              if (v && !confirm("Switch to LIVE? Real money will be at risk.")) return;
-              toggleMode.mutate(v);
-            }}
-          />
-        </div>
-      </section>
-
-      {/* Equity */}
-      <section className="px-5 mt-4">
-        <div className="rounded-2xl border bg-card p-5">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">
-            {isLive ? "Account" : "Virtual capital"}
-          </p>
-          <p className="text-3xl font-semibold tracking-tight mt-1 tabular-nums">
-            {fmt(equity)}
-          </p>
-          <div className="flex items-center gap-3 mt-1 text-sm tabular-nums">
-            <span className={momentumClass(s?.todayPnl)}>
-              {s ? `${fmt(s.todayPnl, { signed: true })}` : "—"} today
-            </span>
-            <span className="text-muted-foreground">·</span>
-            <span className={momentumClass(s?.todayPnlPct)}>{pct(s?.todayPnlPct, 2)}</span>
-          </div>
-
-          {/* Daily loss bar */}
-          <div className="mt-4">
-            <div className="flex justify-between text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-              <span>Daily loss used</span>
-              <span className="tabular-nums">{(s?.dailyLossUsedPct ?? 0).toFixed(0)}% of {dailyCap}%</span>
-            </div>
-            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-              <div
-                className={`h-full ${
-                  (s?.dailyLossUsedPct ?? 0) > 80 ? "bg-destructive" : (s?.dailyLossUsedPct ?? 0) > 50 ? "bg-amber-500" : "bg-emerald-500"
+      {/* Top segmented tabs (CoinDCX-style) */}
+      <div className="px-5">
+        <div className="flex items-center gap-5 border-b">
+          {TABS.map((t) => {
+            const active = tab === t;
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className={`relative -mb-px py-2.5 text-sm font-medium transition-colors ${
+                  active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
-                style={{ width: `${Math.min(100, s?.dailyLossUsedPct ?? 0)}%` }}
+              >
+                {t}
+                {active && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-primary rounded-full" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {tab === "Overview" && (
+        <>
+          {/* Portfolio hero */}
+          <section className="px-5 pt-5">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{isLive ? "Account balance" : "Virtual portfolio"}</span>
+              <button
+                type="button"
+                onClick={() => setHideBalance((v) => !v)}
+                aria-label={hideBalance ? "Show balance" : "Hide balance"}
+                className="size-5 grid place-items-center rounded hover:bg-muted text-muted-foreground"
+              >
+                {hideBalance ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+              </button>
+              <span className={`ml-auto inline-flex items-center gap-1 text-[11px] px-2 h-5 rounded-full ${
+                isLive ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
+              }`}>
+                {isLive ? "LIVE" : "PAPER"}
+              </span>
+            </div>
+            <p className="text-[40px] leading-none font-semibold tracking-tight mt-2 tabular-nums">
+              {hideBalance ? masked : fmt(equity)}
+            </p>
+            <div className="flex items-center gap-2 mt-2 text-sm tabular-nums">
+              <span className={tone(s?.todayPnl)}>
+                {hideBalance ? masked : (s ? fmt(s.todayPnl, { signed: true }) : "—")}
+              </span>
+              <span className={`inline-flex items-center gap-0.5 text-xs px-1.5 h-5 rounded ${
+                (s?.todayPnlPct ?? 0) >= 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive"
+              }`}>
+                <ArrowUpRight className={`size-3 ${(s?.todayPnlPct ?? 0) < 0 ? "rotate-90" : ""}`} />
+                {pct(s?.todayPnlPct)}
+              </span>
+              <span className="text-muted-foreground text-xs">today</span>
+            </div>
+
+            {/* Action row */}
+            <div className="grid grid-cols-3 gap-2 mt-5">
+              <ActionTile
+                icon={<Power className="size-4" />}
+                label={isRunning ? "Stop bot" : "Start bot"}
+                tone={isRunning ? "danger" : "primary"}
+                onClick={() => toggleRun.mutate(!isRunning)}
+              />
+              <ActionTile
+                icon={<Radar className="size-4" />}
+                label="Scanner"
+                onClick={() => navigate({ to: "/scanner" })}
+              />
+              <ActionTile
+                icon={<Briefcase className="size-4" />}
+                label="Positions"
+                onClick={() => navigate({ to: "/positions" })}
               />
             </div>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      {/* Stat tiles */}
-      <section className="px-5 mt-3 grid grid-cols-2 gap-2">
-        <StatTile label="Open positions" value={`${s?.openCount ?? positions.data?.length ?? 0}`} />
-        <StatTile label="Trades today" value={`${s?.tradesToday ?? 0}`} />
-        <StatTile
-          label="Win rate"
-          value={s && s.closedAllTime > 0 ? `${(s.winRateAllTime * 100).toFixed(0)}%` : "—"}
-          sub={s ? `${s.closedAllTime} closed` : undefined}
-        />
-        <StatTile
-          label="Max drawdown"
-          value={s ? fmt(s.maxDrawdown) : "—"}
-          sub={s && s.consecutiveLosses > 0 ? `${s.consecutiveLosses} loss streak` : undefined}
-        />
-      </section>
+          {/* Featured banner */}
+          {!canRunBot && (
+            <Link
+              to="/upgrade"
+              className="mx-5 mt-5 block rounded-2xl p-4 bg-gradient-to-br from-primary to-[#3B82F6] text-primary-foreground"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs opacity-80">{PLAN_NAME[tier]} plan</p>
+                  <p className="font-semibold mt-0.5">Unlock auto-trading</p>
+                  <p className="text-xs opacity-80 mt-0.5">Let the bot book trades for you 24/7.</p>
+                </div>
+                <span className="text-[11px] px-2.5 h-7 inline-flex items-center rounded-full bg-white text-primary font-medium shrink-0">
+                  Upgrade
+                </span>
+              </div>
+            </Link>
+          )}
 
-      <section className="px-5 mt-6">
-        <Link
-          to="/scanner"
-          className="block rounded-2xl border bg-card p-4 hover:bg-muted/40 transition"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Open scanner</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Auto-book, watchlist and weak setups ranked by confidence
-              </p>
+          {/* Daily-loss meter */}
+          <section className="px-5 mt-5">
+            <div className="rounded-2xl border bg-card p-4">
+              <div className="flex justify-between text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
+                <span>Daily loss used</span>
+                <span className="tabular-nums">{(s?.dailyLossUsedPct ?? 0).toFixed(0)}% of {dailyCap}%</span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full transition-all ${
+                    (s?.dailyLossUsedPct ?? 0) > 80 ? "bg-destructive" :
+                    (s?.dailyLossUsedPct ?? 0) > 50 ? "bg-amber-500" : "bg-emerald-500"
+                  }`}
+                  style={{ width: `${Math.min(100, s?.dailyLossUsedPct ?? 0)}%` }}
+                />
+              </div>
             </div>
-            <span className="text-[11px] px-2 h-6 inline-flex items-center rounded-full border text-muted-foreground">
-              View
-            </span>
+          </section>
+
+          {/* Stat grid */}
+          <section className="px-5 mt-3 grid grid-cols-2 gap-2">
+            <StatTile label="Open positions" value={`${s?.openCount ?? positions.data?.length ?? 0}`} />
+            <StatTile label="Trades today" value={`${s?.tradesToday ?? 0}`} />
+            <StatTile
+              label="Win rate"
+              value={s && s.closedAllTime > 0 ? `${(s.winRateAllTime * 100).toFixed(0)}%` : "—"}
+              sub={s ? `${s.closedAllTime} closed` : undefined}
+            />
+            <StatTile
+              label="Max drawdown"
+              value={hideBalance ? masked : (s ? fmt(s.maxDrawdown) : "—")}
+              sub={s && s.consecutiveLosses > 0 ? `${s.consecutiveLosses} loss streak` : undefined}
+            />
+          </section>
+
+          {/* Products list */}
+          <section className="px-5 mt-6">
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Products</h2>
+            <div className="rounded-2xl border bg-card divide-y">
+              <ProductRow to="/scanner" icon={<Radar className="size-5 text-primary" />} title="Scanner" desc="Auto-book setups ranked by confidence" />
+              <ProductRow to="/positions" icon={<Briefcase className="size-5 text-primary" />} title="Positions" desc="Manage open trades & override TP/SL" />
+              <ProductRow to="/movers" icon={<Flame className="size-5 text-destructive" />} title="Movers" desc="Biggest gainers and losers right now" />
+              <ProductRow to="/settings" icon={<Settings className="size-5 text-muted-foreground" />} title="Settings" desc="Risk, leverage, exchange keys" />
+            </div>
+          </section>
+        </>
+      )}
+
+      {tab === "Bot" && (
+        <section className="px-5 pt-5 space-y-3">
+          <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`size-2.5 rounded-full shrink-0 ${isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"}`} />
+              <div className="min-w-0">
+                <p className="font-medium text-sm">Bot {isRunning ? "running" : "stopped"}</p>
+                <p className="text-xs text-muted-foreground">Auto-book cron {isRunning ? "active" : "paused"}</p>
+              </div>
+            </div>
+            <Switch checked={isRunning} onCheckedChange={(v) => toggleRun.mutate(v)} />
           </div>
-        </Link>
-      </section>
 
+          <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`size-2.5 rounded-full shrink-0 ${isLive ? "bg-destructive" : "bg-emerald-500"}`} />
+              <div className="min-w-0">
+                <p className="font-medium text-sm">{isLive ? "Live mode" : "Paper mode"}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {isLive ? "Real orders on CoinDCX" : "Simulated, no real money"}
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={isLive}
+              onCheckedChange={(v) => {
+                if (v && !confirm("Switch to LIVE? Real money will be at risk.")) return;
+                toggleMode.mutate(v);
+              }}
+            />
+          </div>
 
+          {isLive && (
+            <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive flex items-center gap-2">
+              <AlertTriangle className="size-4 shrink-0" />
+              Live mode active. Real funds at risk.
+            </div>
+          )}
+
+          <Link to="/settings" className="rounded-2xl border bg-card p-4 flex items-center justify-between hover:bg-muted/40 transition">
+            <div>
+              <p className="text-sm font-medium">Risk & strategy</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Leverage, TP/SL, daily-loss cap</p>
+            </div>
+            <ChevronRight className="size-4 text-muted-foreground" />
+          </Link>
+        </section>
+      )}
+
+      {tab === "Activity" && (
+        <section className="px-5 pt-5">
+          <div className="rounded-2xl border bg-card divide-y">
+            {(positions.data ?? []).slice(0, 8).map((p) => (
+              <div key={p.id} className="p-3 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm">
+                    {p.symbol} <span className={p.side === "long" ? "text-emerald-500" : "text-destructive"}>{p.side.toUpperCase()}</span>
+                    <span className="text-muted-foreground"> ×{p.leverage}</span>
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Entry {Number(p.entry_price).toFixed(4)} · {new Date(p.opened_at).toLocaleTimeString()}
+                  </p>
+                </div>
+                <span className={`text-sm tabular-nums font-medium ${tone(p.pnl_pct as number | null)}`}>
+                  {pct(p.pnl_pct as number | null)}
+                </span>
+              </div>
+            ))}
+            {(positions.data ?? []).length === 0 && (
+              <p className="p-6 text-center text-xs text-muted-foreground">No open positions.</p>
+            )}
+          </div>
+          <Link to="/positions" className="mt-3 block text-center text-xs text-primary py-2">
+            View all positions →
+          </Link>
+        </section>
+      )}
 
       {/* Bottom action bar */}
-      <div className="fixed bottom-14 inset-x-0 bg-background/85 backdrop-blur border-t px-5 py-3 flex items-center gap-3 z-20">
+      <div className="fixed bottom-14 inset-x-0 bg-background/90 backdrop-blur border-t px-5 py-3 flex items-center gap-3 z-20">
         <Button
           variant={isRunning ? "outline" : "default"}
           className="flex-1 h-12 rounded-xl"
@@ -397,13 +461,44 @@ function Home() {
   );
 }
 
+function ActionTile({
+  icon, label, onClick, tone = "default",
+}: { icon: React.ReactNode; label: string; onClick: () => void; tone?: "default" | "primary" | "danger" }) {
+  const cls =
+    tone === "primary" ? "bg-primary text-primary-foreground hover:opacity-90" :
+    tone === "danger" ? "bg-destructive/10 text-destructive hover:bg-destructive/15" :
+    "bg-secondary text-foreground hover:bg-muted";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl py-3.5 text-xs font-medium transition ${cls}`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function ProductRow({ to, icon, title, desc }: { to: string; icon: React.ReactNode; title: string; desc: string }) {
+  return (
+    <Link to={to} className="flex items-center gap-3 p-4 hover:bg-muted/40 transition">
+      <div className="size-10 grid place-items-center rounded-xl bg-muted shrink-0">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{title}</p>
+        <p className="text-xs text-muted-foreground truncate">{desc}</p>
+      </div>
+      <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+    </Link>
+  );
+}
+
 function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-xl border bg-card p-3">
+    <div className="rounded-2xl border bg-card p-3.5">
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="text-lg font-semibold tabular-nums mt-0.5 leading-tight">{value}</p>
+      <p className="text-lg font-semibold tabular-nums mt-1 leading-tight">{value}</p>
       {sub ? <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p> : null}
     </div>
   );
 }
-
