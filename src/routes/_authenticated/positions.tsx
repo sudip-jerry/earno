@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { closeManualTrade } from "@/lib/movers.functions";
 import { Button } from "@/components/ui/button";
 import { TabBar } from "@/components/tab-bar";
+import { PositionsStrip } from "@/components/positions-strip";
+import { useLivePrices } from "@/hooks/use-live-prices";
 import { toast } from "sonner";
 import { Briefcase, RefreshCw, HelpCircle } from "lucide-react";
 
@@ -33,6 +35,7 @@ type PositionRow = {
   pnl_pct: number | null;
   opened_at: string;
   mode: string;
+  instrument: "futures" | "spot" | null;
 };
 
 function fmtNum(n: number | null | undefined, digits = 4): string {
