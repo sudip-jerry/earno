@@ -75,6 +75,7 @@ function MoversPage() {
 
   return (
     <div className="min-h-svh bg-background pb-28">
+      <PositionsStrip />
       <header className="px-5 pt-6 pb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Flame className="size-5 text-orange-500" />
