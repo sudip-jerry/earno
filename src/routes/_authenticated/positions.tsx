@@ -351,3 +351,123 @@ function PositionsPage() {
     </div>
   );
 }
+
+function ClosedSummary({ rows }: { rows: ClosedRow[] }) {
+  const { fmt } = useCurrency();
+  const total = rows.reduce((a, r) => a + Number(r.pnl ?? 0), 0);
+  const wins = rows.filter((r) => Number(r.pnl ?? 0) > 0).length;
+  const winRate = rows.length ? (wins / rows.length) * 100 : 0;
+  return (
+    <div className="rounded-2xl border bg-card p-4 grid grid-cols-3 gap-3">
+      <div>
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total PNL</p>
+        <p className={`text-xl font-semibold tabular-nums mt-0.5 ${total >= 0 ? "text-emerald-500" : "text-destructive"}`}>
+          {fmt(total, { signed: true })}
+        </p>
+      </div>
+      <div>
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Trades</p>
+        <p className="text-xl font-semibold tabular-nums mt-0.5">{rows.length}</p>
+      </div>
+      <div className="text-right">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Win rate</p>
+        <p className="text-xl font-semibold tabular-nums mt-0.5">{winRate.toFixed(0)}%</p>
+      </div>
+    </div>
+  );
+}
+
+function ClosedList({
+  rows,
+  isLoading,
+  fmt,
+}: {
+  rows: ClosedRow[];
+  isLoading: boolean;
+  fmt: (n: number, opts?: { signed?: boolean }) => string;
+}) {
+  if (isLoading && !rows.length) {
+    return (
+      <ul className="px-5 mt-3 space-y-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <li key={i} className="h-28 rounded-2xl border bg-card animate-pulse" />
+        ))}
+      </ul>
+    );
+  }
+  if (!rows.length) {
+    return (
+      <div className="px-5 mt-3">
+        <div className="rounded-2xl border border-dashed bg-card/50 p-8 text-center">
+          <p className="text-sm text-muted-foreground">No closed trades yet.</p>
+          <p className="text-xs text-muted-foreground mt-1">Closed positions will show up here.</p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <ul className="px-5 mt-3 space-y-2">
+      {rows.map((p) => {
+        const pnl = Number(p.pnl ?? 0);
+        const up = pnl >= 0;
+        const sideCls =
+          p.side === "long" ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive";
+        const reason = p.exit_reason ?? "—";
+        const reasonLabel =
+          reason === "take_profit"
+            ? "Take profit"
+            : reason === "stop_loss"
+            ? "Stop loss"
+            : reason === "manual_limit"
+            ? "Manual close"
+            : reason;
+        return (
+          <li key={p.id} className="rounded-2xl border bg-card p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                <span className="font-medium text-sm">{p.symbol}</span>
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${sideCls}`}>
+                  {p.side === "long" ? "Long" : "Short"} {p.leverage}x
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">
+                  {p.mode}
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded border text-foreground capitalize">
+                  {reasonLabel}
+                </span>
+              </div>
+              <p className={`text-lg font-semibold tabular-nums ${up ? "text-emerald-500" : "text-destructive"}`}>
+                {fmt(pnl, { signed: true })}
+              </p>
+            </div>
+            <div className="mt-2 grid grid-cols-4 gap-2 text-[11px]">
+              <div>
+                <p className="text-muted-foreground">Entry</p>
+                <p className="tabular-nums font-medium mt-0.5">{fmtNum(p.entry_price, 6)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Exit</p>
+                <p className="tabular-nums font-medium mt-0.5">{fmtNum(p.exit_price ?? p.mark_price, 6)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">ROE</p>
+                <p className={`tabular-nums font-medium mt-0.5 ${up ? "text-emerald-500" : "text-destructive"}`}>
+                  {up ? "+" : ""}
+                  {Number(p.pnl_pct ?? 0).toFixed(2)}%
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-muted-foreground">Held</p>
+                <p className="tabular-nums font-medium mt-0.5">{fmtDuration(p.opened_at, p.closed_at)}</p>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2">
+              {new Date(p.opened_at).toLocaleString()} → {p.closed_at ? new Date(p.closed_at).toLocaleString() : "—"}
+            </p>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
