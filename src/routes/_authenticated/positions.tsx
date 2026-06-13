@@ -343,7 +343,7 @@ function PositionsPage() {
           ) : null}
         </ul>
       ) : (
-        <ClosedList rows={closedQ.data ?? []} isLoading={closedQ.isLoading} fmt={fmt} />
+        <ClosedList rows={closedQ.data ?? []} isLoading={closedQ.isLoading} />
       )}
 
 
