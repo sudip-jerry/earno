@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { updateConfig, killAll } from "@/lib/bot.functions";
+import { updateConfig, killAll, triggerMyAutoBookNow } from "@/lib/bot.functions";
 import { getDashboardStats } from "@/lib/stats.functions";
 import { getMyEntitlements } from "@/lib/plans.functions";
 import { PLAN_NAME, type PlanTier } from "@/lib/plans";
@@ -30,6 +30,7 @@ import {
   ArrowUpRight,
   Flame,
   ChevronRight,
+  Zap,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -68,6 +69,7 @@ function Home() {
   const killFn = useServerFn(killAll);
   const statsFn = useServerFn(getDashboardStats);
   const entFn = useServerFn(getMyEntitlements);
+  const triggerFn = useServerFn(triggerMyAutoBookNow);
 
   const [tab, setTab] = useState<Tab>("Overview");
   const [hideBalance, setHideBalance] = useState(false);
@@ -415,6 +417,24 @@ function Home() {
             <Switch checked={isRunning} onCheckedChange={(v) => toggleRun.mutate(v)} />
           </div>
 
+          <NextRunCard
+            disabled={!isRunning}
+            onRun={async () => {
+              try {
+                const res = await triggerFn({ data: undefined });
+                toast.success(
+                  `Manual run done — opened ${res.opened}, skipped ${res.skipped}, marked ${res.marked}, closed ${res.closed}`,
+                );
+                qc.invalidateQueries({ queryKey: ["positions_open"] });
+                qc.invalidateQueries({ queryKey: ["dashboard_stats"] });
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Manual run failed");
+              }
+            }}
+          />
+
+
+
           <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
               <div className={`size-2.5 rounded-full shrink-0 ${isLive ? "bg-destructive" : "bg-emerald-500"}`} />
@@ -540,6 +560,60 @@ function ProductRow({ to, icon, title, desc }: { to: string; icon: React.ReactNo
       </div>
       <ChevronRight className="size-4 text-muted-foreground shrink-0" />
     </Link>
+  );
+}
+
+function NextRunCard({ disabled, onRun }: { disabled: boolean; onRun: () => void | Promise<void> }) {
+  const [now, setNow] = useState(() => Date.now());
+  const [pending, setPending] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Cron schedule: every 2 minutes (*/2 * * * *).
+  const next = new Date(now);
+  next.setSeconds(0, 0);
+  const minutesToAdd = next.getMinutes() % 2 === 0 ? 2 : 1;
+  next.setMinutes(next.getMinutes() + minutesToAdd);
+  const secs = Math.max(0, Math.round((next.getTime() - now) / 1000));
+  const mm = Math.floor(secs / 60);
+  const ss = (secs % 60).toString().padStart(2, "0");
+  const cooldownLeft = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
+
+  const handleRun = async () => {
+    if (pending || cooldownLeft > 0 || disabled) return;
+    setPending(true);
+    try {
+      await onRun();
+    } finally {
+      setPending(false);
+      setCooldownUntil(Date.now() + 60_000);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border bg-card p-4 flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">Next auto run</p>
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {disabled ? "Bot stopped — start it to enable the scheduler" : `in ${mm}m ${ss}s`}
+        </p>
+      </div>
+      <Button
+        size="sm"
+        variant="outline"
+        className="rounded-xl shrink-0"
+        onClick={handleRun}
+        disabled={disabled || pending || cooldownLeft > 0}
+        aria-label="Run auto-book now"
+      >
+        <Zap className="size-4 mr-1.5" />
+        {pending ? "Running…" : cooldownLeft > 0 ? `Wait ${cooldownLeft}s` : "Run now"}
+      </Button>
+    </div>
   );
 }
 
