@@ -229,17 +229,24 @@ function computeRecommendation(s: Signals, market: "spot" | "futures") {
 }
 
 // ── User-facing derivation ─────────────────────────────────────────────────
-function confidenceLabelFor(score: number, eligible: boolean): ConfidenceLabel {
-  if (!eligible) return "Avoid";
-  if (score >= 65) return "High";
-  if (score >= 45) return "Medium";
-  if (score >= 25) return "Low";
+function confidenceLabelFor(tier: Tier): ConfidenceLabel {
+  if (tier === "auto") return "High";
+  if (tier === "watch") return "Medium";
+  if (tier === "weak") return "Low";
   return "Avoid";
 }
 
-function actionFor(bias: Bias, eligible: boolean): Action {
-  if (bias === "wait") return "wait";
-  return eligible ? bias : "avoid";
+function tierFor(confidence: number, bias: Bias, riskOk: boolean): Tier {
+  if (bias === "wait" || confidence < 55) return "avoid";
+  if (confidence >= 80 && riskOk) return "auto";
+  if (confidence >= 65) return "watch";
+  return "weak";
+}
+
+function actionForTier(tier: Tier, bias: Bias): Action {
+  if (tier === "auto" && (bias === "long" || bias === "short")) return bias;
+  if (tier === "avoid") return "avoid";
+  return "wait";
 }
 
 type CheckInput = {
