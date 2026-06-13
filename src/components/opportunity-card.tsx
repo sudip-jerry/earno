@@ -58,6 +58,9 @@ export function OpportunityCard({
   compact = false,
 }: Props) {
   const [whyOpen, setWhyOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [tpInput, setTpInput] = useState<number>(tpPct);
+  const [slInput, setSlInput] = useState<number>(slPct);
   const { fmt } = useCurrency();
   const meta = actionMeta(mover.action);
   const tradable = mover.action === "long" || mover.action === "short";
@@ -100,19 +103,49 @@ export function OpportunityCard({
           </p>
         </div>
         <div>
-          <p className="uppercase tracking-wider text-muted-foreground">Target</p>
-          <p className="tabular-nums font-medium text-emerald-500 mt-0.5">+{tpPct.toFixed(2)}%</p>
+          <p className="uppercase tracking-wider text-muted-foreground">Target (auto)</p>
+          {editing ? (
+            <input
+              type="number"
+              step={0.1}
+              min={0.1}
+              max={50}
+              value={tpInput}
+              onChange={(e) => setTpInput(Number(e.target.value))}
+              className="mt-0.5 w-16 h-6 px-1 rounded border bg-background text-emerald-500 tabular-nums text-[11px]"
+            />
+          ) : (
+            <p className="tabular-nums font-medium text-emerald-500 mt-0.5">+{tpInput.toFixed(2)}%</p>
+          )}
         </div>
         <div>
-          <p className="uppercase tracking-wider text-muted-foreground">Stop</p>
-          <p className="tabular-nums font-medium text-destructive mt-0.5">−{slPct.toFixed(2)}%</p>
+          <p className="uppercase tracking-wider text-muted-foreground">Stop (auto)</p>
+          {editing ? (
+            <input
+              type="number"
+              step={0.5}
+              min={0.1}
+              max={50}
+              value={slInput}
+              onChange={(e) => setSlInput(Number(e.target.value))}
+              className="mt-0.5 w-16 h-6 px-1 rounded border bg-background text-destructive tabular-nums text-[11px]"
+            />
+          ) : (
+            <p className="tabular-nums font-medium text-destructive mt-0.5">−{slInput.toFixed(2)}%</p>
+          )}
         </div>
       </div>
 
-      <div className="mt-2 text-[11px] text-muted-foreground flex items-center justify-between">
-        <span>Risk amount</span>
-        <span className="tabular-nums font-medium text-foreground">
-          {fmt(riskAmountUsd)}
+      <div className="mt-2 flex items-center justify-between text-[11px]">
+        <button
+          type="button"
+          onClick={() => setEditing((v) => !v)}
+          className="text-muted-foreground hover:text-foreground underline underline-offset-2"
+        >
+          {editing ? "Use auto" : "Override TP/SL"}
+        </button>
+        <span className="text-muted-foreground">
+          Risk <span className="tabular-nums font-medium text-foreground">{fmt(riskAmountUsd)}</span>
         </span>
       </div>
 
@@ -126,7 +159,10 @@ export function OpportunityCard({
           size="sm"
           className={`flex-1 h-9 rounded-lg text-white ${meta.btnCls} disabled:opacity-60`}
           disabled={!tradable || booking}
-          onClick={() => tradable && onBook(mover.action === "short" ? "short" : "long")}
+          onClick={() =>
+            tradable &&
+            onBook(mover.action === "short" ? "short" : "long", { tpPct: tpInput, slPct: slInput })
+          }
         >
           {booking ? "Booking…" : meta.btn}
         </Button>
@@ -140,6 +176,7 @@ export function OpportunityCard({
           Why?
         </button>
       </div>
+
 
 
       <RecommendationModal
