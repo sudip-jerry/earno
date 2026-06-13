@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { TrendingUp } from "lucide-react";
+import earnoLogo from "@/assets/earno-logo.png";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
