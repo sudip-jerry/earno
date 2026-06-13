@@ -12,11 +12,14 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { PositionsStrip } from "@/components/positions-strip";
 import { useCurrency } from "@/hooks/use-currency";
 import { toast } from "sonner";
+import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
 import {
   Settings,
   HelpCircle,
   Power,
   AlertTriangle,
+  Timer,
+  TimerOff,
 } from "lucide-react";
 
 
@@ -121,7 +124,9 @@ function Home() {
   });
 
   const toggleRun = useMutation({
-    mutationFn: async (run: boolean) => updateFn({ data: { is_running: run } }),
+    mutationFn: async (run: boolean) =>
+      // Tie cron (auto_book) to the bot run state — Start bot enables cron, Stop disables it.
+      updateFn({ data: { is_running: run, auto_book: run } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["bot_config"] }),
     onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
   });
@@ -147,10 +152,15 @@ function Home() {
     <div className="min-h-svh bg-background pb-44">
       <PositionsStrip />
       {/* Header */}
-      <header className="px-5 pt-6 pb-4 flex items-center justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">EarnO</h1>
-          <div className="flex items-center gap-2 mt-0.5">
+      <header className="px-5 pt-6 pb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <img
+            src={earnoStacked.url}
+            alt="EarnO — Grow your money while you sleep"
+            className="h-12 w-auto select-none"
+            draggable={false}
+          />
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
             <span
               className={`inline-flex items-center gap-1 text-[11px] px-1.5 h-5 rounded-full ${
                 isRunning ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground"
@@ -166,14 +176,20 @@ function Home() {
             >
               {isLive ? "LIVE" : "PAPER"}
             </span>
-            {c?.auto_book ? (
-              <span className="text-[11px] px-1.5 h-5 inline-flex items-center rounded-full bg-primary/10 text-primary">
-                Auto-book
-              </span>
-            ) : null}
+            <span
+              title={isRunning ? "Auto-book cron is running every 2 min" : "Auto-book cron is paused"}
+              className={`text-[11px] px-1.5 h-5 inline-flex items-center gap-1 rounded-full ${
+                isRunning
+                  ? "bg-primary/10 text-primary"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {isRunning ? <Timer className="size-3" /> : <TimerOff className="size-3" />}
+              Cron {isRunning ? "ON" : "OFF"}
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <ThemeToggle />
           <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
             <HelpCircle className="size-5 text-muted-foreground" />
