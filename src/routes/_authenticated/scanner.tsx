@@ -34,8 +34,8 @@ function ScannerPage() {
   const [pending, setPending] = useState<string | null>(null);
 
   const [action, setAction] = useState<"all" | "long" | "short" | "avoid" | "wait">("all");
-  const [minConfidence, setMinConfidence] = useState(40);
-  const [tradableOnly, setTradableOnly] = useState(true);
+  const [minConfidence, setMinConfidence] = useState(55);
+  const [tradableOnly, setTradableOnly] = useState(false);
 
   const q = useQuery({
     queryKey: ["scanner_movers"],
