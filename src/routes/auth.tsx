@@ -23,23 +23,17 @@ function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Clean up legacy forced-logout keys so old installs stop signing users out.
+    localStorage.removeItem("earno_remember_me");
+    localStorage.removeItem("earno_remember_me_until");
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: "/" });
     });
   }, [navigate]);
 
-  const setRememberMeStorage = (remember: boolean) => {
-    localStorage.setItem("earno_remember_me", remember ? "1" : "0");
-    if (remember) {
-      localStorage.setItem("earno_remember_me_until", String(Date.now() + 24 * 60 * 60 * 1000));
-    } else {
-      localStorage.removeItem("earno_remember_me_until");
-    }
-  };
 
   const handleEmail = async (e: React.FormEvent) => {
     e.preventDefault();
