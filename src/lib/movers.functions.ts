@@ -5,6 +5,17 @@ import { z } from "zod";
 export type Bias = "long" | "short" | "wait";
 export type Action = "long" | "short" | "wait" | "avoid";
 export type ConfidenceLabel = "High" | "Medium" | "Low" | "Avoid";
+export type Tier = "auto" | "watch" | "weak" | "avoid";
+export type ReasonLabel =
+  | "Ready for auto-book"
+  | "Waiting for pullback"
+  | "Waiting for volume confirmation"
+  | "Waiting for candle close"
+  | "Overextended"
+  | "Spread too wide"
+  | "Choppy market"
+  | "Low liquidity"
+  | "Watching for setup";
 export type SpreadTier = "tight" | "normal" | "wide";
 export type VolumeTier = "low" | "ok" | "high";
 export type TrendArrow = "up" | "down" | "flat" | "unknown";
