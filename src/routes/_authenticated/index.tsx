@@ -69,6 +69,7 @@ function Home() {
   const killFn = useServerFn(killAll);
   const statsFn = useServerFn(getDashboardStats);
   const entFn = useServerFn(getMyEntitlements);
+  const triggerFn = useServerFn(triggerMyAutoBookNow);
 
   const [tab, setTab] = useState<Tab>("Overview");
   const [hideBalance, setHideBalance] = useState(false);
