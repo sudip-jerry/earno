@@ -452,10 +452,11 @@ async function enrichMover(
   const bias: Bias = r.rec === "long" ? "long" : r.rec === "short" ? "short" : "wait";
 
   let rejectReason: string | null = null;
-  if (r.confidence < 35) rejectReason = "Score too low";
-  else if (volumeTier === "low") rejectReason = "Volume too thin";
-  else if (rsi != null && bias === "long" && rsi > 78) rejectReason = "Overbought (RSI)";
-  else if (rsi != null && bias === "short" && rsi < 22) rejectReason = "Oversold (RSI)";
+  const burstAligned = c1 != null && c5 != null && Math.sign(c1) === Math.sign(c5) && Math.abs(c5) > 0.1;
+  if (r.confidence < 25) rejectReason = "Score too low";
+  else if (volumeTier === "low" && !burstAligned) rejectReason = "Volume too thin";
+  else if (rsi != null && bias === "long" && rsi > 82) rejectReason = "Overbought (RSI)";
+  else if (rsi != null && bias === "short" && rsi < 18) rejectReason = "Oversold (RSI)";
   const eligible = rejectReason == null && bias !== "wait";
 
   const action = actionFor(bias, eligible);
