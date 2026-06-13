@@ -5,7 +5,6 @@ import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import earnoLogo from "@/assets/earno-logo.png";
 
@@ -24,23 +23,17 @@ function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Clean up legacy forced-logout keys so old installs stop signing users out.
+    localStorage.removeItem("earno_remember_me");
+    localStorage.removeItem("earno_remember_me_until");
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: "/" });
     });
   }, [navigate]);
 
-  const setRememberMeStorage = (remember: boolean) => {
-    localStorage.setItem("earno_remember_me", remember ? "1" : "0");
-    if (remember) {
-      localStorage.setItem("earno_remember_me_until", String(Date.now() + 24 * 60 * 60 * 1000));
-    } else {
-      localStorage.removeItem("earno_remember_me_until");
-    }
-  };
 
   const handleEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,12 +46,10 @@ function AuthPage() {
           options: { emailRedirectTo: window.location.origin },
         });
         if (error) throw error;
-        setRememberMeStorage(rememberMe);
         toast.success("Account created. You're in.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        setRememberMeStorage(rememberMe);
       }
       navigate({ to: "/" });
     } catch (err) {
@@ -70,7 +61,6 @@ function AuthPage() {
 
   const handleGoogle = async () => {
     setLoading(true);
-    setRememberMeStorage(rememberMe);
     const result = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: window.location.origin,
     });
@@ -116,16 +106,10 @@ function AuthPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="remember"
-              checked={rememberMe}
-              onCheckedChange={(v) => setRememberMe(v === true)}
-            />
-            <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
-              Keep me logged in for 24 hours
-            </Label>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            You'll stay signed in on this device until you sign out.
+          </p>
+
           <Button type="submit" className="w-full" disabled={loading}>
             {mode === "signup" ? "Create account" : "Sign in"}
           </Button>
