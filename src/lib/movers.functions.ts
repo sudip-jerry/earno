@@ -65,6 +65,9 @@ export type Mover = {
   // New: tier + reason label
   tier: Tier;
   reasonLabel: ReasonLabel;
+  // Auto TP/SL derived from confidence (TP 3–5%, SL 20%)
+  tpPct: number;
+  slPct: number;
 };
 
 const PUBLIC_FUTURES_TICKER =
