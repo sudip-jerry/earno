@@ -52,10 +52,50 @@ async function fetchChange(pair: string, interval: "1m" | "5m"): Promise<number 
   }
 }
 
+const SPOT_TICKER = "https://api.coindcx.com/exchange/ticker";
+
+type SpotRow = {
+  market: string;
+  last_price: string;
+  change_24_hour: string;
+  volume: string;
+};
+
+const marketSchema = z.object({ market: z.enum(["spot", "futures"]).optional() });
+
 export const getTopMovers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async (): Promise<{ ok: true; movers: Mover[] } | { ok: false; error: string }> => {
+  .inputValidator((d) => marketSchema.parse(d ?? {}))
+  .handler(async ({ data }): Promise<{ ok: true; movers: Mover[] } | { ok: false; error: string }> => {
+    const market = data.market ?? "futures";
     try {
+      if (market === "spot") {
+        const res = await fetch(SPOT_TICKER, { signal: AbortSignal.timeout(6000) });
+        if (!res.ok) return { ok: false, error: `Spot HTTP ${res.status}` };
+        const raw = (await res.json()) as SpotRow[];
+        const rows = raw
+          .filter((r) => r.market && r.market.endsWith("USDT"))
+          .map((r) => ({
+            symbol: r.market,
+            price: num(r.last_price),
+            change24h: num(r.change_24_hour),
+            volume24h: num(r.volume),
+          }))
+          .filter((r) => r.price > 0);
+        rows.sort((a, b) => b.change24h - a.change24h);
+        const top = rows.slice(0, 15).map((r, i) => ({
+          symbol: r.symbol,
+          display: r.symbol.replace(/USDT$/, "/USDT"),
+          price: r.price,
+          change1m: null,
+          change5m: null,
+          change24h: r.change24h,
+          rank24h: i + 1,
+          volume24h: r.volume24h,
+        } satisfies Mover));
+        return { ok: true, movers: top };
+      }
+
       const res = await fetch(PUBLIC_FUTURES_TICKER, { signal: AbortSignal.timeout(6000) });
       if (!res.ok) return { ok: false, error: `Ticker HTTP ${res.status}` };
       const raw = (await res.json()) as
@@ -73,7 +113,6 @@ export const getTopMovers = createServerFn({ method: "GET" })
         if (!price) return;
         rows.push({ symbol, price, change24h: change, volume24h: vol });
       };
-      // Endpoint shape: { ts, vs, prices: { "B-BTC_USDT": {...}, ... } }
       const dict =
         raw && typeof raw === "object" && !Array.isArray(raw) && "prices" in raw
           ? (raw as { prices: Record<string, TickerRow> }).prices
@@ -86,11 +125,9 @@ export const getTopMovers = createServerFn({ method: "GET" })
         });
       }
 
-      // Sort by 24h change desc, take top 15
       rows.sort((a, b) => b.change24h - a.change24h);
       const top = rows.slice(0, 15).map((r, i) => ({ ...r, rank24h: i + 1 }));
 
-      // Fetch 1m/5m for top 10 only (avoid hammering)
       const enriched = await Promise.all(
         top.map(async (r, i) => {
           if (i < 10) {
@@ -132,6 +169,7 @@ const bookSchema = z.object({
   symbol: z.string().min(3).max(40).regex(/^[A-Z0-9_\-]+$/),
   side: z.enum(["long", "short"]),
   price: z.number().positive(),
+  market: z.enum(["spot", "futures"]).optional(),
 });
 
 export const bookManualTrade = createServerFn({ method: "POST" })
