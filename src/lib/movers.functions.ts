@@ -3,9 +3,20 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 export type Bias = "long" | "short" | "wait";
+export type Action = "long" | "short" | "wait" | "avoid";
+export type ConfidenceLabel = "High" | "Medium" | "Low" | "Avoid";
 export type SpreadTier = "tight" | "normal" | "wide";
 export type VolumeTier = "low" | "ok" | "high";
 export type TrendArrow = "up" | "down" | "flat" | "unknown";
+
+export type CheckStatus = "pass" | "warn" | "fail";
+export type Check = { label: string; status: CheckStatus };
+export type ChecklistSections = {
+  trend: Check[];
+  entry: Check[];
+  momentum: Check[];
+  risk: Check[];
+};
 
 export type Mover = {
   symbol: string;
@@ -17,22 +28,29 @@ export type Mover = {
   change24h: number;
   rank24h: number;
   volume24h: number;
-  // Scoring
+  // Scoring (internal — kept out of main UI)
   scalpScore: number; // 0-100
   bias: Bias;
-  confidence: number; // alias of scalpScore for back-compat
+  confidence: number; // 0-100 alias of scalpScore
   recommendation: "long" | "short" | "neutral";
   reasons: string[];
   trend30: TrendArrow | "mixed";
-  // Scanner indicators (heuristic)
-  rsi: number | null; // 14 over 5m closes
-  emaTrend: TrendArrow; // 30m close trend
+  // Scanner indicators (heuristic, internal)
+  rsi: number | null;
+  emaTrend: TrendArrow;
   vwapStatus: "above" | "below" | "unknown";
+  vwapDistPct: number | null;
   spread: SpreadTier;
   volumeTier: VolumeTier;
   volumeSpike: boolean;
   eligible: boolean;
   rejectReason: string | null;
+  // User-facing
+  action: Action;
+  confidenceLabel: ConfidenceLabel;
+  shortReason: string;
+  decisionSentence: string;
+  checks: ChecklistSections;
 };
 
 const PUBLIC_FUTURES_TICKER =
