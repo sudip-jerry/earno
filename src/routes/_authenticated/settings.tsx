@@ -108,6 +108,8 @@ function SettingsPage() {
   const signOut = async () => {
     await qc.cancelQueries();
     qc.clear();
+    localStorage.removeItem("earno_remember_me");
+    localStorage.removeItem("earno_remember_me_until");
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   };
