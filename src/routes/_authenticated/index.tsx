@@ -299,6 +299,15 @@ function Home() {
         />
       </section>
 
+      {/* Recommendation tier counts */}
+      <section className="px-5 mt-3 grid grid-cols-3 gap-2">
+        <TierTile label="Auto-book" value={autoEligible.length} tone="primary" />
+        <TierTile label="Watchlist" value={watchlist.length} tone="amber" />
+        <TierTile label="Avoided" value={avoidedCount} tone="muted" />
+      </section>
+
+
+
       {/* Best Opportunities */}
       <section className="px-5 mt-6">
         <div className="flex items-start justify-between gap-3 mb-3">
