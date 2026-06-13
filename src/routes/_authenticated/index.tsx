@@ -18,11 +18,10 @@ import {
   HelpCircle,
   Power,
   AlertTriangle,
-  TrendingUp,
-  TrendingDown,
   Flame,
   RefreshCw,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
