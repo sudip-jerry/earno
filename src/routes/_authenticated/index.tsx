@@ -99,9 +99,10 @@ function Home() {
     refetchInterval: 5000,
   });
 
+  const { strictness } = useStrictness();
   const movers = useQuery({
-    queryKey: ["dashboard_top_movers"],
-    queryFn: () => moversFn({ data: { market: "futures" } }),
+    queryKey: ["dashboard_top_movers", strictness],
+    queryFn: () => moversFn({ data: { market: "futures", strictness } }),
     refetchInterval: 30_000,
   });
 
