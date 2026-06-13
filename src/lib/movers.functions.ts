@@ -499,27 +499,57 @@ async function enrichMover(
   }
 
   let volumeSpike = false;
+  let volumeRatio = 0;
   if (c5Raw && c5Raw.length >= 11) {
     const last = c5Raw[c5Raw.length - 1].volume ?? 0;
     const prev = c5Raw.slice(-11, -1);
     const avg = prev.reduce((a, b) => a + (b.volume ?? 0), 0) / Math.max(prev.length, 1);
-    volumeSpike = avg > 0 && last > avg * 1.8;
+    volumeRatio = avg > 0 ? last / avg : 0;
+    volumeSpike = volumeRatio >= 1.2; // display threshold
   }
 
   const r = computeRecommendation({ c1m: c1, c5m: c5, c30m: c30, c24h: base.change24h }, market);
   const bias: Bias = r.rec === "long" ? "long" : r.rec === "short" ? "short" : "wait";
 
-  let rejectReason: string | null = null;
-  const burstAligned = c1 != null && c5 != null && Math.sign(c1) === Math.sign(c5) && Math.abs(c5) > 0.1;
-  if (r.confidence < 25) rejectReason = "Score too low";
-  else if (volumeTier === "low" && !burstAligned) rejectReason = "Volume too thin";
-  else if (rsi != null && bias === "long" && rsi > 82) rejectReason = "Overbought (RSI)";
-  else if (rsi != null && bias === "short" && rsi < 18) rejectReason = "Oversold (RSI)";
-  const eligible = rejectReason == null && bias !== "wait";
+  // Watchlist allowance: 5m trend aligned with bias, 1m still forming.
+  const fiveAligned = c5 != null && bias !== "wait" && Math.sign(c5) === (bias === "long" ? 1 : -1) && Math.abs(c5) >= 0.05;
 
-  const action = actionFor(bias, eligible);
-  const confidenceLabel = confidenceLabelFor(r.confidence, eligible);
-  const shortReason = rejectReason ?? r.reasons[0] ?? "Watching for confirmation";
+  // Hard reject (Avoid tier) for fundamentally unworkable setups.
+  let rejectReason: string | null = null;
+  if (rsi != null && bias === "long" && rsi > 78) rejectReason = "Overbought (RSI)";
+  else if (rsi != null && bias === "short" && rsi < 22) rejectReason = "Oversold (RSI)";
+  // Liquidity hard floor — too thin even for watchlist
+  else if (base.volume24h < 250_000) rejectReason = "Liquidity too low";
+
+  // Strict risk-OK check for auto-book eligibility
+  const rr = slPct > 0 ? tpPct / slPct : 0;
+  const rsiOkForAuto =
+    rsi == null
+      ? true
+      : bias === "long" ? rsi >= 50 && rsi <= 74
+      : bias === "short" ? rsi >= 26 && rsi <= 50
+      : true;
+  const pullbackOkForAuto = vwapDistPct == null || Math.abs(vwapDistPct) <= 0.25;
+  const riskOk =
+    rejectReason == null &&
+    bias !== "wait" &&
+    spread !== "wide" &&
+    volumeTier !== "low" &&
+    rr >= 1.2 &&
+    rsiOkForAuto &&
+    pullbackOkForAuto &&
+    volumeRatio >= 1.5 &&
+    fiveAligned;
+
+  const tier: Tier = rejectReason ? "avoid" : tierFor(r.confidence, bias, riskOk);
+  const eligible = tier === "auto";
+  const action = actionForTier(tier, bias);
+  const confidenceLabel = confidenceLabelFor(tier);
+  const reasonLabel = deriveReasonLabel({
+    tier, spreadTier: spread, volumeTier, rsi, bias, volumeSpike,
+    vwapDistPct, c1m: c1, c5m: c5, trend30: r.trend30,
+  });
+  const shortReason = rejectReason ?? reasonLabel;
   const checks = buildChecks({
     bias, change1m: c1, change5m: c5, rsi, emaTrend, vwapStatus, vwapDistPct,
     spread, volumeSpike, tpPct, slPct,
@@ -551,6 +581,8 @@ async function enrichMover(
     shortReason,
     decisionSentence: decisionSentenceFor(action, confidenceLabel, shortReason),
     checks,
+    tier,
+    reasonLabel,
   };
 }
 
