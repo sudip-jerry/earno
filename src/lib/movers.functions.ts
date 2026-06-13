@@ -638,7 +638,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
           .filter((r) => r.price > 0);
         rows.sort((a, b) => b.change24h - a.change24h);
         const top = rows.slice(0, 15).map((r, i) => ({ ...r, rank24h: i + 1 }));
-        const enriched = await Promise.all(top.map((r, i) => enrichMover(r, spotToCandlePair(r.symbol), "spot", i < 10, tpPct, slPct)));
+        const enriched = await Promise.all(top.map((r, i) => enrichMover(r, spotToCandlePair(r.symbol), "spot", i < 10, tpPct, slPct, preset)));
         return { ok: true, movers: enriched };
       }
 
