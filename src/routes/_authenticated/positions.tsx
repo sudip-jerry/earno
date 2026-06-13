@@ -259,15 +259,27 @@ function PositionsPage() {
                 <Button
                   variant="outline"
                   className="w-full h-9 rounded-lg"
-                  disabled={closing}
+                  disabled={closing || !live}
                   onClick={() => {
-                    if (confirm(`Close ${p.side.toUpperCase()} ${p.symbol} at market?`)) {
-                      close.mutate(p.id);
+                    if (!live) return;
+                    if (
+                      confirm(
+                        `Place LIMIT close for ${p.side.toUpperCase()} ${p.symbol} at ${fmtNum(live, 6)}? (Lower fee than market.)`,
+                      )
+                    ) {
+                      close.mutate({ positionId: p.id, limitPrice: live });
                     }
                   }}
                 >
-                  {closing ? "Closing…" : "Close"}
+                  {closing
+                    ? "Submitting…"
+                    : live
+                    ? `Close · Limit @ ${fmtNum(live, 6)}`
+                    : "Waiting for live price…"}
                 </Button>
+                <p className="text-[10px] text-muted-foreground mt-1 text-center">
+                  Limit orders pay lower CoinDCX fees than market orders.
+                </p>
               </div>
             </li>
           );
