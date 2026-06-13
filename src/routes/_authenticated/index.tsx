@@ -191,6 +191,38 @@ function Home() {
     <div className="min-h-svh bg-background pb-44">
       <PositionsStrip />
 
+      {/* Profile bar */}
+      <div className="px-5 pt-4 flex items-center gap-3">
+        <Link
+          to="/settings"
+          className="size-10 rounded-full bg-primary/10 text-primary grid place-items-center font-semibold overflow-hidden shrink-0"
+          aria-label="Profile"
+        >
+          {profile.data?.avatar_url ? (
+            <img src={profile.data.avatar_url} alt="" className="size-full object-cover" />
+          ) : (
+            (profile.data?.display_name?.[0] ?? profile.data?.email?.[0] ?? "U").toUpperCase()
+          )}
+        </Link>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium truncate">
+            {profile.data?.display_name ?? "Welcome"}
+          </p>
+          <p className="text-[11px] text-muted-foreground truncate">
+            {profile.data?.email ?? ""}
+            {isAdmin ? <span className="ml-1.5 inline-flex items-center px-1.5 h-4 rounded-full bg-primary/10 text-primary text-[10px] font-medium align-middle">Admin</span> : null}
+          </p>
+        </div>
+        <span className={`text-[10px] px-2 h-5 inline-flex items-center rounded-full font-medium shrink-0 ${
+          tier === "unlimited" ? "bg-primary text-primary-foreground" :
+          tier === "auto5" ? "bg-primary/10 text-primary" :
+          "bg-muted text-muted-foreground"
+        }`}>
+          {PLAN_NAME[tier]}
+        </span>
+      </div>
+
+
       {/* Header */}
       <header className="px-5 pt-5 pb-3 flex items-center justify-between gap-3">
         <img
