@@ -218,3 +218,66 @@ export const adminListCoupons = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false });
     return data ?? [];
   });
+
+export const adminListTrades = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        status: z.enum(["all", "open", "closed"]).default("all"),
+        limit: z.number().int().min(1).max(500).default(100),
+      })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let q = supabaseAdmin
+      .from("positions")
+      .select(
+        "id,user_id,mode,symbol,side,leverage,entry_price,exit_price,mark_price,pnl,pnl_pct,status,exit_reason,opened_at,closed_at",
+      )
+      .order("opened_at", { ascending: false })
+      .limit(data.limit);
+    if (data.status !== "all") q = q.eq("status", data.status);
+    const { data: rows } = await q;
+    const ids = Array.from(new Set((rows ?? []).map((r) => r.user_id)));
+    const safeIds = ids.length ? ids : ["00000000-0000-0000-0000-000000000000"];
+    const { data: profs } = await supabaseAdmin
+      .from("profiles")
+      .select("id,email")
+      .in("id", safeIds);
+    const emailMap = new Map((profs ?? []).map((p) => [p.id, p.email]));
+    return (rows ?? []).map((r) => ({ ...r, email: emailMap.get(r.user_id) ?? null }));
+  });
+
+export const adminListEvents = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        level: z.enum(["all", "info", "signal", "trade", "warn", "error"]).default("all"),
+        limit: z.number().int().min(1).max(500).default(150),
+      })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let q = supabaseAdmin
+      .from("bot_events")
+      .select("id,user_id,level,message,meta,created_at")
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+    if (data.level !== "all") q = q.eq("level", data.level);
+    const { data: rows } = await q;
+    const ids = Array.from(new Set((rows ?? []).map((r) => r.user_id)));
+    const safeIds = ids.length ? ids : ["00000000-0000-0000-0000-000000000000"];
+    const { data: profs } = await supabaseAdmin
+      .from("profiles")
+      .select("id,email")
+      .in("id", safeIds);
+    const emailMap = new Map((profs ?? []).map((p) => [p.id, p.email]));
+    return (rows ?? []).map((r) => ({ ...r, email: emailMap.get(r.user_id) ?? null }));
+  });
+
