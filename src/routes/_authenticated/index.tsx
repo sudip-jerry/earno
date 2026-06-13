@@ -134,6 +134,7 @@ function Home() {
     },
   });
 
+  const { fmt } = useCurrency();
   const c = cfg.data;
   const isLive = c?.mode === "live";
   const isRunning = c?.is_running ?? false;
