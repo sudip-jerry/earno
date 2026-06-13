@@ -17,6 +17,8 @@ import { Route as AuthenticatedScannerRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPositionsRouteImport } from './routes/_authenticated/positions'
 import { Route as AuthenticatedMoversRouteImport } from './routes/_authenticated/movers'
 import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
+import { Route as ApiPublicHooksMarkPositionsRouteImport } from './routes/api/public/hooks/mark-positions'
+import { Route as ApiPublicHooksAutoBookRouteImport } from './routes/api/public/hooks/auto-book'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -57,6 +59,17 @@ const AuthenticatedHelpRoute = AuthenticatedHelpRouteImport.update({
   path: '/help',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicHooksMarkPositionsRoute =
+  ApiPublicHooksMarkPositionsRouteImport.update({
+    id: '/api/public/hooks/mark-positions',
+    path: '/api/public/hooks/mark-positions',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksAutoBookRoute = ApiPublicHooksAutoBookRouteImport.update({
+  id: '/api/public/hooks/auto-book',
+  path: '/api/public/hooks/auto-book',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -66,6 +79,8 @@ export interface FileRoutesByFullPath {
   '/positions': typeof AuthenticatedPositionsRoute
   '/scanner': typeof AuthenticatedScannerRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
+  '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -75,6 +90,8 @@ export interface FileRoutesByTo {
   '/scanner': typeof AuthenticatedScannerRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/': typeof AuthenticatedIndexRoute
+  '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
+  '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -86,6 +103,8 @@ export interface FileRoutesById {
   '/_authenticated/scanner': typeof AuthenticatedScannerRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
+  '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -97,6 +116,8 @@ export interface FileRouteTypes {
     | '/positions'
     | '/scanner'
     | '/settings'
+    | '/api/public/hooks/auto-book'
+    | '/api/public/hooks/mark-positions'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -106,6 +127,8 @@ export interface FileRouteTypes {
     | '/scanner'
     | '/settings'
     | '/'
+    | '/api/public/hooks/auto-book'
+    | '/api/public/hooks/mark-positions'
   id:
     | '__root__'
     | '/_authenticated'
@@ -116,11 +139,15 @@ export interface FileRouteTypes {
     | '/_authenticated/scanner'
     | '/_authenticated/settings'
     | '/_authenticated/'
+    | '/api/public/hooks/auto-book'
+    | '/api/public/hooks/mark-positions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicHooksAutoBookRoute: typeof ApiPublicHooksAutoBookRoute
+  ApiPublicHooksMarkPositionsRoute: typeof ApiPublicHooksMarkPositionsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -181,6 +208,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHelpRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/hooks/mark-positions': {
+      id: '/api/public/hooks/mark-positions'
+      path: '/api/public/hooks/mark-positions'
+      fullPath: '/api/public/hooks/mark-positions'
+      preLoaderRoute: typeof ApiPublicHooksMarkPositionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/auto-book': {
+      id: '/api/public/hooks/auto-book'
+      path: '/api/public/hooks/auto-book'
+      fullPath: '/api/public/hooks/auto-book'
+      preLoaderRoute: typeof ApiPublicHooksAutoBookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -208,7 +249,19 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicHooksAutoBookRoute: ApiPublicHooksAutoBookRoute,
+  ApiPublicHooksMarkPositionsRoute: ApiPublicHooksMarkPositionsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
