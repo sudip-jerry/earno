@@ -576,7 +576,13 @@ function SettingsPage() {
 
 
 
-      <section className="px-5 mt-8">
+      <section className="px-5 mt-8 space-y-2">
+        <Link to="/about" className="block rounded-xl border bg-card p-3 text-sm hover:bg-muted">
+          About EarnO
+        </Link>
+        <Link to="/terms" className="block rounded-xl border bg-card p-3 text-sm hover:bg-muted">
+          Terms & Disclaimer
+        </Link>
         <Button variant="ghost" className="w-full text-muted-foreground" onClick={signOut}>
           <LogOut className="size-4 mr-2" />
           Sign out
