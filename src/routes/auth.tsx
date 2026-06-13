@@ -79,7 +79,7 @@ function AuthPage() {
         <div className="flex flex-col items-center gap-3 mb-8">
           <img src={earnoLogo.url} alt="EarnO" className="h-14 w-auto" />
           <p className="text-sm font-medium tracking-widest uppercase text-primary text-center">
-            Grow your money while you sleep
+            Wealth, Engineered.
           </p>
         </div>
 
