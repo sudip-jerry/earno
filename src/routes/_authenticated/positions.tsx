@@ -380,12 +380,12 @@ function ClosedSummary({ rows }: { rows: ClosedRow[] }) {
 function ClosedList({
   rows,
   isLoading,
-  fmt,
 }: {
   rows: ClosedRow[];
   isLoading: boolean;
-  fmt: (n: number, opts?: { signed?: boolean }) => string;
 }) {
+  const { fmt } = useCurrency();
+
   if (isLoading && !rows.length) {
     return (
       <ul className="px-5 mt-3 space-y-2">
