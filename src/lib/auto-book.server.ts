@@ -183,8 +183,8 @@ async function logPauseEvent(supabase: SupabaseClient, userId: string, message: 
     .eq("user_id", userId)
     .eq("message", message)
     .gte("created_at", since)
-    .maybeSingle();
-  if (!data) await logEvent(supabase, userId, "warn", message);
+    .limit(1);
+  if (!data?.length) await logEvent(supabase, userId, "warn", message);
 }
 
 /** Run one auto-book pass for all eligible users. */
