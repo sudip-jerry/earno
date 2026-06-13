@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { TrendingUp } from "lucide-react";
+import earnoLogo from "@/assets/earno-logo.png";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -87,12 +87,9 @@ function AuthPage() {
     <div className="min-h-svh bg-background flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center gap-3 mb-8">
-          <div className="size-12 rounded-2xl bg-primary/10 grid place-items-center">
-            <TrendingUp className="size-6 text-primary" />
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight">EarnO</h1>
-          <p className="text-sm text-muted-foreground text-center">
-            Automated CoinDCX futures trading
+          <img src={earnoLogo} alt="EarnO" className="h-14 w-auto" />
+          <p className="text-sm font-medium tracking-widest uppercase text-primary text-center">
+            Grow your money while you sleep
           </p>
         </div>
 
