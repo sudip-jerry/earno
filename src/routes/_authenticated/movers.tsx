@@ -34,20 +34,21 @@ function MoversPage() {
   const getFn = useServerFn(getTopMovers);
   const bookFn = useServerFn(bookManualTrade);
   const [pending, setPending] = useState<string | null>(null);
+  const [market, setMarket] = useState<"futures" | "spot">("futures");
 
   const q = useQuery({
-    queryKey: ["top_movers"],
-    queryFn: () => getFn({ data: undefined }),
+    queryKey: ["top_movers", market],
+    queryFn: () => getFn({ data: { market } }),
     refetchInterval: 30_000,
   });
 
   const book = useMutation({
     mutationFn: async (input: { m: Mover; side: "long" | "short" }) =>
-      bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price } }),
+      bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price, market } }),
     onMutate: (v) => setPending(`${v.m.symbol}:${v.side}`),
     onSettled: () => setPending(null),
     onSuccess: (_d, v) => {
-      toast.success(`${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked`);
+      toast.success(`${v.side === "long" ? (market === "spot" ? "Buy" : "Long") : "Short"} ${v.m.display} booked`);
       qc.invalidateQueries({ queryKey: ["positions_open"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Booking failed"),
