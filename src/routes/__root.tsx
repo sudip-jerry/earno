@@ -124,6 +124,28 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+
+  useEffect(() => {
+    let cancelled = false;
+    let unsub: (() => void) | undefined;
+    void import("@/integrations/supabase/client").then(({ supabase }) => {
+      if (cancelled) return;
+      // Only react to identity transitions. Ignoring TOKEN_REFRESHED /
+      // INITIAL_SESSION prevents the ~hourly refresh from invalidating caches
+      // (the common cause of perceived "frequent logouts").
+      const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+        router.invalidate();
+        if (event !== "SIGNED_OUT" && session) queryClient.invalidateQueries();
+      });
+      unsub = () => sub.subscription.unsubscribe();
+    });
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
+  }, [router, queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>
