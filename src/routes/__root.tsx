@@ -91,10 +91,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/1140a4e2-ff74-4184-b4a6-f01fa9ad3a01/id-preview-a6f821f6--ac00ba6e-fed5-4828-ad8c-e3c81a9eacc9.lovable.app-1781290909252.png" },
     ],
     links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
+      { rel: "stylesheet", href: appCss },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" },
+      { rel: "icon", type: "image/png", href: "/__l5e/assets-v1/90b84d5a-5461-404e-8586-c1cb0d4c5dcd/earno-icon.png" },
+      { rel: "apple-touch-icon", href: "/__l5e/assets-v1/90b84d5a-5461-404e-8586-c1cb0d4c5dcd/earno-icon.png" },
     ],
   }),
   shellComponent: RootShell,
