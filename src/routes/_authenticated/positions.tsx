@@ -60,7 +60,7 @@ function PositionsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("positions")
-        .select("id,symbol,side,leverage,qty,entry_price,mark_price,stop_loss,take_profit,pnl,pnl_pct,opened_at,mode")
+        .select("id,symbol,side,leverage,qty,entry_price,mark_price,stop_loss,take_profit,pnl,pnl_pct,opened_at,mode,instrument")
         .eq("status", "open")
         .order("opened_at", { ascending: false });
       if (error) throw error;
@@ -68,6 +68,10 @@ function PositionsPage() {
     },
     refetchInterval: 5_000,
   });
+
+  const rows = q.data ?? [];
+  const symbols = useMemo(() => rows.map((r) => r.symbol), [rows]);
+  const { prices, isFetching: pricesFetching, refetch: refetchPrices } = useLivePrices(symbols, rows.length > 0);
 
   useEffect(() => {
     const ch = supabase
