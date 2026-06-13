@@ -156,18 +156,20 @@ function MoversPage() {
                   onClick={() => book.mutate({ m, side: "long" })}
                 >
                   <TrendingUp className="size-3.5 mr-1" />
-                  {bookingLong ? "Booking…" : "Long"}
+                  {bookingLong ? "Booking…" : market === "spot" ? "Buy" : "Long"}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 h-9 rounded-lg border-destructive/40 text-destructive hover:bg-destructive/5"
-                  disabled={bookingLong || bookingShort}
-                  onClick={() => book.mutate({ m, side: "short" })}
-                >
-                  <TrendingDown className="size-3.5 mr-1" />
-                  {bookingShort ? "Booking…" : "Short"}
-                </Button>
+                {market === "futures" ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-9 rounded-lg border-destructive/40 text-destructive hover:bg-destructive/5"
+                    disabled={bookingLong || bookingShort}
+                    onClick={() => book.mutate({ m, side: "short" })}
+                  >
+                    <TrendingDown className="size-3.5 mr-1" />
+                    {bookingShort ? "Booking…" : "Short"}
+                  </Button>
+                ) : null}
               </div>
             </li>
           );
