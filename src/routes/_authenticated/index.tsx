@@ -417,6 +417,24 @@ function Home() {
             <Switch checked={isRunning} onCheckedChange={(v) => toggleRun.mutate(v)} />
           </div>
 
+          <NextRunCard
+            disabled={!isRunning}
+            onRun={async () => {
+              try {
+                const res = await triggerFn({ data: undefined });
+                toast.success(
+                  `Manual run done — opened ${res.opened}, skipped ${res.skipped}, marked ${res.marked}, closed ${res.closed}`,
+                );
+                qc.invalidateQueries({ queryKey: ["positions_open"] });
+                qc.invalidateQueries({ queryKey: ["dashboard_stats"] });
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Manual run failed");
+              }
+            }}
+          />
+
+
+
           <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
               <div className={`size-2.5 rounded-full shrink-0 ${isLive ? "bg-destructive" : "bg-emerald-500"}`} />
