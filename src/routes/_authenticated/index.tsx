@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PositionsStrip } from "@/components/positions-strip";
+import { useCurrency } from "@/hooks/use-currency";
 import { toast } from "sonner";
 import {
   Settings,
