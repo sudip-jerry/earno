@@ -57,6 +57,7 @@ export function OpportunityCard({
   compact = false,
 }: Props) {
   const [whyOpen, setWhyOpen] = useState(false);
+  const { fmt } = useCurrency();
   const meta = actionMeta(mover.action);
   const tradable = mover.action === "long" || mover.action === "short";
   const isAutoEligible = mover.tier === "auto";
