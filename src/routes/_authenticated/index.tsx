@@ -143,6 +143,7 @@ function Home() {
 
   return (
     <div className="min-h-svh bg-background pb-44">
+      <PositionsStrip />
       {/* Header */}
       <header className="px-5 pt-6 pb-4 flex items-center justify-between">
         <div className="min-w-0">
