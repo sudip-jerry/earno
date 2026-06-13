@@ -236,16 +236,18 @@ function confidenceLabelFor(tier: Tier): ConfidenceLabel {
   return "Avoid";
 }
 
-function tierFor(confidence: number, bias: Bias, riskOk: boolean): Tier {
-  if (bias === "wait" || confidence < 55) return "avoid";
-  if (confidence >= 80 && riskOk) return "auto";
-  if (confidence >= 65) return "watch";
+function tierFor(confidence: number, bias: Bias, riskOk: boolean, autoConf: number): Tier {
+  const watchConf = Math.max(40, autoConf - 10);
+  const weakConf = Math.max(30, autoConf - 20);
+  if (bias === "wait" || confidence < weakConf) return "avoid";
+  if (confidence >= autoConf && riskOk) return "auto";
+  if (confidence >= watchConf) return "watch";
   return "weak";
 }
 
 function actionForTier(tier: Tier, bias: Bias): Action {
-  if (tier === "auto" && (bias === "long" || bias === "short")) return bias;
   if (tier === "avoid") return "avoid";
+  if (bias === "long" || bias === "short") return bias;
   return "wait";
 }
 
@@ -381,7 +383,16 @@ function decisionSentenceFor(
 
 const SPOT_TICKER = "https://api.coindcx.com/exchange/ticker";
 type SpotRow = { market: string; last_price: string; change_24_hour: string; volume: string };
-const marketSchema = z.object({ market: z.enum(["spot", "futures"]).optional() });
+const marketSchema = z.object({
+  market: z.enum(["spot", "futures"]).optional(),
+  strictness: z.enum(["less", "moderate", "strict"]).optional(),
+});
+
+const STRICT_PRESETS: Record<"less" | "moderate" | "strict", StrictPreset> = {
+  less:     { autoConf: 60, volRatio: 1.2, pullbackMaxPct: 0.5,  rrMin: 1.1 },
+  moderate: { autoConf: 70, volRatio: 1.3, pullbackMaxPct: 0.35, rrMin: 1.2 },
+  strict:   { autoConf: 80, volRatio: 1.5, pullbackMaxPct: 0.25, rrMin: 1.3 },
+};
 
 // Map context → reason label per spec.
 function deriveReasonLabel(p: {
@@ -414,6 +425,8 @@ function deriveReasonLabel(p: {
   return "Watching for setup";
 }
 
+type StrictPreset = { autoConf: number; volRatio: number; pullbackMaxPct: number; rrMin: number };
+
 async function enrichMover(
   base: { symbol: string; price: number; change24h: number; volume24h: number; rank24h: number },
   candlePair: string,
@@ -421,6 +434,7 @@ async function enrichMover(
   withCandles: boolean,
   tpPct: number,
   slPct: number,
+  preset: StrictPreset,
 ): Promise<Mover> {
   const display = market === "spot" ? base.symbol.replace(/USDT$/, "/USDT") : prettySymbol(base.symbol);
   const volumeTier = classifyVolume(base.volume24h);
@@ -529,19 +543,19 @@ async function enrichMover(
       : bias === "long" ? rsi >= 50 && rsi <= 74
       : bias === "short" ? rsi >= 26 && rsi <= 50
       : true;
-  const pullbackOkForAuto = vwapDistPct == null || Math.abs(vwapDistPct) <= 0.25;
+  const pullbackOkForAuto = vwapDistPct == null || Math.abs(vwapDistPct) <= preset.pullbackMaxPct;
   const riskOk =
     rejectReason == null &&
     bias !== "wait" &&
     spread !== "wide" &&
     volumeTier !== "low" &&
-    rr >= 1.2 &&
+    rr >= preset.rrMin &&
     rsiOkForAuto &&
     pullbackOkForAuto &&
-    volumeRatio >= 1.5 &&
+    volumeRatio >= preset.volRatio &&
     fiveAligned;
 
-  const tier: Tier = rejectReason ? "avoid" : tierFor(r.confidence, bias, riskOk);
+  const tier: Tier = rejectReason ? "avoid" : tierFor(r.confidence, bias, riskOk, preset.autoConf);
   const eligible = tier === "auto";
   const action = actionForTier(tier, bias);
   const confidenceLabel = confidenceLabelFor(tier);
@@ -596,6 +610,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
   .inputValidator((d) => marketSchema.parse(d ?? {}))
   .handler(async ({ data, context }): Promise<{ ok: true; movers: Mover[] } | { ok: false; error: string }> => {
     const market = data.market ?? "futures";
+    const preset = STRICT_PRESETS[data.strictness ?? "moderate"];
     // Pull trade params for risk-check enrichment (best-effort; fall back to sane defaults).
     let tpPct = 0.6;
     let slPct = 0.4;
@@ -623,7 +638,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
           .filter((r) => r.price > 0);
         rows.sort((a, b) => b.change24h - a.change24h);
         const top = rows.slice(0, 15).map((r, i) => ({ ...r, rank24h: i + 1 }));
-        const enriched = await Promise.all(top.map((r, i) => enrichMover(r, spotToCandlePair(r.symbol), "spot", i < 10, tpPct, slPct)));
+        const enriched = await Promise.all(top.map((r, i) => enrichMover(r, spotToCandlePair(r.symbol), "spot", i < 10, tpPct, slPct, preset)));
         return { ok: true, movers: enriched };
       }
 
@@ -648,7 +663,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
       // Rank by 24h quote volume so the scanner sees the deepest 30-50 USDT pairs.
       rows.sort((a, b) => b.volume24h - a.volume24h);
       const top = rows.slice(0, 40).map((r, i) => ({ ...r, rank24h: i + 1 }));
-      const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 30, tpPct, slPct)));
+      const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 30, tpPct, slPct, preset)));
       // Sort enriched output by confidence so highest setups surface first.
       enriched.sort((a, b) => b.confidence - a.confidence);
       return { ok: true, movers: enriched };

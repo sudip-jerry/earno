@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { OpportunityCard } from "@/components/opportunity-card";
+import { useStrictness } from "@/hooks/use-strictness";
 import { toast } from "sonner";
 import {
   Settings,
@@ -98,9 +99,10 @@ function Home() {
     refetchInterval: 5000,
   });
 
+  const { strictness } = useStrictness();
   const movers = useQuery({
-    queryKey: ["dashboard_top_movers"],
-    queryFn: () => moversFn({ data: { market: "futures" } }),
+    queryKey: ["dashboard_top_movers", strictness],
+    queryFn: () => moversFn({ data: { market: "futures", strictness } }),
     refetchInterval: 30_000,
   });
 
