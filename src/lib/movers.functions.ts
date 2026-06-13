@@ -3,9 +3,20 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 export type Bias = "long" | "short" | "wait";
+export type Action = "long" | "short" | "wait" | "avoid";
+export type ConfidenceLabel = "High" | "Medium" | "Low" | "Avoid";
 export type SpreadTier = "tight" | "normal" | "wide";
 export type VolumeTier = "low" | "ok" | "high";
 export type TrendArrow = "up" | "down" | "flat" | "unknown";
+
+export type CheckStatus = "pass" | "warn" | "fail";
+export type Check = { label: string; status: CheckStatus };
+export type ChecklistSections = {
+  trend: Check[];
+  entry: Check[];
+  momentum: Check[];
+  risk: Check[];
+};
 
 export type Mover = {
   symbol: string;
@@ -17,22 +28,29 @@ export type Mover = {
   change24h: number;
   rank24h: number;
   volume24h: number;
-  // Scoring
+  // Scoring (internal — kept out of main UI)
   scalpScore: number; // 0-100
   bias: Bias;
-  confidence: number; // alias of scalpScore for back-compat
+  confidence: number; // 0-100 alias of scalpScore
   recommendation: "long" | "short" | "neutral";
   reasons: string[];
   trend30: TrendArrow | "mixed";
-  // Scanner indicators (heuristic)
-  rsi: number | null; // 14 over 5m closes
-  emaTrend: TrendArrow; // 30m close trend
+  // Scanner indicators (heuristic, internal)
+  rsi: number | null;
+  emaTrend: TrendArrow;
   vwapStatus: "above" | "below" | "unknown";
+  vwapDistPct: number | null;
   spread: SpreadTier;
   volumeTier: VolumeTier;
   volumeSpike: boolean;
   eligible: boolean;
   rejectReason: string | null;
+  // User-facing
+  action: Action;
+  confidenceLabel: ConfidenceLabel;
+  shortReason: string;
+  decisionSentence: string;
+  checks: ChecklistSections;
 };
 
 const PUBLIC_FUTURES_TICKER =
@@ -190,6 +208,150 @@ function computeRecommendation(s: Signals, market: "spot" | "futures") {
   return { rec, confidence, reasons, trend30, last30 };
 }
 
+// ── User-facing derivation ─────────────────────────────────────────────────
+function confidenceLabelFor(score: number, eligible: boolean): ConfidenceLabel {
+  if (!eligible) return "Avoid";
+  if (score >= 75) return "High";
+  if (score >= 55) return "Medium";
+  if (score >= 35) return "Low";
+  return "Avoid";
+}
+
+function actionFor(bias: Bias, eligible: boolean): Action {
+  if (bias === "wait") return "wait";
+  return eligible ? bias : "avoid";
+}
+
+type CheckInput = {
+  bias: Bias;
+  change1m: number | null;
+  change5m: number | null;
+  rsi: number | null;
+  emaTrend: TrendArrow;
+  vwapStatus: "above" | "below" | "unknown";
+  vwapDistPct: number | null;
+  spread: SpreadTier;
+  volumeSpike: boolean;
+  tpPct: number;
+  slPct: number;
+};
+
+function buildChecks(ci: CheckInput): ChecklistSections {
+  const dir = ci.bias === "long" ? 1 : ci.bias === "short" ? -1 : 0;
+
+  const trendStatus = (val: number | null): CheckStatus => {
+    if (val == null) return "warn";
+    if (dir === 0) return "warn";
+    if (Math.sign(val) === dir && Math.abs(val) >= 0.05) return "pass";
+    if (Math.abs(val) < 0.05) return "warn";
+    return "fail";
+  };
+
+  const emaStatus: CheckStatus =
+    ci.emaTrend === "unknown" ? "warn"
+      : dir === 0 ? "warn"
+        : (ci.emaTrend === "up" && dir > 0) || (ci.emaTrend === "down" && dir < 0) ? "pass"
+          : ci.emaTrend === "flat" ? "warn"
+            : "fail";
+
+  const vwapAlign: CheckStatus =
+    ci.vwapStatus === "unknown" || dir === 0 ? "warn"
+      : (ci.vwapStatus === "above" && dir > 0) || (ci.vwapStatus === "below" && dir < 0) ? "pass"
+        : "fail";
+
+  const trend: Check[] = [
+    { label: `5m trend ${ci.bias === "short" ? "bearish" : "bullish"}`, status: trendStatus(ci.change5m) },
+    { label: "EMA alignment", status: emaStatus },
+    { label: `Price ${ci.vwapStatus === "unknown" ? "vs VWAP" : ci.vwapStatus + " VWAP"}`, status: vwapAlign },
+  ];
+
+  // Entry quality
+  const pullback: CheckStatus =
+    ci.vwapDistPct == null ? "warn"
+      : Math.abs(ci.vwapDistPct) <= 0.3 ? "pass"
+        : Math.abs(ci.vwapDistPct) <= 0.8 ? "warn"
+          : "fail";
+
+  const fairValue: CheckStatus =
+    ci.vwapDistPct == null ? "warn"
+      : Math.abs(ci.vwapDistPct) <= 1.0 ? "pass"
+        : Math.abs(ci.vwapDistPct) <= 2.0 ? "warn"
+          : "fail";
+
+  const notOverextended: CheckStatus = (() => {
+    if (ci.rsi == null) return "warn";
+    if (ci.rsi >= 30 && ci.rsi <= 70) return "pass";
+    if ((ci.rsi >= 25 && ci.rsi < 30) || (ci.rsi > 70 && ci.rsi <= 75)) return "warn";
+    return "fail";
+  })();
+
+  const entry: Check[] = [
+    { label: "Pullback near EMA21 / VWAP", status: pullback },
+    { label: "Entry near fair value", status: fairValue },
+    { label: "Not overextended", status: notOverextended },
+  ];
+
+  // Momentum
+  const rsiIdeal: CheckStatus = (() => {
+    if (ci.rsi == null) return "warn";
+    if (dir > 0) {
+      if (ci.rsi >= 45 && ci.rsi <= 65) return "pass";
+      if (ci.rsi >= 35 && ci.rsi <= 75) return "warn";
+      return "fail";
+    }
+    if (dir < 0) {
+      if (ci.rsi >= 35 && ci.rsi <= 55) return "pass";
+      if (ci.rsi >= 25 && ci.rsi <= 65) return "warn";
+      return "fail";
+    }
+    return "warn";
+  })();
+
+  const candleStrength: CheckStatus = (() => {
+    if (ci.change1m == null || dir === 0) return "warn";
+    const aligned = Math.sign(ci.change1m) === dir;
+    if (aligned && Math.abs(ci.change1m) >= 0.08) return "pass";
+    if (Math.abs(ci.change1m) < 0.05) return "warn";
+    return aligned ? "warn" : "fail";
+  })();
+
+  const momentum: Check[] = [
+    { label: "RSI in ideal range", status: rsiIdeal },
+    { label: "Volume spike present", status: ci.volumeSpike ? "pass" : "warn" },
+    { label: "Candle strength valid", status: candleStrength },
+  ];
+
+  // Risk
+  const spreadCheck: CheckStatus =
+    ci.spread === "tight" ? "pass" : ci.spread === "normal" ? "warn" : "fail";
+  const rr = ci.slPct > 0 ? ci.tpPct / ci.slPct : 0;
+  const rrCheck: CheckStatus = rr >= 1.5 ? "pass" : rr >= 1 ? "warn" : "fail";
+
+  const risk: Check[] = [
+    { label: "Spread acceptable", status: spreadCheck },
+    { label: "Stop loss valid", status: ci.slPct > 0 ? "pass" : "fail" },
+    { label: "Target valid", status: ci.tpPct > 0 ? "pass" : "fail" },
+    { label: `Risk-reward ${rr ? rr.toFixed(2) : "?"} : 1`, status: rrCheck },
+  ];
+
+  return { trend, entry, momentum, risk };
+}
+
+function decisionSentenceFor(
+  action: Action,
+  label: ConfidenceLabel,
+  topReason: string,
+): string {
+  if (action === "long" || action === "short") {
+    const word = action === "long" ? "Long" : "Short";
+    return `${word} allowed because confidence is ${label} and required risk checks passed.`;
+  }
+  if (action === "avoid") {
+    return `Avoid because ${topReason || "key risk checks failed"}.`;
+  }
+  return "Wait — no clean setup yet, keep watching.";
+}
+
 const SPOT_TICKER = "https://api.coindcx.com/exchange/ticker";
 type SpotRow = { market: string; last_price: string; change_24_hour: string; volume: string };
 const marketSchema = z.object({ market: z.enum(["spot", "futures"]).optional() });
@@ -199,6 +361,8 @@ async function enrichMover(
   candlePair: string,
   market: "spot" | "futures",
   withCandles: boolean,
+  tpPct: number,
+  slPct: number,
 ): Promise<Mover> {
   const display = market === "spot" ? base.symbol.replace(/USDT$/, "/USDT") : prettySymbol(base.symbol);
   const volumeTier = classifyVolume(base.volume24h);
@@ -207,6 +371,15 @@ async function enrichMover(
   if (!withCandles) {
     const r = computeRecommendation({ c1m: null, c5m: null, c30m: null, c24h: base.change24h }, market);
     const bias: Bias = r.rec === "long" ? "long" : r.rec === "short" ? "short" : "wait";
+    const eligible = false;
+    const action = actionFor(bias, eligible);
+    const confidenceLabel = confidenceLabelFor(r.confidence, eligible);
+    const shortReason = r.reasons[0] ?? "Not enough data";
+    const checks = buildChecks({
+      bias, change1m: null, change5m: null, rsi: null,
+      emaTrend: "unknown", vwapStatus: "unknown", vwapDistPct: null,
+      spread, volumeSpike: false, tpPct, slPct,
+    });
     return {
       ...base,
       display,
@@ -222,11 +395,17 @@ async function enrichMover(
       rsi: null,
       emaTrend: "unknown",
       vwapStatus: "unknown",
+      vwapDistPct: null,
       spread,
       volumeTier,
       volumeSpike: false,
-      eligible: false,
+      eligible,
       rejectReason: "Not enough data",
+      action,
+      confidenceLabel,
+      shortReason,
+      decisionSentence: decisionSentenceFor(action, confidenceLabel, shortReason),
+      checks,
     };
   }
 
@@ -244,8 +423,8 @@ async function enrichMover(
   const rsi = closes5.length >= 15 ? rsi14(closes5) : null;
   const vwap = c5Raw ? approxVwap(c5Raw) : null;
   const vwapStatus: Mover["vwapStatus"] = vwap == null ? "unknown" : base.price >= vwap ? "above" : "below";
+  const vwapDistPct = vwap != null && vwap > 0 ? ((base.price - vwap) / vwap) * 100 : null;
 
-  // EMA trend from 30m candles direction
   let emaTrend: TrendArrow = "unknown";
   if (c30 && c30.length >= 3) {
     const last3 = c30.slice(-3);
@@ -255,7 +434,6 @@ async function enrichMover(
     else emaTrend = "flat";
   }
 
-  // Volume spike: last 5m volume vs avg of previous 10
   let volumeSpike = false;
   if (c5Raw && c5Raw.length >= 11) {
     const last = c5Raw[c5Raw.length - 1].volume ?? 0;
@@ -267,13 +445,20 @@ async function enrichMover(
   const r = computeRecommendation({ c1m: c1, c5m: c5, c30m: c30, c24h: base.change24h }, market);
   const bias: Bias = r.rec === "long" ? "long" : r.rec === "short" ? "short" : "wait";
 
-  // Eligibility
   let rejectReason: string | null = null;
   if (r.confidence < 35) rejectReason = "Score too low";
   else if (volumeTier === "low") rejectReason = "Volume too thin";
   else if (rsi != null && bias === "long" && rsi > 78) rejectReason = "Overbought (RSI)";
   else if (rsi != null && bias === "short" && rsi < 22) rejectReason = "Oversold (RSI)";
   const eligible = rejectReason == null && bias !== "wait";
+
+  const action = actionFor(bias, eligible);
+  const confidenceLabel = confidenceLabelFor(r.confidence, eligible);
+  const shortReason = rejectReason ?? r.reasons[0] ?? "Watching for confirmation";
+  const checks = buildChecks({
+    bias, change1m: c1, change5m: c5, rsi, emaTrend, vwapStatus, vwapDistPct,
+    spread, volumeSpike, tpPct, slPct,
+  });
 
   return {
     ...base,
@@ -290,11 +475,17 @@ async function enrichMover(
     rsi,
     emaTrend,
     vwapStatus,
+    vwapDistPct,
     spread,
     volumeTier,
     volumeSpike,
     eligible,
     rejectReason,
+    action,
+    confidenceLabel,
+    shortReason,
+    decisionSentence: decisionSentenceFor(action, confidenceLabel, shortReason),
+    checks,
   };
 }
 
@@ -306,8 +497,24 @@ function spotToCandlePair(market: string): string {
 export const getTopMovers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => marketSchema.parse(d ?? {}))
-  .handler(async ({ data }): Promise<{ ok: true; movers: Mover[] } | { ok: false; error: string }> => {
+  .handler(async ({ data, context }): Promise<{ ok: true; movers: Mover[] } | { ok: false; error: string }> => {
     const market = data.market ?? "futures";
+    // Pull trade params for risk-check enrichment (best-effort; fall back to sane defaults).
+    let tpPct = 0.6;
+    let slPct = 0.4;
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: cfg } = await supabaseAdmin
+        .from("bot_config")
+        .select("take_profit_pct,stop_loss_pct")
+        .eq("user_id", context.userId)
+        .maybeSingle();
+      if (cfg) {
+        tpPct = Number(cfg.take_profit_pct ?? tpPct);
+        slPct = Number(cfg.stop_loss_pct ?? slPct);
+      }
+    } catch { /* keep defaults */ }
+
     try {
       if (market === "spot") {
         const res = await fetch(SPOT_TICKER, { headers: PUBLIC_API_HEADERS, signal: AbortSignal.timeout(6000) });
@@ -319,7 +526,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
           .filter((r) => r.price > 0);
         rows.sort((a, b) => b.change24h - a.change24h);
         const top = rows.slice(0, 15).map((r, i) => ({ ...r, rank24h: i + 1 }));
-        const enriched = await Promise.all(top.map((r, i) => enrichMover(r, spotToCandlePair(r.symbol), "spot", i < 10)));
+        const enriched = await Promise.all(top.map((r, i) => enrichMover(r, spotToCandlePair(r.symbol), "spot", i < 10, tpPct, slPct)));
         return { ok: true, movers: enriched };
       }
 
@@ -343,7 +550,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
 
       rows.sort((a, b) => b.change24h - a.change24h);
       const top = rows.slice(0, 20).map((r, i) => ({ ...r, rank24h: i + 1 }));
-      const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 12)));
+      const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 12, tpPct, slPct)));
       return { ok: true, movers: enriched };
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : "fetch failed" };

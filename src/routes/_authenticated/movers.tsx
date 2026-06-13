@@ -1,55 +1,30 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TabBar } from "@/components/tab-bar";
+import { OpportunityCard } from "@/components/opportunity-card";
 import { toast } from "sonner";
-import { Flame, RefreshCw, HelpCircle, TrendingUp, TrendingDown, Info, Minus } from "lucide-react";
+import { Flame, RefreshCw, HelpCircle } from "lucide-react";
 import { useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/movers")({
   head: () => ({
     meta: [
       { title: "Top Movers — EarnO" },
-      { name: "description", content: "Top movers with Long/Short recommendations, confidence score and rationale." },
+      { name: "description", content: "Top movers with simple Long/Short/Wait/Avoid recommendations and confidence." },
     ],
   }),
   component: MoversPage,
 });
 
-function pct(n: number | null | undefined, digits = 2) {
-  if (n == null || !Number.isFinite(n)) return "—";
-  return `${n >= 0 ? "+" : ""}${n.toFixed(digits)}%`;
-}
-
-function colorClass(n: number | null | undefined) {
-  if (n == null || !Number.isFinite(n)) return "text-muted-foreground";
-  return n >= 0 ? "text-emerald-600" : "text-destructive";
-}
-
-function recBadge(rec: Mover["recommendation"], confidence: number, market: "futures" | "spot") {
-  if (rec === "long") {
-    return {
-      label: market === "spot" ? "BUY" : "LONG",
-      cls: "bg-emerald-600/10 text-emerald-700 border-emerald-600/30",
-      Icon: TrendingUp,
-    };
-  }
-  if (rec === "short") {
-    return {
-      label: "SHORT",
-      cls: "bg-destructive/10 text-destructive border-destructive/30",
-      Icon: TrendingDown,
-    };
-  }
-  return {
-    label: confidence > 0 ? "WAIT" : "NEUTRAL",
-    cls: "bg-muted text-muted-foreground border-border",
-    Icon: Minus,
-  };
-}
+type Cfg = {
+  take_profit_pct: number;
+  stop_loss_pct: number;
+  risk_per_trade_pct: number;
+  paper_equity: number;
+};
 
 function MoversPage() {
   const qc = useQueryClient();
@@ -64,13 +39,25 @@ function MoversPage() {
     refetchInterval: 30_000,
   });
 
+  const cfg = useQuery({
+    queryKey: ["bot_config_movers"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bot_config")
+        .select("take_profit_pct,stop_loss_pct,risk_per_trade_pct,paper_equity")
+        .maybeSingle();
+      if (error) throw error;
+      return data as Cfg | null;
+    },
+  });
+
   const book = useMutation({
     mutationFn: async (input: { m: Mover; side: "long" | "short" }) =>
       bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price, market } }),
-    onMutate: (v) => setPending(`${v.m.symbol}:${v.side}`),
+    onMutate: (v) => setPending(v.m.symbol),
     onSettled: () => setPending(null),
     onSuccess: (_d, v) => {
-      toast.success(`${v.side === "long" ? (market === "spot" ? "Buy" : "Long") : "Short"} ${v.m.display} booked`);
+      toast.success(`${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked`);
       qc.invalidateQueries({ queryKey: ["positions_open"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Booking failed"),
@@ -78,6 +65,11 @@ function MoversPage() {
 
   const movers: Mover[] = q.data?.ok ? q.data.movers : [];
   const errorMsg = q.data && !q.data.ok ? q.data.error : null;
+  const c = cfg.data;
+  const tpPct = Number(c?.take_profit_pct ?? 0.6);
+  const slPct = Number(c?.stop_loss_pct ?? 0.4);
+  const equity = Number(c?.paper_equity ?? 0);
+  const riskAmount = (equity * Number(c?.risk_per_trade_pct ?? 1)) / 100;
 
   return (
     <div className="min-h-svh bg-background pb-28">
@@ -87,7 +79,7 @@ function MoversPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Top Movers</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              AI-suggested Long/Short with confidence · 1m · 5m · 30m signals
+              Long / Short / Wait / Avoid with confidence
             </p>
           </div>
         </div>
@@ -137,119 +129,17 @@ function MoversPage() {
           : null}
 
         {movers.map((m) => {
-          const badge = recBadge(m.recommendation, m.confidence, market);
-          const BadgeIcon = badge.Icon;
-          const side: "long" | "short" = m.recommendation === "short" ? "short" : "long";
-          const booking = pending === `${m.symbol}:${side}`;
-          const canTrade = m.recommendation !== "neutral";
-
+          const booking = pending === m.symbol;
           return (
-            <li key={m.symbol} className="rounded-2xl border bg-card p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-sm truncate">{m.display}</p>
-                    <span className="text-[10px] text-muted-foreground">#{m.rank24h}</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground tabular-nums truncate">
-                    {m.price.toLocaleString(undefined, { maximumFractionDigits: 6 })}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className={`inline-flex items-center gap-1 px-2 h-6 rounded-full border text-[10px] font-semibold ${badge.cls}`}>
-                    <BadgeIcon className="size-3" />
-                    {badge.label}
-                  </span>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        className="size-7 grid place-items-center rounded-full hover:bg-muted text-muted-foreground"
-                        aria-label="Why this recommendation"
-                      >
-                        <Info className="size-3.5" />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent align="end" className="w-72 text-xs">
-                      <p className="font-semibold mb-1">
-                        {badge.label} · confidence {m.confidence}%
-                      </p>
-                      <p className="text-muted-foreground mb-2">
-                        30m trend: <span className="capitalize">{m.trend30}</span>
-                        {m.change30mLast != null ? ` · last 30m ${pct(m.change30mLast)}` : ""}
-                      </p>
-                      {m.reasons.length ? (
-                        <ul className="space-y-1 list-disc pl-4">
-                          {m.reasons.map((r, i) => (
-                            <li key={i}>{r}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-muted-foreground">No strong signal yet.</p>
-                      )}
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-
-              {/* Confidence bar */}
-              <div className="mt-3">
-                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                  <div
-                    className={`h-full ${
-                      m.recommendation === "long"
-                        ? "bg-emerald-500"
-                        : m.recommendation === "short"
-                          ? "bg-destructive"
-                          : "bg-muted-foreground/40"
-                    }`}
-                    style={{ width: `${Math.max(4, m.confidence)}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Signals row */}
-              <div className="mt-3 grid grid-cols-4 gap-2 text-[10px]">
-                <div>
-                  <p className="uppercase text-muted-foreground tracking-wider">1m</p>
-                  <p className={`tabular-nums ${colorClass(m.change1m)}`}>{pct(m.change1m)}</p>
-                </div>
-                <div>
-                  <p className="uppercase text-muted-foreground tracking-wider">5m</p>
-                  <p className={`tabular-nums ${colorClass(m.change5m)}`}>{pct(m.change5m)}</p>
-                </div>
-                <div>
-                  <p className="uppercase text-muted-foreground tracking-wider">30m</p>
-                  <p className={`tabular-nums ${colorClass(m.change30mLast)}`}>{pct(m.change30mLast)}</p>
-                </div>
-                <div>
-                  <p className="uppercase text-muted-foreground tracking-wider">24h</p>
-                  <p className={`tabular-nums ${colorClass(m.change24h)}`}>{pct(m.change24h, 1)}</p>
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <Button
-                  size="sm"
-                  className={`w-full h-9 rounded-lg text-white ${
-                    m.recommendation === "short"
-                      ? "bg-destructive hover:bg-destructive/90"
-                      : "bg-emerald-600 hover:bg-emerald-700"
-                  } disabled:opacity-60`}
-                  disabled={!canTrade || booking}
-                  onClick={() => canTrade && book.mutate({ m, side })}
-                >
-                  {m.recommendation === "short" ? (
-                    <TrendingDown className="size-3.5 mr-1" />
-                  ) : (
-                    <TrendingUp className="size-3.5 mr-1" />
-                  )}
-                  {booking
-                    ? "Booking…"
-                    : !canTrade
-                      ? "No clear signal"
-                      : `Book ${badge.label} (${m.confidence}%)`}
-                </Button>
-              </div>
+            <li key={m.symbol}>
+              <OpportunityCard
+                mover={m}
+                tpPct={tpPct}
+                slPct={slPct}
+                riskAmountUsd={riskAmount}
+                booking={booking}
+                onBook={(s) => book.mutate({ m, side: s })}
+              />
             </li>
           );
         })}

@@ -4,12 +4,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { updateConfig, killAll } from "@/lib/bot.functions";
-import { getTopMovers, bookManualTrade, type Mover, type Bias } from "@/lib/movers.functions";
+import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
 import { getDashboardStats } from "@/lib/stats.functions";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { OpportunityCard } from "@/components/opportunity-card";
 import { toast } from "sonner";
 import {
   Settings,
@@ -20,9 +21,6 @@ import {
   TrendingDown,
   Flame,
   RefreshCw,
-  Check,
-  X,
-  Minus,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -64,11 +62,6 @@ function momentumClass(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return "text-muted-foreground";
   return n >= 0 ? "text-emerald-500" : "text-destructive";
 }
-function biasMeta(b: Bias) {
-  if (b === "long") return { cls: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30", Icon: TrendingUp, label: "LONG" };
-  if (b === "short") return { cls: "bg-destructive/10 text-destructive border-destructive/30", Icon: TrendingDown, label: "SHORT" };
-  return { cls: "bg-muted text-muted-foreground border-border", Icon: Minus, label: "WAIT" };
-}
 
 function Home() {
   const qc = useQueryClient();
@@ -84,10 +77,10 @@ function Home() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bot_config")
-        .select("mode,is_running,leverage,take_profit_pct,stop_loss_pct,paper_equity,daily_loss_cap_pct,auto_book")
+        .select("mode,is_running,leverage,take_profit_pct,stop_loss_pct,paper_equity,daily_loss_cap_pct,auto_book,risk_per_trade_pct")
         .maybeSingle();
       if (error) throw error;
-      return data as ConfigRow | null;
+      return data as (ConfigRow & { risk_per_trade_pct: number }) | null;
     },
   });
 
@@ -173,9 +166,15 @@ function Home() {
   const dailyCap = Number(c?.daily_loss_cap_pct ?? 6);
 
   const opportunities: Mover[] = movers.data?.ok
-    ? movers.data.movers.filter((m) => m.bias !== "wait").slice(0, 5)
+    ? movers.data.movers.filter((m) => m.action !== "wait").slice(0, 5)
     : [];
   const moversError = movers.data && !movers.data.ok ? movers.data.error : null;
+
+  const tpPct = Number(c?.take_profit_pct ?? 0.6);
+  const slPct = Number(c?.stop_loss_pct ?? 0.4);
+  const riskPct = Number(c?.risk_per_trade_pct ?? 1);
+  const riskAmount = (equity * riskPct) / 100;
+  const dailyRiskAvailable = (s?.dailyLossUsedPct ?? 0) < 100;
 
   return (
     <div className="min-h-svh bg-background pb-44">
@@ -305,7 +304,7 @@ function Home() {
             <div className="min-w-0">
               <h2 className="text-sm font-medium">Best opportunities now</h2>
               <p className="text-xs text-muted-foreground truncate">
-                Ranked by Scalp Score · 1m · 5m · 30m
+                Ranked by confidence
               </p>
             </div>
           </div>
@@ -340,62 +339,19 @@ function Home() {
             : null}
 
           {opportunities.map((m) => {
-            const b = biasMeta(m.bias);
-            const Icon = b.Icon;
             const side: "long" | "short" = m.bias === "short" ? "short" : "long";
             const booking = pendingTrade === `${m.symbol}:${side}`;
             return (
-              <li key={m.symbol} className="rounded-2xl border bg-card p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm truncate">{m.display}</p>
-                      <span className={`inline-flex items-center gap-0.5 px-1.5 h-5 rounded text-[10px] font-semibold border ${b.cls}`}>
-                        <Icon className="size-2.5" />
-                        {b.label}
-                      </span>
-                      {m.eligible ? (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-500">
-                          <Check className="size-3" /> Eligible
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                          <X className="size-3" /> {m.rejectReason ?? "Rejected"}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-muted-foreground tabular-nums truncate mt-0.5">
-                      ${m.price.toLocaleString(undefined, { maximumFractionDigits: 6 })} · {pct(m.change24h)} 24h
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-lg font-semibold tabular-nums leading-none">{m.scalpScore}</p>
-                    <p className="text-[10px] text-muted-foreground">Scalp /100</p>
-                  </div>
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-                  <span className="capitalize">Spread {m.spread}</span>
-                  <span>·</span>
-                  <span className="capitalize">Vol {m.volumeTier}{m.volumeSpike ? " ⚡" : ""}</span>
-                  {m.reasons[0] ? (
-                    <>
-                      <span>·</span>
-                      <span className="truncate">{m.reasons[0]}</span>
-                    </>
-                  ) : null}
-                </div>
-
-                <Button
-                  size="sm"
-                  className={`w-full h-9 rounded-lg mt-3 text-white ${
-                    m.bias === "short" ? "bg-destructive hover:bg-destructive/90" : "bg-emerald-600 hover:bg-emerald-700"
-                  } disabled:opacity-50`}
-                  disabled={!m.eligible || booking}
-                  onClick={() => book.mutate({ m, side })}
-                >
-                  {booking ? "Booking…" : m.eligible ? `Book ${b.label} (${m.scalpScore})` : "Not eligible"}
-                </Button>
+              <li key={m.symbol}>
+                <OpportunityCard
+                  mover={m}
+                  tpPct={tpPct}
+                  slPct={slPct}
+                  riskAmountUsd={riskAmount}
+                  dailyRiskAvailable={dailyRiskAvailable}
+                  booking={booking}
+                  onBook={(s) => book.mutate({ m, side: s })}
+                />
               </li>
             );
           })}
