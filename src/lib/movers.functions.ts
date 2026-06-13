@@ -610,6 +610,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
   .inputValidator((d) => marketSchema.parse(d ?? {}))
   .handler(async ({ data, context }): Promise<{ ok: true; movers: Mover[] } | { ok: false; error: string }> => {
     const market = data.market ?? "futures";
+    const preset = STRICT_PRESETS[data.strictness ?? "moderate"];
     // Pull trade params for risk-check enrichment (best-effort; fall back to sane defaults).
     let tpPct = 0.6;
     let slPct = 0.4;
