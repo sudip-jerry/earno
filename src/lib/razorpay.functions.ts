@@ -93,7 +93,8 @@ export const verifyRazorpayPayment = createServerFn({ method: "POST" })
         razorpay_order_id: z.string().min(8).max(64),
         razorpay_payment_id: z.string().min(8).max(64),
         razorpay_signature: z.string().min(16).max(256),
-        tier: z.enum(["reco", "auto5", "unlimited"]),
+        // tier accepted for backwards compatibility but IGNORED — server derives tier from payment_orders
+        tier: z.enum(["reco", "auto5", "unlimited"]).optional(),
       })
       .parse(d),
   )
@@ -108,25 +109,39 @@ export const verifyRazorpayPayment = createServerFn({ method: "POST" })
       throw new Error("Signature mismatch — payment not verified");
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Derive tier from the server-side order record — never trust the client.
+    const { data: order, error: orderErr } = await supabaseAdmin
+      .from("payment_orders")
+      .select("tier,user_id,status")
+      .eq("order_id", data.razorpay_order_id)
+      .maybeSingle();
+    if (orderErr || !order) throw new Error("Order not found");
+    if (order.user_id !== context.userId) throw new Error("Order does not belong to caller");
+    const tier = order.tier as "reco" | "auto5" | "unlimited";
+    if (tier === "free") throw new Error("Invalid order tier");
+
     const { data: existing } = await supabaseAdmin
       .from("user_plans")
       .select("expires_at,tier")
       .eq("user_id", context.userId)
       .maybeSingle();
-    // Stack 30d on top of any unexpired same-tier plan
     const sameTierActive =
-      existing?.tier === data.tier &&
+      existing?.tier === tier &&
       existing?.expires_at &&
       new Date(existing.expires_at) > new Date();
     const base = sameTierActive ? new Date(existing!.expires_at!) : new Date();
     const expires_at = new Date(base.getTime() + 30 * 86_400_000).toISOString();
     await supabaseAdmin.from("user_plans").upsert({
       user_id: context.userId,
-      tier: data.tier,
+      tier,
       source: "razorpay",
       started_at: new Date().toISOString(),
       expires_at,
       status: "active",
     });
-    return { ok: true, tier: data.tier, expires_at };
+    await supabaseAdmin
+      .from("payment_orders")
+      .update({ status: "verified", verified_at: new Date().toISOString() })
+      .eq("order_id", data.razorpay_order_id);
+    return { ok: true, tier, expires_at };
   });
