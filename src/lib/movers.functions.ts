@@ -427,15 +427,28 @@ function deriveReasonLabel(p: {
 
 type StrictPreset = { autoConf: number; volRatio: number; pullbackMaxPct: number; rrMin: number };
 
+/**
+ * Auto TP/SL derived from confidence: TP scales 3% (conf ≤ 50) → 5% (conf ≥ 100),
+ * SL is a flat 20%. Users can override either at book time.
+ */
+export function autoTpSlForConfidence(confidence: number): { tpPct: number; slPct: number } {
+  const c = Math.max(0, Math.min(100, confidence));
+  const tpPct = +(3 + Math.max(0, c - 50) / 50 * 2).toFixed(2); // 3..5
+  return { tpPct, slPct: 20 };
+}
+
 async function enrichMover(
   base: { symbol: string; price: number; change24h: number; volume24h: number; rank24h: number },
   candlePair: string,
   market: "spot" | "futures",
   withCandles: boolean,
-  tpPct: number,
-  slPct: number,
+  _tpPctIgnored: number,
+  _slPctIgnored: number,
   preset: StrictPreset,
 ): Promise<Mover> {
+  // Auto TP/SL is derived from confidence below; these are provisional defaults.
+  let tpPct = 5;
+  let slPct = 20;
   const display = market === "spot" ? base.symbol.replace(/USDT$/, "/USDT") : prettySymbol(base.symbol);
   const volumeTier = classifyVolume(base.volume24h);
   const spread = spreadFromVolume(volumeTier);
