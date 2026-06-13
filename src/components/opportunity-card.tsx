@@ -111,7 +111,7 @@ export function OpportunityCard({
       <div className="mt-2 text-[11px] text-muted-foreground flex items-center justify-between">
         <span>Risk amount</span>
         <span className="tabular-nums font-medium text-foreground">
-          ${riskAmountUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          {fmt(riskAmountUsd)}
         </span>
       </div>
 
