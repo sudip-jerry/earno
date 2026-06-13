@@ -47,6 +47,9 @@ export type Database = {
       bot_config: {
         Row: {
           allow_short: boolean
+          auto_book: boolean
+          auto_close_minutes: number
+          cooldown_minutes: number
           created_at: string
           daily_loss_cap_pct: number
           ema_fast: number
@@ -54,11 +57,15 @@ export type Database = {
           is_running: boolean
           leverage: number
           max_open_positions: number
+          max_trades_per_day: number
+          min_scalp_score: number
           mode: string
+          move_to_breakeven: boolean
           paper_equity: number
           risk_per_trade_pct: number
           scanner_top_n: number
           stop_loss_pct: number
+          strategy: string
           take_profit_pct: number
           timeframe: string
           trailing_enabled: boolean
@@ -67,6 +74,9 @@ export type Database = {
         }
         Insert: {
           allow_short?: boolean
+          auto_book?: boolean
+          auto_close_minutes?: number
+          cooldown_minutes?: number
           created_at?: string
           daily_loss_cap_pct?: number
           ema_fast?: number
@@ -74,11 +84,15 @@ export type Database = {
           is_running?: boolean
           leverage?: number
           max_open_positions?: number
+          max_trades_per_day?: number
+          min_scalp_score?: number
           mode?: string
+          move_to_breakeven?: boolean
           paper_equity?: number
           risk_per_trade_pct?: number
           scanner_top_n?: number
           stop_loss_pct?: number
+          strategy?: string
           take_profit_pct?: number
           timeframe?: string
           trailing_enabled?: boolean
@@ -87,6 +101,9 @@ export type Database = {
         }
         Update: {
           allow_short?: boolean
+          auto_book?: boolean
+          auto_close_minutes?: number
+          cooldown_minutes?: number
           created_at?: string
           daily_loss_cap_pct?: number
           ema_fast?: number
@@ -94,11 +111,15 @@ export type Database = {
           is_running?: boolean
           leverage?: number
           max_open_positions?: number
+          max_trades_per_day?: number
+          min_scalp_score?: number
           mode?: string
+          move_to_breakeven?: boolean
           paper_equity?: number
           risk_per_trade_pct?: number
           scanner_top_n?: number
           stop_loss_pct?: number
+          strategy?: string
           take_profit_pct?: number
           timeframe?: string
           trailing_enabled?: boolean
