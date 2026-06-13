@@ -198,7 +198,7 @@ function PositionsPage() {
                       up ? "text-emerald-500" : "text-destructive"
                     }`}
                   >
-                    {fmtUsd(pnl)}
+                    {fmt(pnl, { signed: true })}
                   </p>
                 </div>
                 <div className="text-right">
