@@ -187,20 +187,25 @@ async function logPauseEvent(supabase: SupabaseClient, userId: string, message: 
   if (!data?.length) await logEvent(supabase, userId, "warn", message);
 }
 
-/** Run one auto-book pass for all eligible users. */
-export async function runAutoBookPass(supabase: SupabaseClient): Promise<{
+/** Run one auto-book pass. Optionally restrict to a single user (manual trigger). */
+export async function runAutoBookPass(
+  supabase: SupabaseClient,
+  opts: { userId?: string } = {},
+): Promise<{
   users: number;
   opened: number;
   skipped: number;
   details: Array<{ user: string; opened: number; skipped: number; reason?: string }>;
 }> {
-  const { data: cfgs } = await supabase
+  let q = supabase
     .from("bot_config")
     .select(
       "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,strategy",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
+  if (opts.userId) q = q.eq("user_id", opts.userId);
+  const { data: cfgs } = await q;
 
   const users = (cfgs ?? []) as BotConfig[];
   const result = { users: users.length, opened: 0, skipped: 0, details: [] as Array<{ user: string; opened: number; skipped: number; reason?: string }> };
