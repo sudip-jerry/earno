@@ -46,12 +46,10 @@ function AuthPage() {
           options: { emailRedirectTo: window.location.origin },
         });
         if (error) throw error;
-        setRememberMeStorage(rememberMe);
         toast.success("Account created. You're in.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        setRememberMeStorage(rememberMe);
       }
       navigate({ to: "/" });
     } catch (err) {
