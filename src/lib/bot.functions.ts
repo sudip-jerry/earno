@@ -147,3 +147,59 @@ export const killAll = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
+const MANUAL_TRIGGER_PREFIX = "Manual trigger:";
+
+/** Manually run an auto-book + mark pass for the calling user. Throttled to once per minute. */
+export const triggerMyAutoBookNow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Throttle: at most one manual trigger per minute per user.
+    const sinceIso = new Date(Date.now() - 60_000).toISOString();
+    const { data: recent } = await supabaseAdmin
+      .from("bot_events")
+      .select("created_at")
+      .eq("user_id", context.userId)
+      .like("message", `${MANUAL_TRIGGER_PREFIX}%`)
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (recent && recent.length > 0) {
+      const last = new Date(recent[0].created_at as string).getTime();
+      const waitMs = Math.max(0, 60_000 - (Date.now() - last));
+      throw new Error(
+        `Manual trigger is limited to once per minute. Try again in ${Math.ceil(waitMs / 1000)}s.`,
+      );
+    }
+
+    // Ensure the user actually has the bot configured to auto-book + running.
+    const { data: cfg } = await supabaseAdmin
+      .from("bot_config")
+      .select("auto_book,is_running")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (!cfg?.is_running || !cfg?.auto_book) {
+      throw new Error("Start the bot first (auto-book must be running).");
+    }
+
+    await supabaseAdmin.from("bot_events").insert({
+      user_id: context.userId,
+      level: "info",
+      message: `${MANUAL_TRIGGER_PREFIX} auto-book pass requested by user`,
+    });
+
+    const { runAutoBookPass, runMarkPass } = await import("@/lib/auto-book.server");
+    const [book, mark] = await Promise.all([
+      runAutoBookPass(supabaseAdmin, { userId: context.userId }),
+      runMarkPass(supabaseAdmin),
+    ]);
+    return {
+      ok: true,
+      opened: book.opened,
+      skipped: book.skipped,
+      marked: mark.updated,
+      closed: mark.closed,
+    };
+  });
