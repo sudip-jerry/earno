@@ -294,14 +294,14 @@ function PositionsPage() {
                   </div>
                 </div>
 
-                <div className="mt-3 rounded-lg border bg-muted/40 px-3 py-2 text-[11px] flex items-center justify-between">
-                  <span className="text-muted-foreground">
-                    TP <span className="tabular-nums text-foreground">{fmtNum(p.take_profit, 6)}</span>
-                  </span>
-                  <span className="text-muted-foreground">
-                    SL <span className="tabular-nums text-foreground">{fmtNum(p.stop_loss, 6)}</span>
-                  </span>
-                </div>
+                <TpSlEditor
+                  positionId={p.id}
+                  side={p.side}
+                  entry={entry}
+                  takeProfit={p.take_profit}
+                  stopLoss={p.stop_loss}
+                />
+
 
                 <div className="mt-3">
                   <Button
