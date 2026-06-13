@@ -68,6 +68,14 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
     if (!res.ok || !json.id) {
       throw new Error(json?.error?.description ?? "Razorpay order creation failed");
     }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("payment_orders").insert({
+      order_id: json.id,
+      user_id: context.userId,
+      tier: data.tier,
+      amount_paise: amount,
+      status: "created",
+    });
     return {
       orderId: json.id,
       amount,
