@@ -21,7 +21,10 @@ import {
   adminTogglePaywall,
   adminCreateCoupon,
   adminListCoupons,
+  adminListTrades,
+  adminListEvents,
 } from "@/lib/plans.functions";
+
 import { PLAN_NAME, type PlanTier } from "@/lib/plans";
 
 export const Route = createFileRoute("/_authenticated/admin")({
