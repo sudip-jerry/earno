@@ -39,15 +39,34 @@ type PositionRow = {
   instrument: "futures" | "spot" | null;
 };
 
+type ClosedRow = PositionRow & {
+  exit_price: number | null;
+  exit_reason: string | null;
+  closed_at: string | null;
+};
+
 function fmtNum(n: number | null | undefined, digits = 4): string {
   if (n == null || !Number.isFinite(Number(n))) return "—";
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: digits });
+}
+
+function fmtDuration(fromIso: string, toIso: string | null): string {
+  const from = new Date(fromIso).getTime();
+  const to = toIso ? new Date(toIso).getTime() : Date.now();
+  const sec = Math.max(0, Math.floor((to - from) / 1000));
+  if (sec < 60) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  const rem = min % 60;
+  return rem ? `${hr}h ${rem}m` : `${hr}h`;
 }
 
 function PositionsPage() {
   const qc = useQueryClient();
   const closeFn = useServerFn(closeManualTrade);
   const [pending, setPending] = useState<string | null>(null);
+  const [tab, setTab] = useState<"open" | "closed">("open");
   const { fmt } = useCurrency();
 
   const q = useQuery({
@@ -63,6 +82,22 @@ function PositionsPage() {
     },
     refetchInterval: 5_000,
   });
+
+  const closedQ = useQuery({
+    queryKey: ["positions_closed"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("positions")
+        .select("id,symbol,side,leverage,qty,entry_price,mark_price,stop_loss,take_profit,pnl,pnl_pct,opened_at,closed_at,exit_price,exit_reason,mode,instrument")
+        .eq("status", "closed")
+        .order("closed_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return (data ?? []) as ClosedRow[];
+    },
+    enabled: tab === "closed",
+  });
+
 
   const rows = q.data ?? [];
   const symbols = useMemo(() => rows.map((r) => r.symbol), [rows]);
