@@ -416,6 +416,8 @@ function deriveReasonLabel(p: {
   return "Watching for setup";
 }
 
+type StrictPreset = { autoConf: number; volRatio: number; pullbackMaxPct: number; rrMin: number };
+
 async function enrichMover(
   base: { symbol: string; price: number; change24h: number; volume24h: number; rank24h: number },
   candlePair: string,
@@ -423,6 +425,7 @@ async function enrichMover(
   withCandles: boolean,
   tpPct: number,
   slPct: number,
+  preset: StrictPreset,
 ): Promise<Mover> {
   const display = market === "spot" ? base.symbol.replace(/USDT$/, "/USDT") : prettySymbol(base.symbol);
   const volumeTier = classifyVolume(base.volume24h);
