@@ -38,9 +38,10 @@ function ScannerPage() {
   const [minConfidence, setMinConfidence] = useState(55);
   const [tradableOnly, setTradableOnly] = useState(false);
 
+  const { strictness } = useStrictness();
   const q = useQuery({
-    queryKey: ["scanner_movers"],
-    queryFn: () => getFn({ data: { market: "futures" } }),
+    queryKey: ["scanner_movers", strictness],
+    queryFn: () => getFn({ data: { market: "futures", strictness } }),
     refetchInterval: 30_000,
   });
 
