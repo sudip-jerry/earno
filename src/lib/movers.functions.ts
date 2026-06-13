@@ -617,6 +617,8 @@ async function enrichMover(
     checks,
     tier,
     reasonLabel,
+    tpPct,
+    slPct,
   };
 }
 
