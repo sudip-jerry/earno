@@ -44,13 +44,6 @@ function fmtNum(n: number | null | undefined, digits = 4): string {
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
-function fmtUsd(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(Number(n))) return "—";
-  const v = Number(n);
-  const sign = v >= 0 ? "+" : "−";
-  return `${sign}$${Math.abs(v).toFixed(2)}`;
-}
-
 function PositionsPage() {
   const qc = useQueryClient();
   const closeFn = useServerFn(closeManualTrade);
