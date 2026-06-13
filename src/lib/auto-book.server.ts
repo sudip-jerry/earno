@@ -219,7 +219,7 @@ export async function runAutoBookPass(supabase: SupabaseClient): Promise<{
     startOfDay.setUTCHours(0, 0, 0, 0);
     const { data: todayPos } = await supabase
       .from("positions")
-      .select("pnl,status,opened_at")
+      .select("pnl,status,opened_at,exchange_order_id")
       .eq("user_id", cfg.user_id)
       .gte("opened_at", startOfDay.toISOString());
 
@@ -235,11 +235,13 @@ export async function runAutoBookPass(supabase: SupabaseClient): Promise<{
       }
     }
 
-    const todayCount = (todayPos ?? []).length;
+    const todayAutoCount = (todayPos ?? []).filter((p) =>
+      String(p.exchange_order_id ?? "").startsWith("paper-auto-"),
+    ).length;
     const dailyLimit = Math.min(cfg.max_trades_per_day ?? 999, planDailyLimit);
-    const remainingToday = Math.max(0, dailyLimit - todayCount);
+    const remainingToday = Math.max(0, dailyLimit - todayAutoCount);
     if (remainingToday <= 0) {
-      await logEvent(supabase, cfg.user_id, "warn", `Auto-book paused: daily trade limit reached (${todayCount}/${dailyLimit})`);
+      await logEvent(supabase, cfg.user_id, "warn", `Auto-book paused: daily auto-book limit reached (${todayAutoCount}/${dailyLimit})`);
       result.details.push({ user: cfg.user_id, opened: 0, skipped: setups.length, reason: "daily trade limit" });
       result.skipped += setups.length;
       continue;
