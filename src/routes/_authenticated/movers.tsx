@@ -33,7 +33,7 @@ function MoversPage() {
   const getFn = useServerFn(getTopMovers);
   const bookFn = useServerFn(bookManualTrade);
   const [pending, setPending] = useState<string | null>(null);
-  const [market, setMarket] = useState<"futures" | "spot">("futures");
+  const { market } = useMarketMode();
 
   const q = useQuery({
     queryKey: ["top_movers", market],
