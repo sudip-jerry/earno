@@ -63,10 +63,7 @@ function Home() {
   const qc = useQueryClient();
   const updateFn = useServerFn(updateConfig);
   const killFn = useServerFn(killAll);
-  const moversFn = useServerFn(getTopMovers);
-  const bookFn = useServerFn(bookManualTrade);
   const statsFn = useServerFn(getDashboardStats);
-  const [pendingTrade, setPendingTrade] = useState<string | null>(null);
 
   const cfg = useQuery({
     queryKey: ["bot_config"],
@@ -92,13 +89,6 @@ function Home() {
       return (data ?? []) as PositionRow[];
     },
     refetchInterval: 5000,
-  });
-
-  const { strictness } = useStrictness();
-  const movers = useQuery({
-    queryKey: ["dashboard_top_movers", strictness],
-    queryFn: () => moversFn({ data: { market: "futures", strictness } }),
-    refetchInterval: 30_000,
   });
 
   const stats = useQuery({
@@ -143,18 +133,6 @@ function Home() {
     },
   });
 
-  const book = useMutation({
-    mutationFn: async (input: { m: Mover; side: "long" | "short" }) =>
-      bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price, market: "futures" } }),
-    onMutate: (v) => setPendingTrade(`${v.m.symbol}:${v.side}`),
-    onSettled: () => setPendingTrade(null),
-    onSuccess: (_d, v) => {
-      toast.success(`${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked`);
-      qc.invalidateQueries({ queryKey: ["positions_open"] });
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Booking failed"),
-  });
-
   const c = cfg.data;
   const isLive = c?.mode === "live";
   const isRunning = c?.is_running ?? false;
@@ -162,19 +140,6 @@ function Home() {
   const s = stats.data;
   const dailyCap = Number(c?.daily_loss_cap_pct ?? 6);
 
-  const allMovers: Mover[] = movers.data?.ok ? movers.data.movers : [];
-  const autoEligible = allMovers.filter((m) => m.tier === "auto");
-  const watchlist = allMovers.filter((m) => m.tier === "watch");
-  const avoidedCount = allMovers.filter((m) => m.tier === "avoid").length;
-  // Show auto-eligible first, then watchlist, up to 6 cards.
-  const opportunities: Mover[] = [...autoEligible, ...watchlist].slice(0, 6);
-  const moversError = movers.data && !movers.data.ok ? movers.data.error : null;
-
-  const tpPct = Number(c?.take_profit_pct ?? 0.6);
-  const slPct = Number(c?.stop_loss_pct ?? 0.4);
-  const riskPct = Number(c?.risk_per_trade_pct ?? 1);
-  const riskAmount = (equity * riskPct) / 100;
-  const dailyRiskAvailable = (s?.dailyLossUsedPct ?? 0) < 100;
 
   return (
     <div className="min-h-svh bg-background pb-44">
