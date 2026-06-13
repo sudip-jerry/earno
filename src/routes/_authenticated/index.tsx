@@ -81,13 +81,13 @@ function Home() {
       if (!u.user) return null;
       const { data } = await supabase
         .from("profiles")
-        .select("display_name,email,avatar_url")
+        .select("display_name,email")
         .eq("id", u.user.id)
         .maybeSingle();
       return {
         display_name: (data?.display_name as string | null) ?? (u.user.user_metadata?.full_name as string | undefined) ?? null,
         email: (data?.email as string | null) ?? u.user.email ?? null,
-        avatar_url: (data?.avatar_url as string | null) ?? (u.user.user_metadata?.avatar_url as string | undefined) ?? null,
+        avatar_url: (u.user.user_metadata?.avatar_url as string | undefined) ?? null,
       };
     },
   });
