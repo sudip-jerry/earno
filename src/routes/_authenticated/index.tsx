@@ -1,14 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { updateConfig, killAll } from "@/lib/bot.functions";
+import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
 import { toast } from "sonner";
-import { Settings, HelpCircle, Power, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
+import { Settings, HelpCircle, Power, AlertTriangle, TrendingUp, TrendingDown, Flame, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -43,6 +44,10 @@ function Home() {
   const qc = useQueryClient();
   const updateFn = useServerFn(updateConfig);
   const killFn = useServerFn(killAll);
+  const moversFn = useServerFn(getTopMovers);
+  const bookFn = useServerFn(bookManualTrade);
+  const [market, setMarket] = useState<"futures" | "spot">("futures");
+  const [pendingTrade, setPendingTrade] = useState<string | null>(null);
 
   const cfg = useQuery({
     queryKey: ["bot_config"],
@@ -68,6 +73,12 @@ function Home() {
       return (data ?? []) as PositionRow[];
     },
     refetchInterval: 5000,
+  });
+
+  const movers = useQuery({
+    queryKey: ["dashboard_top_movers", market],
+    queryFn: () => moversFn({ data: { market } }),
+    refetchInterval: 30_000,
   });
 
   // Realtime: refresh on changes
@@ -106,6 +117,18 @@ function Home() {
     },
   });
 
+  const book = useMutation({
+    mutationFn: async (input: { m: Mover; side: "long" | "short" }) =>
+      bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price, market } }),
+    onMutate: (v) => setPendingTrade(`${v.m.symbol}:${v.side}`),
+    onSettled: () => setPendingTrade(null),
+    onSuccess: (_d, v) => {
+      toast.success(`${v.side === "long" ? (market === "spot" ? "Buy" : "Long") : "Short"} ${v.m.display} booked`);
+      qc.invalidateQueries({ queryKey: ["positions_open"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Booking failed"),
+  });
+
   const c = cfg.data;
   const isLive = c?.mode === "live";
   const isRunning = c?.is_running ?? false;
@@ -113,6 +136,8 @@ function Home() {
   const totalPnlPct =
     (positions.data ?? []).reduce((acc, p) => acc + Number(p.pnl_pct ?? 0), 0) /
     Math.max(positions.data?.length ?? 1, 1);
+  const topMovers: Mover[] = movers.data?.ok ? movers.data.movers.slice(0, 5) : [];
+  const moversError = movers.data && !movers.data.ok ? movers.data.error : null;
 
   return (
     <div className="min-h-svh bg-background pb-40">
