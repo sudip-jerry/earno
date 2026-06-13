@@ -62,7 +62,7 @@ function ScannerPage() {
 
   const book = useMutation({
     mutationFn: async (input: { m: Mover; side: "long" | "short" }) =>
-      bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price, market: "futures" } }),
+      bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price, market } }),
     onMutate: (v) => setPending(v.m.symbol),
     onSettled: () => setPending(null),
     onSuccess: (_d, v) => {
