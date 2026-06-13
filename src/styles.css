@@ -62,75 +62,75 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  /* EarnO brand: Primary #082567, Secondary #0D3DBA, Accent #3D7BFF, Success #16A34A, Danger #DC2626 */
+  --radius: 0.75rem;
+  /* EarnO brand: White surfaces, Royal Blue primary, Green success, Black ink */
   --background: #ffffff;
-  --foreground: #0D1117;
+  --foreground: #0A0A0A;
   --card: #ffffff;
-  --card-foreground: #0D1117;
+  --card-foreground: #0A0A0A;
   --popover: #ffffff;
-  --popover-foreground: #0D1117;
-  --primary: #082567;
+  --popover-foreground: #0A0A0A;
+  --primary: #1D4ED8;
   --primary-foreground: #ffffff;
-  --secondary: #F3F4F6;
-  --secondary-foreground: #082567;
-  --muted: #F3F4F6;
-  --muted-foreground: #4B5563;
-  --accent: #3D7BFF;
+  --secondary: #F4F6FB;
+  --secondary-foreground: #0A0A0A;
+  --muted: #F4F6FB;
+  --muted-foreground: #5B6472;
+  --accent: #16A34A;
   --accent-foreground: #ffffff;
   --destructive: #DC2626;
   --destructive-foreground: #ffffff;
-  --border: #E5E7EB;
-  --input: #E5E7EB;
-  --ring: #3D7BFF;
-  --chart-1: #3D7BFF;
+  --border: #E6E9F0;
+  --input: #E6E9F0;
+  --ring: #1D4ED8;
+  --chart-1: #1D4ED8;
   --chart-2: #16A34A;
   --chart-3: #DC2626;
-  --chart-4: #0D3DBA;
-  --chart-5: #4B5563;
+  --chart-4: #2563EB;
+  --chart-5: #5B6472;
   --sidebar: #ffffff;
-  --sidebar-foreground: #0D1117;
-  --sidebar-primary: #082567;
+  --sidebar-foreground: #0A0A0A;
+  --sidebar-primary: #1D4ED8;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #F3F4F6;
-  --sidebar-accent-foreground: #082567;
-  --sidebar-border: #E5E7EB;
-  --sidebar-ring: #3D7BFF;
+  --sidebar-accent: #F4F6FB;
+  --sidebar-accent-foreground: #1D4ED8;
+  --sidebar-border: #E6E9F0;
+  --sidebar-ring: #1D4ED8;
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  --background: #050608;
+  --foreground: #F5F7FA;
+  --card: #0E1117;
+  --card-foreground: #F5F7FA;
+  --popover: #0E1117;
+  --popover-foreground: #F5F7FA;
+  --primary: #3B82F6;
+  --primary-foreground: #ffffff;
+  --secondary: #161B23;
+  --secondary-foreground: #F5F7FA;
+  --muted: #161B23;
+  --muted-foreground: #94A3B8;
+  --accent: #22C55E;
+  --accent-foreground: #050608;
+  --destructive: #EF4444;
+  --destructive-foreground: #ffffff;
+  --border: #1F2630;
+  --input: #1F2630;
+  --ring: #3B82F6;
+  --chart-1: #3B82F6;
+  --chart-2: #22C55E;
+  --chart-3: #EF4444;
+  --chart-4: #60A5FA;
+  --chart-5: #94A3B8;
+  --sidebar: #0E1117;
+  --sidebar-foreground: #F5F7FA;
+  --sidebar-primary: #3B82F6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #161B23;
+  --sidebar-accent-foreground: #F5F7FA;
+  --sidebar-border: #1F2630;
+  --sidebar-ring: #3B82F6;
 }
 
 @layer base {
@@ -146,4 +146,10 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
+
+  .tabular-nums, .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
 }
+
