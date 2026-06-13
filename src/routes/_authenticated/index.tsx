@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { updateConfig, killAll } from "@/lib/bot.functions";
-import { getTopMovers, bookManualTrade, type Mover, type Bias } from "@/lib/movers.functions";
+import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
 import { getDashboardStats } from "@/lib/stats.functions";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -21,9 +21,6 @@ import {
   TrendingDown,
   Flame,
   RefreshCw,
-  Check,
-  X,
-  Minus,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -64,11 +61,6 @@ function pct(n: number | null | undefined, digits = 1) {
 function momentumClass(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return "text-muted-foreground";
   return n >= 0 ? "text-emerald-500" : "text-destructive";
-}
-function biasMeta(b: Bias) {
-  if (b === "long") return { cls: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30", Icon: TrendingUp, label: "LONG" };
-  if (b === "short") return { cls: "bg-destructive/10 text-destructive border-destructive/30", Icon: TrendingDown, label: "SHORT" };
-  return { cls: "bg-muted text-muted-foreground border-border", Icon: Minus, label: "WAIT" };
 }
 
 function Home() {
