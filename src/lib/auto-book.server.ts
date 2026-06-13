@@ -36,10 +36,16 @@ function autoTpSl(confidence: number): { tpPct: number; slPct: number } {
   return { tpPct, slPct: 20 };
 }
 
-/** Fetch CoinDCX futures ticker, top-N by 24h volume. */
-async function fetchTopVolume(n: number): Promise<
-  Array<{ symbol: string; price: number; change24h: number; volume24h: number }>
-> {
+/**
+ * Build a dynamic scan universe from the CoinDCX futures ticker:
+ *   • top `nChange` symbols by absolute 24h % change (covers biggest gainers AND losers)
+ *   • top `nVolume` symbols by 24h quote volume
+ * Returns the de-duplicated union — keeps the watchlist fresh each tick.
+ */
+async function fetchScanUniverse(
+  nChange = 20,
+  nVolume = 20,
+): Promise<Array<{ symbol: string; price: number; change24h: number; volume24h: number }>> {
   const res = await fetch(FUTURES_TICKER, { headers: PUB_HEADERS, cache: "no-store" });
   if (!res.ok) return [];
   const raw = (await res.json()) as
@@ -62,8 +68,17 @@ async function fetchTopVolume(n: number): Promise<
   };
   if (Array.isArray(dict)) dict.forEach((r) => consume(undefined, r));
   else Object.entries(dict).forEach(([k, v]) => v && typeof v === "object" && consume(k, v));
-  rows.sort((a, b) => b.volume24h - a.volume24h);
-  return rows.slice(0, n);
+
+  const byChange = [...rows].sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h)).slice(0, nChange);
+  const byVolume = [...rows].sort((a, b) => b.volume24h - a.volume24h).slice(0, nVolume);
+  const seen = new Set<string>();
+  const union: typeof rows = [];
+  for (const r of [...byChange, ...byVolume]) {
+    if (seen.has(r.symbol)) continue;
+    seen.add(r.symbol);
+    union.push(r);
+  }
+  return union;
 }
 
 /** Get live mark prices for the given symbols using the same ticker. */
