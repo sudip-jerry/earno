@@ -185,7 +185,6 @@ export async function runAutoBookPass(supabase: SupabaseClient): Promise<{
   const { data: cfgs } = await supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,daily_loss_cap_pct,min_scalp_score,allow_short,strategy",
       "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,strategy",
     )
     .eq("auto_book", true)
