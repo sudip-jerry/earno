@@ -18,11 +18,10 @@ import {
   HelpCircle,
   Power,
   AlertTriangle,
-  TrendingUp,
-  TrendingDown,
   Flame,
   RefreshCw,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -378,59 +377,29 @@ function Home() {
         </ul>
       </section>
 
-      {/* Positions */}
+      {/* Positions summary → full page in Positions tab */}
       <section className="px-5 mt-6">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-medium">
-            Open positions <span className="text-muted-foreground">({positions.data?.length ?? 0})</span>
-          </h2>
-        </div>
-        {positions.data && positions.data.length > 0 ? (
-          <ul className="space-y-2">
-            {positions.data.map((p) => {
-              const pnl = Number(p.pnl_pct ?? 0);
-              const up = pnl >= 0;
-              return (
-                <li key={p.id} className="rounded-2xl border bg-card p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-medium text-sm">{p.symbol}</span>
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded ${
-                          p.side === "long" ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive"
-                        }`}
-                      >
-                        {p.side.toUpperCase()} {p.leverage}x
-                      </span>
-                    </div>
-                    <div className={`flex items-center gap-1 font-medium tabular-nums text-sm ${up ? "text-emerald-500" : "text-destructive"}`}>
-                      {up ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
-                      {up ? "+" : ""}{pnl.toFixed(2)}%
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Entry </span>
-                      <span className="tabular-nums">{Number(p.entry_price).toFixed(4)}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-muted-foreground">Mark </span>
-                      <span className="tabular-nums">{p.mark_price != null ? Number(p.mark_price).toFixed(4) : "—"}</span>
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <div className="rounded-2xl border border-dashed bg-card/50 p-8 text-center">
-            <p className="text-sm text-muted-foreground">No open positions yet.</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {isRunning ? "Scanning the market for setups." : "Start the bot to begin scanning."}
-            </p>
+        <Link
+          to="/positions"
+          className="block rounded-2xl border bg-card p-4 hover:bg-muted/40 transition"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Open positions</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {positions.data?.length ?? 0} open · live PNL in Positions tab
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Open</p>
+              <p className="text-2xl font-semibold tabular-nums leading-none mt-0.5">
+                {positions.data?.length ?? 0}
+              </p>
+            </div>
           </div>
-        )}
+        </Link>
       </section>
+
 
       {/* Bottom action bar */}
       <div className="fixed bottom-14 inset-x-0 bg-background/85 backdrop-blur border-t px-5 py-3 flex items-center gap-3 z-20">

@@ -739,3 +739,52 @@ export const bookManualTrade = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+const closeSchema = z.object({
+  positionId: z.string().uuid(),
+});
+
+export const closeManualTrade = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => closeSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: pos, error: posErr } = await supabaseAdmin
+      .from("positions")
+      .select("id,user_id,symbol,side,leverage,qty,entry_price,mark_price,status")
+      .eq("id", data.positionId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (posErr || !pos) throw new Error(posErr?.message ?? "Position not found");
+    if (pos.status !== "open") throw new Error("Position is not open");
+
+    const exit = Number(pos.mark_price ?? pos.entry_price);
+    const entry = Number(pos.entry_price);
+    const qty = Number(pos.qty);
+    const lev = Number(pos.leverage);
+    const sideMul = pos.side === "long" ? 1 : -1;
+    const pnl = (exit - entry) * qty * sideMul;
+    const pnlPct = ((exit - entry) / entry) * 100 * sideMul * lev;
+
+    const { error } = await supabaseAdmin
+      .from("positions")
+      .update({
+        status: "closed",
+        exit_price: exit,
+        exit_reason: "manual",
+        pnl,
+        pnl_pct: pnlPct,
+        closed_at: new Date().toISOString(),
+      })
+      .eq("id", pos.id);
+    if (error) throw new Error(error.message);
+
+    await supabaseAdmin.from("bot_events").insert({
+      user_id: context.userId,
+      level: "info",
+      message: `Manually closed ${pos.side.toUpperCase()} ${pos.symbol} at ${exit}`,
+    });
+
+    return { ok: true, pnl, pnlPct };
+  });
