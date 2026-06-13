@@ -75,7 +75,7 @@ export function PositionsStrip({ showMarketToggle = true }: { showMarketToggle?:
                 rows.length === 0 ? "text-muted-foreground" : up ? "text-emerald-500" : "text-destructive"
               }`}
             >
-              {rows.length === 0 ? "—" : fmtUsd(totalPnl)}
+              {rows.length === 0 ? "—" : fmt(totalPnl, { signed: true })}
             </span>
           </div>
           <ChevronRight className="size-4 text-muted-foreground shrink-0" />
