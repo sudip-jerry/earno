@@ -744,6 +744,7 @@ export const bookManualTrade = createServerFn({ method: "POST" })
 
 const closeSchema = z.object({
   positionId: z.string().uuid(),
+  limitPrice: z.number().positive().optional(),
 });
 
 export const closeManualTrade = createServerFn({ method: "POST" })
@@ -761,7 +762,7 @@ export const closeManualTrade = createServerFn({ method: "POST" })
     if (posErr || !pos) throw new Error(posErr?.message ?? "Position not found");
     if (pos.status !== "open") throw new Error("Position is not open");
 
-    const exit = Number(pos.mark_price ?? pos.entry_price);
+    const exit = Number(data.limitPrice ?? pos.mark_price ?? pos.entry_price);
     const entry = Number(pos.entry_price);
     const qty = Number(pos.qty);
     const lev = Number(pos.leverage);
@@ -774,7 +775,7 @@ export const closeManualTrade = createServerFn({ method: "POST" })
       .update({
         status: "closed",
         exit_price: exit,
-        exit_reason: "manual",
+        exit_reason: "manual_limit",
         pnl,
         pnl_pct: pnlPct,
         closed_at: new Date().toISOString(),
@@ -785,11 +786,12 @@ export const closeManualTrade = createServerFn({ method: "POST" })
     await supabaseAdmin.from("bot_events").insert({
       user_id: context.userId,
       level: "info",
-      message: `Manually closed ${pos.side.toUpperCase()} ${pos.symbol} at ${exit}`,
+      message: `Manually closed ${pos.side.toUpperCase()} ${pos.symbol} via LIMIT at ${exit}`,
     });
 
     return { ok: true, pnl, pnlPct };
   });
+
 
 const livePricesSchema = z.object({
   symbols: z.array(z.string().min(1).max(40).regex(/^[A-Z0-9_\-\/]+$/)).min(1).max(50),
