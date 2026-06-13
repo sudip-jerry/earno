@@ -236,16 +236,18 @@ function confidenceLabelFor(tier: Tier): ConfidenceLabel {
   return "Avoid";
 }
 
-function tierFor(confidence: number, bias: Bias, riskOk: boolean): Tier {
-  if (bias === "wait" || confidence < 55) return "avoid";
-  if (confidence >= 80 && riskOk) return "auto";
-  if (confidence >= 65) return "watch";
+function tierFor(confidence: number, bias: Bias, riskOk: boolean, autoConf: number): Tier {
+  const watchConf = Math.max(40, autoConf - 10);
+  const weakConf = Math.max(30, autoConf - 20);
+  if (bias === "wait" || confidence < weakConf) return "avoid";
+  if (confidence >= autoConf && riskOk) return "auto";
+  if (confidence >= watchConf) return "watch";
   return "weak";
 }
 
 function actionForTier(tier: Tier, bias: Bias): Action {
-  if (tier === "auto" && (bias === "long" || bias === "short")) return bias;
   if (tier === "avoid") return "avoid";
+  if (bias === "long" || bias === "short") return bias;
   return "wait";
 }
 
