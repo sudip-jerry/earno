@@ -699,6 +699,10 @@ const bookSchema = z.object({
   side: z.enum(["long", "short"]),
   price: z.number().positive(),
   market: z.enum(["spot", "futures"]).optional(),
+  // Optional per-trade overrides. When omitted, auto values derived from confidence are used.
+  confidence: z.number().min(0).max(100).optional(),
+  tpPct: z.number().min(0.1).max(50).optional(),
+  slPct: z.number().min(0.1).max(50).optional(),
 });
 
 export const bookManualTrade = createServerFn({ method: "POST" })
@@ -709,7 +713,7 @@ export const bookManualTrade = createServerFn({ method: "POST" })
 
     const { data: cfg, error: cfgErr } = await supabaseAdmin
       .from("bot_config")
-      .select("mode,leverage,take_profit_pct,stop_loss_pct,risk_per_trade_pct,paper_equity,max_open_positions")
+      .select("mode,leverage,risk_per_trade_pct,paper_equity,max_open_positions")
       .eq("user_id", context.userId)
       .maybeSingle();
     if (cfgErr || !cfg) throw new Error(cfgErr?.message ?? "No bot config found");
@@ -726,14 +730,17 @@ export const bookManualTrade = createServerFn({ method: "POST" })
     const equity = Number(cfg.paper_equity ?? 0);
     const riskPct = Number(cfg.risk_per_trade_pct ?? 1);
     const lev = Number(cfg.leverage ?? 3);
-    const sl = Number(cfg.stop_loss_pct ?? 2);
-    const tp = Number(cfg.take_profit_pct ?? 3);
+    // Auto TP/SL from confidence (3–5% TP, 20% SL), overridable per trade.
+    const auto = autoTpSlForConfidence(data.confidence ?? 50);
+    const tp = data.tpPct ?? auto.tpPct;
+    const sl = data.slPct ?? auto.slPct;
 
     const notional = Math.min((equity * riskPct) / sl, equity) * lev;
     const qty = notional / data.price;
 
     const stop_loss = data.side === "long" ? data.price * (1 - sl / 100) : data.price * (1 + sl / 100);
     const take_profit = data.side === "long" ? data.price * (1 + tp / 100) : data.price * (1 - tp / 100);
+
 
     const instrument = data.market === "spot" ? "spot" : "futures";
     const { error } = await supabaseAdmin.from("positions").insert({
