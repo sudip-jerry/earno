@@ -534,19 +534,19 @@ async function enrichMover(
       : bias === "long" ? rsi >= 50 && rsi <= 74
       : bias === "short" ? rsi >= 26 && rsi <= 50
       : true;
-  const pullbackOkForAuto = vwapDistPct == null || Math.abs(vwapDistPct) <= 0.25;
+  const pullbackOkForAuto = vwapDistPct == null || Math.abs(vwapDistPct) <= preset.pullbackMaxPct;
   const riskOk =
     rejectReason == null &&
     bias !== "wait" &&
     spread !== "wide" &&
     volumeTier !== "low" &&
-    rr >= 1.2 &&
+    rr >= preset.rrMin &&
     rsiOkForAuto &&
     pullbackOkForAuto &&
-    volumeRatio >= 1.5 &&
+    volumeRatio >= preset.volRatio &&
     fiveAligned;
 
-  const tier: Tier = rejectReason ? "avoid" : tierFor(r.confidence, bias, riskOk);
+  const tier: Tier = rejectReason ? "avoid" : tierFor(r.confidence, bias, riskOk, preset.autoConf);
   const eligible = tier === "auto";
   const action = actionForTier(tier, bias);
   const confidenceLabel = confidenceLabelFor(tier);
