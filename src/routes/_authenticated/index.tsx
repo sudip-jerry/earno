@@ -1,10 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { updateConfig, killAll } from "@/lib/bot.functions";
 import { getDashboardStats } from "@/lib/stats.functions";
+import { getMyEntitlements } from "@/lib/plans.functions";
+import { PLAN_NAME, type PlanTier } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
@@ -20,6 +22,9 @@ import {
   AlertTriangle,
   Timer,
   TimerOff,
+  Crown,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 
 
@@ -65,9 +70,13 @@ function momentumClass(n: number | null | undefined) {
 
 function Home() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const updateFn = useServerFn(updateConfig);
   const killFn = useServerFn(killAll);
   const statsFn = useServerFn(getDashboardStats);
+  const entFn = useServerFn(getMyEntitlements);
+
+  const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
 
   const cfg = useQuery({
     queryKey: ["bot_config"],
@@ -123,12 +132,29 @@ function Home() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
   });
 
+  const tier: PlanTier = ent.data?.tier ?? "free";
+  const paywall = ent.data?.paywallEnabled ?? true;
+  const canRunBot = !paywall || tier === "auto5" || tier === "unlimited";
+  const isAdmin = !!ent.data?.isAdmin;
+
   const toggleRun = useMutation({
-    mutationFn: async (run: boolean) =>
-      // Tie cron (auto_book) to the bot run state — Start bot enables cron, Stop disables it.
-      updateFn({ data: { is_running: run, auto_book: run } }),
+    mutationFn: async (run: boolean) => {
+      if (run && !canRunBot) {
+        navigate({ to: "/upgrade" });
+        throw new Error("Upgrade required to start the bot");
+      }
+      return updateFn({ data: { is_running: run, auto_book: run } });
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["bot_config"] }),
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
+    onError: (e) => {
+      const msg = e instanceof Error ? e.message : "Update failed";
+      if (msg.startsWith("PAYMENT_REQUIRED")) {
+        toast.error("Upgrade required to start the bot");
+        navigate({ to: "/upgrade" });
+      } else if (!msg.includes("Upgrade required")) {
+        toast.error(msg);
+      }
+    },
   });
 
   const kill = useMutation({
@@ -146,6 +172,8 @@ function Home() {
   const equity = Number(c?.paper_equity ?? 0);
   const s = stats.data;
   const dailyCap = Number(c?.daily_loss_cap_pct ?? 6);
+
+
 
 
   return (
@@ -191,6 +219,28 @@ function Home() {
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <ThemeToggle />
+          {isAdmin ? (
+            <Link
+              to="/admin"
+              title="Admin"
+              className="size-10 grid place-items-center rounded-full hover:bg-muted"
+            >
+              <ShieldCheck className="size-5 text-primary" />
+            </Link>
+          ) : null}
+          <Link
+            to="/upgrade"
+            title={`Plan: ${PLAN_NAME[tier]}`}
+            className="size-10 grid place-items-center rounded-full hover:bg-muted relative"
+          >
+            {tier === "unlimited" ? (
+              <Crown className="size-5 text-primary" />
+            ) : tier === "free" ? (
+              <Sparkles className="size-5 text-muted-foreground" />
+            ) : (
+              <Sparkles className="size-5 text-primary" />
+            )}
+          </Link>
           <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
             <HelpCircle className="size-5 text-muted-foreground" />
           </Link>
@@ -199,6 +249,21 @@ function Home() {
           </Link>
         </div>
       </header>
+
+      {!canRunBot ? (
+        <Link
+          to="/upgrade"
+          className="mx-5 mb-4 rounded-xl border border-primary/40 bg-primary/5 px-3 py-2 text-xs text-primary flex items-center justify-between gap-2"
+        >
+          <span className="flex items-center gap-2">
+            <Sparkles className="size-4 shrink-0" />
+            You're on <strong>{PLAN_NAME[tier]}</strong>. Upgrade to start auto-booking trades.
+          </span>
+          <span className="text-[11px] px-2 h-6 inline-flex items-center rounded-full bg-primary text-primary-foreground">
+            Upgrade
+          </span>
+        </Link>
+      ) : null}
 
       {isLive ? (
         <div className="mx-5 mb-4 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive flex items-center gap-2">
