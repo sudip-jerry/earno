@@ -156,7 +156,7 @@ function Home() {
         <div className="min-w-0 flex-1">
           <img
             src={earnoStacked.url}
-            alt="EarnO — Grow your money while you sleep"
+            alt="EarnO — Wealth, Engineered."
             className="h-12 w-auto select-none"
             draggable={false}
           />
