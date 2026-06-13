@@ -220,11 +220,11 @@ function Home() {
             {isLive ? "Account" : "Virtual capital"}
           </p>
           <p className="text-3xl font-semibold tracking-tight mt-1 tabular-nums">
-            ${equity.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            {fmt(equity)}
           </p>
           <div className="flex items-center gap-3 mt-1 text-sm tabular-nums">
             <span className={momentumClass(s?.todayPnl)}>
-              {s ? `${s.todayPnl >= 0 ? "+" : ""}$${s.todayPnl.toFixed(2)}` : "—"} today
+              {s ? `${fmt(s.todayPnl, { signed: true })}` : "—"} today
             </span>
             <span className="text-muted-foreground">·</span>
             <span className={momentumClass(s?.todayPnlPct)}>{pct(s?.todayPnlPct, 2)}</span>
