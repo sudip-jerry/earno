@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLivePrices } from "@/hooks/use-live-prices";
 import { useMarketMode, type MarketMode } from "@/hooks/use-market-mode";
+import { useCurrency } from "@/hooks/use-currency";
 import { ChevronRight, RefreshCw, Briefcase } from "lucide-react";
 
 type Row = {
