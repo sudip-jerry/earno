@@ -247,6 +247,39 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_orders: {
+        Row: {
+          amount_paise: number
+          created_at: string
+          id: string
+          order_id: string
+          status: string
+          tier: Database["public"]["Enums"]["plan_tier"]
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          amount_paise: number
+          created_at?: string
+          id?: string
+          order_id: string
+          status?: string
+          tier: Database["public"]["Enums"]["plan_tier"]
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          amount_paise?: number
+          created_at?: string
+          id?: string
+          order_id?: string
+          status?: string
+          tier?: Database["public"]["Enums"]["plan_tier"]
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       positions: {
         Row: {
           closed_at: string | null
