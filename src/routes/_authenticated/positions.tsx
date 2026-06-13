@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { TabBar } from "@/components/tab-bar";
 import { PositionsStrip } from "@/components/positions-strip";
 import { useLivePrices } from "@/hooks/use-live-prices";
+import { useCurrency } from "@/hooks/use-currency";
 import { toast } from "sonner";
 import { Briefcase, RefreshCw, HelpCircle } from "lucide-react";
 
