@@ -497,8 +497,24 @@ function spotToCandlePair(market: string): string {
 export const getTopMovers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => marketSchema.parse(d ?? {}))
-  .handler(async ({ data }): Promise<{ ok: true; movers: Mover[] } | { ok: false; error: string }> => {
+  .handler(async ({ data, context }): Promise<{ ok: true; movers: Mover[] } | { ok: false; error: string }> => {
     const market = data.market ?? "futures";
+    // Pull trade params for risk-check enrichment (best-effort; fall back to sane defaults).
+    let tpPct = 0.6;
+    let slPct = 0.4;
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: cfg } = await supabaseAdmin
+        .from("bot_config")
+        .select("take_profit_pct,stop_loss_pct")
+        .eq("user_id", context.userId)
+        .maybeSingle();
+      if (cfg) {
+        tpPct = Number(cfg.take_profit_pct ?? tpPct);
+        slPct = Number(cfg.stop_loss_pct ?? slPct);
+      }
+    } catch { /* keep defaults */ }
+
     try {
       if (market === "spot") {
         const res = await fetch(SPOT_TICKER, { headers: PUBLIC_API_HEADERS, signal: AbortSignal.timeout(6000) });
@@ -510,7 +526,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
           .filter((r) => r.price > 0);
         rows.sort((a, b) => b.change24h - a.change24h);
         const top = rows.slice(0, 15).map((r, i) => ({ ...r, rank24h: i + 1 }));
-        const enriched = await Promise.all(top.map((r, i) => enrichMover(r, spotToCandlePair(r.symbol), "spot", i < 10)));
+        const enriched = await Promise.all(top.map((r, i) => enrichMover(r, spotToCandlePair(r.symbol), "spot", i < 10, tpPct, slPct)));
         return { ok: true, movers: enriched };
       }
 
@@ -534,7 +550,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
 
       rows.sort((a, b) => b.change24h - a.change24h);
       const top = rows.slice(0, 20).map((r, i) => ({ ...r, rank24h: i + 1 }));
-      const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 12)));
+      const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 12, tpPct, slPct)));
       return { ok: true, movers: enriched };
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : "fetch failed" };
