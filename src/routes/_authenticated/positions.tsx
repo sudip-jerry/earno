@@ -221,11 +221,11 @@ function PositionsPage() {
                 </div>
                 <div>
                   <p className="text-muted-foreground">Size</p>
-                  <p className="tabular-nums font-medium mt-0.5">${fmtNum(size, 2)}</p>
+                  <p className="tabular-nums font-medium mt-0.5">{fmt(size)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-muted-foreground">Margin</p>
-                  <p className="tabular-nums font-medium mt-0.5">${fmtNum(margin, 2)}</p>
+                  <p className="tabular-nums font-medium mt-0.5">{fmt(margin)}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Avg. Entry</p>
