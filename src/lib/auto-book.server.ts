@@ -175,6 +175,18 @@ async function logEvent(
   await supabase.from("bot_events").insert({ user_id: userId, level, message });
 }
 
+async function logPauseEvent(supabase: SupabaseClient, userId: string, message: string) {
+  const since = new Date(Date.now() - 30 * 60_000).toISOString();
+  const { data } = await supabase
+    .from("bot_events")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("message", message)
+    .gte("created_at", since)
+    .maybeSingle();
+  if (!data) await logEvent(supabase, userId, "warn", message);
+}
+
 /** Run one auto-book pass for all eligible users. */
 export async function runAutoBookPass(supabase: SupabaseClient): Promise<{
   users: number;
@@ -208,7 +220,7 @@ export async function runAutoBookPass(supabase: SupabaseClient): Promise<{
     const planTier = await getPlanTier(supabase, cfg.user_id);
     const planDailyLimit = AUTO_PLAN_DAILY_LIMIT[planTier];
     if (planDailyLimit <= 0) {
-      await logEvent(supabase, cfg.user_id, "warn", "Auto-book skipped: current plan does not include automation");
+      await logPauseEvent(supabase, cfg.user_id, "Auto-book skipped: current plan does not include automation");
       result.details.push({ user: cfg.user_id, opened: 0, skipped: setups.length, reason: "plan does not allow auto-book" });
       result.skipped += setups.length;
       continue;
@@ -228,7 +240,7 @@ export async function runAutoBookPass(supabase: SupabaseClient): Promise<{
     if (cfg.daily_loss_cap_pct != null && equity > 0) {
       const cap = (Number(cfg.daily_loss_cap_pct) / 100) * equity;
       if (todayPnl <= -cap) {
-        await logEvent(supabase, cfg.user_id, "warn", `Auto-book paused: daily loss cap hit (${todayPnl.toFixed(2)} USDT)`);
+        await logPauseEvent(supabase, cfg.user_id, `Auto-book paused: daily loss cap hit (${todayPnl.toFixed(2)} USDT)`);
         result.details.push({ user: cfg.user_id, opened: 0, skipped: setups.length, reason: "daily loss cap" });
         result.skipped += setups.length;
         continue;
@@ -241,7 +253,7 @@ export async function runAutoBookPass(supabase: SupabaseClient): Promise<{
     const dailyLimit = Math.min(cfg.max_trades_per_day ?? 999, planDailyLimit);
     const remainingToday = Math.max(0, dailyLimit - todayAutoCount);
     if (remainingToday <= 0) {
-      await logEvent(supabase, cfg.user_id, "warn", `Auto-book paused: daily auto-book limit reached (${todayAutoCount}/${dailyLimit})`);
+      await logPauseEvent(supabase, cfg.user_id, `Auto-book paused: daily auto-book limit reached (${todayAutoCount}/${dailyLimit})`);
       result.details.push({ user: cfg.user_id, opened: 0, skipped: setups.length, reason: "daily trade limit" });
       result.skipped += setups.length;
       continue;
@@ -256,7 +268,7 @@ export async function runAutoBookPass(supabase: SupabaseClient): Promise<{
     let openSlot = Math.max(0, (cfg.max_open_positions ?? 5) - (openCount ?? 0));
     const openSymbols = new Set((openRows ?? []).map((r) => r.symbol as string));
     if (openSlot <= 0) {
-      await logEvent(supabase, cfg.user_id, "warn", `Auto-book paused: max open positions reached (${openCount ?? 0}/${cfg.max_open_positions ?? 5})`);
+      await logPauseEvent(supabase, cfg.user_id, `Auto-book paused: max open positions reached (${openCount ?? 0}/${cfg.max_open_positions ?? 5})`);
       result.details.push({ user: cfg.user_id, opened: 0, skipped: setups.length, reason: "max open positions" });
       result.skipped += setups.length;
       continue;
