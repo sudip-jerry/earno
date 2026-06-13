@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { OpportunityCard } from "@/components/opportunity-card";
+import { useStrictness } from "@/hooks/use-strictness";
 import { toast } from "sonner";
 import {
   Settings,
