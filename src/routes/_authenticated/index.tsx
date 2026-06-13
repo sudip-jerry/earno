@@ -9,6 +9,7 @@ import { getDashboardStats } from "@/lib/stats.functions";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { toast } from "sonner";
 import {
   Settings,
@@ -206,6 +207,7 @@ function Home() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <ThemeToggle />
           <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
             <HelpCircle className="size-5 text-muted-foreground" />
           </Link>
