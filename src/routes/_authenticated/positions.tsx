@@ -136,7 +136,7 @@ function PositionsPage() {
                 totalPnl >= 0 ? "text-emerald-500" : "text-destructive"
               }`}
             >
-              {fmtUsd(totalPnl)}
+              {fmt(totalPnl, { signed: true })}
             </p>
           </div>
           <div className="text-right">
