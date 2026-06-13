@@ -1,18 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+async function isAuthorized(request: Request): Promise<boolean> {
+  const auth = request.headers.get("authorization") ?? "";
+  if (!auth.startsWith("Bearer ")) return false;
+  const token = auth.slice(7);
+  const envSecret = process.env.CRON_SECRET;
+  if (envSecret && token === envSecret) return true;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin.rpc("verify_cron_secret", { _token: token });
+    return data === true;
+  } catch {
+    return false;
+  }
+}
+
 export const Route = createFileRoute("/api/public/hooks/auto-book")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const secret = process.env.CRON_SECRET;
-        if (!secret) {
-          return new Response(
-            JSON.stringify({ ok: false, error: "CRON_SECRET not configured" }),
-            { status: 500, headers: { "Content-Type": "application/json" } },
-          );
-        }
-        const auth = request.headers.get("authorization") ?? "";
-        if (auth !== `Bearer ${secret}`) {
+        if (!(await isAuthorized(request))) {
           return new Response("Unauthorized", { status: 401 });
         }
         try {
