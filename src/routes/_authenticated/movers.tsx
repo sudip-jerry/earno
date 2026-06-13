@@ -34,20 +34,21 @@ function MoversPage() {
   const getFn = useServerFn(getTopMovers);
   const bookFn = useServerFn(bookManualTrade);
   const [pending, setPending] = useState<string | null>(null);
+  const [market, setMarket] = useState<"futures" | "spot">("futures");
 
   const q = useQuery({
-    queryKey: ["top_movers"],
-    queryFn: () => getFn({ data: undefined }),
+    queryKey: ["top_movers", market],
+    queryFn: () => getFn({ data: { market } }),
     refetchInterval: 30_000,
   });
 
   const book = useMutation({
     mutationFn: async (input: { m: Mover; side: "long" | "short" }) =>
-      bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price } }),
+      bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price, market } }),
     onMutate: (v) => setPending(`${v.m.symbol}:${v.side}`),
     onSettled: () => setPending(null),
     onSuccess: (_d, v) => {
-      toast.success(`${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked`);
+      toast.success(`${v.side === "long" ? (market === "spot" ? "Buy" : "Long") : "Short"} ${v.m.display} booked`);
       qc.invalidateQueries({ queryKey: ["positions_open"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Booking failed"),
@@ -64,7 +65,7 @@ function MoversPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Top Movers</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Ranked by 24h % change · Tap Long / Short to book manually
+              Ranked by 24h % change · Tap to book {market === "spot" ? "Buy" : "Long / Short"}
             </p>
           </div>
         </div>
@@ -81,6 +82,25 @@ function MoversPage() {
           </button>
         </div>
       </header>
+
+      {/* Market toggle */}
+      <div className="px-5">
+        <div className="inline-flex rounded-full border bg-muted/40 p-0.5 text-xs font-medium">
+          {(["futures", "spot"] as const).map((opt) => (
+            <button
+              key={opt}
+              onClick={() => setMarket(opt)}
+              className={`px-4 h-8 rounded-full capitalize transition ${
+                market === opt
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {errorMsg ? (
         <div className="mx-5 mt-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
@@ -136,18 +156,20 @@ function MoversPage() {
                   onClick={() => book.mutate({ m, side: "long" })}
                 >
                   <TrendingUp className="size-3.5 mr-1" />
-                  {bookingLong ? "Booking…" : "Long"}
+                  {bookingLong ? "Booking…" : market === "spot" ? "Buy" : "Long"}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 h-9 rounded-lg border-destructive/40 text-destructive hover:bg-destructive/5"
-                  disabled={bookingLong || bookingShort}
-                  onClick={() => book.mutate({ m, side: "short" })}
-                >
-                  <TrendingDown className="size-3.5 mr-1" />
-                  {bookingShort ? "Booking…" : "Short"}
-                </Button>
+                {market === "futures" ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-9 rounded-lg border-destructive/40 text-destructive hover:bg-destructive/5"
+                    disabled={bookingLong || bookingShort}
+                    onClick={() => book.mutate({ m, side: "short" })}
+                  >
+                    <TrendingDown className="size-3.5 mr-1" />
+                    {bookingShort ? "Booking…" : "Short"}
+                  </Button>
+                ) : null}
               </div>
             </li>
           );
