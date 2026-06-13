@@ -236,6 +236,123 @@ function Home() {
         </div>
       </section>
 
+      {/* Top trades */}
+      <section className="px-5 mt-6">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Flame className="size-4 text-primary" />
+            <div className="min-w-0">
+              <h2 className="text-sm font-medium">Top trades to book</h2>
+              <p className="text-xs text-muted-foreground truncate">
+                {market === "spot" ? "Spot buys" : "Futures long / short"} ranked by 24h move
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <div className="inline-flex rounded-full border bg-muted/40 p-0.5 text-[11px] font-medium">
+              {(["futures", "spot"] as const).map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setMarket(opt)}
+                  className={`h-7 px-3 rounded-full capitalize transition ${
+                    market === opt ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => movers.refetch()}
+              className="size-8 grid place-items-center rounded-full border hover:bg-muted"
+              aria-label="Refresh top trades"
+            >
+              <RefreshCw className={`size-3.5 ${movers.isFetching ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+        </div>
+
+        {moversError ? (
+          <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
+            {moversError}
+          </div>
+        ) : null}
+
+        <ul className="space-y-2">
+          {movers.isLoading && !movers.data
+            ? Array.from({ length: 3 }).map((_, i) => (
+                <li key={i} className="h-24 rounded-2xl border bg-card animate-pulse" />
+              ))
+            : null}
+
+          {topMovers.map((m) => {
+            const bookingLong = pendingTrade === `${m.symbol}:long`;
+            const bookingShort = pendingTrade === `${m.symbol}:short`;
+            return (
+              <li key={m.symbol} className="rounded-2xl border bg-card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{m.display}</p>
+                    <p className="text-[11px] text-muted-foreground tabular-nums truncate">
+                      {m.price.toLocaleString(undefined, { maximumFractionDigits: 6 })}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`text-sm font-medium tabular-nums ${momentumClass(m.change24h)}`}>
+                      {pct(m.change24h)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">#{m.rank24h}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mt-3 text-[11px]">
+                  <div>
+                    <p className="text-muted-foreground uppercase tracking-wider">1m</p>
+                    <p className={`tabular-nums ${momentumClass(m.change1m)}`}>{pct(m.change1m, 2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground uppercase tracking-wider">5m</p>
+                    <p className={`tabular-nums ${momentumClass(m.change5m)}`}>{pct(m.change5m, 2)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-muted-foreground uppercase tracking-wider">Volume</p>
+                    <p className="tabular-nums">{Number(m.volume24h).toLocaleString(undefined, { notation: "compact" })}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    className="flex-1 h-9 rounded-lg"
+                    disabled={bookingLong || bookingShort}
+                    onClick={() => book.mutate({ m, side: "long" })}
+                  >
+                    <TrendingUp className="size-3.5 mr-1" />
+                    {bookingLong ? "Booking…" : market === "spot" ? "Buy" : "Long"}
+                  </Button>
+                  {market === "futures" ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 h-9 rounded-lg border-destructive/40 text-destructive hover:bg-destructive/5"
+                      disabled={bookingLong || bookingShort}
+                      onClick={() => book.mutate({ m, side: "short" })}
+                    >
+                      <TrendingDown className="size-3.5 mr-1" />
+                      {bookingShort ? "Booking…" : "Short"}
+                    </Button>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
+
+          {!movers.isLoading && topMovers.length === 0 && !moversError ? (
+            <li className="rounded-2xl border border-dashed bg-card/50 p-6 text-center text-sm text-muted-foreground">
+              No trade setups available right now.
+            </li>
+          ) : null}
+        </ul>
+      </section>
+
       {/* Positions */}
       <section className="px-5 mt-6">
         <div className="flex items-center justify-between mb-2">
