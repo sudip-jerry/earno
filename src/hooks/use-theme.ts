@@ -4,14 +4,14 @@ export type ThemeMode = "light" | "dark" | "system";
 const KEY = "earno_theme";
 
 function systemPrefersDark() {
-  if (typeof window === "undefined") return true;
+  if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
 export function getStoredTheme(): ThemeMode {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
   const v = window.localStorage.getItem(KEY);
-  return v === "light" || v === "dark" || v === "system" ? v : "dark";
+  return v === "light" || v === "dark" || v === "system" ? v : "light";
 }
 
 export function applyTheme(mode: ThemeMode) {
