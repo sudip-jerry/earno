@@ -853,13 +853,14 @@ export const updatePositionTpSl = createServerFn({ method: "POST" })
       if (pos.side === "short" && sl <= entry) throw new Error("SL must be above entry for short");
     }
 
-    const patch: Record<string, number | null> = {};
+    const patch: { take_profit?: number | null; stop_loss?: number | null } = {};
     if (data.takeProfit !== undefined) patch.take_profit = tp;
     if (data.stopLoss !== undefined) patch.stop_loss = sl;
     if (Object.keys(patch).length === 0) return { ok: true as const };
 
     const { error } = await supabaseAdmin.from("positions").update(patch).eq("id", pos.id);
     if (error) throw new Error(error.message);
+
 
     await supabaseAdmin.from("bot_events").insert({
       user_id: context.userId,
