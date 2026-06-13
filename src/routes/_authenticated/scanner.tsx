@@ -4,8 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
 import { TabBar } from "@/components/tab-bar";
+import { PositionsStrip } from "@/components/positions-strip";
 import { OpportunityCard } from "@/components/opportunity-card";
 import { useStrictness } from "@/hooks/use-strictness";
+import { useMarketMode } from "@/hooks/use-market-mode";
 import { toast } from "sonner";
 import { Radar, RefreshCw, HelpCircle, Filter } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -39,9 +41,10 @@ function ScannerPage() {
   const [tradableOnly, setTradableOnly] = useState(false);
 
   const { strictness } = useStrictness();
+  const { market } = useMarketMode();
   const q = useQuery({
-    queryKey: ["scanner_movers", strictness],
-    queryFn: () => getFn({ data: { market: "futures", strictness } }),
+    queryKey: ["scanner_movers", strictness, market],
+    queryFn: () => getFn({ data: { market, strictness } }),
     refetchInterval: 30_000,
   });
 
@@ -59,7 +62,7 @@ function ScannerPage() {
 
   const book = useMutation({
     mutationFn: async (input: { m: Mover; side: "long" | "short" }) =>
-      bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price, market: "futures" } }),
+      bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price, market } }),
     onMutate: (v) => setPending(v.m.symbol),
     onSettled: () => setPending(null),
     onSuccess: (_d, v) => {
@@ -88,6 +91,7 @@ function ScannerPage() {
 
   return (
     <div className="min-h-svh bg-background pb-28">
+      <PositionsStrip />
       <header className="px-5 pt-6 pb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Radar className="size-5 text-primary" />

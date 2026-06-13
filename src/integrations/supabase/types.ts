@@ -163,6 +163,7 @@ export type Database = {
           exit_price: number | null
           exit_reason: string | null
           id: string
+          instrument: string | null
           leverage: number
           mark_price: number | null
           mode: string
@@ -185,6 +186,7 @@ export type Database = {
           exit_price?: number | null
           exit_reason?: string | null
           id?: string
+          instrument?: string | null
           leverage: number
           mark_price?: number | null
           mode: string
@@ -207,6 +209,7 @@ export type Database = {
           exit_price?: number | null
           exit_reason?: string | null
           id?: string
+          instrument?: string | null
           leverage?: number
           mark_price?: number | null
           mode?: string

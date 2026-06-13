@@ -1,25 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { updateConfig, killAll } from "@/lib/bot.functions";
-import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
 import { getDashboardStats } from "@/lib/stats.functions";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { OpportunityCard } from "@/components/opportunity-card";
-import { useStrictness } from "@/hooks/use-strictness";
+import { PositionsStrip } from "@/components/positions-strip";
 import { toast } from "sonner";
 import {
   Settings,
   HelpCircle,
   Power,
   AlertTriangle,
-  Flame,
-  RefreshCw,
 } from "lucide-react";
 
 
@@ -67,10 +63,7 @@ function Home() {
   const qc = useQueryClient();
   const updateFn = useServerFn(updateConfig);
   const killFn = useServerFn(killAll);
-  const moversFn = useServerFn(getTopMovers);
-  const bookFn = useServerFn(bookManualTrade);
   const statsFn = useServerFn(getDashboardStats);
-  const [pendingTrade, setPendingTrade] = useState<string | null>(null);
 
   const cfg = useQuery({
     queryKey: ["bot_config"],
@@ -96,13 +89,6 @@ function Home() {
       return (data ?? []) as PositionRow[];
     },
     refetchInterval: 5000,
-  });
-
-  const { strictness } = useStrictness();
-  const movers = useQuery({
-    queryKey: ["dashboard_top_movers", strictness],
-    queryFn: () => moversFn({ data: { market: "futures", strictness } }),
-    refetchInterval: 30_000,
   });
 
   const stats = useQuery({
@@ -147,18 +133,6 @@ function Home() {
     },
   });
 
-  const book = useMutation({
-    mutationFn: async (input: { m: Mover; side: "long" | "short" }) =>
-      bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price, market: "futures" } }),
-    onMutate: (v) => setPendingTrade(`${v.m.symbol}:${v.side}`),
-    onSettled: () => setPendingTrade(null),
-    onSuccess: (_d, v) => {
-      toast.success(`${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked`);
-      qc.invalidateQueries({ queryKey: ["positions_open"] });
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Booking failed"),
-  });
-
   const c = cfg.data;
   const isLive = c?.mode === "live";
   const isRunning = c?.is_running ?? false;
@@ -166,22 +140,10 @@ function Home() {
   const s = stats.data;
   const dailyCap = Number(c?.daily_loss_cap_pct ?? 6);
 
-  const allMovers: Mover[] = movers.data?.ok ? movers.data.movers : [];
-  const autoEligible = allMovers.filter((m) => m.tier === "auto");
-  const watchlist = allMovers.filter((m) => m.tier === "watch");
-  const avoidedCount = allMovers.filter((m) => m.tier === "avoid").length;
-  // Show auto-eligible first, then watchlist, up to 6 cards.
-  const opportunities: Mover[] = [...autoEligible, ...watchlist].slice(0, 6);
-  const moversError = movers.data && !movers.data.ok ? movers.data.error : null;
-
-  const tpPct = Number(c?.take_profit_pct ?? 0.6);
-  const slPct = Number(c?.stop_loss_pct ?? 0.4);
-  const riskPct = Number(c?.risk_per_trade_pct ?? 1);
-  const riskAmount = (equity * riskPct) / 100;
-  const dailyRiskAvailable = (s?.dailyLossUsedPct ?? 0) < 100;
 
   return (
     <div className="min-h-svh bg-background pb-44">
+      <PositionsStrip />
       {/* Header */}
       <header className="px-5 pt-6 pb-4 flex items-center justify-between">
         <div className="min-w-0">
@@ -300,105 +262,25 @@ function Home() {
         />
       </section>
 
-      {/* Recommendation tier counts */}
-      <section className="px-5 mt-3 grid grid-cols-3 gap-2">
-        <TierTile label="Auto-book" value={autoEligible.length} tone="primary" />
-        <TierTile label="Watchlist" value={watchlist.length} tone="amber" />
-        <TierTile label="Avoided" value={avoidedCount} tone="muted" />
-      </section>
-
-
-
-      {/* Best Opportunities */}
-      <section className="px-5 mt-6">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Flame className="size-4 text-primary" />
-            <div className="min-w-0">
-              <h2 className="text-sm font-medium">Best opportunities now</h2>
-              <p className="text-xs text-muted-foreground truncate">
-                Ranked by confidence
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <Link
-              to="/scanner"
-              className="h-7 px-2.5 inline-flex items-center text-[11px] rounded-full border text-muted-foreground hover:text-foreground"
-            >
-              Open scanner
-            </Link>
-            <button
-              onClick={() => movers.refetch()}
-              className="size-8 grid place-items-center rounded-full border hover:bg-muted"
-              aria-label="Refresh"
-            >
-              <RefreshCw className={`size-3.5 ${movers.isFetching ? "animate-spin" : ""}`} />
-            </button>
-          </div>
-        </div>
-
-        {moversError ? (
-          <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
-            {moversError}
-          </div>
-        ) : null}
-
-        <ul className="space-y-2">
-          {movers.isLoading && !movers.data
-            ? Array.from({ length: 3 }).map((_, i) => (
-                <li key={i} className="h-28 rounded-2xl border bg-card animate-pulse" />
-              ))
-            : null}
-
-          {opportunities.map((m) => {
-            const side: "long" | "short" = m.bias === "short" ? "short" : "long";
-            const booking = pendingTrade === `${m.symbol}:${side}`;
-            return (
-              <li key={m.symbol}>
-                <OpportunityCard
-                  mover={m}
-                  tpPct={tpPct}
-                  slPct={slPct}
-                  riskAmountUsd={riskAmount}
-                  dailyRiskAvailable={dailyRiskAvailable}
-                  booking={booking}
-                  onBook={(s) => book.mutate({ m, side: s })}
-                />
-              </li>
-            );
-          })}
-
-          {!movers.isLoading && opportunities.length === 0 && !moversError ? (
-            <li className="rounded-2xl border border-dashed bg-card/50 p-6 text-center text-sm text-muted-foreground">
-              No clear setups right now.
-            </li>
-          ) : null}
-        </ul>
-      </section>
-
-      {/* Positions summary → full page in Positions tab */}
       <section className="px-5 mt-6">
         <Link
-          to="/positions"
+          to="/scanner"
           className="block rounded-2xl border bg-card p-4 hover:bg-muted/40 transition"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium">Open positions</p>
+              <p className="text-sm font-medium">Open scanner</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {positions.data?.length ?? 0} open · live PNL in Positions tab
+                Auto-book, watchlist and weak setups ranked by confidence
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Open</p>
-              <p className="text-2xl font-semibold tabular-nums leading-none mt-0.5">
-                {positions.data?.length ?? 0}
-              </p>
-            </div>
+            <span className="text-[11px] px-2 h-6 inline-flex items-center rounded-full border text-muted-foreground">
+              View
+            </span>
           </div>
         </Link>
       </section>
+
 
 
       {/* Bottom action bar */}
@@ -442,15 +324,3 @@ function StatTile({ label, value, sub }: { label: string; value: string; sub?: s
   );
 }
 
-function TierTile({ label, value, tone }: { label: string; value: number; tone: "primary" | "amber" | "muted" }) {
-  const cls =
-    tone === "primary" ? "text-primary"
-    : tone === "amber" ? "text-amber-500"
-    : "text-muted-foreground";
-  return (
-    <div className="rounded-xl border bg-card p-3">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`text-lg font-semibold tabular-nums mt-0.5 leading-tight ${cls}`}>{value}</p>
-    </div>
-  );
-}

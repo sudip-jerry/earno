@@ -4,7 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
 import { TabBar } from "@/components/tab-bar";
+import { PositionsStrip } from "@/components/positions-strip";
 import { OpportunityCard } from "@/components/opportunity-card";
+import { useMarketMode } from "@/hooks/use-market-mode";
 import { toast } from "sonner";
 import { Flame, RefreshCw, HelpCircle } from "lucide-react";
 import { useState } from "react";
@@ -31,7 +33,7 @@ function MoversPage() {
   const getFn = useServerFn(getTopMovers);
   const bookFn = useServerFn(bookManualTrade);
   const [pending, setPending] = useState<string | null>(null);
-  const [market, setMarket] = useState<"futures" | "spot">("futures");
+  const { market } = useMarketMode();
 
   const q = useQuery({
     queryKey: ["top_movers", market],
@@ -73,6 +75,7 @@ function MoversPage() {
 
   return (
     <div className="min-h-svh bg-background pb-28">
+      <PositionsStrip />
       <header className="px-5 pt-6 pb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Flame className="size-5 text-orange-500" />
@@ -97,23 +100,6 @@ function MoversPage() {
         </div>
       </header>
 
-      <div className="px-5">
-        <div className="inline-flex rounded-full border bg-muted/40 p-0.5 text-xs font-medium">
-          {(["futures", "spot"] as const).map((opt) => (
-            <button
-              key={opt}
-              onClick={() => setMarket(opt)}
-              className={`px-4 h-8 rounded-full capitalize transition ${
-                market === opt
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {errorMsg ? (
         <div className="mx-5 mt-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
