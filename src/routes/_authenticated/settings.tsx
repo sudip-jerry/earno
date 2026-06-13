@@ -24,6 +24,36 @@ import {
 import { toast } from "sonner";
 import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, LogOut, Zap, AlertTriangle } from "lucide-react";
 import { useTheme, type ThemeMode } from "@/hooks/use-theme";
+import { useStrictness, STRICTNESS_PRESETS, type Strictness } from "@/hooks/use-strictness";
+
+function StrictnessControl() {
+  const { strictness, setStrictness } = useStrictness();
+  const keys: Strictness[] = ["less", "moderate", "strict"];
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-1.5 rounded-lg bg-muted p-1">
+        {keys.map((k) => {
+          const p = STRICTNESS_PRESETS[k];
+          const active = strictness === k;
+          return (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setStrictness(k)}
+              className={`h-9 rounded-md text-xs font-medium transition ${
+                active ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {p.label}
+              <span className="ml-1 text-[10px] opacity-70">({p.autoConf}%)</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[11px] text-muted-foreground">{STRICTNESS_PRESETS[strictness].description}</p>
+    </div>
+  );
+}
 
 function ThemeSelect() {
   const { theme, setTheme } = useTheme();
