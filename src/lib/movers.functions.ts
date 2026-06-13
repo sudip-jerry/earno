@@ -2,15 +2,22 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+export type Recommendation = "long" | "short" | "neutral";
+
 export type Mover = {
-  symbol: string;        // e.g. "B-BTC_USDT"
-  display: string;       // e.g. "BTC/USDT"
+  symbol: string;
+  display: string;
   price: number;
   change1m: number | null;
   change5m: number | null;
+  change30mLast: number | null;
   change24h: number;
-  rank24h: number;       // 1 = top gainer of the day
+  rank24h: number;
   volume24h: number;
+  recommendation: Recommendation;
+  confidence: number; // 0-100
+  reasons: string[];
+  trend30: "up" | "down" | "mixed" | "unknown";
 };
 
 const PUBLIC_FUTURES_TICKER =
@@ -35,28 +42,104 @@ function num(x: unknown, d = 0): number {
 }
 
 function prettySymbol(s: string): string {
-  // "B-BTC_USDT" -> "BTC/USDT"
   const m = s.match(/^B-([A-Z0-9]+)_([A-Z0-9]+)$/);
   return m ? `${m[1]}/${m[2]}` : s.replace(/^B-/, "").replace("_", "/");
 }
 
-async function fetchChange(pair: string, interval: "1m" | "5m"): Promise<number | null> {
+async function fetchCandles(
+  pair: string,
+  interval: string,
+  limit: number,
+): Promise<Array<{ open: number; close: number; high: number; low: number }> | null> {
   try {
-    const res = await fetch(CANDLES(pair, interval, 2), {
+    const res = await fetch(CANDLES(pair, interval, limit), {
       headers: PUBLIC_API_HEADERS,
       signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) return null;
-    const json = (await res.json()) as Array<{ open: number; close: number }>;
+    const json = (await res.json()) as Array<{ open: number; close: number; high: number; low: number }>;
     if (!Array.isArray(json) || json.length < 1) return null;
-    const last = json[json.length - 1];
-    const open = num(last.open);
-    const close = num(last.close);
-    if (!open) return null;
-    return ((close - open) / open) * 100;
+    return json;
   } catch {
     return null;
   }
+}
+
+async function fetchChange(pair: string, interval: "1m" | "5m"): Promise<number | null> {
+  const c = await fetchCandles(pair, interval, 2);
+  if (!c || c.length < 1) return null;
+  const last = c[c.length - 1];
+  const open = num(last.open);
+  const close = num(last.close);
+  if (!open) return null;
+  return ((close - open) / open) * 100;
+}
+
+type Signals = {
+  c1m: number | null;
+  c5m: number | null;
+  c30m: Array<{ pct: number }> | null; // last 3 closed
+  c24h: number;
+};
+
+function computeRecommendation(
+  s: Signals,
+  market: "spot" | "futures",
+): { rec: Recommendation; confidence: number; reasons: string[]; trend30: Mover["trend30"]; last30: number | null } {
+  const reasons: string[] = [];
+  let score = 0;
+
+  if (s.c1m != null) {
+    if (s.c1m > 0.05) { score += 12; reasons.push(`1m up ${s.c1m.toFixed(2)}%`); }
+    else if (s.c1m < -0.05) { score -= 12; reasons.push(`1m down ${s.c1m.toFixed(2)}%`); }
+  }
+
+  if (s.c5m != null) {
+    if (s.c5m > 0.1) { score += 22; reasons.push(`5m up ${s.c5m.toFixed(2)}%`); }
+    else if (s.c5m < -0.1) { score -= 22; reasons.push(`5m down ${s.c5m.toFixed(2)}%`); }
+  }
+
+  let trend30: Mover["trend30"] = "unknown";
+  let last30: number | null = null;
+  if (s.c30m && s.c30m.length >= 3) {
+    const last3 = s.c30m.slice(-3);
+    last30 = last3[last3.length - 1].pct;
+    const ups = last3.filter((x) => x.pct > 0).length;
+    const downs = last3.filter((x) => x.pct < 0).length;
+    if (ups === 3) {
+      trend30 = "up";
+      score += 30;
+      reasons.push("30m trend: 3/3 green candles");
+    } else if (downs === 3) {
+      trend30 = "down";
+      // Bounce-back exception: sharp last drop but 1m+5m reversing up
+      const sharpLastDrop = last30 != null && last30 < -2.5;
+      const reversing = (s.c1m ?? 0) > 0.1 && (s.c5m ?? 0) > 0.1;
+      if (sharpLastDrop && reversing) {
+        score += 15;
+        reasons.push(`30m: 3 red candles but last was sharp (${last30.toFixed(2)}%) and 1m/5m reversing — possible bounce`);
+      } else {
+        score -= 35;
+        reasons.push("30m trend: 3/3 red candles (downtrend)");
+      }
+    } else {
+      trend30 = "mixed";
+      score += (ups - downs) * 8;
+      reasons.push(`30m: ${ups}↑ ${downs}↓ mixed`);
+    }
+  }
+
+  if (s.c24h > 5) { score += 12; reasons.push(`24h strong +${s.c24h.toFixed(1)}%`); }
+  else if (s.c24h > 0) { score += 5; }
+  else if (s.c24h < -5) { score -= 12; reasons.push(`24h weak ${s.c24h.toFixed(1)}%`); }
+
+  let rec: Recommendation;
+  if (score >= 25) rec = "long";
+  else if (score <= -25) rec = market === "spot" ? "neutral" : "short";
+  else rec = "neutral";
+
+  const confidence = Math.min(100, Math.round(Math.abs(score)));
+  return { rec, confidence, reasons, trend30, last30 };
 }
 
 const SPOT_TICKER = "https://api.coindcx.com/exchange/ticker";
@@ -69,6 +152,68 @@ type SpotRow = {
 };
 
 const marketSchema = z.object({ market: z.enum(["spot", "futures"]).optional() });
+
+async function enrichMover(
+  base: { symbol: string; price: number; change24h: number; volume24h: number; rank24h: number },
+  candlePair: string,
+  market: "spot" | "futures",
+  withCandles: boolean,
+): Promise<Mover> {
+  if (!withCandles) {
+    const { rec, confidence, reasons, trend30, last30 } = computeRecommendation(
+      { c1m: null, c5m: null, c30m: null, c24h: base.change24h },
+      market,
+    );
+    return {
+      ...base,
+      display: market === "spot" ? base.symbol.replace(/USDT$/, "/USDT") : prettySymbol(base.symbol),
+      change1m: null,
+      change5m: null,
+      change30mLast: last30,
+      recommendation: rec,
+      confidence,
+      reasons,
+      trend30,
+    };
+  }
+
+  const [c1, c5, c30Raw] = await Promise.all([
+    fetchChange(candlePair, "1m"),
+    fetchChange(candlePair, "5m"),
+    fetchCandles(candlePair, "30m", 4),
+  ]);
+
+  const c30 = c30Raw
+    ? c30Raw.map((k) => {
+        const o = num(k.open);
+        const c = num(k.close);
+        return { pct: o ? ((c - o) / o) * 100 : 0 };
+      })
+    : null;
+
+  const { rec, confidence, reasons, trend30, last30 } = computeRecommendation(
+    { c1m: c1, c5m: c5, c30m: c30, c24h: base.change24h },
+    market,
+  );
+
+  return {
+    ...base,
+    display: market === "spot" ? base.symbol.replace(/USDT$/, "/USDT") : prettySymbol(base.symbol),
+    change1m: c1,
+    change5m: c5,
+    change30mLast: last30,
+    recommendation: rec,
+    confidence,
+    reasons,
+    trend30,
+  };
+}
+
+// Map spot market id -> futures candle pair when possible (e.g. BTCUSDT -> B-BTC_USDT)
+function spotToCandlePair(market: string): string {
+  const m = market.match(/^([A-Z0-9]+)USDT$/);
+  return m ? `B-${m[1]}_USDT` : market;
+}
 
 export const getTopMovers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -93,17 +238,11 @@ export const getTopMovers = createServerFn({ method: "GET" })
           }))
           .filter((r) => r.price > 0);
         rows.sort((a, b) => b.change24h - a.change24h);
-        const top = rows.slice(0, 15).map((r, i) => ({
-          symbol: r.symbol,
-          display: r.symbol.replace(/USDT$/, "/USDT"),
-          price: r.price,
-          change1m: null,
-          change5m: null,
-          change24h: r.change24h,
-          rank24h: i + 1,
-          volume24h: r.volume24h,
-        } satisfies Mover));
-        return { ok: true, movers: top };
+        const top = rows.slice(0, 15).map((r, i) => ({ ...r, rank24h: i + 1 }));
+        const enriched = await Promise.all(
+          top.map((r, i) => enrichMover(r, spotToCandlePair(r.symbol), "spot", i < 10)),
+        );
+        return { ok: true, movers: enriched };
       }
 
       const res = await fetch(PUBLIC_FUTURES_TICKER, {
@@ -142,34 +281,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
       const top = rows.slice(0, 15).map((r, i) => ({ ...r, rank24h: i + 1 }));
 
       const enriched = await Promise.all(
-        top.map(async (r, i) => {
-          if (i < 10) {
-            const [c1, c5] = await Promise.all([
-              fetchChange(r.symbol, "1m"),
-              fetchChange(r.symbol, "5m"),
-            ]);
-            return {
-              symbol: r.symbol,
-              display: prettySymbol(r.symbol),
-              price: r.price,
-              change1m: c1,
-              change5m: c5,
-              change24h: r.change24h,
-              rank24h: r.rank24h,
-              volume24h: r.volume24h,
-            } satisfies Mover;
-          }
-          return {
-            symbol: r.symbol,
-            display: prettySymbol(r.symbol),
-            price: r.price,
-            change1m: null,
-            change5m: null,
-            change24h: r.change24h,
-            rank24h: r.rank24h,
-            volume24h: r.volume24h,
-          } satisfies Mover;
-        }),
+        top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 10)),
       );
 
       return { ok: true, movers: enriched };
@@ -198,7 +310,6 @@ export const bookManualTrade = createServerFn({ method: "POST" })
       .maybeSingle();
     if (cfgErr || !cfg) throw new Error(cfgErr?.message ?? "No bot config found");
 
-    // Check open position cap
     const { count } = await supabaseAdmin
       .from("positions")
       .select("id", { count: "exact", head: true })
@@ -214,7 +325,6 @@ export const bookManualTrade = createServerFn({ method: "POST" })
     const sl = Number(cfg.stop_loss_pct ?? 2);
     const tp = Number(cfg.take_profit_pct ?? 3);
 
-    // Position notional = (equity * riskPct%) / (sl%) * leverage  (cap at equity*lev)
     const notional = Math.min((equity * riskPct) / sl, equity) * lev;
     const qty = notional / data.price;
 

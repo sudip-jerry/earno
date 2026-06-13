@@ -3,16 +3,17 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TabBar } from "@/components/tab-bar";
 import { toast } from "sonner";
-import { Flame, RefreshCw, HelpCircle, TrendingUp, TrendingDown } from "lucide-react";
+import { Flame, RefreshCw, HelpCircle, TrendingUp, TrendingDown, Info, Minus } from "lucide-react";
 import { useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/movers")({
   head: () => ({
     meta: [
       { title: "Top Movers — EarnO" },
-      { name: "description", content: "Top gaining futures pairs with 1m, 5m, and 24h momentum." },
+      { name: "description", content: "Top movers with Long/Short recommendations, confidence score and rationale." },
     ],
   }),
   component: MoversPage,
@@ -20,13 +21,34 @@ export const Route = createFileRoute("/_authenticated/movers")({
 
 function pct(n: number | null | undefined, digits = 2) {
   if (n == null || !Number.isFinite(n)) return "—";
-  const s = n.toFixed(digits);
-  return `${n >= 0 ? "+" : ""}${s}%`;
+  return `${n >= 0 ? "+" : ""}${n.toFixed(digits)}%`;
 }
 
 function colorClass(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return "text-muted-foreground";
   return n >= 0 ? "text-emerald-600" : "text-destructive";
+}
+
+function recBadge(rec: Mover["recommendation"], confidence: number, market: "futures" | "spot") {
+  if (rec === "long") {
+    return {
+      label: market === "spot" ? "BUY" : "LONG",
+      cls: "bg-emerald-600/10 text-emerald-700 border-emerald-600/30",
+      Icon: TrendingUp,
+    };
+  }
+  if (rec === "short") {
+    return {
+      label: "SHORT",
+      cls: "bg-destructive/10 text-destructive border-destructive/30",
+      Icon: TrendingDown,
+    };
+  }
+  return {
+    label: confidence > 0 ? "WAIT" : "NEUTRAL",
+    cls: "bg-muted text-muted-foreground border-border",
+    Icon: Minus,
+  };
 }
 
 function MoversPage() {
@@ -65,7 +87,7 @@ function MoversPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Top Movers</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Ranked by 24h % change · Tap to book {market === "spot" ? "Buy" : "Long / Short"}
+              AI-suggested Long/Short with confidence · 1m · 5m · 30m signals
             </p>
           </div>
         </div>
@@ -83,7 +105,6 @@ function MoversPage() {
         </div>
       </header>
 
-      {/* Market toggle */}
       <div className="px-5">
         <div className="inline-flex rounded-full border bg-muted/40 p-0.5 text-xs font-medium">
           {(["futures", "spot"] as const).map((opt) => (
@@ -108,68 +129,126 @@ function MoversPage() {
         </div>
       ) : null}
 
-      {/* Column header */}
-      <div className="px-5 mt-3 grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-        <span>Symbol</span>
-        <span className="w-14 text-right">1m</span>
-        <span className="w-14 text-right">5m</span>
-        <span className="w-16 text-right">24h</span>
-        <span className="w-10 text-right">Rank</span>
-      </div>
-
-      <ul className="px-5 mt-2 space-y-2">
+      <ul className="px-5 mt-3 space-y-2">
         {q.isLoading && !q.data
           ? Array.from({ length: 6 }).map((_, i) => (
-              <li key={i} className="h-24 rounded-2xl border bg-card animate-pulse" />
+              <li key={i} className="h-32 rounded-2xl border bg-card animate-pulse" />
             ))
           : null}
 
         {movers.map((m) => {
-          const bookingLong = pending === `${m.symbol}:long`;
-          const bookingShort = pending === `${m.symbol}:short`;
+          const badge = recBadge(m.recommendation, m.confidence, market);
+          const BadgeIcon = badge.Icon;
+          const side: "long" | "short" = m.recommendation === "short" ? "short" : "long";
+          const booking = pending === `${m.symbol}:${side}`;
+          const canTrade = m.recommendation !== "neutral";
+
           return (
             <li key={m.symbol} className="rounded-2xl border bg-card p-4">
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center">
+              <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-medium text-sm truncate">{m.display}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm truncate">{m.display}</p>
+                    <span className="text-[10px] text-muted-foreground">#{m.rank24h}</span>
+                  </div>
                   <p className="text-[11px] text-muted-foreground tabular-nums truncate">
                     {m.price.toLocaleString(undefined, { maximumFractionDigits: 6 })}
                   </p>
                 </div>
-                <span className={`w-14 text-right text-xs tabular-nums ${colorClass(m.change1m)}`}>
-                  {pct(m.change1m)}
-                </span>
-                <span className={`w-14 text-right text-xs tabular-nums ${colorClass(m.change5m)}`}>
-                  {pct(m.change5m)}
-                </span>
-                <span className={`w-16 text-right text-sm font-medium tabular-nums ${colorClass(m.change24h)}`}>
-                  {pct(m.change24h, 1)}
-                </span>
-                <span className="w-10 text-right text-xs text-muted-foreground">#{m.rank24h}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`inline-flex items-center gap-1 px-2 h-6 rounded-full border text-[10px] font-semibold ${badge.cls}`}>
+                    <BadgeIcon className="size-3" />
+                    {badge.label}
+                  </span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        className="size-7 grid place-items-center rounded-full hover:bg-muted text-muted-foreground"
+                        aria-label="Why this recommendation"
+                      >
+                        <Info className="size-3.5" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-72 text-xs">
+                      <p className="font-semibold mb-1">
+                        {badge.label} · confidence {m.confidence}%
+                      </p>
+                      <p className="text-muted-foreground mb-2">
+                        30m trend: <span className="capitalize">{m.trend30}</span>
+                        {m.change30mLast != null ? ` · last 30m ${pct(m.change30mLast)}` : ""}
+                      </p>
+                      {m.reasons.length ? (
+                        <ul className="space-y-1 list-disc pl-4">
+                          {m.reasons.map((r, i) => (
+                            <li key={i}>{r}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-muted-foreground">No strong signal yet.</p>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
 
-              <div className="flex gap-2 mt-3">
+              {/* Confidence bar */}
+              <div className="mt-3">
+                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={`h-full ${
+                      m.recommendation === "long"
+                        ? "bg-emerald-500"
+                        : m.recommendation === "short"
+                          ? "bg-destructive"
+                          : "bg-muted-foreground/40"
+                    }`}
+                    style={{ width: `${Math.max(4, m.confidence)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Signals row */}
+              <div className="mt-3 grid grid-cols-4 gap-2 text-[10px]">
+                <div>
+                  <p className="uppercase text-muted-foreground tracking-wider">1m</p>
+                  <p className={`tabular-nums ${colorClass(m.change1m)}`}>{pct(m.change1m)}</p>
+                </div>
+                <div>
+                  <p className="uppercase text-muted-foreground tracking-wider">5m</p>
+                  <p className={`tabular-nums ${colorClass(m.change5m)}`}>{pct(m.change5m)}</p>
+                </div>
+                <div>
+                  <p className="uppercase text-muted-foreground tracking-wider">30m</p>
+                  <p className={`tabular-nums ${colorClass(m.change30mLast)}`}>{pct(m.change30mLast)}</p>
+                </div>
+                <div>
+                  <p className="uppercase text-muted-foreground tracking-wider">24h</p>
+                  <p className={`tabular-nums ${colorClass(m.change24h)}`}>{pct(m.change24h, 1)}</p>
+                </div>
+              </div>
+
+              <div className="mt-3">
                 <Button
                   size="sm"
-                  className="flex-1 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white"
-                  disabled={bookingLong || bookingShort}
-                  onClick={() => book.mutate({ m, side: "long" })}
+                  className={`w-full h-9 rounded-lg text-white ${
+                    m.recommendation === "short"
+                      ? "bg-destructive hover:bg-destructive/90"
+                      : "bg-emerald-600 hover:bg-emerald-700"
+                  } disabled:opacity-60`}
+                  disabled={!canTrade || booking}
+                  onClick={() => canTrade && book.mutate({ m, side })}
                 >
-                  <TrendingUp className="size-3.5 mr-1" />
-                  {bookingLong ? "Booking…" : market === "spot" ? "Buy" : "Long"}
-                </Button>
-                {market === "futures" ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 h-9 rounded-lg border-destructive/40 text-destructive hover:bg-destructive/5"
-                    disabled={bookingLong || bookingShort}
-                    onClick={() => book.mutate({ m, side: "short" })}
-                  >
+                  {m.recommendation === "short" ? (
                     <TrendingDown className="size-3.5 mr-1" />
-                    {bookingShort ? "Booking…" : "Short"}
-                  </Button>
-                ) : null}
+                  ) : (
+                    <TrendingUp className="size-3.5 mr-1" />
+                  )}
+                  {booking
+                    ? "Booking…"
+                    : !canTrade
+                      ? "No clear signal"
+                      : `Book ${badge.label} (${m.confidence}%)`}
+                </Button>
               </div>
             </li>
           );
