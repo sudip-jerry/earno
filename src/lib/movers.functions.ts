@@ -2,7 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-export type Recommendation = "long" | "short" | "neutral";
+export type Bias = "long" | "short" | "wait";
+export type SpreadTier = "tight" | "normal" | "wide";
+export type VolumeTier = "low" | "ok" | "high";
+export type TrendArrow = "up" | "down" | "flat" | "unknown";
 
 export type Mover = {
   symbol: string;
@@ -14,10 +17,22 @@ export type Mover = {
   change24h: number;
   rank24h: number;
   volume24h: number;
-  recommendation: Recommendation;
-  confidence: number; // 0-100
+  // Scoring
+  scalpScore: number; // 0-100
+  bias: Bias;
+  confidence: number; // alias of scalpScore for back-compat
+  recommendation: "long" | "short" | "neutral";
   reasons: string[];
-  trend30: "up" | "down" | "mixed" | "unknown";
+  trend30: TrendArrow | "mixed";
+  // Scanner indicators (heuristic)
+  rsi: number | null; // 14 over 5m closes
+  emaTrend: TrendArrow; // 30m close trend
+  vwapStatus: "above" | "below" | "unknown";
+  spread: SpreadTier;
+  volumeTier: VolumeTier;
+  volumeSpike: boolean;
+  eligible: boolean;
+  rejectReason: string | null;
 };
 
 const PUBLIC_FUTURES_TICKER =
@@ -36,6 +51,8 @@ type TickerRow = {
   v?: string | number; qv?: string | number;
 };
 
+type Candle = { open: number; close: number; high: number; low: number; volume?: number };
+
 function num(x: unknown, d = 0): number {
   const n = typeof x === "string" ? parseFloat(x) : typeof x === "number" ? x : NaN;
   return Number.isFinite(n) ? n : d;
@@ -46,46 +63,87 @@ function prettySymbol(s: string): string {
   return m ? `${m[1]}/${m[2]}` : s.replace(/^B-/, "").replace("_", "/");
 }
 
-async function fetchCandles(
-  pair: string,
-  interval: string,
-  limit: number,
-): Promise<Array<{ open: number; close: number; high: number; low: number }> | null> {
+async function fetchCandles(pair: string, interval: string, limit: number): Promise<Candle[] | null> {
   try {
     const res = await fetch(CANDLES(pair, interval, limit), {
       headers: PUBLIC_API_HEADERS,
-      signal: AbortSignal.timeout(4000),
+      signal: AbortSignal.timeout(4500),
     });
     if (!res.ok) return null;
-    const json = (await res.json()) as Array<{ open: number; close: number; high: number; low: number }>;
+    const json = (await res.json()) as Candle[];
     if (!Array.isArray(json) || json.length < 1) return null;
-    return json;
+    return json.map((k) => ({
+      open: num(k.open),
+      close: num(k.close),
+      high: num(k.high),
+      low: num(k.low),
+      volume: k.volume != null ? num(k.volume) : undefined,
+    }));
   } catch {
     return null;
   }
 }
 
-async function fetchChange(pair: string, interval: "1m" | "5m"): Promise<number | null> {
-  const c = await fetchCandles(pair, interval, 2);
-  if (!c || c.length < 1) return null;
-  const last = c[c.length - 1];
-  const open = num(last.open);
-  const close = num(last.close);
+function pctChange(open: number, close: number): number | null {
   if (!open) return null;
   return ((close - open) / open) * 100;
+}
+
+function rsi14(closes: number[]): number | null {
+  if (closes.length < 15) return null;
+  let gains = 0;
+  let losses = 0;
+  for (let i = 1; i <= 14; i++) {
+    const d = closes[i] - closes[i - 1];
+    if (d >= 0) gains += d; else losses -= d;
+  }
+  let avgG = gains / 14;
+  let avgL = losses / 14;
+  for (let i = 15; i < closes.length; i++) {
+    const d = closes[i] - closes[i - 1];
+    const g = d >= 0 ? d : 0;
+    const l = d < 0 ? -d : 0;
+    avgG = (avgG * 13 + g) / 14;
+    avgL = (avgL * 13 + l) / 14;
+  }
+  if (avgL === 0) return 100;
+  const rs = avgG / avgL;
+  return 100 - 100 / (1 + rs);
+}
+
+function approxVwap(c: Candle[]): number | null {
+  if (!c.length) return null;
+  let pv = 0;
+  let v = 0;
+  for (const k of c) {
+    const tp = (k.high + k.low + k.close) / 3;
+    const vol = k.volume ?? 1;
+    pv += tp * vol;
+    v += vol;
+  }
+  return v > 0 ? pv / v : null;
+}
+
+function classifyVolume(v: number): VolumeTier {
+  if (v >= 100_000_000) return "high";
+  if (v >= 5_000_000) return "ok";
+  return "low";
+}
+
+function spreadFromVolume(tier: VolumeTier): SpreadTier {
+  if (tier === "high") return "tight";
+  if (tier === "ok") return "normal";
+  return "wide";
 }
 
 type Signals = {
   c1m: number | null;
   c5m: number | null;
-  c30m: Array<{ pct: number }> | null; // last 3 closed
+  c30m: Array<{ pct: number }> | null;
   c24h: number;
 };
 
-function computeRecommendation(
-  s: Signals,
-  market: "spot" | "futures",
-): { rec: Recommendation; confidence: number; reasons: string[]; trend30: Mover["trend30"]; last30: number | null } {
+function computeRecommendation(s: Signals, market: "spot" | "futures") {
   const reasons: string[] = [];
   let score = 0;
 
@@ -93,47 +151,37 @@ function computeRecommendation(
     if (s.c1m > 0.05) { score += 12; reasons.push(`1m up ${s.c1m.toFixed(2)}%`); }
     else if (s.c1m < -0.05) { score -= 12; reasons.push(`1m down ${s.c1m.toFixed(2)}%`); }
   }
-
   if (s.c5m != null) {
     if (s.c5m > 0.1) { score += 22; reasons.push(`5m up ${s.c5m.toFixed(2)}%`); }
     else if (s.c5m < -0.1) { score -= 22; reasons.push(`5m down ${s.c5m.toFixed(2)}%`); }
   }
 
-  let trend30: Mover["trend30"] = "unknown";
+  let trend30: TrendArrow | "mixed" = "unknown";
   let last30: number | null = null;
   if (s.c30m && s.c30m.length >= 3) {
     const last3 = s.c30m.slice(-3);
     last30 = last3[last3.length - 1].pct;
     const ups = last3.filter((x) => x.pct > 0).length;
     const downs = last3.filter((x) => x.pct < 0).length;
-    if (ups === 3) {
-      trend30 = "up";
-      score += 30;
-      reasons.push("30m trend: 3/3 green candles");
-    } else if (downs === 3) {
+    if (ups === 3) { trend30 = "up"; score += 30; reasons.push("30m: 3/3 green"); }
+    else if (downs === 3) {
       trend30 = "down";
-      // Bounce-back exception: sharp last drop but 1m+5m reversing up
       const sharpLastDrop = last30 != null && last30 < -2.5;
       const reversing = (s.c1m ?? 0) > 0.1 && (s.c5m ?? 0) > 0.1;
-      if (sharpLastDrop && reversing) {
-        score += 15;
-        reasons.push(`30m: 3 red candles but last was sharp (${last30.toFixed(2)}%) and 1m/5m reversing — possible bounce`);
-      } else {
-        score -= 35;
-        reasons.push("30m trend: 3/3 red candles (downtrend)");
-      }
+      if (sharpLastDrop && reversing) { score += 15; reasons.push(`30m: 3 red but last ${last30.toFixed(2)}%, 1m/5m reversing — possible bounce`); }
+      else { score -= 35; reasons.push("30m: 3/3 red (downtrend)"); }
     } else {
       trend30 = "mixed";
       score += (ups - downs) * 8;
-      reasons.push(`30m: ${ups}↑ ${downs}↓ mixed`);
+      reasons.push(`30m mixed: ${ups}↑ ${downs}↓`);
     }
   }
 
   if (s.c24h > 5) { score += 12; reasons.push(`24h strong +${s.c24h.toFixed(1)}%`); }
-  else if (s.c24h > 0) { score += 5; }
+  else if (s.c24h > 0) score += 5;
   else if (s.c24h < -5) { score -= 12; reasons.push(`24h weak ${s.c24h.toFixed(1)}%`); }
 
-  let rec: Recommendation;
+  let rec: "long" | "short" | "neutral";
   if (score >= 25) rec = "long";
   else if (score <= -25) rec = market === "spot" ? "neutral" : "short";
   else rec = "neutral";
@@ -143,14 +191,7 @@ function computeRecommendation(
 }
 
 const SPOT_TICKER = "https://api.coindcx.com/exchange/ticker";
-
-type SpotRow = {
-  market: string;
-  last_price: string;
-  change_24_hour: string;
-  volume: string;
-};
-
+type SpotRow = { market: string; last_price: string; change_24_hour: string; volume: string };
 const marketSchema = z.object({ market: z.enum(["spot", "futures"]).optional() });
 
 async function enrichMover(
@@ -159,57 +200,104 @@ async function enrichMover(
   market: "spot" | "futures",
   withCandles: boolean,
 ): Promise<Mover> {
+  const display = market === "spot" ? base.symbol.replace(/USDT$/, "/USDT") : prettySymbol(base.symbol);
+  const volumeTier = classifyVolume(base.volume24h);
+  const spread = spreadFromVolume(volumeTier);
+
   if (!withCandles) {
-    const { rec, confidence, reasons, trend30, last30 } = computeRecommendation(
-      { c1m: null, c5m: null, c30m: null, c24h: base.change24h },
-      market,
-    );
+    const r = computeRecommendation({ c1m: null, c5m: null, c30m: null, c24h: base.change24h }, market);
+    const bias: Bias = r.rec === "long" ? "long" : r.rec === "short" ? "short" : "wait";
     return {
       ...base,
-      display: market === "spot" ? base.symbol.replace(/USDT$/, "/USDT") : prettySymbol(base.symbol),
+      display,
       change1m: null,
       change5m: null,
-      change30mLast: last30,
-      recommendation: rec,
-      confidence,
-      reasons,
-      trend30,
+      change30mLast: r.last30,
+      scalpScore: r.confidence,
+      confidence: r.confidence,
+      bias,
+      recommendation: r.rec,
+      reasons: r.reasons,
+      trend30: r.trend30,
+      rsi: null,
+      emaTrend: "unknown",
+      vwapStatus: "unknown",
+      spread,
+      volumeTier,
+      volumeSpike: false,
+      eligible: false,
+      rejectReason: "Not enough data",
     };
   }
 
-  const [c1, c5, c30Raw] = await Promise.all([
-    fetchChange(candlePair, "1m"),
-    fetchChange(candlePair, "5m"),
+  const [c1Raw, c5Raw, c30Raw] = await Promise.all([
+    fetchCandles(candlePair, "1m", 2),
+    fetchCandles(candlePair, "5m", 20),
     fetchCandles(candlePair, "30m", 4),
   ]);
 
-  const c30 = c30Raw
-    ? c30Raw.map((k) => {
-        const o = num(k.open);
-        const c = num(k.close);
-        return { pct: o ? ((c - o) / o) * 100 : 0 };
-      })
-    : null;
+  const c1 = c1Raw && c1Raw.length ? pctChange(c1Raw[c1Raw.length - 1].open, c1Raw[c1Raw.length - 1].close) : null;
+  const c5 = c5Raw && c5Raw.length ? pctChange(c5Raw[c5Raw.length - 1].open, c5Raw[c5Raw.length - 1].close) : null;
+  const c30 = c30Raw ? c30Raw.map((k) => ({ pct: pctChange(k.open, k.close) ?? 0 })) : null;
 
-  const { rec, confidence, reasons, trend30, last30 } = computeRecommendation(
-    { c1m: c1, c5m: c5, c30m: c30, c24h: base.change24h },
-    market,
-  );
+  const closes5 = c5Raw?.map((k) => k.close) ?? [];
+  const rsi = closes5.length >= 15 ? rsi14(closes5) : null;
+  const vwap = c5Raw ? approxVwap(c5Raw) : null;
+  const vwapStatus: Mover["vwapStatus"] = vwap == null ? "unknown" : base.price >= vwap ? "above" : "below";
+
+  // EMA trend from 30m candles direction
+  let emaTrend: TrendArrow = "unknown";
+  if (c30 && c30.length >= 3) {
+    const last3 = c30.slice(-3);
+    const ups = last3.filter((x) => x.pct > 0).length;
+    if (ups >= 2) emaTrend = "up";
+    else if (ups <= 1) emaTrend = "down";
+    else emaTrend = "flat";
+  }
+
+  // Volume spike: last 5m volume vs avg of previous 10
+  let volumeSpike = false;
+  if (c5Raw && c5Raw.length >= 11) {
+    const last = c5Raw[c5Raw.length - 1].volume ?? 0;
+    const prev = c5Raw.slice(-11, -1);
+    const avg = prev.reduce((a, b) => a + (b.volume ?? 0), 0) / Math.max(prev.length, 1);
+    volumeSpike = avg > 0 && last > avg * 1.8;
+  }
+
+  const r = computeRecommendation({ c1m: c1, c5m: c5, c30m: c30, c24h: base.change24h }, market);
+  const bias: Bias = r.rec === "long" ? "long" : r.rec === "short" ? "short" : "wait";
+
+  // Eligibility
+  let rejectReason: string | null = null;
+  if (r.confidence < 35) rejectReason = "Score too low";
+  else if (volumeTier === "low") rejectReason = "Volume too thin";
+  else if (rsi != null && bias === "long" && rsi > 78) rejectReason = "Overbought (RSI)";
+  else if (rsi != null && bias === "short" && rsi < 22) rejectReason = "Oversold (RSI)";
+  const eligible = rejectReason == null && bias !== "wait";
 
   return {
     ...base,
-    display: market === "spot" ? base.symbol.replace(/USDT$/, "/USDT") : prettySymbol(base.symbol),
+    display,
     change1m: c1,
     change5m: c5,
-    change30mLast: last30,
-    recommendation: rec,
-    confidence,
-    reasons,
-    trend30,
+    change30mLast: r.last30,
+    scalpScore: r.confidence,
+    confidence: r.confidence,
+    bias,
+    recommendation: r.rec,
+    reasons: r.reasons,
+    trend30: r.trend30,
+    rsi,
+    emaTrend,
+    vwapStatus,
+    spread,
+    volumeTier,
+    volumeSpike,
+    eligible,
+    rejectReason,
   };
 }
 
-// Map spot market id -> futures candle pair when possible (e.g. BTCUSDT -> B-BTC_USDT)
 function spotToCandlePair(market: string): string {
   const m = market.match(/^([A-Z0-9]+)USDT$/);
   return m ? `B-${m[1]}_USDT` : market;
@@ -222,38 +310,22 @@ export const getTopMovers = createServerFn({ method: "GET" })
     const market = data.market ?? "futures";
     try {
       if (market === "spot") {
-        const res = await fetch(SPOT_TICKER, {
-          headers: PUBLIC_API_HEADERS,
-          signal: AbortSignal.timeout(6000),
-        });
+        const res = await fetch(SPOT_TICKER, { headers: PUBLIC_API_HEADERS, signal: AbortSignal.timeout(6000) });
         if (!res.ok) return { ok: false, error: `Spot HTTP ${res.status}` };
         const raw = (await res.json()) as SpotRow[];
         const rows = raw
           .filter((r) => r.market && r.market.endsWith("USDT"))
-          .map((r) => ({
-            symbol: r.market,
-            price: num(r.last_price),
-            change24h: num(r.change_24_hour),
-            volume24h: num(r.volume),
-          }))
+          .map((r) => ({ symbol: r.market, price: num(r.last_price), change24h: num(r.change_24_hour), volume24h: num(r.volume) }))
           .filter((r) => r.price > 0);
         rows.sort((a, b) => b.change24h - a.change24h);
         const top = rows.slice(0, 15).map((r, i) => ({ ...r, rank24h: i + 1 }));
-        const enriched = await Promise.all(
-          top.map((r, i) => enrichMover(r, spotToCandlePair(r.symbol), "spot", i < 10)),
-        );
+        const enriched = await Promise.all(top.map((r, i) => enrichMover(r, spotToCandlePair(r.symbol), "spot", i < 10)));
         return { ok: true, movers: enriched };
       }
 
-      const res = await fetch(PUBLIC_FUTURES_TICKER, {
-        headers: PUBLIC_API_HEADERS,
-        signal: AbortSignal.timeout(6000),
-      });
+      const res = await fetch(PUBLIC_FUTURES_TICKER, { headers: PUBLIC_API_HEADERS, signal: AbortSignal.timeout(6000) });
       if (!res.ok) return { ok: false, error: `Ticker HTTP ${res.status}` };
-      const raw = (await res.json()) as
-        | { prices: Record<string, TickerRow> }
-        | Record<string, TickerRow>
-        | TickerRow[];
+      const raw = (await res.json()) as { prices: Record<string, TickerRow> } | Record<string, TickerRow> | TickerRow[];
 
       const rows: Array<{ symbol: string; price: number; change24h: number; volume24h: number }> = [];
       const consume = (sym: string | undefined, r: TickerRow) => {
@@ -265,25 +337,13 @@ export const getTopMovers = createServerFn({ method: "GET" })
         if (!price) return;
         rows.push({ symbol, price, change24h: change, volume24h: vol });
       };
-      const dict =
-        raw && typeof raw === "object" && !Array.isArray(raw) && "prices" in raw
-          ? (raw as { prices: Record<string, TickerRow> }).prices
-          : raw;
-      if (Array.isArray(dict)) {
-        dict.forEach((r) => consume(undefined, r));
-      } else if (dict && typeof dict === "object") {
-        Object.entries(dict).forEach(([k, v]) => {
-          if (v && typeof v === "object") consume(k, v as TickerRow);
-        });
-      }
+      const dict = raw && typeof raw === "object" && !Array.isArray(raw) && "prices" in raw ? (raw as { prices: Record<string, TickerRow> }).prices : raw;
+      if (Array.isArray(dict)) dict.forEach((r) => consume(undefined, r));
+      else if (dict && typeof dict === "object") Object.entries(dict).forEach(([k, v]) => v && typeof v === "object" && consume(k, v as TickerRow));
 
       rows.sort((a, b) => b.change24h - a.change24h);
-      const top = rows.slice(0, 15).map((r, i) => ({ ...r, rank24h: i + 1 }));
-
-      const enriched = await Promise.all(
-        top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 10)),
-      );
-
+      const top = rows.slice(0, 20).map((r, i) => ({ ...r, rank24h: i + 1 }));
+      const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 12)));
       return { ok: true, movers: enriched };
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : "fetch failed" };

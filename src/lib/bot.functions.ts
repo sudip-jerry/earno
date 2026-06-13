@@ -79,8 +79,8 @@ const configSchema = z.object({
   is_running: z.boolean().optional(),
   ema_fast: z.number().int().min(2).max(200).optional(),
   ema_slow: z.number().int().min(3).max(400).optional(),
-  timeframe: z.enum(["5m", "15m", "1h", "4h"]).optional(),
-  leverage: z.number().int().min(2).max(5).optional(),
+  timeframe: z.enum(["1m", "3m", "5m", "15m", "1h", "4h"]).optional(),
+  leverage: z.number().int().min(1).max(5).optional(),
   take_profit_pct: z.number().min(0.1).max(50).optional(),
   stop_loss_pct: z.number().min(0.1).max(50).optional(),
   trailing_enabled: z.boolean().optional(),
@@ -89,6 +89,14 @@ const configSchema = z.object({
   daily_loss_cap_pct: z.number().min(0.5).max(50).optional(),
   scanner_top_n: z.number().int().min(1).max(20).optional(),
   allow_short: z.boolean().optional(),
+  // Auto Book
+  auto_book: z.boolean().optional(),
+  strategy: z.enum(["vwap_pullback", "momentum_breakout"]).optional(),
+  cooldown_minutes: z.number().int().min(0).max(240).optional(),
+  max_trades_per_day: z.number().int().min(1).max(200).optional(),
+  auto_close_minutes: z.number().int().min(1).max(720).optional(),
+  move_to_breakeven: z.boolean().optional(),
+  min_scalp_score: z.number().int().min(0).max(100).optional(),
 });
 
 export const updateConfig = createServerFn({ method: "POST" })
