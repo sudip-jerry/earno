@@ -117,8 +117,9 @@ export const verifyRazorpayPayment = createServerFn({ method: "POST" })
       .maybeSingle();
     if (orderErr || !order) throw new Error("Order not found");
     if (order.user_id !== context.userId) throw new Error("Order does not belong to caller");
-    const tier = order.tier as "reco" | "auto5" | "unlimited";
+    const tier = order.tier as "reco" | "auto5" | "unlimited" | "free";
     if (tier === "free") throw new Error("Invalid order tier");
+    const paidTier = tier as "reco" | "auto5" | "unlimited";
 
     const { data: existing } = await supabaseAdmin
       .from("user_plans")
