@@ -383,7 +383,16 @@ function decisionSentenceFor(
 
 const SPOT_TICKER = "https://api.coindcx.com/exchange/ticker";
 type SpotRow = { market: string; last_price: string; change_24_hour: string; volume: string };
-const marketSchema = z.object({ market: z.enum(["spot", "futures"]).optional() });
+const marketSchema = z.object({
+  market: z.enum(["spot", "futures"]).optional(),
+  strictness: z.enum(["less", "moderate", "strict"]).optional(),
+});
+
+const STRICT_PRESETS: Record<"less" | "moderate" | "strict", StrictPreset> = {
+  less:     { autoConf: 60, volRatio: 1.2, pullbackMaxPct: 0.5,  rrMin: 1.1 },
+  moderate: { autoConf: 70, volRatio: 1.3, pullbackMaxPct: 0.35, rrMin: 1.2 },
+  strict:   { autoConf: 80, volRatio: 1.5, pullbackMaxPct: 0.25, rrMin: 1.3 },
+};
 
 // Map context → reason label per spec.
 function deriveReasonLabel(p: {
