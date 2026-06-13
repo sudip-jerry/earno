@@ -790,3 +790,47 @@ export const closeManualTrade = createServerFn({ method: "POST" })
 
     return { ok: true, pnl, pnlPct };
   });
+
+const livePricesSchema = z.object({
+  symbols: z.array(z.string().min(1).max(40).regex(/^[A-Z0-9_\-\/]+$/)).min(1).max(50),
+});
+
+export const getLivePrices = createServerFn({ method: "POST" })
+  .inputValidator((d) => livePricesSchema.parse(d))
+  .handler(async ({ data }) => {
+    const wanted = new Set(data.symbols);
+    const out: Record<string, number> = {};
+    try {
+      const res = await fetch(PUBLIC_FUTURES_TICKER, { headers: PUBLIC_API_HEADERS, cache: "no-store" });
+      if (res.ok) {
+        const rows = (await res.json()) as { prices?: Record<string, { ls?: number | string; mp?: number | string }> } | TickerRow[];
+        const arr: TickerRow[] = Array.isArray(rows) ? rows : Object.entries(rows.prices ?? {}).map(([k, v]) => ({ s: k, ls: (v as { ls?: number | string }).ls, c: (v as { mp?: number | string }).mp }));
+        for (const r of arr) {
+          const sym = r.s ?? r.pair;
+          if (!sym || !wanted.has(sym)) continue;
+          const p = num(r.ls ?? r.c);
+          if (p > 0) out[sym] = p;
+        }
+      }
+    } catch {}
+    try {
+      const res = await fetch("https://api.coindcx.com/exchange/ticker", { headers: PUBLIC_API_HEADERS, cache: "no-store" });
+      if (res.ok) {
+        const rows = (await res.json()) as Array<{ market?: string; last_price?: string | number }>;
+        for (const r of rows) {
+          const sym = r.market;
+          if (!sym) continue;
+          const display = sym.endsWith("USDT") ? `${sym.replace(/USDT$/, "")}/USDT` : sym;
+          if (wanted.has(sym)) {
+            const p = num(r.last_price);
+            if (p > 0) out[sym] = p;
+          }
+          if (wanted.has(display)) {
+            const p = num(r.last_price);
+            if (p > 0) out[display] = p;
+          }
+        }
+      }
+    } catch {}
+    return { ok: true as const, prices: out };
+  });
