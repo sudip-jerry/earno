@@ -74,6 +74,24 @@ function Home() {
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
 
+  const profile = useQuery({
+    queryKey: ["my_profile"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("display_name,email,avatar_url")
+        .eq("id", u.user.id)
+        .maybeSingle();
+      return {
+        display_name: (data?.display_name as string | null) ?? (u.user.user_metadata?.full_name as string | undefined) ?? null,
+        email: (data?.email as string | null) ?? u.user.email ?? null,
+        avatar_url: (data?.avatar_url as string | null) ?? (u.user.user_metadata?.avatar_url as string | undefined) ?? null,
+      };
+    },
+  });
+
   const cfg = useQuery({
     queryKey: ["bot_config"],
     queryFn: async () => {
