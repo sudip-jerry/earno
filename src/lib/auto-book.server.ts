@@ -117,7 +117,7 @@ const STRICT_PRESETS: Record<Strictness, { autoConf: number; volMin: number; cha
  */
 async function pickAutoEligibleSetups(strictness: Strictness, topN: number, allowShort: boolean) {
   const preset = STRICT_PRESETS[strictness];
-  const universe = await fetchTopVolume(40);
+  const universe = await fetchScanUniverse(20, 20);
   const candidates: Array<{ symbol: string; price: number; side: "long" | "short"; confidence: number }> = [];
   for (const row of universe) {
     if (row.volume24h < preset.volMin) continue;
