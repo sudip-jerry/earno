@@ -451,57 +451,6 @@ function SettingsPage() {
             onCommit={(v) => updCfg.mutate({ max_open_positions: v })}
           />
           <SliderField
-            label="Leverage"
-            unit="x"
-            min={1}
-            max={5}
-            step={1}
-            value={c?.leverage ?? 3}
-            onCommit={(v) => updCfg.mutate({ leverage: v })}
-          />
-          <SliderField
-            label="Take profit"
-            unit="%"
-            min={0.3}
-            max={10}
-            step={0.1}
-            value={c?.take_profit_pct ?? 3}
-            onCommit={(v) => updCfg.mutate({ take_profit_pct: v })}
-          />
-          <SliderField
-            label="Stop loss"
-            unit="%"
-            min={0.3}
-            max={10}
-            step={0.1}
-            value={c?.stop_loss_pct ?? 2}
-            onCommit={(v) => updCfg.mutate({ stop_loss_pct: v })}
-          />
-          <Row label="Trailing stop" inset={false}>
-            <Switch
-              checked={c?.trailing_enabled ?? true}
-              onCheckedChange={(v) => updCfg.mutate({ trailing_enabled: v })}
-            />
-          </Row>
-          <SliderField
-            label="Risk per trade"
-            unit="%"
-            min={0.5}
-            max={5}
-            step={0.5}
-            value={c?.risk_per_trade_pct ?? 2}
-            onCommit={(v) => updCfg.mutate({ risk_per_trade_pct: v })}
-          />
-          <SliderField
-            label="Max open positions"
-            unit=""
-            min={1}
-            max={5}
-            step={1}
-            value={c?.max_open_positions ?? 3}
-            onCommit={(v) => updCfg.mutate({ max_open_positions: v })}
-          />
-          <SliderField
             label="Max trades/day"
             unit=""
             min={1}
