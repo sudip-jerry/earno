@@ -61,12 +61,15 @@ function ScannerPage() {
   });
 
   const book = useMutation({
-    mutationFn: async (input: { m: Mover; side: "long" | "short" }) =>
-      bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price, market } }),
+    mutationFn: async (input: { m: Mover; side: "long" | "short"; tpPct: number; slPct: number }) =>
+      bookFn({ data: {
+        symbol: input.m.symbol, side: input.side, price: input.m.price, market,
+        confidence: input.m.confidence, tpPct: input.tpPct, slPct: input.slPct,
+      } }),
     onMutate: (v) => setPending(v.m.symbol),
     onSettled: () => setPending(null),
     onSuccess: (_d, v) => {
-      toast.success(`${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked`);
+      toast.success(`${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked · TP ${v.tpPct}% / SL ${v.slPct}%`);
       qc.invalidateQueries({ queryKey: ["positions_open"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Booking failed"),
