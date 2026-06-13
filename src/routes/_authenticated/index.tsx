@@ -4,18 +4,31 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { updateConfig, killAll } from "@/lib/bot.functions";
-import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
+import { getTopMovers, bookManualTrade, type Mover, type Bias } from "@/lib/movers.functions";
+import { getDashboardStats } from "@/lib/stats.functions";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
 import { toast } from "sonner";
-import { Settings, HelpCircle, Power, AlertTriangle, TrendingUp, TrendingDown, Flame, RefreshCw } from "lucide-react";
+import {
+  Settings,
+  HelpCircle,
+  Power,
+  AlertTriangle,
+  TrendingUp,
+  TrendingDown,
+  Flame,
+  RefreshCw,
+  Check,
+  X,
+  Minus,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "Dashboard — EarnO" },
-      { name: "description", content: "Live status of your EarnO automated CoinDCX futures trading bot." },
+      { name: "description", content: "Live status of your EarnO automated CoinDCX futures scalping bot." },
     ],
   }),
   component: Home,
@@ -28,6 +41,8 @@ type ConfigRow = {
   take_profit_pct: number;
   stop_loss_pct: number;
   paper_equity: number;
+  daily_loss_cap_pct: number;
+  auto_book: boolean;
 };
 type PositionRow = {
   id: string;
@@ -44,10 +59,14 @@ function pct(n: number | null | undefined, digits = 1) {
   if (n == null || !Number.isFinite(n)) return "—";
   return `${n >= 0 ? "+" : ""}${n.toFixed(digits)}%`;
 }
-
 function momentumClass(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return "text-muted-foreground";
-  return n >= 0 ? "text-emerald-600" : "text-destructive";
+  return n >= 0 ? "text-emerald-500" : "text-destructive";
+}
+function biasMeta(b: Bias) {
+  if (b === "long") return { cls: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30", Icon: TrendingUp, label: "LONG" };
+  if (b === "short") return { cls: "bg-destructive/10 text-destructive border-destructive/30", Icon: TrendingDown, label: "SHORT" };
+  return { cls: "bg-muted text-muted-foreground border-border", Icon: Minus, label: "WAIT" };
 }
 
 function Home() {
@@ -56,7 +75,7 @@ function Home() {
   const killFn = useServerFn(killAll);
   const moversFn = useServerFn(getTopMovers);
   const bookFn = useServerFn(bookManualTrade);
-  const [market, setMarket] = useState<"futures" | "spot">("futures");
+  const statsFn = useServerFn(getDashboardStats);
   const [pendingTrade, setPendingTrade] = useState<string | null>(null);
 
   const cfg = useQuery({
@@ -64,7 +83,7 @@ function Home() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bot_config")
-        .select("mode,is_running,leverage,take_profit_pct,stop_loss_pct,paper_equity")
+        .select("mode,is_running,leverage,take_profit_pct,stop_loss_pct,paper_equity,daily_loss_cap_pct,auto_book")
         .maybeSingle();
       if (error) throw error;
       return data as ConfigRow | null;
@@ -86,17 +105,23 @@ function Home() {
   });
 
   const movers = useQuery({
-    queryKey: ["dashboard_top_movers", market],
-    queryFn: () => moversFn({ data: { market } }),
+    queryKey: ["dashboard_top_movers"],
+    queryFn: () => moversFn({ data: { market: "futures" } }),
     refetchInterval: 30_000,
   });
 
-  // Realtime: refresh on changes
+  const stats = useQuery({
+    queryKey: ["dashboard_stats"],
+    queryFn: () => statsFn({ data: undefined }),
+    refetchInterval: 15_000,
+  });
+
   useEffect(() => {
     const ch = supabase
       .channel("home")
       .on("postgres_changes", { event: "*", schema: "public", table: "positions" }, () => {
         qc.invalidateQueries({ queryKey: ["positions_open"] });
+        qc.invalidateQueries({ queryKey: ["dashboard_stats"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "bot_config" }, () => {
         qc.invalidateQueries({ queryKey: ["bot_config"] });
@@ -122,18 +147,18 @@ function Home() {
   const kill = useMutation({
     mutationFn: async () => killFn({ data: undefined }),
     onSuccess: () => {
-      toast.success("Bot stopped. All positions closed.");
+      toast.success("Emergency stop: bot halted, positions closed.");
       qc.invalidateQueries();
     },
   });
 
   const book = useMutation({
     mutationFn: async (input: { m: Mover; side: "long" | "short" }) =>
-      bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price, market } }),
+      bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price, market: "futures" } }),
     onMutate: (v) => setPendingTrade(`${v.m.symbol}:${v.side}`),
     onSettled: () => setPendingTrade(null),
     onSuccess: (_d, v) => {
-      toast.success(`${v.side === "long" ? (market === "spot" ? "Buy" : "Long") : "Short"} ${v.m.display} booked`);
+      toast.success(`${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked`);
       qc.invalidateQueries({ queryKey: ["positions_open"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Booking failed"),
@@ -142,22 +167,43 @@ function Home() {
   const c = cfg.data;
   const isLive = c?.mode === "live";
   const isRunning = c?.is_running ?? false;
+  const equity = Number(c?.paper_equity ?? 0);
+  const s = stats.data;
+  const dailyCap = Number(c?.daily_loss_cap_pct ?? 6);
 
-  const totalPnlPct =
-    (positions.data ?? []).reduce((acc, p) => acc + Number(p.pnl_pct ?? 0), 0) /
-    Math.max(positions.data?.length ?? 1, 1);
-  const topMovers: Mover[] = movers.data?.ok ? movers.data.movers.slice(0, 5) : [];
+  const opportunities: Mover[] = movers.data?.ok
+    ? movers.data.movers.filter((m) => m.bias !== "wait").slice(0, 5)
+    : [];
   const moversError = movers.data && !movers.data.ok ? movers.data.error : null;
 
   return (
-    <div className="min-h-svh bg-background pb-40">
+    <div className="min-h-svh bg-background pb-44">
       {/* Header */}
       <header className="px-5 pt-6 pb-4 flex items-center justify-between">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">EarnO</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {isLive ? "Trading with real funds" : "Paper trading"}
-          </p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span
+              className={`inline-flex items-center gap-1 text-[11px] px-1.5 h-5 rounded-full ${
+                isRunning ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground"
+              }`}
+            >
+              <span className={`size-1.5 rounded-full ${isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"}`} />
+              Bot {isRunning ? "running" : "stopped"}
+            </span>
+            <span
+              className={`text-[11px] px-1.5 h-5 inline-flex items-center rounded-full ${
+                isLive ? "bg-destructive/15 text-destructive border border-destructive/40" : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {isLive ? "LIVE" : "PAPER"}
+            </span>
+            {c?.auto_book ? (
+              <span className="text-[11px] px-1.5 h-5 inline-flex items-center rounded-full bg-primary/10 text-primary">
+                Auto-book
+              </span>
+            ) : null}
+          </div>
         </div>
         <div className="flex items-center gap-1">
           <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
@@ -169,15 +215,18 @@ function Home() {
         </div>
       </header>
 
+      {isLive ? (
+        <div className="mx-5 mb-4 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive flex items-center gap-2">
+          <AlertTriangle className="size-4 shrink-0" />
+          Live mode active. Real funds at risk.
+        </div>
+      ) : null}
+
       {/* Mode toggle */}
       <section className="px-5">
         <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <div
-              className={`size-2 rounded-full shrink-0 ${
-                isLive ? "bg-destructive" : "bg-emerald-500"
-              }`}
-            />
+            <div className={`size-2 rounded-full shrink-0 ${isLive ? "bg-destructive" : "bg-emerald-500"}`} />
             <div className="min-w-0">
               <p className="font-medium text-sm">{isLive ? "Live mode" : "Paper mode"}</p>
               <p className="text-xs text-muted-foreground truncate">
@@ -195,77 +244,80 @@ function Home() {
         </div>
       </section>
 
-      {/* Equity summary */}
+      {/* Equity */}
       <section className="px-5 mt-4">
         <div className="rounded-2xl border bg-card p-5">
           <p className="text-xs text-muted-foreground uppercase tracking-wider">
-            {isLive ? "Account" : "Paper equity"}
+            {isLive ? "Account" : "Virtual capital"}
           </p>
           <p className="text-3xl font-semibold tracking-tight mt-1 tabular-nums">
-            ${Number(c?.paper_equity ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            ${equity.toLocaleString(undefined, { maximumFractionDigits: 2 })}
           </p>
-          {positions.data && positions.data.length > 0 ? (
-            <p
-              className={`text-sm mt-1 tabular-nums ${
-                totalPnlPct >= 0 ? "text-emerald-600" : "text-destructive"
-              }`}
-            >
-              {totalPnlPct >= 0 ? "+" : ""}
-              {totalPnlPct.toFixed(2)}% avg open
-            </p>
-          ) : (
-            <p className="text-sm mt-1 text-muted-foreground">No open positions</p>
-          )}
+          <div className="flex items-center gap-3 mt-1 text-sm tabular-nums">
+            <span className={momentumClass(s?.todayPnl)}>
+              {s ? `${s.todayPnl >= 0 ? "+" : ""}$${s.todayPnl.toFixed(2)}` : "—"} today
+            </span>
+            <span className="text-muted-foreground">·</span>
+            <span className={momentumClass(s?.todayPnlPct)}>{pct(s?.todayPnlPct, 2)}</span>
+          </div>
 
-          <div className="grid grid-cols-3 gap-3 mt-5 pt-5 border-t">
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Leverage</p>
-              <p className="text-sm font-medium mt-0.5">{c?.leverage ?? 3}x</p>
+          {/* Daily loss bar */}
+          <div className="mt-4">
+            <div className="flex justify-between text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+              <span>Daily loss used</span>
+              <span className="tabular-nums">{(s?.dailyLossUsedPct ?? 0).toFixed(0)}% of {dailyCap}%</span>
             </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">TP</p>
-              <p className="text-sm font-medium mt-0.5 text-emerald-600">
-                +{c?.take_profit_pct ?? 3}%
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">SL</p>
-              <p className="text-sm font-medium mt-0.5 text-destructive">−{c?.stop_loss_pct ?? 2}%</p>
+            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className={`h-full ${
+                  (s?.dailyLossUsedPct ?? 0) > 80 ? "bg-destructive" : (s?.dailyLossUsedPct ?? 0) > 50 ? "bg-amber-500" : "bg-emerald-500"
+                }`}
+                style={{ width: `${Math.min(100, s?.dailyLossUsedPct ?? 0)}%` }}
+              />
             </div>
           </div>
         </div>
       </section>
 
-      {/* Top trades */}
+      {/* Stat tiles */}
+      <section className="px-5 mt-3 grid grid-cols-2 gap-2">
+        <StatTile label="Open positions" value={`${s?.openCount ?? positions.data?.length ?? 0}`} />
+        <StatTile label="Trades today" value={`${s?.tradesToday ?? 0}`} />
+        <StatTile
+          label="Win rate"
+          value={s && s.closedAllTime > 0 ? `${(s.winRateAllTime * 100).toFixed(0)}%` : "—"}
+          sub={s ? `${s.closedAllTime} closed` : undefined}
+        />
+        <StatTile
+          label="Max drawdown"
+          value={s ? `$${s.maxDrawdown.toFixed(2)}` : "—"}
+          sub={s && s.consecutiveLosses > 0 ? `${s.consecutiveLosses} loss streak` : undefined}
+        />
+      </section>
+
+      {/* Best Opportunities */}
       <section className="px-5 mt-6">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2 min-w-0">
             <Flame className="size-4 text-primary" />
             <div className="min-w-0">
-              <h2 className="text-sm font-medium">Top trades to book</h2>
+              <h2 className="text-sm font-medium">Best opportunities now</h2>
               <p className="text-xs text-muted-foreground truncate">
-                {market === "spot" ? "Spot buys" : "Futures long / short"} ranked by 24h move
+                Ranked by Scalp Score · 1m · 5m · 30m
               </p>
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <div className="inline-flex rounded-full border bg-muted/40 p-0.5 text-[11px] font-medium">
-              {(["futures", "spot"] as const).map((opt) => (
-                <button
-                  key={opt}
-                  onClick={() => setMarket(opt)}
-                  className={`h-7 px-3 rounded-full capitalize transition ${
-                    market === opt ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
+            <Link
+              to="/scanner"
+              className="h-7 px-2.5 inline-flex items-center text-[11px] rounded-full border text-muted-foreground hover:text-foreground"
+            >
+              Open scanner
+            </Link>
             <button
               onClick={() => movers.refetch()}
               className="size-8 grid place-items-center rounded-full border hover:bg-muted"
-              aria-label="Refresh top trades"
+              aria-label="Refresh"
             >
               <RefreshCw className={`size-3.5 ${movers.isFetching ? "animate-spin" : ""}`} />
             </button>
@@ -281,73 +333,74 @@ function Home() {
         <ul className="space-y-2">
           {movers.isLoading && !movers.data
             ? Array.from({ length: 3 }).map((_, i) => (
-                <li key={i} className="h-24 rounded-2xl border bg-card animate-pulse" />
+                <li key={i} className="h-28 rounded-2xl border bg-card animate-pulse" />
               ))
             : null}
 
-          {topMovers.map((m) => {
-            const bookingLong = pendingTrade === `${m.symbol}:long`;
-            const bookingShort = pendingTrade === `${m.symbol}:short`;
+          {opportunities.map((m) => {
+            const b = biasMeta(m.bias);
+            const Icon = b.Icon;
+            const side: "long" | "short" = m.bias === "short" ? "short" : "long";
+            const booking = pendingTrade === `${m.symbol}:${side}`;
             return (
               <li key={m.symbol} className="rounded-2xl border bg-card p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{m.display}</p>
-                    <p className="text-[11px] text-muted-foreground tabular-nums truncate">
-                      {m.price.toLocaleString(undefined, { maximumFractionDigits: 6 })}
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm truncate">{m.display}</p>
+                      <span className={`inline-flex items-center gap-0.5 px-1.5 h-5 rounded text-[10px] font-semibold border ${b.cls}`}>
+                        <Icon className="size-2.5" />
+                        {b.label}
+                      </span>
+                      {m.eligible ? (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-500">
+                          <Check className="size-3" /> Eligible
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                          <X className="size-3" /> {m.rejectReason ?? "Rejected"}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground tabular-nums truncate mt-0.5">
+                      ${m.price.toLocaleString(undefined, { maximumFractionDigits: 6 })} · {pct(m.change24h)} 24h
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className={`text-sm font-medium tabular-nums ${momentumClass(m.change24h)}`}>
-                      {pct(m.change24h)}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">#{m.rank24h}</p>
+                    <p className="text-lg font-semibold tabular-nums leading-none">{m.scalpScore}</p>
+                    <p className="text-[10px] text-muted-foreground">Scalp /100</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 mt-3 text-[11px]">
-                  <div>
-                    <p className="text-muted-foreground uppercase tracking-wider">1m</p>
-                    <p className={`tabular-nums ${momentumClass(m.change1m)}`}>{pct(m.change1m, 2)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground uppercase tracking-wider">5m</p>
-                    <p className={`tabular-nums ${momentumClass(m.change5m)}`}>{pct(m.change5m, 2)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-muted-foreground uppercase tracking-wider">Volume</p>
-                    <p className="tabular-nums">{Number(m.volume24h).toLocaleString(undefined, { notation: "compact" })}</p>
-                  </div>
-                </div>
-                <div className="flex gap-2 mt-3">
-                  <Button
-                    size="sm"
-                    className="flex-1 h-9 rounded-lg"
-                    disabled={bookingLong || bookingShort}
-                    onClick={() => book.mutate({ m, side: "long" })}
-                  >
-                    <TrendingUp className="size-3.5 mr-1" />
-                    {bookingLong ? "Booking…" : market === "spot" ? "Buy" : "Long"}
-                  </Button>
-                  {market === "futures" ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 h-9 rounded-lg border-destructive/40 text-destructive hover:bg-destructive/5"
-                      disabled={bookingLong || bookingShort}
-                      onClick={() => book.mutate({ m, side: "short" })}
-                    >
-                      <TrendingDown className="size-3.5 mr-1" />
-                      {bookingShort ? "Booking…" : "Short"}
-                    </Button>
+
+                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                  <span className="capitalize">Spread {m.spread}</span>
+                  <span>·</span>
+                  <span className="capitalize">Vol {m.volumeTier}{m.volumeSpike ? " ⚡" : ""}</span>
+                  {m.reasons[0] ? (
+                    <>
+                      <span>·</span>
+                      <span className="truncate">{m.reasons[0]}</span>
+                    </>
                   ) : null}
                 </div>
+
+                <Button
+                  size="sm"
+                  className={`w-full h-9 rounded-lg mt-3 text-white ${
+                    m.bias === "short" ? "bg-destructive hover:bg-destructive/90" : "bg-emerald-600 hover:bg-emerald-700"
+                  } disabled:opacity-50`}
+                  disabled={!m.eligible || booking}
+                  onClick={() => book.mutate({ m, side })}
+                >
+                  {booking ? "Booking…" : m.eligible ? `Book ${b.label} (${m.scalpScore})` : "Not eligible"}
+                </Button>
               </li>
             );
           })}
 
-          {!movers.isLoading && topMovers.length === 0 && !moversError ? (
+          {!movers.isLoading && opportunities.length === 0 && !moversError ? (
             <li className="rounded-2xl border border-dashed bg-card/50 p-6 text-center text-sm text-muted-foreground">
-              No trade setups available right now.
+              No clear setups right now.
             </li>
           ) : null}
         </ul>
@@ -357,8 +410,7 @@ function Home() {
       <section className="px-5 mt-6">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-medium">
-            Positions{" "}
-            <span className="text-muted-foreground">({positions.data?.length ?? 0})</span>
+            Open positions <span className="text-muted-foreground">({positions.data?.length ?? 0})</span>
           </h2>
         </div>
         {positions.data && positions.data.length > 0 ? (
@@ -373,26 +425,15 @@ function Home() {
                       <span className="font-medium text-sm">{p.symbol}</span>
                       <span
                         className={`text-[10px] px-1.5 py-0.5 rounded ${
-                          p.side === "long"
-                            ? "bg-emerald-500/10 text-emerald-600"
-                            : "bg-destructive/10 text-destructive"
+                          p.side === "long" ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive"
                         }`}
                       >
                         {p.side.toUpperCase()} {p.leverage}x
                       </span>
                     </div>
-                    <div
-                      className={`flex items-center gap-1 font-medium tabular-nums text-sm ${
-                        up ? "text-emerald-600" : "text-destructive"
-                      }`}
-                    >
-                      {up ? (
-                        <TrendingUp className="size-3.5" />
-                      ) : (
-                        <TrendingDown className="size-3.5" />
-                      )}
-                      {up ? "+" : ""}
-                      {pnl.toFixed(2)}%
+                    <div className={`flex items-center gap-1 font-medium tabular-nums text-sm ${up ? "text-emerald-500" : "text-destructive"}`}>
+                      {up ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
+                      {up ? "+" : ""}{pnl.toFixed(2)}%
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
@@ -402,9 +443,7 @@ function Home() {
                     </div>
                     <div className="text-right">
                       <span className="text-muted-foreground">Mark </span>
-                      <span className="tabular-nums">
-                        {p.mark_price != null ? Number(p.mark_price).toFixed(4) : "—"}
-                      </span>
+                      <span className="tabular-nums">{p.mark_price != null ? Number(p.mark_price).toFixed(4) : "—"}</span>
                     </div>
                   </div>
                 </li>
@@ -415,16 +454,14 @@ function Home() {
           <div className="rounded-2xl border border-dashed bg-card/50 p-8 text-center">
             <p className="text-sm text-muted-foreground">No open positions yet.</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {isRunning
-                ? "Scanning the market for setups."
-                : "Start the bot to begin scanning."}
+              {isRunning ? "Scanning the market for setups." : "Start the bot to begin scanning."}
             </p>
           </div>
         )}
       </section>
 
       {/* Bottom action bar */}
-      <div className="fixed bottom-14 inset-x-0 bg-background/80 backdrop-blur border-t px-5 py-3 flex items-center gap-3 z-20">
+      <div className="fixed bottom-14 inset-x-0 bg-background/85 backdrop-blur border-t px-5 py-3 flex items-center gap-3 z-20">
         <Button
           variant={isRunning ? "outline" : "default"}
           className="flex-1 h-12 rounded-xl"
@@ -438,17 +475,28 @@ function Home() {
           variant="destructive"
           className="h-12 px-4 rounded-xl"
           onClick={() => {
-            if (confirm("Kill switch: stop bot AND close all open positions at market. Continue?"))
+            if (confirm("Emergency stop: halt bot AND close all open positions at market. Continue?"))
               kill.mutate();
           }}
           disabled={kill.isPending}
-          aria-label="Kill switch"
+          aria-label="Emergency stop"
         >
-          <AlertTriangle className="size-4" />
+          <AlertTriangle className="size-4 mr-1" />
+          Stop
         </Button>
       </div>
 
       <TabBar />
+    </div>
+  );
+}
+
+function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="rounded-xl border bg-card p-3">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-lg font-semibold tabular-nums mt-0.5 leading-tight">{value}</p>
+      {sub ? <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p> : null}
     </div>
   );
 }

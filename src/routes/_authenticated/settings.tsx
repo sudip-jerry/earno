@@ -35,9 +35,10 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 type Cfg = {
+  mode: "paper" | "live";
   ema_fast: number;
   ema_slow: number;
-  timeframe: "5m" | "15m" | "1h" | "4h";
+  timeframe: "1m" | "3m" | "5m" | "15m" | "1h" | "4h";
   leverage: number;
   take_profit_pct: number;
   stop_loss_pct: number;
@@ -46,6 +47,13 @@ type Cfg = {
   max_open_positions: number;
   daily_loss_cap_pct: number;
   allow_short: boolean;
+  auto_book: boolean;
+  strategy: "vwap_pullback" | "momentum_breakout";
+  cooldown_minutes: number;
+  max_trades_per_day: number;
+  auto_close_minutes: number;
+  move_to_breakeven: boolean;
+  min_scalp_score: number;
 };
 
 function SettingsPage() {
@@ -70,7 +78,7 @@ function SettingsPage() {
       const { data, error } = await supabase
         .from("bot_config")
         .select(
-          "ema_fast,ema_slow,timeframe,leverage,take_profit_pct,stop_loss_pct,trailing_enabled,risk_per_trade_pct,max_open_positions,daily_loss_cap_pct,allow_short",
+          "mode,ema_fast,ema_slow,timeframe,leverage,take_profit_pct,stop_loss_pct,trailing_enabled,risk_per_trade_pct,max_open_positions,daily_loss_cap_pct,allow_short,auto_book,strategy,cooldown_minutes,max_trades_per_day,auto_close_minutes,move_to_breakeven,min_scalp_score",
         )
         .maybeSingle();
       if (error) throw error;
