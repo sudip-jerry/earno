@@ -765,7 +765,7 @@ export const bookManualTrade = createServerFn({ method: "POST" })
     await supabaseAdmin.from("bot_events").insert({
       user_id: context.userId,
       level: "info",
-      message: `Manual ${data.side.toUpperCase()} on ${data.symbol} at ${data.price} (${cfg.mode})`,
+      message: `Manual ${data.side.toUpperCase()} on ${data.symbol} at ${data.price} · TP ${tp}% / SL ${sl}% (${cfg.mode})`,
     });
 
     return { ok: true };
