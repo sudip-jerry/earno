@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, LogOut } from "lucide-react";
+import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, LogOut, Zap, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -211,30 +211,90 @@ function SettingsPage() {
         </div>
       </section>
 
-      {/* Strategy */}
+      {/* Auto Book */}
       <section className="px-5 mt-6">
-        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-          Strategy
+        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+          <Zap className="size-3" /> Auto Book
         </h2>
         <div className="rounded-2xl border bg-card divide-y">
-          <Row label="Timeframe">
+          <Row label="Auto-book trades">
+            <Switch
+              checked={c?.auto_book ?? false}
+              onCheckedChange={(v) => updCfg.mutate({ auto_book: v })}
+            />
+          </Row>
+          <Row label="Mode">
             <Select
-              value={c?.timeframe ?? "15m"}
-              onValueChange={(v) =>
-                updCfg.mutate({ timeframe: v as Cfg["timeframe"] })
-              }
+              value={c?.mode ?? "paper"}
+              onValueChange={(v) => {
+                if (v === "live" && !confirm("Switch to LIVE? Real funds will be used.")) return;
+                updCfg.mutate({ mode: v as "paper" | "live" });
+              }}
             >
-              <SelectTrigger className="w-28">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="5m">5m</SelectItem>
-                <SelectItem value="15m">15m</SelectItem>
-                <SelectItem value="1h">1h</SelectItem>
-                <SelectItem value="4h">4h</SelectItem>
+                <SelectItem value="paper">Paper</SelectItem>
+                <SelectItem value="live">Live</SelectItem>
               </SelectContent>
             </Select>
           </Row>
+          <Row label="Strategy">
+            <Select
+              value={c?.strategy ?? "vwap_pullback"}
+              onValueChange={(v) => updCfg.mutate({ strategy: v as Cfg["strategy"] })}
+            >
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="vwap_pullback">VWAP Pullback</SelectItem>
+                <SelectItem value="momentum_breakout">Momentum Breakout</SelectItem>
+              </SelectContent>
+            </Select>
+          </Row>
+          <Row label="Timeframe">
+            <Select
+              value={c?.timeframe ?? "5m"}
+              onValueChange={(v) => updCfg.mutate({ timeframe: v as Cfg["timeframe"] })}
+            >
+              <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1m">1m</SelectItem>
+                <SelectItem value="3m">3m</SelectItem>
+                <SelectItem value="5m">5m</SelectItem>
+                <SelectItem value="15m">15m</SelectItem>
+              </SelectContent>
+            </Select>
+          </Row>
+          <Row label="Allow shorts">
+            <Switch
+              checked={c?.allow_short ?? true}
+              onCheckedChange={(v) => updCfg.mutate({ allow_short: v })}
+            />
+          </Row>
+          <Row label="Move SL to breakeven">
+            <Switch
+              checked={c?.move_to_breakeven ?? true}
+              onCheckedChange={(v) => updCfg.mutate({ move_to_breakeven: v })}
+            />
+          </Row>
+        </div>
+
+        {c?.mode === "live" ? (
+          <div className="mt-3 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 flex gap-2 text-xs text-destructive">
+            <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+            <p>
+              Live mode places real futures trades. Use only after paper testing. A working CoinDCX
+              API key with Futures permissions is required.
+            </p>
+          </div>
+        ) : null}
+      </section>
+
+      {/* Strategy params */}
+      <section className="px-5 mt-6">
+        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+          Strategy params
+        </h2>
+        <div className="rounded-2xl border bg-card divide-y">
           <Row label="EMA fast">
             <NumberStepper
               value={c?.ema_fast ?? 9}
@@ -251,10 +311,12 @@ function SettingsPage() {
               onChange={(v) => updCfg.mutate({ ema_slow: v })}
             />
           </Row>
-          <Row label="Allow shorts">
-            <Switch
-              checked={c?.allow_short ?? true}
-              onCheckedChange={(v) => updCfg.mutate({ allow_short: v })}
+          <Row label="Min Scalp Score">
+            <NumberStepper
+              value={c?.min_scalp_score ?? 50}
+              min={0}
+              max={100}
+              onChange={(v) => updCfg.mutate({ min_scalp_score: v })}
             />
           </Row>
         </div>
@@ -318,6 +380,66 @@ function SettingsPage() {
             onCommit={(v) => updCfg.mutate({ max_open_positions: v })}
           />
           <SliderField
+            label="Leverage"
+            unit="x"
+            min={1}
+            max={5}
+            step={1}
+            value={c?.leverage ?? 3}
+            onCommit={(v) => updCfg.mutate({ leverage: v })}
+          />
+          <SliderField
+            label="Take profit"
+            unit="%"
+            min={0.3}
+            max={10}
+            step={0.1}
+            value={c?.take_profit_pct ?? 3}
+            onCommit={(v) => updCfg.mutate({ take_profit_pct: v })}
+          />
+          <SliderField
+            label="Stop loss"
+            unit="%"
+            min={0.3}
+            max={10}
+            step={0.1}
+            value={c?.stop_loss_pct ?? 2}
+            onCommit={(v) => updCfg.mutate({ stop_loss_pct: v })}
+          />
+          <Row label="Trailing stop" inset={false}>
+            <Switch
+              checked={c?.trailing_enabled ?? true}
+              onCheckedChange={(v) => updCfg.mutate({ trailing_enabled: v })}
+            />
+          </Row>
+          <SliderField
+            label="Risk per trade"
+            unit="%"
+            min={0.5}
+            max={5}
+            step={0.5}
+            value={c?.risk_per_trade_pct ?? 2}
+            onCommit={(v) => updCfg.mutate({ risk_per_trade_pct: v })}
+          />
+          <SliderField
+            label="Max open positions"
+            unit=""
+            min={1}
+            max={5}
+            step={1}
+            value={c?.max_open_positions ?? 3}
+            onCommit={(v) => updCfg.mutate({ max_open_positions: v })}
+          />
+          <SliderField
+            label="Max trades/day"
+            unit=""
+            min={1}
+            max={50}
+            step={1}
+            value={c?.max_trades_per_day ?? 10}
+            onCommit={(v) => updCfg.mutate({ max_trades_per_day: v })}
+          />
+          <SliderField
             label="Daily loss cap"
             unit="%"
             min={1}
@@ -325,6 +447,24 @@ function SettingsPage() {
             step={1}
             value={c?.daily_loss_cap_pct ?? 6}
             onCommit={(v) => updCfg.mutate({ daily_loss_cap_pct: v })}
+          />
+          <SliderField
+            label="Cooldown after loss"
+            unit=" min"
+            min={0}
+            max={120}
+            step={5}
+            value={c?.cooldown_minutes ?? 15}
+            onCommit={(v) => updCfg.mutate({ cooldown_minutes: v })}
+          />
+          <SliderField
+            label="Auto-close after"
+            unit=" min"
+            min={1}
+            max={240}
+            step={1}
+            value={c?.auto_close_minutes ?? 30}
+            onCommit={(v) => updCfg.mutate({ auto_close_minutes: v })}
           />
         </div>
       </section>
