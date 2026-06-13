@@ -61,7 +61,6 @@ function AuthPage() {
 
   const handleGoogle = async () => {
     setLoading(true);
-    setRememberMeStorage(rememberMe);
     const result = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: window.location.origin,
     });
