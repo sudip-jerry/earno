@@ -1,14 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { updateConfig, killAll } from "@/lib/bot.functions";
+import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
 import { toast } from "sonner";
-import { Settings, HelpCircle, Power, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
+import { Settings, HelpCircle, Power, AlertTriangle, TrendingUp, TrendingDown, Flame, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -39,10 +40,24 @@ type PositionRow = {
   opened_at: string;
 };
 
+function pct(n: number | null | undefined, digits = 1) {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return `${n >= 0 ? "+" : ""}${n.toFixed(digits)}%`;
+}
+
+function momentumClass(n: number | null | undefined) {
+  if (n == null || !Number.isFinite(n)) return "text-muted-foreground";
+  return n >= 0 ? "text-emerald-600" : "text-destructive";
+}
+
 function Home() {
   const qc = useQueryClient();
   const updateFn = useServerFn(updateConfig);
   const killFn = useServerFn(killAll);
+  const moversFn = useServerFn(getTopMovers);
+  const bookFn = useServerFn(bookManualTrade);
+  const [market, setMarket] = useState<"futures" | "spot">("futures");
+  const [pendingTrade, setPendingTrade] = useState<string | null>(null);
 
   const cfg = useQuery({
     queryKey: ["bot_config"],
@@ -68,6 +83,12 @@ function Home() {
       return (data ?? []) as PositionRow[];
     },
     refetchInterval: 5000,
+  });
+
+  const movers = useQuery({
+    queryKey: ["dashboard_top_movers", market],
+    queryFn: () => moversFn({ data: { market } }),
+    refetchInterval: 30_000,
   });
 
   // Realtime: refresh on changes
@@ -106,6 +127,18 @@ function Home() {
     },
   });
 
+  const book = useMutation({
+    mutationFn: async (input: { m: Mover; side: "long" | "short" }) =>
+      bookFn({ data: { symbol: input.m.symbol, side: input.side, price: input.m.price, market } }),
+    onMutate: (v) => setPendingTrade(`${v.m.symbol}:${v.side}`),
+    onSettled: () => setPendingTrade(null),
+    onSuccess: (_d, v) => {
+      toast.success(`${v.side === "long" ? (market === "spot" ? "Buy" : "Long") : "Short"} ${v.m.display} booked`);
+      qc.invalidateQueries({ queryKey: ["positions_open"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Booking failed"),
+  });
+
   const c = cfg.data;
   const isLive = c?.mode === "live";
   const isRunning = c?.is_running ?? false;
@@ -113,6 +146,8 @@ function Home() {
   const totalPnlPct =
     (positions.data ?? []).reduce((acc, p) => acc + Number(p.pnl_pct ?? 0), 0) /
     Math.max(positions.data?.length ?? 1, 1);
+  const topMovers: Mover[] = movers.data?.ok ? movers.data.movers.slice(0, 5) : [];
+  const moversError = movers.data && !movers.data.ok ? movers.data.error : null;
 
   return (
     <div className="min-h-svh bg-background pb-40">
@@ -199,6 +234,123 @@ function Home() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Top trades */}
+      <section className="px-5 mt-6">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Flame className="size-4 text-primary" />
+            <div className="min-w-0">
+              <h2 className="text-sm font-medium">Top trades to book</h2>
+              <p className="text-xs text-muted-foreground truncate">
+                {market === "spot" ? "Spot buys" : "Futures long / short"} ranked by 24h move
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <div className="inline-flex rounded-full border bg-muted/40 p-0.5 text-[11px] font-medium">
+              {(["futures", "spot"] as const).map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setMarket(opt)}
+                  className={`h-7 px-3 rounded-full capitalize transition ${
+                    market === opt ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => movers.refetch()}
+              className="size-8 grid place-items-center rounded-full border hover:bg-muted"
+              aria-label="Refresh top trades"
+            >
+              <RefreshCw className={`size-3.5 ${movers.isFetching ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+        </div>
+
+        {moversError ? (
+          <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
+            {moversError}
+          </div>
+        ) : null}
+
+        <ul className="space-y-2">
+          {movers.isLoading && !movers.data
+            ? Array.from({ length: 3 }).map((_, i) => (
+                <li key={i} className="h-24 rounded-2xl border bg-card animate-pulse" />
+              ))
+            : null}
+
+          {topMovers.map((m) => {
+            const bookingLong = pendingTrade === `${m.symbol}:long`;
+            const bookingShort = pendingTrade === `${m.symbol}:short`;
+            return (
+              <li key={m.symbol} className="rounded-2xl border bg-card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{m.display}</p>
+                    <p className="text-[11px] text-muted-foreground tabular-nums truncate">
+                      {m.price.toLocaleString(undefined, { maximumFractionDigits: 6 })}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`text-sm font-medium tabular-nums ${momentumClass(m.change24h)}`}>
+                      {pct(m.change24h)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">#{m.rank24h}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mt-3 text-[11px]">
+                  <div>
+                    <p className="text-muted-foreground uppercase tracking-wider">1m</p>
+                    <p className={`tabular-nums ${momentumClass(m.change1m)}`}>{pct(m.change1m, 2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground uppercase tracking-wider">5m</p>
+                    <p className={`tabular-nums ${momentumClass(m.change5m)}`}>{pct(m.change5m, 2)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-muted-foreground uppercase tracking-wider">Volume</p>
+                    <p className="tabular-nums">{Number(m.volume24h).toLocaleString(undefined, { notation: "compact" })}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    className="flex-1 h-9 rounded-lg"
+                    disabled={bookingLong || bookingShort}
+                    onClick={() => book.mutate({ m, side: "long" })}
+                  >
+                    <TrendingUp className="size-3.5 mr-1" />
+                    {bookingLong ? "Booking…" : market === "spot" ? "Buy" : "Long"}
+                  </Button>
+                  {market === "futures" ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 h-9 rounded-lg border-destructive/40 text-destructive hover:bg-destructive/5"
+                      disabled={bookingLong || bookingShort}
+                      onClick={() => book.mutate({ m, side: "short" })}
+                    >
+                      <TrendingDown className="size-3.5 mr-1" />
+                      {bookingShort ? "Booking…" : "Short"}
+                    </Button>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
+
+          {!movers.isLoading && topMovers.length === 0 && !moversError ? (
+            <li className="rounded-2xl border border-dashed bg-card/50 p-6 text-center text-sm text-muted-foreground">
+              No trade setups available right now.
+            </li>
+          ) : null}
+        </ul>
       </section>
 
       {/* Positions */}

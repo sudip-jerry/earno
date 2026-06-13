@@ -17,6 +17,10 @@ const PUBLIC_FUTURES_TICKER =
   "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
 const CANDLES = (pair: string, interval: string, limit: number) =>
   `https://public.coindcx.com/market_data/candles?pair=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
+const PUBLIC_API_HEADERS = {
+  accept: "application/json",
+  "user-agent": "Mozilla/5.0 (compatible; EarnO/1.0; +https://earno.lovable.app)",
+};
 
 type TickerRow = {
   s?: string; pair?: string;
@@ -38,7 +42,10 @@ function prettySymbol(s: string): string {
 
 async function fetchChange(pair: string, interval: "1m" | "5m"): Promise<number | null> {
   try {
-    const res = await fetch(CANDLES(pair, interval, 2), { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(CANDLES(pair, interval, 2), {
+      headers: PUBLIC_API_HEADERS,
+      signal: AbortSignal.timeout(4000),
+    });
     if (!res.ok) return null;
     const json = (await res.json()) as Array<{ open: number; close: number }>;
     if (!Array.isArray(json) || json.length < 1) return null;
@@ -70,7 +77,10 @@ export const getTopMovers = createServerFn({ method: "GET" })
     const market = data.market ?? "futures";
     try {
       if (market === "spot") {
-        const res = await fetch(SPOT_TICKER, { signal: AbortSignal.timeout(6000) });
+        const res = await fetch(SPOT_TICKER, {
+          headers: PUBLIC_API_HEADERS,
+          signal: AbortSignal.timeout(6000),
+        });
         if (!res.ok) return { ok: false, error: `Spot HTTP ${res.status}` };
         const raw = (await res.json()) as SpotRow[];
         const rows = raw
@@ -96,7 +106,10 @@ export const getTopMovers = createServerFn({ method: "GET" })
         return { ok: true, movers: top };
       }
 
-      const res = await fetch(PUBLIC_FUTURES_TICKER, { signal: AbortSignal.timeout(6000) });
+      const res = await fetch(PUBLIC_FUTURES_TICKER, {
+        headers: PUBLIC_API_HEADERS,
+        signal: AbortSignal.timeout(6000),
+      });
       if (!res.ok) return { ok: false, error: `Ticker HTTP ${res.status}` };
       const raw = (await res.json()) as
         | { prices: Record<string, TickerRow> }
