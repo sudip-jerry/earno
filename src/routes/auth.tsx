@@ -24,6 +24,7 @@ function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -31,6 +32,15 @@ function AuthPage() {
       if (data.session) navigate({ to: "/" });
     });
   }, [navigate]);
+
+  const setRememberMeStorage = (remember: boolean) => {
+    localStorage.setItem("earno_remember_me", remember ? "1" : "0");
+    if (remember) {
+      localStorage.setItem("earno_remember_me_until", String(Date.now() + 24 * 60 * 60 * 1000));
+    } else {
+      localStorage.removeItem("earno_remember_me_until");
+    }
+  };
 
   const handleEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,10 +53,12 @@ function AuthPage() {
           options: { emailRedirectTo: window.location.origin },
         });
         if (error) throw error;
+        setRememberMeStorage(rememberMe);
         toast.success("Account created. You're in.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        setRememberMeStorage(rememberMe);
       }
       navigate({ to: "/" });
     } catch (err) {
