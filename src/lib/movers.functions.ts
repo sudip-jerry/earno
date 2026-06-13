@@ -429,14 +429,18 @@ async function enrichMover(
   if (!withCandles) {
     const r = computeRecommendation({ c1m: null, c5m: null, c30m: null, c24h: base.change24h }, market);
     const bias: Bias = r.rec === "long" ? "long" : r.rec === "short" ? "short" : "wait";
-    const eligible = false;
-    const action = actionFor(bias, eligible);
-    const confidenceLabel = confidenceLabelFor(r.confidence, eligible);
+    const tier: Tier = "avoid";
+    const action = actionForTier(tier, bias);
+    const confidenceLabel = confidenceLabelFor(tier);
     const shortReason = r.reasons[0] ?? "Not enough data";
     const checks = buildChecks({
       bias, change1m: null, change5m: null, rsi: null,
       emaTrend: "unknown", vwapStatus: "unknown", vwapDistPct: null,
       spread, volumeSpike: false, tpPct, slPct,
+    });
+    const reasonLabel = deriveReasonLabel({
+      tier, spreadTier: spread, volumeTier, rsi: null, bias,
+      volumeSpike: false, vwapDistPct: null, c1m: null, c5m: null, trend30: r.trend30,
     });
     return {
       ...base,
@@ -457,13 +461,15 @@ async function enrichMover(
       spread,
       volumeTier,
       volumeSpike: false,
-      eligible,
+      eligible: false,
       rejectReason: "Not enough data",
       action,
       confidenceLabel,
       shortReason,
       decisionSentence: decisionSentenceFor(action, confidenceLabel, shortReason),
       checks,
+      tier,
+      reasonLabel,
     };
   }
 
