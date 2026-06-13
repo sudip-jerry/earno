@@ -383,6 +383,37 @@ const SPOT_TICKER = "https://api.coindcx.com/exchange/ticker";
 type SpotRow = { market: string; last_price: string; change_24_hour: string; volume: string };
 const marketSchema = z.object({ market: z.enum(["spot", "futures"]).optional() });
 
+// Map context → reason label per spec.
+function deriveReasonLabel(p: {
+  tier: Tier;
+  spreadTier: SpreadTier;
+  volumeTier: VolumeTier;
+  rsi: number | null;
+  bias: Bias;
+  volumeSpike: boolean;
+  vwapDistPct: number | null;
+  c1m: number | null;
+  c5m: number | null;
+  trend30: TrendArrow | "mixed";
+}): ReasonLabel {
+  if (p.tier === "auto") return "Ready for auto-book";
+  // Hard blockers first
+  if (p.spreadTier === "wide") return "Spread too wide";
+  if (p.volumeTier === "low") return "Low liquidity";
+  if (p.rsi != null) {
+    if (p.bias === "long" && p.rsi > 74) return "Overextended";
+    if (p.bias === "short" && p.rsi < 26) return "Overextended";
+  }
+  if (p.trend30 === "mixed" && (p.c5m == null || Math.abs(p.c5m) < 0.05)) return "Choppy market";
+  // Watch/weak refinements
+  if (!p.volumeSpike) return "Waiting for volume confirmation";
+  if (p.vwapDistPct != null && Math.abs(p.vwapDistPct) > 0.25) return "Waiting for pullback";
+  if (p.bias !== "wait" && p.c1m != null && Math.sign(p.c1m) !== (p.bias === "long" ? 1 : -1)) {
+    return "Waiting for candle close";
+  }
+  return "Watching for setup";
+}
+
 async function enrichMover(
   base: { symbol: string; price: number; change24h: number; volume24h: number; rank24h: number },
   candlePair: string,
