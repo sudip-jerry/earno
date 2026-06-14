@@ -369,6 +369,8 @@ export async function runAutoBookPass(
       if (t > prev) lastOpen.set(r.symbol as string, t);
     }
 
+    const preset: StylePreset = presetFromConfig(cfg);
+
     for (const s of setups) {
       if (openSlot <= 0 || remainingToday <= opened) break;
       if (openSymbols.has(s.symbol)) {
@@ -389,10 +391,36 @@ export async function runAutoBookPass(
         continue;
       }
 
-      const { tpPct, slPct } = autoTpSl(s.confidence);
-      const riskPct = Number(cfg.risk_per_trade_pct ?? 1);
+      // Volatility-adjusted risk plan
+      const atrPct = await fetchAtrPct(s.symbol);
+      const plan = computeRiskPlan({ atrPct, preset, capital: equity });
+
+      if (plan.status !== "auto_eligible") {
+        skipped++;
+        const reasonText =
+          plan.reason === "Volatility too high for auto-book"
+            ? `Skipped ${s.symbol} · Reason Volatility too high · Required Stop ${plan.requiredSL.toFixed(2)}% · Allowed ${preset.maxAutoSL.toFixed(2)}%`
+            : plan.reason === "Risk-reward weak"
+              ? `Skipped ${s.symbol} · Reason Risk-reward weak · R:R ${plan.rr.toFixed(2)}:1 · Required ${preset.minRR.toFixed(1)}:1`
+              : `Skipped ${s.symbol} · ${plan.reason ?? "Risk rejected"}`;
+        await logEvent(supabase, cfg.user_id, "warn", reasonText, {
+          kind: "skip",
+          symbol: s.symbol,
+          side: s.side,
+          confidence: Math.round(s.confidence),
+          atrPct: plan.atrPct,
+          requiredSL: plan.requiredSL,
+          allowedSL: preset.maxAutoSL,
+          rr: plan.rr,
+          reason: plan.reason,
+        });
+        continue;
+      }
+
+      const { tpPct, slPct } = plan;
       const lev = Number(cfg.leverage ?? 3);
-      const notional = Math.min((equity * riskPct) / slPct, equity) * lev;
+      // Position size derives from risk amount, NOT from leverage.
+      const notional = plan.positionSize;
       if (notional <= 0 || s.price <= 0) {
         skipped++;
         continue;
@@ -429,14 +457,27 @@ export async function runAutoBookPass(
       openSlot--;
       openSymbols.add(s.symbol);
       lastOpen.set(s.symbol, Date.now());
-      const rr = slPct > 0 ? (tpPct / slPct) : 0;
       await logEvent(
         supabase,
         cfg.user_id,
         "info",
-        `Auto-booked ${s.side.toUpperCase()} ${s.symbol} · Confidence ${s.confidence.toFixed(0)}% · Target +${tpPct.toFixed(1)}% · Stop −${slPct.toFixed(1)}% · R:R ${rr.toFixed(1)}:1`,
+        `Auto-booked ${s.side.toUpperCase()} ${s.symbol} · Confidence ${s.confidence.toFixed(0)}% · Target +${tpPct.toFixed(2)}% · Stop −${slPct.toFixed(2)}% · Stop Type Volatility-based · R:R ${plan.rr.toFixed(2)}:1`,
+        {
+          kind: "auto_book",
+          symbol: s.symbol,
+          side: s.side,
+          confidence: Math.round(s.confidence),
+          tpPct,
+          slPct,
+          atrPct: plan.atrPct,
+          rr: plan.rr,
+          riskAmount: plan.riskAmount,
+          positionSize: plan.positionSize,
+          stopType: "Volatility-based",
+        },
       );
     }
+
 
     result.opened += opened;
     result.skipped += skipped;
