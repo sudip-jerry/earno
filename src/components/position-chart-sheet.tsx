@@ -119,7 +119,7 @@ export function PositionChartSheet(props: PositionChartProps) {
       crosshair: { mode: 1 },
       handleScale: { axisPressedMouseMove: false },
     });
-    const series = chart.addSeries(CandlestickSeries, {
+    const candleOptions = {
       upColor: "hsl(142 71% 45%)",
       downColor: "hsl(0 84% 60%)",
       borderUpColor: "hsl(142 71% 45%)",
@@ -127,7 +127,13 @@ export function PositionChartSheet(props: PositionChartProps) {
       wickUpColor: "hsl(142 71% 45%)",
       wickDownColor: "hsl(0 84% 60%)",
       priceFormat: { type: "price", precision: 6, minMove: 0.000001 },
-    });
+    } as const;
+    const chartWithFallback = chart as IChartApi & {
+      addCandlestickSeries?: (options: typeof candleOptions) => ISeriesApi<"Candlestick">;
+    };
+    const series = chartWithFallback.addCandlestickSeries
+      ? chartWithFallback.addCandlestickSeries(candleOptions)
+      : chart.addSeries(CandlestickSeries, candleOptions);
     chartRef.current = chart;
     seriesRef.current = series;
     const resize = () => {
