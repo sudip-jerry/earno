@@ -323,17 +323,25 @@ function Home() {
             <p className="text-[40px] leading-none font-semibold tracking-tight mt-2 tabular-nums">
               {hideBalance ? masked : fmt(portfolio)}
             </p>
-            <div className="flex items-center gap-2 mt-2 text-sm tabular-nums">
-              <span className={tone(s?.todayPnl)}>
-                {hideBalance ? masked : (s ? fmt(s.todayPnl, { signed: true }) : "—")}
-              </span>
-              <span className={`inline-flex items-center gap-0.5 text-xs px-1.5 h-5 rounded ${
-                (s?.todayPnlPct ?? 0) >= 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive"
-              }`}>
-                <ArrowUpRight className={`size-3 ${(s?.todayPnlPct ?? 0) < 0 ? "rotate-90" : ""}`} />
-                {pct(s?.todayPnlPct)}
-              </span>
-              <span className="text-muted-foreground text-xs">today</span>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm tabular-nums">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Today</span>
+                <span className={tone(s?.todayPnl)}>
+                  {hideBalance ? masked : (s ? fmt(s.todayPnl, { signed: true }) : "—")}
+                </span>
+                <span className={`inline-flex items-center gap-0.5 text-xs px-1.5 h-5 rounded ${
+                  (s?.todayPnlPct ?? 0) >= 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive"
+                }`}>
+                  <ArrowUpRight className={`size-3 ${(s?.todayPnlPct ?? 0) < 0 ? "rotate-90" : ""}`} />
+                  {pct(s?.todayPnlPct)}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">All-time</span>
+                <span className={tone(s?.realizedPnlAllTime)}>
+                  {hideBalance ? masked : (s ? fmt(s.realizedPnlAllTime, { signed: true }) : "—")}
+                </span>
+              </div>
             </div>
 
             {/* Action row */}
