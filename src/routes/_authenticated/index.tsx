@@ -45,8 +45,8 @@ import {
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
-      { title: "Dashboard — EarnO" },
-      { name: "description", content: "Live status of your EarnO automated CoinDCX futures scalping bot." },
+      { title: "Dashboard — Earn'O" },
+      { name: "description", content: "Live status of your Earn'O automated CoinDCX futures scalping bot." },
     ],
   }),
   component: Home,
@@ -240,7 +240,7 @@ function Home() {
       <header className="px-5 pt-5 pb-3 flex items-center justify-between gap-3">
         <img
           src={earnoStacked.url}
-          alt="EarnO"
+          alt="Earn'O"
           className="h-9 w-auto select-none"
           draggable={false}
         />
@@ -563,7 +563,7 @@ function Home() {
         <SheetContent side="bottom" className="rounded-t-2xl pb-8 max-h-[85svh] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Getting Started</SheetTitle>
-            <SheetDescription>Your quick-start guide to EarnO</SheetDescription>
+            <SheetDescription>Your quick-start guide to Earn'O</SheetDescription>
           </SheetHeader>
           <div className="mt-6 space-y-4">
             <GuideStep

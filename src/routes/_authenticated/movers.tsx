@@ -14,7 +14,7 @@ import { useState } from "react";
 export const Route = createFileRoute("/_authenticated/movers")({
   head: () => ({
     meta: [
-      { title: "Top Movers — EarnO" },
+      { title: "Top Movers — Earn'O" },
       { name: "description", content: "Top movers with simple Long/Short/Wait/Avoid recommendations and confidence." },
     ],
   }),

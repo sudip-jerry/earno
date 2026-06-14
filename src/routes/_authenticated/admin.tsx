@@ -28,7 +28,7 @@ import {
 import { PLAN_NAME, type PlanTier } from "@/lib/plans";
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  head: () => ({ meta: [{ title: "Admin — EarnO" }] }),
+  head: () => ({ meta: [{ title: "Admin — Earn'O" }] }),
   component: AdminPage,
 });
 

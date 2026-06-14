@@ -373,11 +373,11 @@ export function CopilotBeta() {
         </div>
       </div>
 
-      {/* 11. Ask earnO placeholder */}
+      {/* 11. Ask Earn'O placeholder */}
       <div className="rounded-2xl border border-dashed bg-card p-4">
         <div className="flex items-center gap-2 mb-2">
           <MessageSquare className="size-4 text-primary" />
-          <p className="text-sm font-semibold">Ask earnO</p>
+          <p className="text-sm font-semibold">Ask Earn'O</p>
           <span className="ml-auto text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full bg-muted text-muted-foreground">
             Coming soon
           </span>

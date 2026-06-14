@@ -19,7 +19,7 @@ import {
 } from "@/lib/plans";
 
 export const Route = createFileRoute("/_authenticated/upgrade")({
-  head: () => ({ meta: [{ title: "Upgrade — EarnO" }] }),
+  head: () => ({ meta: [{ title: "Upgrade — Earn'O" }] }),
   component: UpgradePage,
 });
 
@@ -69,7 +69,7 @@ function UpgradePage() {
         amount: order.amount,
         currency: order.currency,
         order_id: order.orderId,
-        name: "EarnO",
+        name: "Earn'O",
         description: `${PLAN_NAME[tier]} — 30 days`,
         theme: { color: "#3b82f6" },
         handler: async (res: unknown) => {
@@ -212,7 +212,7 @@ function UpgradePage() {
 
         <p className="text-[11px] text-muted-foreground px-1 pt-2">
           Payments processed by Razorpay (UPI / cards / netbanking). Plans last 30 days
-          from activation. EarnO never custodies funds.
+          from activation. Earn'O never custodies funds.
         </p>
       </div>
     </div>

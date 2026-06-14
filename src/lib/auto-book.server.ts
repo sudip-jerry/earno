@@ -8,7 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
 const PUB_HEADERS = {
   accept: "application/json",
-  "user-agent": "Mozilla/5.0 (compatible; EarnO/1.0; +https://earno.lovable.app)",
+  "user-agent": "Mozilla/5.0 (compatible; Earn'O/1.0; +https://earno.lovable.app)",
 };
 
 type Strictness = "less" | "moderate" | "strict";

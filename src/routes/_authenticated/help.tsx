@@ -21,8 +21,8 @@ const PRIMARY = "#082567";
 export const Route = createFileRoute("/_authenticated/help")({
   head: () => ({
     meta: [
-      { title: "Get Started — earnO" },
-      { name: "description", content: "Welcome to earnO — Wealth, Engineered." },
+      { title: "Get Started — Earn'O" },
+      { name: "description", content: "Welcome to Earn'O — Wealth, Engineered." },
     ],
   }),
   component: HelpPage,
@@ -134,7 +134,7 @@ function StepWelcome() {
       >
         Wealth, Engineered.
       </p>
-      <h2 className="mt-2 text-3xl font-semibold tracking-tight">Welcome to earnO</h2>
+      <h2 className="mt-2 text-3xl font-semibold tracking-tight">Welcome to Earn'O</h2>
       <p className="mt-3 text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
         Your AI-powered market intelligence companion. Discover opportunities,
         understand the why, and grow your portfolio with confidence.
@@ -149,7 +149,7 @@ function StepWelcome() {
       <div className="mt-8 rounded-2xl border bg-card p-2 overflow-hidden">
         <img
           src={journeyAsset.url}
-          alt="The earnO journey: scan markets, find opportunities, analyze, decide, execute, monitor and track performance."
+          alt="The Earn'O journey: scan markets, find opportunities, analyze, decide, execute, monitor and track performance."
           className="w-full h-auto rounded-xl"
         />
       </div>
@@ -170,7 +170,7 @@ function StepFlow() {
         Scan → Analyze → Explain → Trade
       </h2>
       <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-        earnO scans hundreds of markets, ranks setups by confidence, explains
+        Earn'O scans hundreds of markets, ranks setups by confidence, explains
         the rationale, and lets you act — in seconds.
       </p>
 
@@ -205,7 +205,7 @@ function StepPaper() {
       <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
         Start with virtual capital. No exchange. No API keys. No real money at
         risk. Test every opportunity, watch your portfolio evolve, and learn how
-        earnO thinks — before you go live.
+        Earn'O thinks — before you go live.
       </p>
 
       <ul className="mt-6 space-y-3">
@@ -248,7 +248,7 @@ function StepAutomate() {
       </p>
       <h2 className="mt-1 text-2xl font-semibold tracking-tight">Automate When Ready</h2>
       <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-        Once you trust the platform, connect your exchange and let earnO execute
+        Once you trust the platform, connect your exchange and let Earn'O execute
         for you — with your risk rules, your limits, your control.
       </p>
 

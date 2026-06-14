@@ -13,7 +13,7 @@ const PUBLIC_BASE = "https://public.coindcx.com";
 
 const HEADERS = {
   accept: "application/json",
-  "user-agent": "Mozilla/5.0 (compatible; EarnO/1.0; +https://earno.lovable.app)",
+  "user-agent": "Mozilla/5.0 (compatible; Earn'O/1.0; +https://earno.lovable.app)",
 };
 
 export type RawTicker = {

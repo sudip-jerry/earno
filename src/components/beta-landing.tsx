@@ -45,7 +45,7 @@ export function BetaLanding() {
                 <span style={{ color: PRIMARY }}>Grow Better.</span>
               </h1>
               <p className="mt-5 text-sm sm:text-lg text-neutral-600 max-w-xl leading-relaxed">
-                earnO helps traders discover opportunities, understand market
+                Earn'O helps traders discover opportunities, understand market
                 conditions, test strategies, and automate execution with
                 confidence.
               </p>
@@ -86,7 +86,7 @@ export function BetaLanding() {
         </div>
       </section>
 
-      <Section eyebrow="Why earnO" title="Built for serious traders, made simple.">
+      <Section eyebrow="Why Earn'O" title="Built for serious traders, made simple.">
         <div className="grid md:grid-cols-3 gap-4">
           <Feature icon={<Brain className="size-5" />} title="AI Market Intelligence" body="Analyze markets continuously and surface the most relevant opportunities." />
           <Feature icon={<FlaskConical className="size-5" />} title="Paper Trading First" body="Validate ideas and strategies before risking real capital." />
