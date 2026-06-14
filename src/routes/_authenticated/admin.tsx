@@ -64,6 +64,7 @@ function AdminPage() {
   const [eventLevel, setEventLevel] = useState<
     "all" | "info" | "signal" | "trade" | "warn" | "error"
   >("all");
+  const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const events = useQuery({
     queryKey: ["admin_events", eventLevel],
     queryFn: () => listEventsFn({ data: { level: eventLevel, limit: 150 } }),
