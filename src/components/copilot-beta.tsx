@@ -170,8 +170,6 @@ export function CopilotBeta() {
   useEffect(() => {
     if (typeof window !== "undefined") window.localStorage.setItem("copilot_goal", String(goal));
   }, [goal]);
-  const currentEquity = statsQ.data ? statsQ.data.todayPnl + 0 : 0; // shown via fmt; using paper equity below
-  void currentEquity;
 
   const handlePaperTrade = async (m: Mover) => {
     if (m.action !== "long" && m.action !== "short") {
