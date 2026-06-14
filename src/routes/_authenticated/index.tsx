@@ -15,6 +15,10 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { PositionsStrip } from "@/components/positions-strip";
 import { CopilotBeta } from "@/components/copilot-beta";
 import { WealthHero } from "@/components/wealth-hero";
+import { WealthEngineStatus } from "@/components/wealth-engine-status";
+import { RecentActivity } from "@/components/recent-activity";
+import { BotHealth } from "@/components/bot-health";
+import { WhyNoTrade } from "@/components/why-no-trade";
 import { useCurrency } from "@/hooks/use-currency";
 import { toast } from "sonner";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
@@ -145,6 +149,9 @@ function Home() {
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "bot_config" }, () => {
         qc.invalidateQueries({ queryKey: ["bot_config"] });
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "bot_events" }, () => {
+        qc.invalidateQueries({ queryKey: ["dashboard_stats"] });
       })
       .subscribe();
     return () => {
@@ -302,14 +309,8 @@ function Home() {
 
       {tab === "Overview" && (
         <>
-          {/* Wealth command center */}
-          <WealthHero
-            stats={s}
-            equityFallback={equity}
-            isLive={isLive}
-            hideBalance={hideBalance}
-            onToggleHide={() => setHideBalance((v) => !v)}
-          />
+          {/* 1. Wealth Engine Status — primary card */}
+          <WealthEngineStatus stats={s} />
 
           {/* Action row */}
           <section className="px-5 mt-5">
@@ -333,7 +334,6 @@ function Home() {
             </div>
           </section>
 
-
           {/* Featured banner */}
           {!canRunBot && (
             <Link
@@ -352,6 +352,24 @@ function Home() {
               </div>
             </Link>
           )}
+
+          {/* 2. Portfolio Summary */}
+          <WealthHero
+            stats={s}
+            equityFallback={equity}
+            isLive={isLive}
+            hideBalance={hideBalance}
+            onToggleHide={() => setHideBalance((v) => !v)}
+          />
+
+          {/* 3. Recent Activity */}
+          <RecentActivity items={s?.recentActivity ?? []} />
+
+          {/* 4. Why no trade? (only when no open positions) */}
+          <WhyNoTrade stats={s} />
+
+          {/* 5. Bot Health */}
+          <BotHealth stats={s} />
 
           {/* Daily-loss meter */}
           <section className="px-5 mt-5">
@@ -372,7 +390,7 @@ function Home() {
             </div>
           </section>
 
-          {/* Stat grid */}
+          {/* 6. Detailed statistics */}
           <section className="px-5 mt-3 grid grid-cols-2 gap-2">
             <StatTile label="Open positions" value={`${s?.openCount ?? positions.data?.length ?? 0}`} />
             <StatTile label="Trades today" value={`${s?.tradesToday ?? 0}`} />

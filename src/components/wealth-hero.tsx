@@ -137,10 +137,9 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
           icon={<CalendarRange className="size-3" />}
         />
         <WealthStat
-          label="CAGR"
-          value={pctStr(stats?.cagrPct)}
-          plain
-          tone={(stats?.cagrPct ?? 0) >= 0 ? "positive" : "negative"}
+          label={isLive ? "7-day" : "7-day (sim)"}
+          value={hideBalance ? masked : (stats ? fmt(stats.weekChangeAbs, { signed: true }) : "—")}
+          pct={stats?.weekChangePct}
           icon={<TrendingUp className="size-3" />}
         />
       </div>
@@ -196,9 +195,9 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
         />
         <FactTile
           label="On track?"
-          value={(stats?.cagrPct ?? 0) >= 20 ? "Yes" : (stats?.cagrPct ?? 0) > 0 ? "Building" : "Not yet"}
-          sub={`${pctStr(stats?.cagrPct, 1)} CAGR`}
-          tone={(stats?.cagrPct ?? 0) >= 20 ? "positive" : (stats?.cagrPct ?? 0) > 0 ? "neutral" : "negative"}
+          value={(stats?.monthlyGrowthPct ?? 0) >= 5 ? "Yes" : (stats?.monthlyGrowthPct ?? 0) > 0 ? "Building" : "Not yet"}
+          sub={`${pctStr(stats?.monthlyGrowthPct, 1)} · 30d`}
+          tone={(stats?.monthlyGrowthPct ?? 0) >= 5 ? "positive" : (stats?.monthlyGrowthPct ?? 0) > 0 ? "neutral" : "negative"}
         />
       </div>
     </section>

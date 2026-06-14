@@ -123,9 +123,13 @@ const STRICT_PRESETS: Record<Strictness, { autoConf: number; volMin: number; cha
  * (no candle fetch per symbol — keeps the cron under its 10s budget).
  * Returns up to `topN` auto-eligible setups in confidence order.
  */
-async function pickAutoEligibleSetups(strictness: Strictness, topN: number, allowShort: boolean) {
+function pickAutoEligibleSetupsFromUniverse(
+  universe: Array<{ symbol: string; price: number; change24h: number; volume24h: number }>,
+  strictness: Strictness,
+  topN: number,
+  allowShort: boolean,
+) {
   const preset = STRICT_PRESETS[strictness];
-  const universe = await fetchScanUniverse(20, 20);
   const candidates: Array<{ symbol: string; price: number; side: "long" | "short"; confidence: number }> = [];
   for (const row of universe) {
     if (row.volume24h < preset.volMin) continue;
@@ -133,7 +137,6 @@ async function pickAutoEligibleSetups(strictness: Strictness, topN: number, allo
     if (abs24 < preset.change5mMin) continue;
     const side: "long" | "short" = row.change24h >= 0 ? "long" : "short";
     if (side === "short" && !allowShort) continue;
-    // Confidence: scale 24h move into 0–100, gated by preset autoConf.
     const confidence = Math.min(100, 50 + abs24 * 6);
     if (confidence < preset.autoConf) continue;
     candidates.push({ symbol: row.symbol, price: row.price, side, confidence });
@@ -141,6 +144,18 @@ async function pickAutoEligibleSetups(strictness: Strictness, topN: number, allo
   candidates.sort((a, b) => b.confidence - a.confidence);
   return candidates.slice(0, topN);
 }
+
+function bestConfidenceFromUniverse(
+  universe: Array<{ symbol: string; price: number; change24h: number; volume24h: number }>,
+): number {
+  let best = 0;
+  for (const row of universe) {
+    const c = Math.min(100, 50 + Math.abs(row.change24h) * 6);
+    if (c > best) best = c;
+  }
+  return best;
+}
+
 
 type BotConfig = {
   user_id: string;
@@ -173,6 +188,23 @@ async function logEvent(
   message: string,
 ) {
   await supabase.from("bot_events").insert({ user_id: userId, level, message });
+}
+
+async function logScanEvent(
+  supabase: SupabaseClient,
+  userId: string,
+  scanned: number,
+  opportunities: number,
+  opened: number,
+  skipped: number,
+  topConfidence: number,
+) {
+  await supabase.from("bot_events").insert({
+    user_id: userId,
+    level: "info",
+    message: `Scan complete: ${scanned} markets, ${opportunities} opportunities`,
+    meta: { kind: "scan", scanned, opportunities, opened, skipped, top_confidence: topConfidence },
+  });
 }
 
 async function logPauseEvent(supabase: SupabaseClient, userId: string, message: string) {
@@ -212,9 +244,15 @@ export async function runAutoBookPass(
   if (!users.length) return result;
 
   // Single ticker fetch shared across users.
-  const setups = await pickAutoEligibleSetups("moderate", 15, true);
+  const universe = await fetchScanUniverse(20, 20);
+  const setups = pickAutoEligibleSetupsFromUniverse(universe, "moderate", 15, true);
+  const topConfidenceOverall = setups[0]?.confidence ?? bestConfidenceFromUniverse(universe);
+  const scannedCount = universe.length;
   if (!setups.length) {
-    for (const u of users) result.details.push({ user: u.user_id, opened: 0, skipped: 0, reason: "no setups" });
+    for (const u of users) {
+      result.details.push({ user: u.user_id, opened: 0, skipped: 0, reason: "no setups" });
+      await logScanEvent(supabase, u.user_id, scannedCount, 0, 0, 0, topConfidenceOverall);
+    }
     return result;
   }
 
@@ -364,6 +402,7 @@ export async function runAutoBookPass(
     result.opened += opened;
     result.skipped += skipped;
     result.details.push({ user: cfg.user_id, opened, skipped });
+    await logScanEvent(supabase, cfg.user_id, scannedCount, setups.length, opened, skipped, topConfidenceOverall);
   }
 
   return result;
