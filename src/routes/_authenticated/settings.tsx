@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   saveCredentials,
@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, LogOut, Zap, AlertTriangle } from "lucide-react";
+import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, LogOut, Zap, AlertTriangle, Save, RotateCcw } from "lucide-react";
 import { useTheme, type ThemeMode } from "@/hooks/use-theme";
 import { useStrictness, STRICTNESS_PRESETS, type Strictness } from "@/hooks/use-strictness";
 import { useCurrency, CURRENCY_OPTIONS, CURRENCY_SYMBOL, type CurrencyCode } from "@/hooks/use-currency";
@@ -127,6 +127,28 @@ type Cfg = {
   min_scalp_score: number;
 };
 
+const DEFAULTS: Cfg = {
+  mode: "paper",
+  ema_fast: 9,
+  ema_slow: 21,
+  timeframe: "5m",
+  leverage: 2,
+  take_profit_pct: 3,
+  stop_loss_pct: 1.5,
+  trailing_enabled: true,
+  risk_per_trade_pct: 1,
+  max_open_positions: 2,
+  daily_loss_cap_pct: 3,
+  allow_short: true,
+  auto_book: false,
+  strategy: "vwap_pullback",
+  cooldown_minutes: 15,
+  max_trades_per_day: 10,
+  auto_close_minutes: 30,
+  move_to_breakeven: true,
+  min_scalp_score: 50,
+};
+
 function SettingsPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -137,6 +159,7 @@ function SettingsPage() {
 
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
+  const [pending, setPending] = useState<Partial<Cfg>>({});
 
   const status = useQuery({
     queryKey: ["cred_status"],
@@ -156,6 +179,16 @@ function SettingsPage() {
       return data as Cfg | null;
     },
   });
+
+  const c = cfg.data;
+
+  const get = <K extends keyof Cfg>(k: K): Cfg[K] =>
+    (pending[k] ?? c?.[k] ?? DEFAULTS[k]) as Cfg[K];
+
+  const set = <K extends keyof Cfg>(k: K, v: Cfg[K]) =>
+    setPending((p) => ({ ...p, [k]: v }));
+
+  const hasChanges = Object.keys(pending).length > 0;
 
   const save = useMutation({
     mutationFn: async () => saveFn({ data: { apiKey, apiSecret } }),
@@ -180,8 +213,11 @@ function SettingsPage() {
 
   const updCfg = useMutation({
     mutationFn: async (patch: Partial<Cfg>) => updateFn({ data: patch }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["bot_config_full"] }),
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bot_config_full"] });
+      toast.success("Settings saved");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
   });
 
   const signOut = async () => {
@@ -192,8 +228,6 @@ function SettingsPage() {
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   };
-
-  const c = cfg.data;
 
   return (
     <div className="min-h-svh bg-background pb-12">
@@ -290,16 +324,16 @@ function SettingsPage() {
         <div className="rounded-2xl border bg-card divide-y">
           <Row label="Auto-book trades">
             <Switch
-              checked={c?.auto_book ?? false}
-              onCheckedChange={(v) => updCfg.mutate({ auto_book: v })}
+              checked={get("auto_book")}
+              onCheckedChange={(v) => set("auto_book", v)}
             />
           </Row>
           <Row label="Mode">
             <Select
-              value={c?.mode ?? "paper"}
+              value={get("mode")}
               onValueChange={(v) => {
                 if (v === "live" && !confirm("Switch to LIVE? Real funds will be used.")) return;
-                updCfg.mutate({ mode: v as "paper" | "live" });
+                set("mode", v as "paper" | "live");
               }}
             >
               <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
@@ -311,8 +345,8 @@ function SettingsPage() {
           </Row>
           <Row label="Strategy">
             <Select
-              value={c?.strategy ?? "vwap_pullback"}
-              onValueChange={(v) => updCfg.mutate({ strategy: v as Cfg["strategy"] })}
+              value={get("strategy")}
+              onValueChange={(v) => set("strategy", v as Cfg["strategy"])}
             >
               <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -323,8 +357,8 @@ function SettingsPage() {
           </Row>
           <Row label="Timeframe">
             <Select
-              value={c?.timeframe ?? "5m"}
-              onValueChange={(v) => updCfg.mutate({ timeframe: v as Cfg["timeframe"] })}
+              value={get("timeframe")}
+              onValueChange={(v) => set("timeframe", v as Cfg["timeframe"])}
             >
               <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -337,19 +371,19 @@ function SettingsPage() {
           </Row>
           <Row label="Allow shorts">
             <Switch
-              checked={c?.allow_short ?? true}
-              onCheckedChange={(v) => updCfg.mutate({ allow_short: v })}
+              checked={get("allow_short")}
+              onCheckedChange={(v) => set("allow_short", v)}
             />
           </Row>
           <Row label="Move SL to breakeven">
             <Switch
-              checked={c?.move_to_breakeven ?? true}
-              onCheckedChange={(v) => updCfg.mutate({ move_to_breakeven: v })}
+              checked={get("move_to_breakeven")}
+              onCheckedChange={(v) => set("move_to_breakeven", v)}
             />
           </Row>
         </div>
 
-        {c?.mode === "live" ? (
+        {get("mode") === "live" ? (
           <div className="mt-3 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 flex gap-2 text-xs text-destructive">
             <AlertTriangle className="size-4 shrink-0 mt-0.5" />
             <p>
@@ -368,26 +402,26 @@ function SettingsPage() {
         <div className="rounded-2xl border bg-card divide-y">
           <Row label="EMA fast">
             <NumberStepper
-              value={c?.ema_fast ?? 9}
+              value={get("ema_fast")}
               min={2}
               max={50}
-              onChange={(v) => updCfg.mutate({ ema_fast: v })}
+              onChange={(v) => set("ema_fast", v)}
             />
           </Row>
           <Row label="EMA slow">
             <NumberStepper
-              value={c?.ema_slow ?? 21}
+              value={get("ema_slow")}
               min={5}
               max={200}
-              onChange={(v) => updCfg.mutate({ ema_slow: v })}
+              onChange={(v) => set("ema_slow", v)}
             />
           </Row>
           <Row label="Minimum Confidence">
             <NumberStepper
-              value={c?.min_scalp_score ?? 50}
+              value={get("min_scalp_score")}
               min={0}
               max={100}
-              onChange={(v) => updCfg.mutate({ min_scalp_score: v })}
+              onChange={(v) => set("min_scalp_score", v)}
             />
           </Row>
         </div>
@@ -405,8 +439,8 @@ function SettingsPage() {
             min={2}
             max={5}
             step={1}
-            value={c?.leverage ?? 2}
-            onCommit={(v) => updCfg.mutate({ leverage: v })}
+            value={get("leverage")}
+            onChange={(v) => set("leverage", v)}
           />
           <SliderField
             label="Take profit"
@@ -414,8 +448,8 @@ function SettingsPage() {
             min={0.5}
             max={10}
             step={0.5}
-            value={c?.take_profit_pct ?? 3}
-            onCommit={(v) => updCfg.mutate({ take_profit_pct: v })}
+            value={get("take_profit_pct")}
+            onChange={(v) => set("take_profit_pct", v)}
           />
           <SliderField
             label="Stop loss"
@@ -423,13 +457,13 @@ function SettingsPage() {
             min={0.5}
             max={10}
             step={0.5}
-            value={c?.stop_loss_pct ?? 1.5}
-            onCommit={(v) => updCfg.mutate({ stop_loss_pct: v })}
+            value={get("stop_loss_pct")}
+            onChange={(v) => set("stop_loss_pct", v)}
           />
           <Row label="Trailing stop" inset={false}>
             <Switch
-              checked={c?.trailing_enabled ?? true}
-              onCheckedChange={(v) => updCfg.mutate({ trailing_enabled: v })}
+              checked={get("trailing_enabled")}
+              onCheckedChange={(v) => set("trailing_enabled", v)}
             />
           </Row>
           <SliderField
@@ -438,8 +472,8 @@ function SettingsPage() {
             min={0.5}
             max={5}
             step={0.5}
-            value={c?.risk_per_trade_pct ?? 1}
-            onCommit={(v) => updCfg.mutate({ risk_per_trade_pct: v })}
+            value={get("risk_per_trade_pct")}
+            onChange={(v) => set("risk_per_trade_pct", v)}
           />
           <SliderField
             label="Max open positions"
@@ -447,8 +481,8 @@ function SettingsPage() {
             min={1}
             max={5}
             step={1}
-            value={c?.max_open_positions ?? 2}
-            onCommit={(v) => updCfg.mutate({ max_open_positions: v })}
+            value={get("max_open_positions")}
+            onChange={(v) => set("max_open_positions", v)}
           />
           <SliderField
             label="Max trades/day"
@@ -456,8 +490,8 @@ function SettingsPage() {
             min={1}
             max={50}
             step={1}
-            value={c?.max_trades_per_day ?? 10}
-            onCommit={(v) => updCfg.mutate({ max_trades_per_day: v })}
+            value={get("max_trades_per_day")}
+            onChange={(v) => set("max_trades_per_day", v)}
           />
           <SliderField
             label="Daily loss cap"
@@ -465,8 +499,8 @@ function SettingsPage() {
             min={1}
             max={20}
             step={1}
-            value={c?.daily_loss_cap_pct ?? 3}
-            onCommit={(v) => updCfg.mutate({ daily_loss_cap_pct: v })}
+            value={get("daily_loss_cap_pct")}
+            onChange={(v) => set("daily_loss_cap_pct", v)}
           />
           <SliderField
             label="Cooldown after loss"
@@ -474,8 +508,8 @@ function SettingsPage() {
             min={0}
             max={120}
             step={5}
-            value={c?.cooldown_minutes ?? 15}
-            onCommit={(v) => updCfg.mutate({ cooldown_minutes: v })}
+            value={get("cooldown_minutes")}
+            onChange={(v) => set("cooldown_minutes", v)}
           />
           <SliderField
             label="Auto-close after"
@@ -483,8 +517,8 @@ function SettingsPage() {
             min={1}
             max={240}
             step={1}
-            value={c?.auto_close_minutes ?? 30}
-            onCommit={(v) => updCfg.mutate({ auto_close_minutes: v })}
+            value={get("auto_close_minutes")}
+            onChange={(v) => set("auto_close_minutes", v)}
           />
         </div>
       </section>
@@ -524,6 +558,32 @@ function SettingsPage() {
 
 
 
+
+      {hasChanges && (
+        <div className="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-4 flex gap-3 z-50 safe-area-pb">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => setPending({})}
+            disabled={updCfg.isPending}
+          >
+            <RotateCcw className="size-4 mr-2" />
+            Reset
+          </Button>
+          <Button
+            className="flex-1"
+            onClick={() => {
+              updCfg.mutate(pending, {
+                onSuccess: () => setPending({}),
+              });
+            }}
+            disabled={updCfg.isPending}
+          >
+            <Save className="size-4 mr-2" />
+            Save changes
+          </Button>
+        </div>
+      )}
 
       <section className="px-5 mt-8 space-y-2">
         <Link to="/about" className="block rounded-xl border bg-card p-3 text-sm hover:bg-muted">
@@ -565,7 +625,7 @@ function SliderField({
   max,
   step,
   value,
-  onCommit,
+  onChange,
 }: {
   label: string;
   unit: string;
@@ -573,11 +633,10 @@ function SliderField({
   max: number;
   step: number;
   value: number;
-  onCommit: (v: number) => void;
+  onChange: (v: number) => void;
 }) {
   const [local, setLocal] = useState(value);
-  // Sync when server value changes
-  useState(() => setLocal(value));
+  useEffect(() => { setLocal(value); }, [value]);
   return (
     <div>
       <div className="flex justify-between items-baseline mb-2">
@@ -593,7 +652,7 @@ function SliderField({
         step={step}
         value={[local]}
         onValueChange={(v) => setLocal(v[0]!)}
-        onValueCommit={(v) => onCommit(v[0]!)}
+        onValueCommit={(v) => onChange(v[0]!)}
       />
     </div>
   );
