@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -32,6 +33,13 @@ import {
   Flame,
   ChevronRight,
   Zap,
+  Rocket,
+  CheckCircle2,
+  KeyRound,
+  SlidersHorizontal,
+  Bot,
+  LineChart,
+  Crown as CrownIcon,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -74,6 +82,7 @@ function Home() {
 
   const [tab, setTab] = useState<Tab>("Overview");
   const [hideBalance, setHideBalance] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
 
@@ -256,6 +265,15 @@ function Home() {
           <Link to="/settings" className="size-9 grid place-items-center rounded-full hover:bg-muted">
             <Settings className="size-5 text-muted-foreground" />
           </Link>
+          <button
+            type="button"
+            onClick={() => setShowGuide(true)}
+            className="size-9 grid place-items-center rounded-full hover:bg-muted"
+            aria-label="Get started guide"
+            title="Get started"
+          >
+            <Rocket className="size-5 text-primary" />
+          </button>
         </div>
       </header>
 
@@ -530,6 +548,64 @@ function Home() {
       </div>
 
       <TabBar />
+
+      {/* Get Started Guide */}
+      <Sheet open={showGuide} onOpenChange={setShowGuide}>
+        <SheetContent side="bottom" className="rounded-t-2xl pb-8 max-h-[85svh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Getting Started</SheetTitle>
+            <SheetDescription>Your quick-start guide to EarnO</SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-4">
+            <GuideStep
+              n={1}
+              icon={<KeyRound className="size-5 text-primary" />}
+              title="Connect API Keys"
+              desc="Go to Settings and add your CoinDCX API key & secret so the bot can place orders."
+            />
+            <GuideStep
+              n={2}
+              icon={<SlidersHorizontal className="size-5 text-primary" />}
+              title="Set Your Risk"
+              desc="Choose leverage, take-profit, stop-loss, and a daily loss cap that fits your comfort."
+            />
+            <GuideStep
+              n={3}
+              icon={<Bot className="size-5 text-primary" />}
+              title="Start the Bot"
+              desc="Tap Start Bot. It begins in Paper mode by default so you can practice without real money."
+            />
+            <GuideStep
+              n={4}
+              icon={<Radar className="size-5 text-primary" />}
+              title="Watch the Scanner"
+              desc="Open Scanner to see live opportunities ranked by confidence and expected return."
+            />
+            <GuideStep
+              n={5}
+              icon={<LineChart className="size-5 text-primary" />}
+              title="Track Positions"
+              desc="Monitor open trades, PnL, and history in the Positions tab. You can override TP/SL anytime."
+            />
+            <GuideStep
+              n={6}
+              icon={<CrownIcon className="size-5 text-primary" />}
+              title="Upgrade When Ready"
+              desc="Free plans get limited auto-runs. Upgrade to Auto or Unlimited for 24/7 automated trading."
+            />
+          </div>
+          <div className="mt-6 flex gap-3">
+            <Button className="flex-1 rounded-xl h-12" onClick={() => setShowGuide(false)}>
+              <CheckCircle2 className="size-4 mr-2" />
+              Got it
+            </Button>
+            <Button variant="outline" className="flex-1 rounded-xl h-12" onClick={() => { setShowGuide(false); navigate({ to: "/settings" }); }}>
+              <KeyRound className="size-4 mr-2" />
+              Open Settings
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -626,6 +702,33 @@ function StatTile({ label, value, sub }: { label: string; value: string; sub?: s
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="text-lg font-semibold tabular-nums mt-1 leading-tight">{value}</p>
       {sub ? <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p> : null}
+    </div>
+  );
+}
+
+function GuideStep({
+  icon,
+  title,
+  desc,
+  n,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  n: number;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="size-8 rounded-full bg-primary/10 grid place-items-center shrink-0 text-[11px] font-semibold text-primary">
+        {n}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          {icon}
+          <p className="text-sm font-medium">{title}</p>
+        </div>
+        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{desc}</p>
+      </div>
     </div>
   );
 }
