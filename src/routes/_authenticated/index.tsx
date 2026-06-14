@@ -14,7 +14,7 @@ import { TabBar } from "@/components/tab-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PositionsStrip } from "@/components/positions-strip";
 import { CopilotBeta } from "@/components/copilot-beta";
-import { WealthHero } from "@/components/wealth-hero";
+import { WealthHero, MilestoneCard, PerformanceHistoryCard } from "@/components/wealth-hero";
 import { WealthEngineStatus } from "@/components/wealth-engine-status";
 import { RecentActivity } from "@/components/recent-activity";
 import { BotHealth } from "@/components/bot-health";
