@@ -630,6 +630,30 @@ function Home() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={confirmLive} onOpenChange={setConfirmLive}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-destructive" />
+              Switch to Live trading?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Real orders will be placed on CoinDCX using your funds. Your daily-loss cap is {dailyCap}%.
+              You can switch back to Paper anytime.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay on Paper</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => toggleMode.mutate(true)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Go Live
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
