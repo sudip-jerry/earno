@@ -354,11 +354,32 @@ function PositionsPage() {
           ) : null}
         </ul>
       ) : (
-        <ClosedList rows={closedQ.data ?? []} isLoading={closedQ.isLoading} />
+        <ClosedList
+          rows={closedQ.data ?? []}
+          isLoading={closedQ.isLoading}
+          onViewChart={(r) => setChartOpen(r)}
+        />
       )}
 
 
       <TabBar />
+
+      {chartOpen ? (
+        <PositionChartSheet
+          open={!!chartOpen}
+          onOpenChange={(o) => { if (!o) setChartOpen(null); }}
+          symbol={chartOpen.symbol}
+          side={chartOpen.side}
+          entryPrice={Number(chartOpen.entry_price)}
+          openedAt={chartOpen.opened_at}
+          takeProfit={chartOpen.take_profit}
+          stopLoss={chartOpen.stop_loss}
+          exitPrice={"exit_price" in chartOpen ? chartOpen.exit_price : null}
+          closedAt={"closed_at" in chartOpen ? chartOpen.closed_at : null}
+          exitReason={"exit_reason" in chartOpen ? chartOpen.exit_reason : null}
+          mode={chartOpen.mode}
+        />
+      ) : null}
     </div>
   );
 }
