@@ -1,4 +1,4 @@
-import { Eye, EyeOff, ArrowUpRight, Target, TrendingUp, CalendarRange, Sparkles } from "lucide-react";
+import { Eye, EyeOff, ArrowUpRight, Target, TrendingUp, CalendarRange, Sparkles, FlaskConical, BadgeCheck } from "lucide-react";
 import type { DashboardStats, EquityPoint } from "@/lib/stats.functions";
 import { useCurrency } from "@/hooks/use-currency";
 
