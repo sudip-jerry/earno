@@ -223,8 +223,9 @@ async function logEvent(
   userId: string,
   level: "info" | "warn" | "error",
   message: string,
+  meta?: Record<string, unknown>,
 ) {
-  await supabase.from("bot_events").insert({ user_id: userId, level, message });
+  await supabase.from("bot_events").insert({ user_id: userId, level, message, meta: meta ?? null });
 }
 
 async function logScanEvent(
