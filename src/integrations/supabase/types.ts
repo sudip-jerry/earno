@@ -68,6 +68,7 @@ export type Database = {
       bot_config: {
         Row: {
           allow_short: boolean
+          atr_multiplier: number
           auto_book: boolean
           auto_close_minutes: number
           cooldown_minutes: number
@@ -77,9 +78,12 @@ export type Database = {
           ema_slow: number
           is_running: boolean
           leverage: number
+          max_auto_sl_pct: number
           max_open_positions: number
           max_trades_per_day: number
+          min_rr: number
           min_scalp_score: number
+          min_sl_pct: number
           mode: string
           move_to_breakeven: boolean
           paper_equity: number
@@ -88,13 +92,16 @@ export type Database = {
           stop_loss_pct: number
           strategy: string
           take_profit_pct: number
+          target_multiplier: number
           timeframe: string
+          trading_style: string
           trailing_enabled: boolean
           updated_at: string
           user_id: string
         }
         Insert: {
           allow_short?: boolean
+          atr_multiplier?: number
           auto_book?: boolean
           auto_close_minutes?: number
           cooldown_minutes?: number
@@ -104,9 +111,12 @@ export type Database = {
           ema_slow?: number
           is_running?: boolean
           leverage?: number
+          max_auto_sl_pct?: number
           max_open_positions?: number
           max_trades_per_day?: number
+          min_rr?: number
           min_scalp_score?: number
+          min_sl_pct?: number
           mode?: string
           move_to_breakeven?: boolean
           paper_equity?: number
@@ -115,13 +125,16 @@ export type Database = {
           stop_loss_pct?: number
           strategy?: string
           take_profit_pct?: number
+          target_multiplier?: number
           timeframe?: string
+          trading_style?: string
           trailing_enabled?: boolean
           updated_at?: string
           user_id: string
         }
         Update: {
           allow_short?: boolean
+          atr_multiplier?: number
           auto_book?: boolean
           auto_close_minutes?: number
           cooldown_minutes?: number
@@ -131,9 +144,12 @@ export type Database = {
           ema_slow?: number
           is_running?: boolean
           leverage?: number
+          max_auto_sl_pct?: number
           max_open_positions?: number
           max_trades_per_day?: number
+          min_rr?: number
           min_scalp_score?: number
+          min_sl_pct?: number
           mode?: string
           move_to_breakeven?: boolean
           paper_equity?: number
@@ -142,7 +158,9 @@ export type Database = {
           stop_loss_pct?: number
           strategy?: string
           take_profit_pct?: number
+          target_multiplier?: number
           timeframe?: string
+          trading_style?: string
           trailing_enabled?: boolean
           updated_at?: string
           user_id?: string
