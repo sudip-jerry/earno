@@ -164,7 +164,11 @@ function Home() {
 
   const toggleMode = useMutation({
     mutationFn: async (live: boolean) => updateFn({ data: { mode: live ? "live" : "paper" } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["bot_config"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bot_config"] });
+      qc.invalidateQueries({ queryKey: ["dashboard_stats"] });
+      qc.invalidateQueries({ queryKey: ["positions_open"] });
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
   });
 
