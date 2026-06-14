@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { atrPctFromCandles } from "@/lib/risk-engine";
 
 export type Bias = "long" | "short" | "wait";
 export type Action = "long" | "short" | "wait" | "avoid";
