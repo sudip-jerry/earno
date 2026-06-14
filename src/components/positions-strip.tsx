@@ -24,7 +24,7 @@ export function PositionsStrip({ showMarketToggle = true }: { showMarketToggle?:
   const { fmt } = useCurrency();
 
   const q = useQuery({
-    queryKey: ["positions_open"],
+    queryKey: ["positions_strip_open"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("positions")
@@ -40,7 +40,7 @@ export function PositionsStrip({ showMarketToggle = true }: { showMarketToggle?:
     const ch = supabase
       .channel("positions_strip")
       .on("postgres_changes", { event: "*", schema: "public", table: "positions" }, () => {
-        qc.invalidateQueries({ queryKey: ["positions_open"] });
+        qc.invalidateQueries({ queryKey: ["positions_strip_open"] });
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
