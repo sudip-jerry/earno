@@ -39,6 +39,9 @@ export function HelpFab() {
         <img src={mascot.url} alt="Meet Earney" className="size-14 object-contain drop-shadow-sm" />
         <span className="absolute -top-0.5 -right-0.5 size-3.5 rounded-full bg-emerald-500 ring-2 ring-background animate-pulse" />
       </button>
+      <div className="fixed z-40 bottom-40 right-4 max-w-[10rem] rounded-2xl rounded-br-sm bg-card px-3 py-2 text-xs font-medium text-foreground shadow-lg ring-1 ring-primary/20 animate-bounce">
+        Hi I am earn'O
+      </div>
 
       {open && (
         <div className="fixed inset-0 z-50 animate-fade-in">
