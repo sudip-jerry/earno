@@ -238,26 +238,6 @@ function WealthStat({
 }
 
 
-function FactTile({
-  label, value, sub, tone,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: "positive" | "negative" | "neutral";
-}) {
-  const t =
-    tone === "positive" ? "text-emerald-500" :
-    tone === "negative" ? "text-destructive" :
-    "text-foreground";
-  return (
-    <div className="rounded-2xl border bg-card p-3">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-base font-semibold tabular-nums ${t}`}>{value}</p>
-      {sub && <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">{sub}</p>}
-    </div>
-  );
-}
 
 function Sparkline({ points }: { points: EquityPoint[] }) {
   const w = 320;
