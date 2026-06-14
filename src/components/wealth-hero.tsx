@@ -1,6 +1,7 @@
 import { Eye, EyeOff, ArrowUpRight, Target, TrendingUp, CalendarRange, Sparkles, FlaskConical, BadgeCheck } from "lucide-react";
 import type { DashboardStats, EquityPoint } from "@/lib/stats.functions";
 import { useCurrency } from "@/hooks/use-currency";
+import { Switch } from "@/components/ui/switch";
 
 type Props = {
   stats?: DashboardStats;
@@ -8,6 +9,8 @@ type Props = {
   isLive: boolean;
   hideBalance: boolean;
   onToggleHide: () => void;
+  onToggleMode?: (live: boolean) => void;
+  modePending?: boolean;
 };
 
 // Nice round milestone ladder in the user's display currency.
