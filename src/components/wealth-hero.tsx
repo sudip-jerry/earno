@@ -197,14 +197,6 @@ function WealthStat({
   );
 }
 
-function ProjTile({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div className={`rounded-xl p-2.5 ${highlight ? "bg-primary/10 ring-1 ring-primary/30" : "bg-muted/40"}`}>
-      <p className={`text-[10px] uppercase tracking-wider ${highlight ? "text-primary" : "text-muted-foreground"}`}>{label}</p>
-      <p className={`mt-0.5 text-sm font-semibold tabular-nums ${highlight ? "text-primary" : ""}`}>{value}</p>
-    </div>
-  );
-}
 
 function FactTile({
   label, value, sub, tone,
