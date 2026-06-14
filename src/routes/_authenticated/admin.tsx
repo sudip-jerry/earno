@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronLeft, Copy } from "lucide-react";
+import { ChevronLeft, Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   getMyEntitlements,
