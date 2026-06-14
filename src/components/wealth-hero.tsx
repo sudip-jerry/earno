@@ -1,4 +1,4 @@
-import { Eye, EyeOff, ArrowUpRight, Target, TrendingUp, CalendarRange } from "lucide-react";
+import { Eye, EyeOff, ArrowUpRight, Target, TrendingUp, CalendarRange, Sparkles } from "lucide-react";
 import type { DashboardStats, EquityPoint } from "@/lib/stats.functions";
 import { useCurrency } from "@/hooks/use-currency";
 
@@ -9,6 +9,20 @@ type Props = {
   hideBalance: boolean;
   onToggleHide: () => void;
 };
+
+// Nice round milestone ladder in the user's display currency.
+// Scales 1, 2.5, 5, 10 x 10^n.
+function nextNiceMilestone(value: number): { next: number; prev: number } {
+  if (!Number.isFinite(value) || value <= 0) return { next: 1000, prev: 0 };
+  const bases = [1, 2.5, 5];
+  const ladder: number[] = [];
+  for (let exp = 2; exp <= 12; exp++) {
+    for (const b of bases) ladder.push(b * Math.pow(10, exp));
+  }
+  const next = ladder.find((m) => m > value) ?? value * 2;
+  const prev = [...ladder].reverse().find((m) => m <= value) ?? 0;
+  return { next, prev };
+}
 
 const masked = "••••••";
 
