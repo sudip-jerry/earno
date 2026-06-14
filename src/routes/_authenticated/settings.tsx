@@ -324,16 +324,16 @@ function SettingsPage() {
         <div className="rounded-2xl border bg-card divide-y">
           <Row label="Auto-book trades">
             <Switch
-              checked={c?.auto_book ?? false}
-              onCheckedChange={(v) => updCfg.mutate({ auto_book: v })}
+              checked={get("auto_book")}
+              onCheckedChange={(v) => set("auto_book", v)}
             />
           </Row>
           <Row label="Mode">
             <Select
-              value={c?.mode ?? "paper"}
+              value={get("mode")}
               onValueChange={(v) => {
                 if (v === "live" && !confirm("Switch to LIVE? Real funds will be used.")) return;
-                updCfg.mutate({ mode: v as "paper" | "live" });
+                set("mode", v as "paper" | "live");
               }}
             >
               <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
@@ -345,8 +345,8 @@ function SettingsPage() {
           </Row>
           <Row label="Strategy">
             <Select
-              value={c?.strategy ?? "vwap_pullback"}
-              onValueChange={(v) => updCfg.mutate({ strategy: v as Cfg["strategy"] })}
+              value={get("strategy")}
+              onValueChange={(v) => set("strategy", v as Cfg["strategy"])}
             >
               <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -357,8 +357,8 @@ function SettingsPage() {
           </Row>
           <Row label="Timeframe">
             <Select
-              value={c?.timeframe ?? "5m"}
-              onValueChange={(v) => updCfg.mutate({ timeframe: v as Cfg["timeframe"] })}
+              value={get("timeframe")}
+              onValueChange={(v) => set("timeframe", v as Cfg["timeframe"])}
             >
               <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -371,14 +371,14 @@ function SettingsPage() {
           </Row>
           <Row label="Allow shorts">
             <Switch
-              checked={c?.allow_short ?? true}
-              onCheckedChange={(v) => updCfg.mutate({ allow_short: v })}
+              checked={get("allow_short")}
+              onCheckedChange={(v) => set("allow_short", v)}
             />
           </Row>
           <Row label="Move SL to breakeven">
             <Switch
-              checked={c?.move_to_breakeven ?? true}
-              onCheckedChange={(v) => updCfg.mutate({ move_to_breakeven: v })}
+              checked={get("move_to_breakeven")}
+              onCheckedChange={(v) => set("move_to_breakeven", v)}
             />
           </Row>
         </div>
