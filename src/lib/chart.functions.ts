@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const CANDLES = (pair: string, interval: string, limit: number) =>
   `https://public.coindcx.com/market_data/candles?pair=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
+const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
 
 const HEADERS = {
   accept: "application/json",
@@ -19,9 +20,66 @@ export type ChartCandle = {
   close: number;
 };
 
+type FuturesTickerPayload = {
+  prices?: Record<string, { mkt?: string }>;
+};
+
 function num(v: unknown): number {
   const n = typeof v === "number" ? v : parseFloat(String(v));
   return Number.isFinite(n) ? n : 0;
+}
+
+async function futuresMarketForSymbol(symbol: string): Promise<string | null> {
+  if (!symbol.startsWith("B-")) return null;
+  try {
+    const res = await fetch(FUTURES_TICKER, {
+      headers: HEADERS,
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as FuturesTickerPayload;
+    const market = json.prices?.[symbol]?.mkt;
+    return market && /^[A-Z0-9]+$/.test(market) ? market : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchCoinDcxCandles(pair: string, interval: string, limit: number): Promise<ChartCandle[]> {
+  const res = await fetch(CANDLES(pair, interval, limit), {
+    headers: HEADERS,
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!res.ok) return [];
+  const raw = (await res.json()) as Array<{
+    open: number | string;
+    high: number | string;
+    low: number | string;
+    close: number | string;
+    time?: number | string;
+  }>;
+  if (!Array.isArray(raw)) return [];
+  const candles: ChartCandle[] = raw
+    .map((k) => {
+      const tMs = num(k.time ?? 0);
+      return {
+        time: Math.floor(tMs > 1e12 ? tMs / 1000 : tMs),
+        open: num(k.open),
+        high: num(k.high),
+        low: num(k.low),
+        close: num(k.close),
+      };
+    })
+    .filter((c) => c.time > 0 && c.open > 0 && c.high > 0 && c.low > 0 && c.close > 0)
+    .sort((a, b) => a.time - b.time);
+  const out: ChartCandle[] = [];
+  let last = 0;
+  for (const c of candles) {
+    if (c.time <= last) continue;
+    out.push(c);
+    last = c.time;
+  }
+  return out;
 }
 
 export const getChartCandles = createServerFn({ method: "POST" })
@@ -36,41 +94,12 @@ export const getChartCandles = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }): Promise<{ candles: ChartCandle[] }> => {
     try {
-      const res = await fetch(CANDLES(data.symbol, data.interval, data.limit), {
-        headers: HEADERS,
-        signal: AbortSignal.timeout(5000),
-      });
-      if (!res.ok) return { candles: [] };
-      const raw = (await res.json()) as Array<{
-        open: number | string;
-        high: number | string;
-        low: number | string;
-        close: number | string;
-        time?: number | string;
-      }>;
-      if (!Array.isArray(raw)) return { candles: [] };
-      const candles: ChartCandle[] = raw
-        .map((k) => {
-          const tMs = num(k.time ?? 0);
-          return {
-            time: Math.floor((tMs > 1e12 ? tMs / 1000 : tMs)),
-            open: num(k.open),
-            high: num(k.high),
-            low: num(k.low),
-            close: num(k.close),
-          };
-        })
-        .filter((c) => c.time > 0)
-        .sort((a, b) => a.time - b.time);
-      // Deduplicate by time (lightweight-charts requires unique ascending times)
-      const out: ChartCandle[] = [];
-      let last = 0;
-      for (const c of candles) {
-        if (c.time <= last) continue;
-        out.push(c);
-        last = c.time;
+      let candles = await fetchCoinDcxCandles(data.symbol, data.interval, data.limit);
+      if (!candles.length) {
+        const market = await futuresMarketForSymbol(data.symbol);
+        if (market) candles = await fetchCoinDcxCandles(market, data.interval, data.limit);
       }
-      return { candles: out };
+      return { candles };
     } catch {
       return { candles: [] };
     }
