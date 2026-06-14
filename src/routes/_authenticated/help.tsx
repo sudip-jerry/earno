@@ -155,17 +155,23 @@ export function HelpFlow({
 function StepWelcome() {
   return (
     <section>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-        Wealth, Engineered.
-      </p>
-      <h2 className="mt-2 text-[32px] leading-[1.05] font-semibold tracking-tight">
-        Welcome to <span className="text-primary">Earn'O</span>
-      </h2>
-      <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+      <div className="flex items-end gap-3">
+        <img src={mascotHappy.url} alt="Earney mascot" className="size-24 -mb-1 shrink-0 drop-shadow" />
+        <div className="pb-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+            Hi, I'm Earney
+          </p>
+          <h2 className="mt-1 text-[28px] leading-[1.05] font-semibold tracking-tight">
+            Welcome to <span className="text-primary">Earn'O</span>
+          </h2>
+        </div>
+      </div>
+      <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
         Your AI market companion. Spot opportunities, understand the why, and
         grow your portfolio — with paper trading, manual control, or full
         automation.
       </p>
+
 
       <div className="mt-5 grid grid-cols-3 gap-2">
         <Pillar icon={<Brain className="size-4" />} label="AI insight" />
