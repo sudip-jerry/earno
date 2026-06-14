@@ -90,7 +90,7 @@ function AdminPage() {
       qc.invalidateQueries({ queryKey: ["admin_users"] });
       toast.success("Plan updated");
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message,message : "Failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
     onSettled: () => setSavingUserId(null),
   });
 
