@@ -263,13 +263,15 @@ function AdminPage() {
                   </p>
                 </div>
                 <Select
-                  onValueChange={(t) =>
+                  value={x.tier}
+                  onValueChange={(t) => {
+                    if (t === x.tier) return;
                     setPlan.mutate({
                       userId: x.id,
                       tier: t as PlanTier,
                       days: t === "free" ? 0 : 36500,
-                    })
-                  }
+                    });
+                  }}
                 >
                   <SelectTrigger className="w-32 h-8 text-xs shrink-0">
                     <SelectValue placeholder="Set plan" />
