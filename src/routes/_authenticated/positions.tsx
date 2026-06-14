@@ -548,7 +548,7 @@ function TpSlEditor({
         <div className="space-y-1">
           <div className="flex items-center justify-between text-[10px] text-muted-foreground">
             <span>Take Profit ({side === "long" ? ">" : "<"} {fmtNum(entry, 6)})</span>
-            <UnitToggle value={tpUnit} onChange={setTpUnit} />
+            <UnitToggle value={tpUnit} onChange={handleTpUnit} />
           </div>
           <div className="relative">
             <input
