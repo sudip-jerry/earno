@@ -7,12 +7,44 @@ function fmtTime(iso: string): string {
   return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
+const REASON_LABEL: Record<string, string> = {
+  take_profit: "Take Profit",
+  stop_loss: "Stop Loss",
+  trend_invalidated: "Trend Invalidated",
+  recovery_exit: "Recovery Exit",
+  time_exit: "Time Exit",
+  manual_limit: "Manual Close",
+  manual_close: "Manual Close",
+  kill_switch: "Risk Protection",
+  risk_lock: "Risk Protection",
+};
+
+function prettyReason(code?: string | null): string | null {
+  if (!code) return null;
+  const key = code.toLowerCase();
+  if (REASON_LABEL[key]) return REASON_LABEL[key];
+  return code.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function sanitize(msg: string): { text: string; reason: string | null } {
+  // Strip raw "position_<uuid>" tokens
+  let text = msg.replace(/\bposition[_-][0-9a-f-]{6,}\b/gi, "").replace(/\s{2,}/g, " ").trim();
+  // Extract "(reason_code)" suffix and convert to pretty label
+  let reason: string | null = null;
+  const m = text.match(/\(([a-z_]+)\)\s*$/i);
+  if (m) {
+    reason = prettyReason(m[1]);
+    text = text.slice(0, m.index).trim();
+  }
+  return { text, reason };
+}
+
 function classify(msg: string, meta?: ActivityMeta | null): { tag: string; tone: "positive" | "negative" | "warn" | "neutral" } {
   const kind = meta?.kind;
   if (kind === "auto_book" || /^Auto-booked/i.test(msg)) return { tag: "Opened", tone: "positive" };
   if (kind === "skip" || /^Skipped/i.test(msg)) return { tag: "Skipped", tone: "warn" };
-  if (/^Auto-closed/i.test(msg)) return { tag: "Closed", tone: "neutral" };
-  if (/paused|cap hit|limit/i.test(msg)) return { tag: "Paused", tone: "warn" };
+  if (/^Auto-closed|^Closed/i.test(msg)) return { tag: "Closed", tone: "neutral" };
+  if (/paused|cap hit|limit|risk lock/i.test(msg)) return { tag: "Paused", tone: "warn" };
   if (/Scan complete/i.test(msg)) return { tag: "Scan", tone: "neutral" };
   if (/failed|error/i.test(msg)) return { tag: "Error", tone: "negative" };
   if (/cooldown/i.test(msg)) return { tag: "Skipped", tone: "warn" };
