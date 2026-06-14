@@ -318,7 +318,7 @@ export async function runAutoBookPass(
       .gte("opened_at", startOfDay.toISOString());
 
     const todayPnl = (todayPos ?? []).reduce((acc, p) => acc + Number(p.pnl ?? 0), 0);
-    const equity = Number(cfg.paper_equity ?? 0);
+    const equity = await resolveEquity(supabase, cfg);
     if (cfg.daily_loss_cap_pct != null && equity > 0) {
       const cap = (Number(cfg.daily_loss_cap_pct) / 100) * equity;
       if (todayPnl <= -cap) {
