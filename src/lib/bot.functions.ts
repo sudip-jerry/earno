@@ -104,6 +104,11 @@ const configSchema = z.object({
   max_auto_sl_pct: z.number().min(0.5).max(20).optional(),
   target_multiplier: z.number().min(0.5).max(10).optional(),
   min_rr: z.number().min(0.5).max(10).optional(),
+  // Live-mode wallet allocation
+  live_wallet_source: z.enum(["futures", "spot"]).optional(),
+  live_allocation_mode: z.enum(["full", "amount", "percent"]).optional(),
+  live_allocation_amount: z.number().min(0).max(10_000_000).optional(),
+  live_allocation_pct: z.number().min(1).max(100).optional(),
 });
 
 export const updateConfig = createServerFn({ method: "POST" })
