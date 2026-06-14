@@ -152,38 +152,46 @@ export function HelpFlow({
 
 function StepWelcome() {
   return (
-    <section className="text-center pt-6">
-      <div
-        className="mx-auto size-16 rounded-2xl grid place-items-center"
-        style={{ backgroundColor: "rgba(8,37,103,0.08)", color: PRIMARY }}
-      >
-        <Sparkles className="size-7" />
-      </div>
-      <p
-        className="mt-5 text-[11px] font-semibold uppercase tracking-[0.18em]"
-        style={{ color: PRIMARY }}
-      >
+    <section>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
         Wealth, Engineered.
       </p>
-      <h2 className="mt-2 text-3xl font-semibold tracking-tight">Welcome to Earn'O</h2>
-      <p className="mt-3 text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
-        Your AI-powered market intelligence companion. Discover opportunities,
-        understand the why, and grow your portfolio with confidence.
+      <h2 className="mt-2 text-[32px] leading-[1.05] font-semibold tracking-tight">
+        Welcome to <span className="text-primary">Earn'O</span>
+      </h2>
+      <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+        Your AI market companion. Spot opportunities, understand the why, and
+        grow your portfolio — with paper trading, manual control, or full
+        automation.
       </p>
 
-      <div className="mt-8 grid grid-cols-3 gap-2 text-left">
+      <div className="mt-5 grid grid-cols-3 gap-2">
         <Pillar icon={<Brain className="size-4" />} label="AI insight" />
         <Pillar icon={<ShieldCheck className="size-4" />} label="Risk first" />
         <Pillar icon={<TrendingUp className="size-4" />} label="Growth" />
       </div>
 
-      <div className="mt-8 rounded-2xl border bg-card p-2 overflow-hidden">
+      <div className="mt-5 rounded-2xl border bg-card p-2 overflow-hidden">
         <img
           src={journeyAsset.url}
           alt="The Earn'O journey: scan markets, find opportunities, analyze, decide, execute, monitor and track performance."
           className="w-full h-auto rounded-xl"
         />
       </div>
+
+      <Link
+        to="/"
+        className="mt-5 block rounded-2xl p-4 bg-gradient-to-br from-primary to-[#3B82F6] text-primary-foreground"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs opacity-80">Live demo</p>
+            <p className="font-semibold mt-0.5">See your virtual portfolio</p>
+            <p className="text-xs opacity-80 mt-0.5">No setup. Start with ₹1,00,000 paper capital.</p>
+          </div>
+          <ArrowRight className="size-5 shrink-0" />
+        </div>
+      </Link>
     </section>
   );
 }
@@ -191,18 +199,15 @@ function StepWelcome() {
 function StepFlow() {
   return (
     <section>
-      <p
-        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
-        style={{ color: PRIMARY }}
-      >
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
         How it works
       </p>
-      <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+      <h2 className="mt-2 text-[28px] leading-tight font-semibold tracking-tight">
         Scan → Analyze → Explain → Trade
       </h2>
       <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-        Earn'O scans hundreds of markets, ranks setups by confidence, explains
-        the rationale, and lets you act — in seconds.
+        Hundreds of markets scanned live, ranked by confidence, every signal
+        explained in plain English.
       </p>
 
       <DemoLoop />
@@ -220,39 +225,32 @@ function StepFlow() {
 function StepPaper() {
   return (
     <section>
-      <div
-        className="size-12 rounded-2xl grid place-items-center"
-        style={{ backgroundColor: "rgba(8,37,103,0.08)", color: PRIMARY }}
-      >
-        <FlaskConical className="size-6" />
-      </div>
-      <p
-        className="mt-5 text-[11px] font-semibold uppercase tracking-[0.18em]"
-        style={{ color: PRIMARY }}
-      >
-        Step 3 — Risk free
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+        Risk free
       </p>
-      <h2 className="mt-1 text-2xl font-semibold tracking-tight">Paper Trading First</h2>
-      <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-        Start with virtual capital. No exchange. No API keys. No real money at
-        risk. Test every opportunity, watch your portfolio evolve, and learn how
-        Earn'O thinks — before you go live.
+      <h2 className="mt-2 text-[28px] leading-tight font-semibold tracking-tight">
+        Paper Trading First
+      </h2>
+      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+        Start with virtual capital. No exchange, no API keys, no real money at
+        risk. Same signals, same scores — zero downside.
       </p>
 
-      <ul className="mt-6 space-y-3">
+      <div className="mt-5 grid grid-cols-2 gap-2">
+        <StatCard label="Starting capital" value="₹1,00,000" />
+        <StatCard label="Risk to wallet" value="₹0" tone="positive" />
+        <StatCard label="Signal quality" value="Same as live" />
+        <StatCard label="Setup time" value="None" />
+      </div>
+
+      <ul className="mt-5 rounded-2xl border bg-card p-4 space-y-3">
         <Bullet>Virtual ₹1,00,000 portfolio to start.</Bullet>
         <Bullet>Same live signals, same confidence scores.</Bullet>
-        <Bullet>Full P&L tracking — today and all-time.</Bullet>
-        <Bullet>Zero setup. Zero risk.</Bullet>
+        <Bullet>Full P&amp;L tracking — today and all-time.</Bullet>
       </ul>
 
-      <div
-        className="mt-6 rounded-2xl border p-4"
-        style={{ backgroundColor: "rgba(8,37,103,0.04)", borderColor: "rgba(8,37,103,0.18)" }}
-      >
-        <p className="text-xs font-semibold" style={{ color: PRIMARY }}>
-          Why it matters
-        </p>
+      <div className="mt-3 rounded-2xl p-4 bg-primary/5 border border-primary/20">
+        <p className="text-xs font-semibold text-primary">Why it matters</p>
         <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
           Conviction beats luck. Paper trade until you trust the signals — then
           scale up on your own terms.
@@ -265,41 +263,58 @@ function StepPaper() {
 function StepAutomate() {
   return (
     <section>
-      <div
-        className="size-12 rounded-2xl grid place-items-center"
-        style={{ backgroundColor: "rgba(8,37,103,0.08)", color: PRIMARY }}
-      >
-        <Bot className="size-6" />
-      </div>
-      <p
-        className="mt-5 text-[11px] font-semibold uppercase tracking-[0.18em]"
-        style={{ color: PRIMARY }}
-      >
-        Step 4 — When you're ready
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+        When you're ready
       </p>
-      <h2 className="mt-1 text-2xl font-semibold tracking-tight">Automate When Ready</h2>
-      <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-        Once you trust the platform, connect your exchange and let Earn'O execute
-        for you — with your risk rules, your limits, your control.
+      <h2 className="mt-2 text-[28px] leading-tight font-semibold tracking-tight">
+        Automate When Ready
+      </h2>
+      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+        Connect your exchange when you're confident. Earn'O executes with your
+        risk rules, your limits, your control.
       </p>
 
-      <ul className="mt-6 space-y-3">
+      <div className="mt-5 grid grid-cols-2 gap-2">
+        <StatCard label="You set" value="Risk caps" />
+        <StatCard label="You set" value="Position size" />
+        <StatCard label="You set" value="Daily loss cap" />
+        <StatCard label="Anytime" value="Pause / resume" />
+      </div>
+
+      <ul className="mt-5 rounded-2xl border bg-card p-4 space-y-3">
         <Bullet>Connect CoinDCX securely, only when you choose.</Bullet>
-        <Bullet>You set max risk, position size and daily loss caps.</Bullet>
         <Bullet>Pause, resume or override any time.</Bullet>
         <Bullet>Every trade still explained, every step.</Bullet>
       </ul>
 
-      <div className="mt-6 rounded-2xl border bg-card p-4">
-        <p className="text-sm font-semibold">You're in control</p>
-        <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-          Automation is optional. Many traders stay in paper or manual mode
-          forever — and that's perfectly fine.
-        </p>
-      </div>
+      <Link
+        to="/settings"
+        className="mt-3 block rounded-2xl p-4 bg-gradient-to-br from-primary to-[#3B82F6] text-primary-foreground"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs opacity-80">When ready</p>
+            <p className="font-semibold mt-0.5">Connect your exchange</p>
+            <p className="text-xs opacity-80 mt-0.5">Optional. Many traders stay in paper forever — that's fine.</p>
+          </div>
+          <ArrowRight className="size-5 shrink-0" />
+        </div>
+      </Link>
     </section>
   );
 }
+
+function StatCard({ label, value, tone }: { label: string; value: string; tone?: "positive" }) {
+  return (
+    <div className="rounded-2xl border bg-card p-3">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-base font-semibold tracking-tight tabular-nums ${tone === "positive" ? "text-emerald-500" : ""}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
 
 /* ---------------- Pieces ---------------- */
 
