@@ -402,26 +402,26 @@ function SettingsPage() {
         <div className="rounded-2xl border bg-card divide-y">
           <Row label="EMA fast">
             <NumberStepper
-              value={c?.ema_fast ?? 9}
+              value={get("ema_fast")}
               min={2}
               max={50}
-              onChange={(v) => updCfg.mutate({ ema_fast: v })}
+              onChange={(v) => set("ema_fast", v)}
             />
           </Row>
           <Row label="EMA slow">
             <NumberStepper
-              value={c?.ema_slow ?? 21}
+              value={get("ema_slow")}
               min={5}
               max={200}
-              onChange={(v) => updCfg.mutate({ ema_slow: v })}
+              onChange={(v) => set("ema_slow", v)}
             />
           </Row>
           <Row label="Minimum Confidence">
             <NumberStepper
-              value={c?.min_scalp_score ?? 50}
+              value={get("min_scalp_score")}
               min={0}
               max={100}
-              onChange={(v) => updCfg.mutate({ min_scalp_score: v })}
+              onChange={(v) => set("min_scalp_score", v)}
             />
           </Row>
         </div>
