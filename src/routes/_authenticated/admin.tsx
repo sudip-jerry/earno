@@ -247,20 +247,55 @@ function AdminPage() {
           Users ({u.length})
         </h2>
         <div className="space-y-2">
-          {u.map((x) => (
-            <UserPlanRow
-              key={x.id}
-              user={x}
-              onSave={(tier) =>
-                setPlan.mutate({
-                  userId: x.id,
-                  tier,
-                  days: tier === "free" ? 0 : 36500,
-                })
-              }
-              saving={setPlan.isPending}
-            />
-          ))}
+          {u.map((x) => {
+            const isSaving = savingUserId === x.id;
+            return (
+              <div key={x.id} className="rounded-xl border bg-card p-3 text-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{x.email ?? x.id.slice(0, 8)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {PLAN_NAME[x.tier]} · {x.planSource}
+                      {x.planExpires
+                        ? ` · until ${new Date(x.planExpires).toLocaleDateString()}`
+                        : ""}
+                      {x.roles.includes("admin") ? " · admin" : ""}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Bot {x.isRunning ? "🟢 running" : "⚪ stopped"} · {x.mode ?? "—"} ·{" "}
+                      {x.tradesToday} trades today
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Select
+                      value={x.tier}
+                      onValueChange={(t) => {
+                        setSavingUserId(x.id);
+                        setPlan.mutate({
+                          userId: x.id,
+                          tier: t as PlanTier,
+                          days: t === "free" ? 0 : 36500,
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="w-32 h-8 text-xs" disabled={isSaving}>
+                        <SelectValue placeholder="Set plan" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="free">Free</SelectItem>
+                        <SelectItem value="reco">Insights</SelectItem>
+                        <SelectItem value="auto5">Auto-Trader</SelectItem>
+                        <SelectItem value="unlimited">Unlimited (∞)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {isSaving && (
+                      <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
