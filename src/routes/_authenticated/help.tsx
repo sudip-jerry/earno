@@ -238,13 +238,18 @@ function StepFlow() {
 function StepPaper() {
   return (
     <section>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-        Risk free
-      </p>
-      <h2 className="mt-2 text-[28px] leading-tight font-semibold tracking-tight">
-        Paper Trading First
-      </h2>
-      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+      <div className="flex items-end gap-3">
+        <img src={mascotThinking.url} alt="Earney thinking" className="size-24 -mb-1 shrink-0 drop-shadow" />
+        <div className="pb-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+            Risk free
+          </p>
+          <h2 className="mt-1 text-[24px] leading-tight font-semibold tracking-tight">
+            Paper Trading First
+          </h2>
+        </div>
+      </div>
+      <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
         Start with virtual capital. No exchange, no API keys, no real money at
         risk. Same signals, same scores — zero downside.
       </p>
