@@ -131,7 +131,7 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
           icon={<ArrowUpRight className="size-3" />}
         />
         <WealthStat
-          label="30-day"
+          label={isLive ? "30-day" : "30-day (sim)"}
           value={hideBalance ? masked : (stats ? fmt(stats.monthlyGrowthAbs, { signed: true }) : "—")}
           pct={stats?.monthlyGrowthPct}
           icon={<CalendarRange className="size-3" />}
