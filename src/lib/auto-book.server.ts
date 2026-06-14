@@ -212,9 +212,15 @@ export async function runAutoBookPass(
   if (!users.length) return result;
 
   // Single ticker fetch shared across users.
-  const setups = await pickAutoEligibleSetups("moderate", 15, true);
+  const universe = await fetchScanUniverse(20, 20);
+  const setups = pickAutoEligibleSetupsFromUniverse(universe, "moderate", 15, true);
+  const topConfidenceOverall = setups[0]?.confidence ?? bestConfidenceFromUniverse(universe);
+  const scannedCount = universe.length;
   if (!setups.length) {
-    for (const u of users) result.details.push({ user: u.user_id, opened: 0, skipped: 0, reason: "no setups" });
+    for (const u of users) {
+      result.details.push({ user: u.user_id, opened: 0, skipped: 0, reason: "no setups" });
+      await logScanEvent(supabase, u.user_id, scannedCount, 0, 0, 0, topConfidenceOverall);
+    }
     return result;
   }
 
