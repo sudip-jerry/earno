@@ -179,6 +179,7 @@ function SettingsPage() {
   const statusFn = useServerFn(getCredentialStatus);
   const testFn = useServerFn(testConnection);
   const updateFn = useServerFn(updateConfig);
+  const walletsFn = useServerFn(getWalletBalances);
 
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
