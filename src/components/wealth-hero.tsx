@@ -1,4 +1,4 @@
-import { Eye, EyeOff, ArrowUpRight, Target, TrendingUp, CalendarRange, Sparkles } from "lucide-react";
+import { Eye, EyeOff, ArrowUpRight, Target, TrendingUp, CalendarRange, Sparkles, FlaskConical, BadgeCheck } from "lucide-react";
 import type { DashboardStats, EquityPoint } from "@/lib/stats.functions";
 import { useCurrency } from "@/hooks/use-currency";
 
@@ -54,12 +54,46 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
     return `${symbol}${v.toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: 0 })}`;
   };
 
+  const pnlLabel = isLive ? "P&L" : "Simulated P&L";
+
   return (
     <section className="px-5 pt-5">
+      {/* Mode banner — makes paper vs live unmistakable */}
+      <div
+        className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+          isLive
+            ? "border-destructive/30 bg-destructive/5"
+            : "border-amber-500/30 bg-amber-500/10"
+        }`}
+      >
+        <span
+          className={`inline-flex items-center justify-center size-6 rounded-full ${
+            isLive ? "bg-destructive/15 text-destructive" : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+          }`}
+        >
+          {isLive ? <BadgeCheck className="size-3.5" /> : <FlaskConical className="size-3.5" />}
+        </span>
+        <div className="min-w-0">
+          <p className={`text-[11px] font-semibold leading-tight ${isLive ? "text-destructive" : "text-amber-700 dark:text-amber-300"}`}>
+            {isLive ? "Live trading — real money" : "Paper trading — simulation only"}
+          </p>
+          <p className="text-[10px] text-muted-foreground leading-tight">
+            {isLive ? "Orders and P&L reflect your real account." : "No real money. Values are practice, not earnings."}
+          </p>
+        </div>
+        <span
+          className={`ml-auto inline-flex items-center gap-1 text-[10px] px-2 h-5 rounded-full font-bold tracking-wider ${
+            isLive ? "bg-destructive text-destructive-foreground" : "bg-amber-500 text-white"
+          }`}
+        >
+          {isLive ? "LIVE" : "PAPER"}
+        </span>
+      </div>
+
       {/* Label row */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
         <span className="uppercase tracking-wider text-[10px] font-medium">
-          {isLive ? "Account balance" : "Virtual portfolio"}
+          {isLive ? "Account balance" : "Virtual portfolio (simulated)"}
         </span>
         <button
           type="button"
@@ -69,30 +103,35 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
         >
           {hideBalance ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
         </button>
-        <span
-          className={`ml-auto inline-flex items-center gap-1 text-[10px] px-2 h-5 rounded-full font-medium ${
-            isLive ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
-          }`}
-        >
-          {isLive ? "LIVE" : "PAPER"}
-        </span>
       </div>
 
       {/* Portfolio value */}
-      <p className="text-[40px] leading-none font-semibold tracking-tight mt-2 tabular-nums">
-        {hideBalance ? masked : fmt(portfolio)}
-      </p>
+      <div className="mt-2 flex items-baseline gap-2">
+        <p className="text-[40px] leading-none font-semibold tracking-tight tabular-nums">
+          {hideBalance ? masked : fmt(portfolio)}
+        </p>
+        {!isLive && (
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+            sim
+          </span>
+        )}
+      </div>
+      {!isLive && (
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Practice value — not real earnings.
+        </p>
+      )}
 
       {/* Today / Monthly / CAGR */}
       <div className="mt-3 grid grid-cols-3 gap-2">
         <WealthStat
-          label="Today"
+          label={isLive ? "Today" : "Today (sim)"}
           value={hideBalance ? masked : (stats ? fmt(stats.todayPnl, { signed: true }) : "—")}
           pct={stats?.todayPnlPct}
           icon={<ArrowUpRight className="size-3" />}
         />
         <WealthStat
-          label="30-day"
+          label={isLive ? "30-day" : "30-day (sim)"}
           value={hideBalance ? masked : (stats ? fmt(stats.monthlyGrowthAbs, { signed: true }) : "—")}
           pct={stats?.monthlyGrowthPct}
           icon={<CalendarRange className="size-3" />}
