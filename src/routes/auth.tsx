@@ -11,8 +11,8 @@ import earnoLogo from "@/assets/earno-logo.png.asset.json";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — EarnO" },
-      { name: "description", content: "Sign in to your EarnO automated futures trading bot." },
+      { title: "Sign in — Earn'O" },
+      { name: "description", content: "Sign in to your Earn'O automated futures trading bot." },
     ],
   }),
   component: AuthPage,
@@ -77,7 +77,7 @@ function AuthPage() {
     <div className="min-h-svh bg-background flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center gap-3 mb-8">
-          <img src={earnoLogo.url} alt="EarnO" className="h-14 w-auto" />
+          <img src={earnoLogo.url} alt="Earn'O" className="h-14 w-auto" />
           <p className="text-sm font-medium tracking-widest uppercase text-primary text-center">
             Wealth, Engineered.
           </p>

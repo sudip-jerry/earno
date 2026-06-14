@@ -15,7 +15,7 @@ import { useMemo, useState } from "react";
 export const Route = createFileRoute("/_authenticated/scanner")({
   head: () => ({
     meta: [
-      { title: "Market Scanner — EarnO" },
+      { title: "Market Scanner — Earn'O" },
       { name: "description", content: "Futures pairs ranked by confidence with simple Long/Short/Wait/Avoid recommendations." },
     ],
   }),

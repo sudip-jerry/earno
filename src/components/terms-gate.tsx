@@ -50,15 +50,15 @@ export function TermsGate({ children }: { children: React.ReactNode }) {
         <div className="p-5 border-b">
           <h2 className="text-lg font-semibold">Before you continue</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Please review and accept the EarnO Terms & Risk Disclaimer.
+            Please review and accept the Earn'O Terms & Risk Disclaimer.
           </p>
         </div>
         <ScrollArea className="flex-1 px-5 py-4 text-sm text-muted-foreground space-y-3">
-          <p><strong className="text-foreground">You control your account.</strong> EarnO never custodies funds. Your CoinDCX API keys stay encrypted and Futures-scoped.</p>
+          <p><strong className="text-foreground">You control your account.</strong> Earn'O never custodies funds. Your CoinDCX API keys stay encrypted and Futures-scoped.</p>
           <p><strong className="text-foreground">You assume trading risk.</strong> Leveraged crypto futures can result in total loss. You're solely responsible for orders placed under your configuration.</p>
           <p><strong className="text-foreground">No guaranteed returns.</strong> Past performance and paper results do not indicate future outcomes.</p>
           <p><strong className="text-foreground">Automation is opt-in.</strong> Auto-book is off by default and can be paused anytime.</p>
-          <p>EarnO provides automated strategy execution, quantitative market analysis, and user-controlled automation — not guaranteed profits, "beating the market", or risk-free trading.</p>
+          <p>Earn'O provides automated strategy execution, quantitative market analysis, and user-controlled automation — not guaranteed profits, "beating the market", or risk-free trading.</p>
           <p>
             Read the full <Link to="/terms" className="text-primary underline">Terms & Disclaimer</Link>.
           </p>
@@ -66,7 +66,7 @@ export function TermsGate({ children }: { children: React.ReactNode }) {
         <div className="p-5 border-t space-y-3">
           <label className="flex items-start gap-2 text-sm cursor-pointer">
             <Checkbox checked={agreed} onCheckedChange={(v) => setAgreed(v === true)} className="mt-0.5" />
-            <span>I have read and agree to the Terms & Risk Disclaimer, and I consent to EarnO automating trades on my CoinDCX account when I enable it.</span>
+            <span>I have read and agree to the Terms & Risk Disclaimer, and I consent to Earn'O automating trades on my CoinDCX account when I enable it.</span>
           </label>
           <Button className="w-full" disabled={!agreed || saving} onClick={accept}>
             {saving ? "Saving…" : "Agree & continue"}

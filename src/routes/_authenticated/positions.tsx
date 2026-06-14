@@ -15,7 +15,7 @@ import { Briefcase, RefreshCw, HelpCircle, Pencil, Target, Shield } from "lucide
 export const Route = createFileRoute("/_authenticated/positions")({
   head: () => ({
     meta: [
-      { title: "Open Positions — EarnO" },
+      { title: "Open Positions — Earn'O" },
       { name: "description", content: "Your open paper and live positions with live PNL and ROE." },
     ],
   }),

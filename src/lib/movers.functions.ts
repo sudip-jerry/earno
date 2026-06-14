@@ -76,7 +76,7 @@ const CANDLES = (pair: string, interval: string, limit: number) =>
   `https://public.coindcx.com/market_data/candles?pair=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
 const PUBLIC_API_HEADERS = {
   accept: "application/json",
-  "user-agent": "Mozilla/5.0 (compatible; EarnO/1.0; +https://earno.lovable.app)",
+  "user-agent": "Mozilla/5.0 (compatible; Earn'O/1.0; +https://earno.lovable.app)",
 };
 
 type TickerRow = {

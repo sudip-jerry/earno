@@ -98,7 +98,7 @@ function ThemeSelect() {
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
-      { title: "Settings — EarnO" },
+      { title: "Settings — Earn'O" },
       { name: "description", content: "Configure your CoinDCX API keys, strategy, and risk caps." },
     ],
   }),
@@ -527,7 +527,7 @@ function SettingsPage() {
 
       <section className="px-5 mt-8 space-y-2">
         <Link to="/about" className="block rounded-xl border bg-card p-3 text-sm hover:bg-muted">
-          About EarnO
+          About Earn'O
         </Link>
         <Link to="/terms" className="block rounded-xl border bg-card p-3 text-sm hover:bg-muted">
           Terms & Disclaimer
