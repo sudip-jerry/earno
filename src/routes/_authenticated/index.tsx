@@ -194,6 +194,7 @@ function Home() {
   const isLive = c?.mode === "live";
   const isRunning = c?.is_running ?? false;
   const equity = Number(c?.paper_equity ?? 0);
+  const portfolio = stats.data?.portfolioValue ?? equity;
   const s = stats.data;
   const dailyCap = Number(c?.daily_loss_cap_pct ?? 6);
 
