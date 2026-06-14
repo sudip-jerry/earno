@@ -10,7 +10,8 @@ import { PositionsStrip } from "@/components/positions-strip";
 import { useLivePrices } from "@/hooks/use-live-prices";
 import { useCurrency } from "@/hooks/use-currency";
 import { toast } from "sonner";
-import { Briefcase, RefreshCw, HelpCircle, Pencil, Target, Shield } from "lucide-react";
+import { Briefcase, RefreshCw, HelpCircle, Pencil, Target, Shield, LineChart } from "lucide-react";
+import { PositionChartSheet } from "@/components/position-chart-sheet";
 
 export const Route = createFileRoute("/_authenticated/positions")({
   head: () => ({
@@ -67,6 +68,7 @@ function PositionsPage() {
   const closeFn = useServerFn(closeManualTrade);
   const [pending, setPending] = useState<string | null>(null);
   const [tab, setTab] = useState<"open" | "closed">("open");
+  const [chartOpen, setChartOpen] = useState<PositionRow | ClosedRow | null>(null);
   const { fmt } = useCurrency();
 
   const q = useQuery({
@@ -303,10 +305,19 @@ function PositionsPage() {
                 />
 
 
-                <div className="mt-3">
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 rounded-lg border"
+                    onClick={() => setChartOpen(p)}
+                  >
+                    <LineChart className="size-4 mr-1" />
+                    View Chart
+                  </Button>
                   <Button
                     variant="outline"
-                    className="w-full h-9 rounded-lg"
+                    className="h-9 rounded-lg"
                     disabled={closing || !live}
                     onClick={() => {
                       if (!live) return;
@@ -322,13 +333,13 @@ function PositionsPage() {
                     {closing
                       ? "Submitting…"
                       : live
-                      ? `Close · Limit @ ${fmtNum(live, 6)}`
-                      : "Waiting for live price…"}
+                      ? `Close @ ${fmtNum(live, 6)}`
+                      : "Waiting price…"}
                   </Button>
-                  <p className="text-[10px] text-muted-foreground mt-1 text-center">
-                    Limit orders pay lower CoinDCX fees than market orders.
-                  </p>
                 </div>
+                <p className="text-[10px] text-muted-foreground mt-1 text-center">
+                  Limit close uses lower CoinDCX fees than market.
+                </p>
               </li>
             );
           })}
@@ -343,11 +354,32 @@ function PositionsPage() {
           ) : null}
         </ul>
       ) : (
-        <ClosedList rows={closedQ.data ?? []} isLoading={closedQ.isLoading} />
+        <ClosedList
+          rows={closedQ.data ?? []}
+          isLoading={closedQ.isLoading}
+          onViewChart={(r) => setChartOpen(r)}
+        />
       )}
 
 
       <TabBar />
+
+      {chartOpen ? (
+        <PositionChartSheet
+          open={!!chartOpen}
+          onOpenChange={(o) => { if (!o) setChartOpen(null); }}
+          symbol={chartOpen.symbol}
+          side={chartOpen.side}
+          entryPrice={Number(chartOpen.entry_price)}
+          openedAt={chartOpen.opened_at}
+          takeProfit={chartOpen.take_profit}
+          stopLoss={chartOpen.stop_loss}
+          exitPrice={"exit_price" in chartOpen ? chartOpen.exit_price : null}
+          closedAt={"closed_at" in chartOpen ? chartOpen.closed_at : null}
+          exitReason={"exit_reason" in chartOpen ? chartOpen.exit_reason : null}
+          mode={chartOpen.mode}
+        />
+      ) : null}
     </div>
   );
 }
@@ -604,9 +636,11 @@ function ClosedSummary({ rows }: { rows: ClosedRow[] }) {
 function ClosedList({
   rows,
   isLoading,
+  onViewChart,
 }: {
   rows: ClosedRow[];
   isLoading: boolean;
+  onViewChart: (r: ClosedRow) => void;
 }) {
   const { fmt } = useCurrency();
 
@@ -689,6 +723,14 @@ function ClosedList({
             <p className="text-[10px] text-muted-foreground mt-2">
               {new Date(p.opened_at).toLocaleString()} → {p.closed_at ? new Date(p.closed_at).toLocaleString() : "—"}
             </p>
+            <button
+              type="button"
+              onClick={() => onViewChart(p)}
+              className="mt-2 w-full h-9 rounded-lg border text-xs font-medium hover:bg-muted inline-flex items-center justify-center gap-1.5"
+            >
+              <LineChart className="size-3.5" />
+              View Trade Chart
+            </button>
           </li>
         );
       })}
