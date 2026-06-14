@@ -414,7 +414,9 @@ export function CopilotBeta() {
         dailyRiskAvailable={(statsQ.data?.dailyLossUsedPct ?? 0) < 100}
       />
     </section>
+    </>
   );
+
 }
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
