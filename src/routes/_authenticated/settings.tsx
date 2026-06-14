@@ -439,8 +439,8 @@ function SettingsPage() {
             min={2}
             max={5}
             step={1}
-            value={c?.leverage ?? 2}
-            onCommit={(v) => updCfg.mutate({ leverage: v })}
+            value={get("leverage")}
+            onChange={(v) => set("leverage", v)}
           />
           <SliderField
             label="Take profit"
@@ -448,8 +448,8 @@ function SettingsPage() {
             min={0.5}
             max={10}
             step={0.5}
-            value={c?.take_profit_pct ?? 3}
-            onCommit={(v) => updCfg.mutate({ take_profit_pct: v })}
+            value={get("take_profit_pct")}
+            onChange={(v) => set("take_profit_pct", v)}
           />
           <SliderField
             label="Stop loss"
@@ -457,13 +457,13 @@ function SettingsPage() {
             min={0.5}
             max={10}
             step={0.5}
-            value={c?.stop_loss_pct ?? 1.5}
-            onCommit={(v) => updCfg.mutate({ stop_loss_pct: v })}
+            value={get("stop_loss_pct")}
+            onChange={(v) => set("stop_loss_pct", v)}
           />
           <Row label="Trailing stop" inset={false}>
             <Switch
-              checked={c?.trailing_enabled ?? true}
-              onCheckedChange={(v) => updCfg.mutate({ trailing_enabled: v })}
+              checked={get("trailing_enabled")}
+              onCheckedChange={(v) => set("trailing_enabled", v)}
             />
           </Row>
           <SliderField
@@ -472,8 +472,8 @@ function SettingsPage() {
             min={0.5}
             max={5}
             step={0.5}
-            value={c?.risk_per_trade_pct ?? 1}
-            onCommit={(v) => updCfg.mutate({ risk_per_trade_pct: v })}
+            value={get("risk_per_trade_pct")}
+            onChange={(v) => set("risk_per_trade_pct", v)}
           />
           <SliderField
             label="Max open positions"
@@ -481,8 +481,8 @@ function SettingsPage() {
             min={1}
             max={5}
             step={1}
-            value={c?.max_open_positions ?? 2}
-            onCommit={(v) => updCfg.mutate({ max_open_positions: v })}
+            value={get("max_open_positions")}
+            onChange={(v) => set("max_open_positions", v)}
           />
           <SliderField
             label="Max trades/day"
@@ -490,8 +490,8 @@ function SettingsPage() {
             min={1}
             max={50}
             step={1}
-            value={c?.max_trades_per_day ?? 10}
-            onCommit={(v) => updCfg.mutate({ max_trades_per_day: v })}
+            value={get("max_trades_per_day")}
+            onChange={(v) => set("max_trades_per_day", v)}
           />
           <SliderField
             label="Daily loss cap"
@@ -499,8 +499,8 @@ function SettingsPage() {
             min={1}
             max={20}
             step={1}
-            value={c?.daily_loss_cap_pct ?? 3}
-            onCommit={(v) => updCfg.mutate({ daily_loss_cap_pct: v })}
+            value={get("daily_loss_cap_pct")}
+            onChange={(v) => set("daily_loss_cap_pct", v)}
           />
           <SliderField
             label="Cooldown after loss"
@@ -508,8 +508,8 @@ function SettingsPage() {
             min={0}
             max={120}
             step={5}
-            value={c?.cooldown_minutes ?? 15}
-            onCommit={(v) => updCfg.mutate({ cooldown_minutes: v })}
+            value={get("cooldown_minutes")}
+            onChange={(v) => set("cooldown_minutes", v)}
           />
           <SliderField
             label="Auto-close after"
@@ -517,8 +517,8 @@ function SettingsPage() {
             min={1}
             max={240}
             step={1}
-            value={c?.auto_close_minutes ?? 30}
-            onCommit={(v) => updCfg.mutate({ auto_close_minutes: v })}
+            value={get("auto_close_minutes")}
+            onChange={(v) => set("auto_close_minutes", v)}
           />
         </div>
       </section>
