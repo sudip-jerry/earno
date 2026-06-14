@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+
 import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
 import { TabBar } from "@/components/tab-bar";
 import { PositionsStrip } from "@/components/positions-strip";
