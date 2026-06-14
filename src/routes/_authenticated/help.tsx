@@ -207,13 +207,18 @@ function StepWelcome() {
 function StepFlow() {
   return (
     <section>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-        How it works
-      </p>
-      <h2 className="mt-2 text-[28px] leading-tight font-semibold tracking-tight">
-        Scan → Analyze → Explain → Trade
-      </h2>
-      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+      <div className="flex items-end gap-3">
+        <img src={mascotAnalyzing.url} alt="Earney analyzing" className="size-24 -mb-1 shrink-0 drop-shadow" />
+        <div className="pb-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+            How it works
+          </p>
+          <h2 className="mt-1 text-[22px] leading-tight font-semibold tracking-tight">
+            Scan → Analyze → Explain → Trade
+          </h2>
+        </div>
+      </div>
+      <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
         Hundreds of markets scanned live, ranked by confidence, every signal
         explained in plain English.
       </p>
