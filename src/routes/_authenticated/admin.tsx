@@ -111,7 +111,7 @@ function AdminPage() {
     return (
       <div className="p-6 text-sm">
         Admin only.{" "}
-        <Link to="/" className="text-primary underline">
+        <Link to="/dashboard" className="text-primary underline">
           Go back
         </Link>
       </div>
@@ -126,7 +126,7 @@ function AdminPage() {
     <div className="min-h-svh bg-background pb-16">
       <header className="px-5 pt-6 pb-4 flex items-center gap-2">
         <Link
-          to="/"
+          to="/dashboard"
           className="size-9 grid place-items-center rounded-full hover:bg-muted -ml-2"
         >
           <ChevronLeft className="size-5" />
