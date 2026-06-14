@@ -125,6 +125,12 @@ type Cfg = {
   auto_close_minutes: number;
   move_to_breakeven: boolean;
   min_scalp_score: number;
+  trading_style: "conservative" | "balanced" | "aggressive";
+  min_sl_pct: number;
+  atr_multiplier: number;
+  max_auto_sl_pct: number;
+  target_multiplier: number;
+  min_rr: number;
 };
 
 const DEFAULTS: Cfg = {
@@ -147,7 +153,14 @@ const DEFAULTS: Cfg = {
   auto_close_minutes: 30,
   move_to_breakeven: true,
   min_scalp_score: 50,
+  trading_style: "balanced",
+  min_sl_pct: 1.2,
+  atr_multiplier: 1.5,
+  max_auto_sl_pct: 4,
+  target_multiplier: 1.7,
+  min_rr: 1.5,
 };
+
 
 function SettingsPage() {
   const qc = useQueryClient();
