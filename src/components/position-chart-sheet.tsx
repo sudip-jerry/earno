@@ -293,8 +293,8 @@ export function PositionChartSheet(props: PositionChartProps) {
           ) : null}
         </div>
 
-        <div className="relative flex-1 px-2">
-          <div ref={containerRef} className="absolute inset-0 px-2 pb-2" />
+        <div className="relative flex-1 min-h-[360px] px-2 pb-2">
+          <div ref={containerRef} className="h-full min-h-[360px] w-full" />
           {candlesQ.isLoading && !candlesQ.data ? (
             <div className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">
               Loading chart…
