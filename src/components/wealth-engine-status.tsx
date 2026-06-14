@@ -1,5 +1,14 @@
 import type { DashboardStats } from "@/lib/stats.functions";
-import { Activity, Radar, Target, CheckCircle2, ShieldAlert, ShieldCheck, Briefcase, Clock } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { Activity, Radar, Target, CheckCircle2, ShieldAlert, ShieldCheck, Briefcase, Clock, HelpCircle, ChevronRight } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 function timeAgo(iso: string | null): string {
   if (!iso) return "—";
@@ -15,6 +24,7 @@ function timeAgo(iso: string | null): string {
 }
 
 export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
+  const [riskOpen, setRiskOpen] = useState(false);
   const status = stats?.engineStatus ?? "paused";
   const badge =
     status === "active"
@@ -60,6 +70,7 @@ export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Cell
+            to="/scanner"
             icon={<Radar className="size-3.5 text-primary" />}
             label="Markets scanned"
             value={
@@ -74,10 +85,11 @@ export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
                 ? "Bot is stopped"
                 : status === "cooldown" && (stats?.marketsScannedToday ?? 0) === 0
                   ? "Scanning paused during cooldown"
-                  : undefined
+                  : "View scanner"
             }
           />
           <Cell
+            to="/scanner"
             icon={<Target className="size-3.5 text-primary" />}
             label="Opportunities found"
             value={
@@ -90,18 +102,22 @@ export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
             hint={
               status === "cooldown" && (stats?.opportunitiesFoundToday ?? 0) === 0
                 ? "Waiting for next scan cycle"
-                : undefined
+                : "Open scanner"
             }
           />
           <Cell
+            to="/positions"
             icon={<CheckCircle2 className="size-3.5 text-primary" />}
             label="Trades executed"
             value={(stats?.tradesExecutedToday ?? 0).toLocaleString()}
+            hint="View positions"
           />
           <Cell
+            to="/positions"
             icon={<Briefcase className="size-3.5 text-primary" />}
             label="Open positions"
             value={(stats?.openCount ?? 0).toLocaleString()}
+            hint="View positions"
           />
           <Cell
             icon={<Clock className="size-3.5 text-primary" />}
@@ -109,6 +125,7 @@ export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
             value={timeAgo(stats?.lastAnalysisAt ?? null)}
           />
           <Cell
+            onClick={() => setRiskOpen(true)}
             icon={
               stats?.riskHealthy ? (
                 <ShieldCheck className="size-3.5 text-emerald-500" />
@@ -119,34 +136,106 @@ export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
             label="Risk protection"
             value={riskLabel}
             tone={stats?.riskHealthy ? "positive" : "warn"}
+            trailingIcon={<HelpCircle className="size-3 text-muted-foreground" />}
+            hint="What is this?"
           />
         </div>
       </div>
+
+      <Dialog open={riskOpen} onOpenChange={setRiskOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="size-4 text-emerald-500" />
+              Risk Protection
+            </DialogTitle>
+            <DialogDescription className="text-left">
+              Automatic guardrails that prevent the bot from over-trading or
+              compounding losses.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div>
+              <p className="font-medium">What it does</p>
+              <ul className="mt-1 list-disc list-inside text-muted-foreground space-y-0.5 text-xs">
+                <li>Caps daily loss as a % of equity</li>
+                <li>Limits trades per day and open positions</li>
+                <li>Adds a cooldown after consecutive losses</li>
+                <li>Skips low-confidence setups below your min score</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium">Current state</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {stats?.riskReason ??
+                  (stats?.riskHealthy
+                    ? "All guardrails healthy."
+                    : "A guardrail is currently engaged.")}
+              </p>
+            </div>
+            <Link
+              to="/settings"
+              onClick={() => setRiskOpen(false)}
+              className="flex items-center justify-between rounded-xl border bg-card p-3 hover:bg-muted/40"
+            >
+              <span className="text-sm font-medium">Change risk settings</span>
+              <ChevronRight className="size-4 text-muted-foreground" />
+            </Link>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
 
 function Cell({
-  icon, label, value, tone, hint,
+  icon, label, value, tone, hint, to, onClick, trailingIcon,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   tone?: "positive" | "warn";
   hint?: string;
+  to?: "/scanner" | "/positions" | "/settings";
+  onClick?: () => void;
+  trailingIcon?: React.ReactNode;
 }) {
   const valueCls =
     tone === "positive" ? "text-emerald-600 dark:text-emerald-400" :
     tone === "warn" ? "text-amber-600 dark:text-amber-400" :
     "text-foreground";
-  return (
-    <div className="rounded-xl border bg-background/40 p-2.5">
+
+  const body = (
+    <>
       <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
         {icon}
         <span className="truncate">{label}</span>
+        {(to || onClick) && (
+          <span className="ml-auto">
+            {trailingIcon ?? <ChevronRight className="size-3 text-muted-foreground/70" />}
+          </span>
+        )}
       </div>
       <p className={`mt-1 text-sm font-semibold tabular-nums ${valueCls}`}>{value}</p>
       {hint && <p className="mt-0.5 text-[10px] text-muted-foreground leading-tight">{hint}</p>}
-    </div>
+    </>
   );
+
+  const cls = "rounded-xl border bg-background/40 p-2.5 text-left transition hover:bg-muted/40 hover:border-primary/30";
+
+  if (to) {
+    return (
+      <Link to={to} className={cls}>
+        {body}
+      </Link>
+    );
+  }
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cls}>
+        {body}
+      </button>
+    );
+  }
+  return <div className="rounded-xl border bg-background/40 p-2.5">{body}</div>;
 }
