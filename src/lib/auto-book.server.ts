@@ -203,7 +203,14 @@ type BotConfig = {
   min_scalp_score: number | null;
   allow_short: boolean;
   strategy: string | null;
+  trading_style: string | null;
+  min_sl_pct: number | null;
+  atr_multiplier: number | null;
+  max_auto_sl_pct: number | null;
+  target_multiplier: number | null;
+  min_rr: number | null;
 };
+
 
 async function getPlanTier(supabase: SupabaseClient, userId: string): Promise<PlanTier> {
   const { data, error } = await supabase.rpc("current_plan_tier", { _user_id: userId });
