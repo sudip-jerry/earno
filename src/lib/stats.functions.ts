@@ -3,31 +3,67 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export type EquityPoint = { t: string; equity: number };
 
+export type ActivityItem = {
+  id: string;
+  at: string;
+  level: "info" | "warn" | "error";
+  message: string;
+};
+
+export type EngineStatus = "active" | "paused" | "cooldown";
+export type HealthState = "healthy" | "monitoring" | "paused" | "cooldown";
+
 export type DashboardStats = {
   todayPnl: number;
   todayPnlPct: number;
   tradesToday: number;
-  winRateAllTime: number; // 0..1
+  winRateAllTime: number;
   closedAllTime: number;
-  maxDrawdown: number; // absolute USDT-equivalent
-  dailyLossUsedPct: number; // 0..100 of cap
+  maxDrawdown: number;
+  dailyLossUsedPct: number;
   openCount: number;
   consecutiveLosses: number;
   realizedPnlAllTime: number;
   portfolioValue: number;
-  // Wealth metrics
-  monthlyGrowthPct: number; // realized PnL last 30d vs equity 30d ago
+
+  // Period changes (replace CAGR)
+  weekChangeAbs: number;
+  weekChangePct: number;
+  monthlyGrowthPct: number;
   monthlyGrowthAbs: number;
-  cagrPct: number; // annualized since first closed trade
-  consistencyPct: number; // % profitable trading days in last 30d
+
+  // Wealth metrics
+  consistencyPct: number;
   tradingDays30d: number;
-  nextMilestone: number; // USDT
-  prevMilestone: number; // USDT
-  milestoneProgressPct: number; // 0..100
-  projected6m: number | null;
-  projected12m: number | null;
-  projected24m: number | null;
+  nextMilestone: number;
+  prevMilestone: number;
+  milestoneProgressPct: number;
   equityCurve: EquityPoint[];
+
+  // Engine status
+  engineStatus: EngineStatus;
+  isRunning: boolean;
+  marketsScannedToday: number;
+  opportunitiesFoundToday: number;
+  tradesExecutedToday: number;
+  lastAnalysisAt: string | null;
+  riskHealthy: boolean;
+  riskReason: string | null;
+
+  // Why no trade
+  topConfidenceToday: number;
+  minConfidenceRequired: number;
+  noTradeReason: string;
+
+  // Health pills
+  scannerHealth: HealthState;
+  dataFeedHealth: HealthState;
+  riskEngineHealth: HealthState;
+  automationHealth: HealthState;
+  lastSuccessfulScanAt: string | null;
+
+  // Recent activity
+  recentActivity: ActivityItem[];
 };
 
 const MILESTONES = [
@@ -35,19 +71,28 @@ const MILESTONES = [
   100_000, 250_000, 500_000, 1_000_000,
 ];
 
+type ScanMeta = {
+  kind?: string;
+  scanned?: number;
+  opportunities?: number;
+  opened?: number;
+  skipped?: number;
+  top_confidence?: number;
+};
+
 export const getDashboardStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<DashboardStats> => {
     const { supabase } = context;
-    const since = new Date();
-    since.setUTCHours(0, 0, 0, 0);
+    const startOfDay = new Date();
+    startOfDay.setUTCHours(0, 0, 0, 0);
 
-    const [{ data: today }, { data: closedAll }, { data: openRows }, { data: cfg }] = await Promise.all([
+    const [{ data: today }, { data: closedAll }, { data: openRows }, { data: cfg }, { data: events }] = await Promise.all([
       supabase
         .from("positions")
         .select("pnl,closed_at,status")
         .eq("status", "closed")
-        .gte("closed_at", since.toISOString()),
+        .gte("closed_at", startOfDay.toISOString()),
       supabase
         .from("positions")
         .select("pnl,closed_at,status")
@@ -56,13 +101,20 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       supabase.from("positions").select("id").eq("status", "open"),
       supabase
         .from("bot_config")
-        .select("daily_loss_cap_pct,paper_equity")
+        .select("daily_loss_cap_pct,paper_equity,is_running,min_scalp_score,auto_book")
         .eq("user_id", context.userId)
         .maybeSingle(),
+      supabase
+        .from("bot_events")
+        .select("id,created_at,level,message,meta")
+        .eq("user_id", context.userId)
+        .order("created_at", { ascending: false })
+        .limit(60),
     ]);
 
     const todayRows = today ?? [];
     const allRows = closedAll ?? [];
+    const allEvents = events ?? [];
 
     const todayPnl = todayRows.reduce((a, r) => a + Number(r.pnl ?? 0), 0);
     const equity = Number(cfg?.paper_equity ?? 1000);
@@ -72,10 +124,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     const wins = allRows.filter((r) => Number(r.pnl ?? 0) > 0).length;
     const winRate = allRows.length ? wins / allRows.length : 0;
 
-    // Max drawdown over equity curve from closed PnLs
-    let peak = 0;
-    let cum = 0;
-    let mdd = 0;
+    let peak = 0, cum = 0, mdd = 0;
     for (const r of allRows) {
       cum += Number(r.pnl ?? 0);
       if (cum > peak) peak = cum;
@@ -86,7 +135,6 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     const cap = Number(cfg?.daily_loss_cap_pct ?? 6);
     const dailyLossUsedPct = todayPnl < 0 && cap > 0 ? Math.min(100, (Math.abs(todayPnlPct) / cap) * 100) : 0;
 
-    // Consecutive losses streak from the tail
     let streak = 0;
     for (let i = allRows.length - 1; i >= 0; i--) {
       if (Number(allRows[i].pnl ?? 0) < 0) streak++;
@@ -96,12 +144,12 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     const realizedPnlAllTime = allRows.reduce((a, r) => a + Number(r.pnl ?? 0), 0);
     const portfolioValue = equity + realizedPnlAllTime;
 
-    // ---------------- Wealth metrics ----------------
     const now = Date.now();
     const ms30 = 30 * 24 * 3600 * 1000;
+    const ms7 = 7 * 24 * 3600 * 1000;
     const cutoff30 = now - ms30;
+    const cutoff7 = now - ms7;
 
-    // Monthly growth: realized PnL in last 30d vs equity 30d ago
     const monthlyGrowthAbs = allRows
       .filter((r) => r.closed_at && new Date(r.closed_at).getTime() >= cutoff30)
       .reduce((a, r) => a + Number(r.pnl ?? 0), 0);
@@ -109,15 +157,13 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     const equity30 = equity + realizedBefore30;
     const monthlyGrowthPct = equity30 > 0 ? (monthlyGrowthAbs / equity30) * 100 : 0;
 
-    // CAGR since first closed trade
-    let cagrPct = 0;
-    if (allRows.length > 0 && allRows[0].closed_at && equity > 0 && portfolioValue > 0) {
-      const t0 = new Date(allRows[0].closed_at).getTime();
-      const years = Math.max((now - t0) / (365.25 * 24 * 3600 * 1000), 1 / 365);
-      cagrPct = (Math.pow(portfolioValue / equity, 1 / years) - 1) * 100;
-    }
+    const weekChangeAbs = allRows
+      .filter((r) => r.closed_at && new Date(r.closed_at).getTime() >= cutoff7)
+      .reduce((a, r) => a + Number(r.pnl ?? 0), 0);
+    const realizedBefore7 = realizedPnlAllTime - weekChangeAbs;
+    const equity7 = equity + realizedBefore7;
+    const weekChangePct = equity7 > 0 ? (weekChangeAbs / equity7) * 100 : 0;
 
-    // Consistency: % profitable trading days in last 30d
     const dayMap = new Map<string, number>();
     for (const r of allRows) {
       if (!r.closed_at) continue;
@@ -130,7 +176,6 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     const winDays = [...dayMap.values()].filter((v) => v > 0).length;
     const consistencyPct = tradingDays30d ? (winDays / tradingDays30d) * 100 : 0;
 
-    // Capital milestones
     const nextMilestone =
       MILESTONES.find((m) => m > portfolioValue) ?? Math.max(portfolioValue * 2, 1000);
     const prevMilestone =
@@ -140,12 +185,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
         ? Math.min(100, Math.max(0, ((portfolioValue - prevMilestone) / (nextMilestone - prevMilestone)) * 100))
         : 0;
 
-    // Projected wealth path (only when growth is positive)
-    const cagrFrac = cagrPct / 100;
-    const proj = (yrs: number): number | null =>
-      cagrFrac > 0 && portfolioValue > 0 ? portfolioValue * Math.pow(1 + cagrFrac, yrs) : null;
-
-    // Equity curve (downsampled to ~24 points)
+    // Equity curve
     const equityCurve: EquityPoint[] = [];
     if (allRows.length > 0) {
       let running = equity;
@@ -157,22 +197,79 @@ export const getDashboardStats = createServerFn({ method: "GET" })
         points.push({ t: String(r.closed_at), equity: running });
       }
       const target = 24;
-      if (points.length <= target) {
-        equityCurve.push(...points);
-      } else {
+      if (points.length <= target) equityCurve.push(...points);
+      else {
         const step = (points.length - 1) / (target - 1);
-        for (let i = 0; i < target; i++) {
-          equityCurve.push(points[Math.round(i * step)]);
-        }
+        for (let i = 0; i < target; i++) equityCurve.push(points[Math.round(i * step)]);
       }
     } else {
       equityCurve.push({ t: new Date(now).toISOString(), equity });
     }
 
+    // -------------- Engine status & activity --------------
+    const todayStartMs = startOfDay.getTime();
+    const scanEventsToday = allEvents.filter((e) => {
+      const meta = (e.meta as ScanMeta | null) ?? null;
+      return meta?.kind === "scan" && new Date(e.created_at).getTime() >= todayStartMs;
+    });
+
+    const marketsScannedToday = scanEventsToday.reduce((a, e) => a + Number((e.meta as ScanMeta)?.scanned ?? 0), 0);
+    const opportunitiesFoundToday = scanEventsToday.reduce((a, e) => a + Number((e.meta as ScanMeta)?.opportunities ?? 0), 0);
+    const topConfidenceToday = scanEventsToday.reduce((a, e) => {
+      const c = Number((e.meta as ScanMeta)?.top_confidence ?? 0);
+      return c > a ? c : a;
+    }, 0);
+    const lastScan = scanEventsToday[0] ?? null;
+    const lastAnalysisAt = lastScan?.created_at ?? allEvents[0]?.created_at ?? null;
+    const lastSuccessfulScanAt = lastScan?.created_at ?? null;
+
+    const isRunning = !!cfg?.is_running;
+    const minConfidenceRequired = Number(cfg?.min_scalp_score ?? 70);
+
+    // Cooldown detection — recent "paused" event within last 15 minutes
+    const recentPause = allEvents.find(
+      (e) => e.level === "warn" && /pause|cooldown|cap hit|limit/i.test(e.message) &&
+        now - new Date(e.created_at).getTime() < 15 * 60_000,
+    );
+
+    let engineStatus: EngineStatus = "active";
+    let riskReason: string | null = null;
+    if (!isRunning) engineStatus = "paused";
+    else if (recentPause) {
+      engineStatus = "cooldown";
+      riskReason = recentPause.message;
+    }
+
+    const riskHealthy =
+      dailyLossUsedPct < 80 && streak < 3 && engineStatus !== "cooldown";
+
+    // No-trade reason
+    let noTradeReason = "Conditions not yet met.";
+    if (!isRunning) noTradeReason = "Bot is stopped.";
+    else if (recentPause) noTradeReason = recentPause.message;
+    else if (topConfidenceToday > 0 && topConfidenceToday < minConfidenceRequired)
+      noTradeReason = "Waiting for better entry — top setup below confidence threshold.";
+    else if (opportunitiesFoundToday === 0 && marketsScannedToday > 0)
+      noTradeReason = "No high-confidence setups found yet.";
+    else if (marketsScannedToday === 0) noTradeReason = "First scan pending.";
+
+    // Health pills
+    const scanFresh = lastSuccessfulScanAt && now - new Date(lastSuccessfulScanAt).getTime() < 10 * 60_000;
+    const scannerHealth: HealthState = !isRunning ? "paused" : scanFresh ? "healthy" : "monitoring";
+    const dataFeedHealth: HealthState = scanFresh ? "healthy" : "monitoring";
+    const riskEngineHealth: HealthState = engineStatus === "cooldown" ? "cooldown" : riskHealthy ? "healthy" : "monitoring";
+    const automationHealth: HealthState = isRunning ? (engineStatus === "cooldown" ? "cooldown" : "healthy") : "paused";
+
+    // Recent activity (cap to 12 for the feed)
+    const recentActivity: ActivityItem[] = allEvents.slice(0, 12).map((e) => ({
+      id: e.id as string,
+      at: e.created_at as string,
+      level: (e.level as ActivityItem["level"]) ?? "info",
+      message: e.message as string,
+    }));
+
     return {
-      todayPnl,
-      todayPnlPct,
-      tradesToday,
+      todayPnl, todayPnlPct, tradesToday,
       winRateAllTime: winRate,
       closedAllTime: allRows.length,
       maxDrawdown: mdd,
@@ -181,17 +278,22 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       consecutiveLosses: streak,
       realizedPnlAllTime,
       portfolioValue,
-      monthlyGrowthPct,
-      monthlyGrowthAbs,
-      cagrPct,
-      consistencyPct,
-      tradingDays30d,
-      nextMilestone,
-      prevMilestone,
-      milestoneProgressPct,
-      projected6m: proj(0.5),
-      projected12m: proj(1),
-      projected24m: proj(2),
+      weekChangeAbs, weekChangePct,
+      monthlyGrowthPct, monthlyGrowthAbs,
+      consistencyPct, tradingDays30d,
+      nextMilestone, prevMilestone, milestoneProgressPct,
       equityCurve,
+      engineStatus, isRunning,
+      marketsScannedToday,
+      opportunitiesFoundToday,
+      tradesExecutedToday: tradesToday,
+      lastAnalysisAt,
+      riskHealthy, riskReason,
+      topConfidenceToday,
+      minConfidenceRequired,
+      noTradeReason,
+      scannerHealth, dataFeedHealth, riskEngineHealth, automationHealth,
+      lastSuccessfulScanAt,
+      recentActivity,
     };
   });
