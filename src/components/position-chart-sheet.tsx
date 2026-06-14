@@ -47,6 +47,76 @@ function fmtPrice(n: number | null | undefined): string {
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: 6 });
 }
 
+type CandlePoint = { time: number; open: number; high: number; low: number; close: number };
+
+function MiniCandleChart({
+  candles,
+  entryPrice,
+  exitPrice,
+  currentPrice,
+}: {
+  candles: CandlePoint[];
+  entryPrice: number;
+  exitPrice?: number | null;
+  currentPrice?: number | null;
+}) {
+  const data = candles.slice(-90);
+  if (!data.length) return null;
+  const values = data.flatMap((c) => [c.high, c.low]);
+  if (Number.isFinite(entryPrice)) values.push(entryPrice);
+  if (exitPrice != null && Number.isFinite(exitPrice)) values.push(exitPrice);
+  if (currentPrice != null && Number.isFinite(currentPrice)) values.push(currentPrice);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const pad = Math.max((max - min) * 0.12, max * 0.002, 0.000001);
+  const low = min - pad;
+  const high = max + pad;
+  const W = 360;
+  const H = 340;
+  const left = 10;
+  const right = 48;
+  const top = 14;
+  const bottom = 24;
+  const plotW = W - left - right;
+  const plotH = H - top - bottom;
+  const y = (price: number) => top + ((high - price) / Math.max(high - low, 0.000001)) * plotH;
+  const x = (i: number) => left + (i / Math.max(data.length - 1, 1)) * plotW;
+  const candleW = Math.max(2, Math.min(7, (plotW / Math.max(data.length, 1)) * 0.58));
+  const line = (price: number | null | undefined, color: string, label: string) => {
+    if (price == null || !Number.isFinite(price)) return null;
+    const yy = y(price);
+    return (
+      <g key={label}>
+        <line x1={left} x2={W - right + 4} y1={yy} y2={yy} stroke={color} strokeDasharray="4 4" strokeWidth="1" />
+        <text x={W - right + 8} y={yy + 3} fill={color} fontSize="9" fontWeight="600">{label}</text>
+      </g>
+    );
+  };
+  return (
+    <svg className="absolute inset-2 h-[calc(100%-1rem)] w-[calc(100%-1rem)]" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+      {[0.25, 0.5, 0.75].map((p) => (
+        <line key={p} x1={left} x2={W - right} y1={top + plotH * p} y2={top + plotH * p} stroke="var(--border)" strokeDasharray="2 5" />
+      ))}
+      {data.map((c, i) => {
+        const xx = x(i);
+        const up = c.close >= c.open;
+        const color = up ? "#16A34A" : "#DC2626";
+        const bodyTop = y(Math.max(c.open, c.close));
+        const bodyBottom = y(Math.min(c.open, c.close));
+        return (
+          <g key={`${c.time}-${i}`}>
+            <line x1={xx} x2={xx} y1={y(c.high)} y2={y(c.low)} stroke={color} strokeWidth="1.2" />
+            <rect x={xx - candleW / 2} y={bodyTop} width={candleW} height={Math.max(1.5, bodyBottom - bodyTop)} fill={up ? color : "#fff"} stroke={color} strokeWidth="1" />
+          </g>
+        );
+      })}
+      {line(entryPrice, "#1D4ED8", "Entry")}
+      {line(exitPrice, "#F59E0B", "Exit")}
+      {line(currentPrice, "#9333EA", "Live")}
+    </svg>
+  );
+}
+
 export function PositionChartSheet(props: PositionChartProps) {
   const {
     open,
@@ -70,7 +140,7 @@ export function PositionChartSheet(props: PositionChartProps) {
   const fetchCandles = useServerFn(getChartCandles);
   const candlesQ = useQuery({
     queryKey: ["chart_candles", symbol, interval],
-    queryFn: () => fetchCandles({ data: { symbol, interval, limit: 240 } }),
+    queryFn: async () => (await fetchCandles({ data: { symbol, interval, limit: 240 } })) ?? { candles: [] },
     enabled: open,
     refetchInterval: open && !isClosed ? 15_000 : false,
     staleTime: 10_000,
@@ -92,12 +162,19 @@ export function PositionChartSheet(props: PositionChartProps) {
     const el = containerRef.current;
     const styles = getComputedStyle(document.documentElement);
     const cssVar = (n: string) => styles.getPropertyValue(n).trim();
-    const fg = `hsl(${cssVar("--foreground") || "0 0% 95%"})`;
-    const muted = `hsl(${cssVar("--muted-foreground") || "0 0% 60%"})`;
-    const border = `hsl(${cssVar("--border") || "0 0% 20%"})`;
+    const cssColor = (name: string, fallback: string) => {
+      const raw = cssVar(name);
+      if (!raw) return fallback;
+      return raw.startsWith("#") || raw.includes("(") ? raw : `hsl(${raw})`;
+    };
+    const muted = cssColor("--muted-foreground", "#5B6472");
+    const border = cssColor("--border", "#E6E9F0");
+    const width = Math.max(320, el.clientWidth || el.parentElement?.clientWidth || 320);
+    const height = Math.max(280, el.clientHeight || el.parentElement?.clientHeight || 280);
 
     const chart = createChart(el, {
-      autoSize: true,
+      width,
+      height,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
         textColor: muted,
@@ -112,19 +189,33 @@ export function PositionChartSheet(props: PositionChartProps) {
       crosshair: { mode: 1 },
       handleScale: { axisPressedMouseMove: false },
     });
-    const series = chart.addSeries(CandlestickSeries, {
-      upColor: "hsl(142 71% 45%)",
-      downColor: "hsl(0 84% 60%)",
-      borderUpColor: "hsl(142 71% 45%)",
-      borderDownColor: "hsl(0 84% 60%)",
-      wickUpColor: "hsl(142 71% 45%)",
-      wickDownColor: "hsl(0 84% 60%)",
+    const candleOptions = {
+      upColor: "#16A34A",
+      downColor: "#DC2626",
+      borderUpColor: "#16A34A",
+      borderDownColor: "#DC2626",
+      wickUpColor: "#16A34A",
+      wickDownColor: "#DC2626",
       priceFormat: { type: "price", precision: 6, minMove: 0.000001 },
-    });
+    } as const;
+    const chartWithFallback = chart as IChartApi & {
+      addCandlestickSeries?: (options: typeof candleOptions) => ISeriesApi<"Candlestick">;
+    };
+    const series = chartWithFallback.addCandlestickSeries
+      ? chartWithFallback.addCandlestickSeries(candleOptions)
+      : chart.addSeries(CandlestickSeries, candleOptions);
     chartRef.current = chart;
     seriesRef.current = series;
-    void fg;
+    const resize = () => {
+      const nextWidth = Math.max(320, el.clientWidth || el.parentElement?.clientWidth || 320);
+      const nextHeight = Math.max(280, el.clientHeight || el.parentElement?.clientHeight || 280);
+      chart.resize(nextWidth, nextHeight);
+    };
+    const ro = new ResizeObserver(resize);
+    ro.observe(el);
+    requestAnimationFrame(resize);
     return () => {
+      ro.disconnect();
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -169,13 +260,13 @@ export function PositionChartSheet(props: PositionChartProps) {
       linesRef.current.push(l);
     };
 
-    add(entryPrice, "hsl(217 91% 60%)", "Entry");
+    add(entryPrice, "#1D4ED8", "Entry");
     if (isClosed) {
-      add(exitPrice ?? null, "hsl(38 92% 50%)", "Exit");
+      add(exitPrice ?? null, "#F59E0B", "Exit");
     } else {
-      add(takeProfit ?? null, "hsl(142 71% 45%)", "Target", LineStyle.Dashed);
-      add(stopLoss ?? null, "hsl(0 84% 60%)", "Stop", LineStyle.Dashed);
-      if (currentPrice != null) add(currentPrice, "hsl(280 70% 65%)", "Current", LineStyle.Dotted);
+      add(takeProfit ?? null, "#16A34A", "Target", LineStyle.Dashed);
+      add(stopLoss ?? null, "#DC2626", "Stop", LineStyle.Dashed);
+      if (currentPrice != null) add(currentPrice, "#9333EA", "Current", LineStyle.Dotted);
     }
 
     // Markers
@@ -195,7 +286,7 @@ export function PositionChartSheet(props: PositionChartProps) {
     markers.push({
       time: clamp(openedTs) as Time,
       position: side === "long" ? "belowBar" : "aboveBar",
-      color: "hsl(217 91% 60%)",
+      color: "#1D4ED8",
       shape: side === "long" ? "arrowUp" : "arrowDown",
       text: side === "long" ? "Entry L" : "Entry S",
     });
@@ -203,7 +294,7 @@ export function PositionChartSheet(props: PositionChartProps) {
       markers.push({
         time: clamp(closedTs) as Time,
         position: side === "long" ? "aboveBar" : "belowBar",
-        color: "hsl(38 92% 50%)",
+        color: "#F59E0B",
         shape: "circle",
         text: "Exit",
       });
@@ -278,8 +369,16 @@ export function PositionChartSheet(props: PositionChartProps) {
           ) : null}
         </div>
 
-        <div className="relative flex-1 px-2">
-          <div ref={containerRef} className="absolute inset-0 px-2 pb-2" />
+        <div className="relative flex-1 min-h-[360px] px-2 pb-2">
+          <div ref={containerRef} className="h-full min-h-[360px] w-full" />
+          {candlesQ.data?.candles?.length ? (
+            <MiniCandleChart
+              candles={candlesQ.data.candles}
+              entryPrice={entryPrice}
+              exitPrice={isClosed ? exitPrice : null}
+              currentPrice={!isClosed ? currentPrice : null}
+            />
+          ) : null}
           {candlesQ.isLoading && !candlesQ.data ? (
             <div className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">
               Loading chart…
