@@ -150,6 +150,9 @@ function Home() {
       .on("postgres_changes", { event: "*", schema: "public", table: "bot_config" }, () => {
         qc.invalidateQueries({ queryKey: ["bot_config"] });
       })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "bot_events" }, () => {
+        qc.invalidateQueries({ queryKey: ["dashboard_stats"] });
+      })
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
