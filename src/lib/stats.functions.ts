@@ -11,6 +11,8 @@ export type DashboardStats = {
   dailyLossUsedPct: number; // 0..100 of cap
   openCount: number;
   consecutiveLosses: number;
+  realizedPnlAllTime: number;
+  portfolioValue: number;
 };
 
 export const getDashboardStats = createServerFn({ method: "GET" })
@@ -71,6 +73,9 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       else break;
     }
 
+    const realizedPnlAllTime = allRows.reduce((a, r) => a + Number(r.pnl ?? 0), 0);
+    const portfolioValue = equity + realizedPnlAllTime;
+
     return {
       todayPnl,
       todayPnlPct,
@@ -81,5 +86,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       dailyLossUsedPct,
       openCount: openRows?.length ?? 0,
       consecutiveLosses: streak,
+      realizedPnlAllTime,
+      portfolioValue,
     };
   });

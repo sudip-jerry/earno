@@ -194,6 +194,7 @@ function Home() {
   const isLive = c?.mode === "live";
   const isRunning = c?.is_running ?? false;
   const equity = Number(c?.paper_equity ?? 0);
+  const portfolio = stats.data?.portfolioValue ?? equity;
   const s = stats.data;
   const dailyCap = Number(c?.daily_loss_cap_pct ?? 6);
 
@@ -320,7 +321,7 @@ function Home() {
               </span>
             </div>
             <p className="text-[40px] leading-none font-semibold tracking-tight mt-2 tabular-nums">
-              {hideBalance ? masked : fmt(equity)}
+              {hideBalance ? masked : fmt(portfolio)}
             </p>
             <div className="flex items-center gap-2 mt-2 text-sm tabular-nums">
               <span className={tone(s?.todayPnl)}>
