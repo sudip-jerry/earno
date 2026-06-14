@@ -8,8 +8,6 @@ import {
   Brain,
   MessageSquareText,
   Play,
-  FlaskConical,
-  Bot,
   ShieldCheck,
   TrendingUp,
   CheckCircle2,
