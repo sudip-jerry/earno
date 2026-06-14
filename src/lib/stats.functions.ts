@@ -290,6 +290,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       at: e.created_at as string,
       level: (e.level as ActivityItem["level"]) ?? "info",
       message: e.message as string,
+      meta: (e.meta as ActivityItem["meta"]) ?? null,
     }));
 
     return {
