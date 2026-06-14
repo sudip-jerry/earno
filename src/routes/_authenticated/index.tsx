@@ -1,5 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -87,6 +97,7 @@ function Home() {
   const [tab, setTab] = useState<Tab>("Overview");
   const [hideBalance, setHideBalance] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [confirmLive, setConfirmLive] = useState(false);
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
 
@@ -323,7 +334,10 @@ function Home() {
             isLive={isLive}
             hideBalance={hideBalance}
             onToggleHide={() => setHideBalance((v) => !v)}
-            onToggleMode={(v) => toggleMode.mutate(v)}
+            onToggleMode={(v) => {
+              if (v) setConfirmLive(true);
+              else toggleMode.mutate(false);
+            }}
             modePending={toggleMode.isPending}
           />
 
@@ -424,10 +438,8 @@ function Home() {
 
           {/* 6. Products */}
           <section className="px-5 mt-6">
-            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Products</h2>
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">More</h2>
             <div className="rounded-2xl border bg-card divide-y">
-              <ProductRow to="/scanner" icon={<Radar className="size-5 text-primary" />} title="Scanner" desc="Auto-book setups ranked by confidence" />
-              <ProductRow to="/positions" icon={<Briefcase className="size-5 text-primary" />} title="Positions" desc="Manage open trades & override TP/SL" />
               <ProductRow to="/movers" icon={<Flame className="size-5 text-destructive" />} title="Movers" desc="Biggest gainers and losers right now" />
               <ProductRow to="/settings" icon={<Settings className="size-5 text-muted-foreground" />} title="Settings" desc="Risk, leverage, exchange keys" />
             </div>
@@ -467,7 +479,11 @@ function Home() {
 
 
 
-          <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setTab("Overview")}
+            className="w-full rounded-2xl border bg-card p-4 flex items-center justify-between hover:bg-muted/40 transition text-left"
+          >
             <div className="flex items-center gap-3 min-w-0">
               <div className={`size-2.5 rounded-full shrink-0 ${isLive ? "bg-destructive" : "bg-emerald-500"}`} />
               <div className="min-w-0">
@@ -477,14 +493,8 @@ function Home() {
                 </p>
               </div>
             </div>
-            <Switch
-              checked={isLive}
-              onCheckedChange={(v) => {
-                if (v && !confirm("Switch to LIVE? Real money will be at risk.")) return;
-                toggleMode.mutate(v);
-              }}
-            />
-          </div>
+            <ChevronRight className="size-4 text-muted-foreground" />
+          </button>
 
           {isLive && (
             <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive flex items-center gap-2">
@@ -620,6 +630,30 @@ function Home() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={confirmLive} onOpenChange={setConfirmLive}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-destructive" />
+              Switch to Live trading?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Real orders will be placed on CoinDCX using your funds. Your daily-loss cap is {dailyCap}%.
+              You can switch back to Paper anytime.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay on Paper</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => toggleMode.mutate(true)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Go Live
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

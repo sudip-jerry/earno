@@ -69,18 +69,14 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className={`text-[10px] font-semibold tracking-wider ${!isLive ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground"}`}>PAPER</span>
+          <span className={`text-[11px] font-semibold tracking-wider ${!isLive ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground"}`}>PAPER</span>
           <Switch
             checked={isLive}
             disabled={!onToggleMode || modePending}
-            onCheckedChange={(v) => {
-              if (!onToggleMode) return;
-              if (v && !confirm("Switch to LIVE? Real money will be at risk.")) return;
-              onToggleMode(v);
-            }}
+            onCheckedChange={(v) => onToggleMode?.(v)}
             aria-label="Toggle paper or live trading"
           />
-          <span className={`text-[10px] font-semibold tracking-wider ${isLive ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground"}`}>LIVE</span>
+          <span className={`text-[11px] font-semibold tracking-wider ${isLive ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground"}`}>LIVE</span>
         </div>
       </div>
 
