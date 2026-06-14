@@ -376,3 +376,69 @@ function Tile({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+type AdminUser = {
+  id: string;
+  email: string | null;
+  tier: PlanTier;
+  planSource: string;
+  planExpires: string | null;
+  mode: string | null;
+  isRunning: boolean;
+  roles: string[];
+  tradesToday: number;
+};
+
+function UserPlanRow({
+  user,
+  onSave,
+  saving,
+}: {
+  user: AdminUser;
+  onSave: (tier: PlanTier) => void;
+  saving: boolean;
+}) {
+  const [pending, setPending] = useState<PlanTier>(user.tier);
+  const dirty = pending !== user.tier;
+  return (
+    <div className="rounded-xl border bg-card p-3 text-sm">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-medium truncate">{user.email ?? user.id.slice(0, 8)}</p>
+          <p className="text-xs text-muted-foreground">
+            {PLAN_NAME[user.tier]} · {user.planSource}
+            {user.planExpires
+              ? ` · until ${new Date(user.planExpires).toLocaleDateString()}`
+              : ""}
+            {user.roles.includes("admin") ? " · admin" : ""}
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Bot {user.isRunning ? "🟢 running" : "⚪ stopped"} · {user.mode ?? "—"} ·{" "}
+            {user.tradesToday} trades today
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Select value={pending} onValueChange={(t) => setPending(t as PlanTier)}>
+            <SelectTrigger className="w-32 h-8 text-xs">
+              <SelectValue placeholder="Set plan" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="free">Free</SelectItem>
+              <SelectItem value="reco">Insights</SelectItem>
+              <SelectItem value="auto5">Auto-Trader</SelectItem>
+              <SelectItem value="unlimited">Unlimited (∞)</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            className="h-8 px-3 text-xs"
+            disabled={!dirty || saving}
+            onClick={() => onSave(pending)}
+          >
+            Save
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
