@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   saveCredentials,
@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, LogOut, Zap, AlertTriangle } from "lucide-react";
+import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, LogOut, Zap, AlertTriangle, Save, RotateCcw } from "lucide-react";
 import { useTheme, type ThemeMode } from "@/hooks/use-theme";
 import { useStrictness, STRICTNESS_PRESETS, type Strictness } from "@/hooks/use-strictness";
 import { useCurrency, CURRENCY_OPTIONS, CURRENCY_SYMBOL, type CurrencyCode } from "@/hooks/use-currency";
