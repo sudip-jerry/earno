@@ -243,15 +243,16 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     const riskHealthy =
       dailyLossUsedPct < 80 && streak < 3 && engineStatus !== "cooldown";
 
-    // No-trade reason
-    let noTradeReason = "Conditions not yet met.";
-    if (!isRunning) noTradeReason = "Bot is stopped.";
-    else if (recentPause) noTradeReason = recentPause.message;
+    // No-trade reason (user-facing copy)
+    let noTradeReason = "Waiting for better entry.";
+    if (!isRunning) noTradeReason = "Bot is paused.";
+    else if (engineStatus === "cooldown") noTradeReason = "Bot is in cooldown after recent trades.";
+    else if (dailyLossUsedPct >= 80) noTradeReason = "Risk limit is active — protecting your capital.";
     else if (topConfidenceToday > 0 && topConfidenceToday < minConfidenceRequired)
-      noTradeReason = "Waiting for better entry — top setup below confidence threshold.";
+      noTradeReason = "No setup is above minimum confidence yet.";
     else if (opportunitiesFoundToday === 0 && marketsScannedToday > 0)
-      noTradeReason = "No high-confidence setups found yet.";
-    else if (marketsScannedToday === 0) noTradeReason = "First scan pending.";
+      noTradeReason = "Market conditions are not suitable right now.";
+    else if (marketsScannedToday === 0) noTradeReason = "Waiting for next scan cycle.";
 
     // Health pills
     const scanFresh = lastSuccessfulScanAt && now - new Date(lastSuccessfulScanAt).getTime() < 10 * 60_000;

@@ -382,7 +382,7 @@ function SettingsPage() {
               onChange={(v) => updCfg.mutate({ ema_slow: v })}
             />
           </Row>
-          <Row label="Min Scalp Score">
+          <Row label="Minimum Confidence">
             <NumberStepper
               value={c?.min_scalp_score ?? 50}
               min={0}

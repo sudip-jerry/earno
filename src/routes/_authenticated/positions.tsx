@@ -552,13 +552,14 @@ function ClosedList({
           p.side === "long" ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive";
         const reason = p.exit_reason ?? "—";
         const reasonLabel =
-          reason === "take_profit"
-            ? "Take profit"
-            : reason === "stop_loss"
-            ? "Stop loss"
-            : reason === "manual_limit"
-            ? "Manual close"
-            : reason;
+          reason === "take_profit" ? "Take Profit"
+          : reason === "stop_loss" ? "Stop Loss"
+          : reason === "time_exit" ? "Time Exit"
+          : reason === "trend_invalidated" ? "Trend Invalidated"
+          : reason === "manual_limit" ? "Manual Close"
+          : reason === "kill_switch" ? "Emergency Stop"
+          : reason === "risk_protection" ? "Risk Protection"
+          : reason.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
         return (
           <li key={p.id} className="rounded-2xl border bg-card p-4">
             <div className="flex items-center justify-between">

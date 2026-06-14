@@ -122,27 +122,36 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
         </p>
       )}
 
-      {/* Today / Monthly / CAGR */}
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        <WealthStat
-          label={isLive ? "Today" : "Today (sim)"}
-          value={hideBalance ? masked : (stats ? fmt(stats.todayPnl, { signed: true }) : "—")}
-          pct={stats?.todayPnlPct}
-          icon={<ArrowUpRight className="size-3" />}
-        />
-        <WealthStat
-          label={isLive ? "30-day" : "30-day (sim)"}
-          value={hideBalance ? masked : (stats ? fmt(stats.monthlyGrowthAbs, { signed: true }) : "—")}
-          pct={stats?.monthlyGrowthPct}
-          icon={<CalendarRange className="size-3" />}
-        />
-        <WealthStat
-          label={isLive ? "7-day" : "7-day (sim)"}
-          value={hideBalance ? masked : (stats ? fmt(stats.weekChangeAbs, { signed: true }) : "—")}
-          pct={stats?.weekChangePct}
-          icon={<TrendingUp className="size-3" />}
-        />
-      </div>
+      {/* Today / 7-day / 30-day */}
+      {stats && stats.closedAllTime === 0 ? (
+        <div className="mt-3 rounded-2xl border bg-card p-4 text-center">
+          <p className="text-xs text-muted-foreground">Not enough history yet</p>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Period changes appear once trades close.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <WealthStat
+            label={isLive ? "Today" : "Today (sim)"}
+            value={hideBalance ? masked : (stats ? fmt(stats.todayPnl, { signed: true }) : "—")}
+            pct={stats?.todayPnlPct}
+            icon={<ArrowUpRight className="size-3" />}
+          />
+          <WealthStat
+            label={isLive ? "7-day" : "7-day (sim)"}
+            value={hideBalance ? masked : (stats ? fmt(stats.weekChangeAbs, { signed: true }) : "—")}
+            pct={stats?.weekChangePct}
+            icon={<TrendingUp className="size-3" />}
+          />
+          <WealthStat
+            label={isLive ? "30-day" : "30-day (sim)"}
+            value={hideBalance ? masked : (stats ? fmt(stats.monthlyGrowthAbs, { signed: true }) : "—")}
+            pct={stats?.monthlyGrowthPct}
+            icon={<CalendarRange className="size-3" />}
+          />
+        </div>
+      )}
 
       {/* Milestone progress */}
       <div className="mt-4 rounded-2xl border bg-card p-4">
