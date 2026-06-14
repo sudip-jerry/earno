@@ -370,11 +370,15 @@ function TpSlEditor({
   const [editing, setEditing] = useState(false);
   const [tp, setTp] = useState<string>(takeProfit != null ? String(takeProfit) : "");
   const [sl, setSl] = useState<string>(stopLoss != null ? String(stopLoss) : "");
+  const [tpUnit, setTpUnit] = useState<"price" | "pct">("price");
+  const [slUnit, setSlUnit] = useState<"price" | "pct">("pct");
 
   useEffect(() => {
     if (!editing) {
       setTp(takeProfit != null ? String(takeProfit) : "");
       setSl(stopLoss != null ? String(stopLoss) : "");
+      setTpUnit("price");
+      setSlUnit("pct");
     }
   }, [editing, takeProfit, stopLoss]);
 
@@ -429,38 +433,93 @@ function TpSlEditor({
     );
   }
 
-  const tpNum = tp.trim() === "" ? null : Number(tp);
-  const slNum = sl.trim() === "" ? null : Number(sl);
-  const tpInvalid = tpNum != null && (!Number.isFinite(tpNum) || tpNum <= 0 || (side === "long" ? tpNum <= entry : tpNum >= entry));
-  const slInvalid = slNum != null && (!Number.isFinite(slNum) || slNum <= 0 || (side === "long" ? slNum >= entry : slNum <= entry));
+  // Convert the typed value (in selected unit) to an absolute price.
+  // For TP: long → entry*(1+pct/100); short → entry*(1-pct/100)
+  // For SL: long → entry*(1-pct/100); short → entry*(1+pct/100)
+  const pctToPrice = (pctVal: number, kind: "tp" | "sl"): number => {
+    const dir = side === "long" ? 1 : -1;
+    const sign = kind === "tp" ? 1 : -1;
+    return entry * (1 + (dir * sign * pctVal) / 100);
+  };
+
+  const parseToPrice = (raw: string, unit: "price" | "pct", kind: "tp" | "sl"): number | null => {
+    const s = raw.trim();
+    if (s === "") return null;
+    const n = Number(s);
+    if (!Number.isFinite(n)) return NaN;
+    if (unit === "price") return n;
+    if (n <= 0) return NaN;
+    return pctToPrice(n, kind);
+  };
+
+  const tpPrice = parseToPrice(tp, tpUnit, "tp");
+  const slPrice = parseToPrice(sl, slUnit, "sl");
+  const tpInvalid =
+    tpPrice != null && (Number.isNaN(tpPrice) || tpPrice <= 0 || (side === "long" ? tpPrice <= entry : tpPrice >= entry));
+  const slInvalid =
+    slPrice != null && (Number.isNaN(slPrice) || slPrice <= 0 || (side === "long" ? slPrice >= entry : slPrice <= entry));
+
+  // Live preview for the *other* unit (helps the user understand what they typed).
+  const tpPreviewPct = tpPrice != null && !Number.isNaN(tpPrice) && entry > 0
+    ? ((tpPrice - entry) / entry) * 100 * (side === "long" ? 1 : -1)
+    : null;
+  const slPreviewPct = slPrice != null && !Number.isNaN(slPrice) && entry > 0
+    ? ((entry - slPrice) / entry) * 100 * (side === "long" ? 1 : -1)
+    : null;
 
   return (
     <div className="mt-3 rounded-lg border bg-muted/40 p-3 space-y-2">
       <div className="grid grid-cols-2 gap-2">
-        <label className="text-[10px] text-muted-foreground space-y-1">
-          <span>Take Profit ({side === "long" ? ">" : "<"} {fmtNum(entry, 6)})</span>
-          <input
-            type="number"
-            step="any"
-            inputMode="decimal"
-            value={tp}
-            onChange={(e) => setTp(e.target.value)}
-            placeholder="—"
-            className={`w-full rounded-md border bg-background px-2 h-8 text-xs tabular-nums ${tpInvalid ? "border-destructive" : ""}`}
-          />
-        </label>
-        <label className="text-[10px] text-muted-foreground space-y-1">
-          <span>Stop Loss ({side === "long" ? "<" : ">"} {fmtNum(entry, 6)})</span>
-          <input
-            type="number"
-            step="any"
-            inputMode="decimal"
-            value={sl}
-            onChange={(e) => setSl(e.target.value)}
-            placeholder="—"
-            className={`w-full rounded-md border bg-background px-2 h-8 text-xs tabular-nums ${slInvalid ? "border-destructive" : ""}`}
-          />
-        </label>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+            <span>Take Profit ({side === "long" ? ">" : "<"} {fmtNum(entry, 6)})</span>
+            <UnitToggle value={tpUnit} onChange={setTpUnit} />
+          </div>
+          <div className="relative">
+            <input
+              type="number"
+              step="any"
+              inputMode="decimal"
+              value={tp}
+              onChange={(e) => setTp(e.target.value)}
+              placeholder={tpUnit === "pct" ? "e.g. 3" : "—"}
+              className={`w-full rounded-md border bg-background pl-2 pr-7 h-8 text-xs tabular-nums ${tpInvalid ? "border-destructive" : ""}`}
+            />
+            {tpUnit === "pct" && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">%</span>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground tabular-nums">
+            {tpUnit === "pct"
+              ? tpPrice != null && !Number.isNaN(tpPrice) ? `≈ ${fmtNum(tpPrice, 6)}` : "Enter % above entry"
+              : tpPreviewPct != null ? `≈ +${tpPreviewPct.toFixed(2)}%` : "Enter price"}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+            <span>Stop Loss ({side === "long" ? "<" : ">"} {fmtNum(entry, 6)})</span>
+            <UnitToggle value={slUnit} onChange={setSlUnit} />
+          </div>
+          <div className="relative">
+            <input
+              type="number"
+              step="any"
+              inputMode="decimal"
+              value={sl}
+              onChange={(e) => setSl(e.target.value)}
+              placeholder={slUnit === "pct" ? "e.g. 1.5" : "—"}
+              className={`w-full rounded-md border bg-background pl-2 pr-7 h-8 text-xs tabular-nums ${slInvalid ? "border-destructive" : ""}`}
+            />
+            {slUnit === "pct" && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">%</span>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground tabular-nums">
+            {slUnit === "pct"
+              ? slPrice != null && !Number.isNaN(slPrice) ? `≈ ${fmtNum(slPrice, 6)}` : "Enter % below entry"
+              : slPreviewPct != null ? `≈ −${Math.abs(slPreviewPct).toFixed(2)}%` : "Enter price"}
+          </p>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <Button
@@ -476,17 +535,44 @@ function TpSlEditor({
           size="sm"
           className="h-8 flex-1"
           disabled={save.isPending || tpInvalid || slInvalid}
-          onClick={() => save.mutate({ takeProfit: tpNum, stopLoss: slNum })}
+          onClick={() =>
+            save.mutate({
+              takeProfit: tpPrice != null && !Number.isNaN(tpPrice) ? tpPrice : null,
+              stopLoss: slPrice != null && !Number.isNaN(slPrice) ? slPrice : null,
+            })
+          }
         >
           {save.isPending ? "Saving…" : "Save"}
         </Button>
       </div>
       <p className="text-[10px] text-muted-foreground">
-        Leave blank to clear. The bot will auto-close when LTP crosses these levels.
+        Switch between price and % per field. Leave blank to clear. The bot auto-closes when LTP crosses these levels.
       </p>
     </div>
   );
 }
+
+function UnitToggle({
+  value, onChange,
+}: { value: "price" | "pct"; onChange: (v: "price" | "pct") => void }) {
+  return (
+    <div className="inline-flex items-center rounded-md border bg-background p-0.5">
+      {(["price", "pct"] as const).map((u) => (
+        <button
+          key={u}
+          type="button"
+          onClick={() => onChange(u)}
+          className={`h-5 px-2 text-[10px] font-medium rounded ${
+            value === u ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {u === "price" ? "Price" : "%"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 
 
 
