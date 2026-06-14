@@ -161,9 +161,7 @@ function ScannerPage() {
             <li key={m.symbol}>
               <OpportunityCard
                 mover={m}
-                tpPct={m.tpPct}
-                slPct={m.slPct}
-                riskAmountUsd={riskAmount}
+                riskMeta={riskMeta}
                 booking={booking}
                 onBook={(s, ov) => book.mutate({ m, side: s, tpPct: ov.tpPct, slPct: ov.slPct })}
               />
