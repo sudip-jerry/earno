@@ -21,7 +21,14 @@ import { PLAN_NAME, type PlanTier } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { useTheme } from "@/hooks/use-theme";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { PositionsStrip } from "@/components/positions-strip";
 import { CopilotBeta } from "@/components/copilot-beta";
 import { WealthHero, MilestoneCard, PerformanceHistoryCard } from "@/components/wealth-hero";
