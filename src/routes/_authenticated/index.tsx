@@ -705,3 +705,30 @@ function StatTile({ label, value, sub }: { label: string; value: string; sub?: s
     </div>
   );
 }
+
+function GuideStep({
+  icon,
+  title,
+  desc,
+  n,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  n: number;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="size-8 rounded-full bg-primary/10 grid place-items-center shrink-0 text-[11px] font-semibold text-primary">
+        {n}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          {icon}
+          <p className="text-sm font-medium">{title}</p>
+        </div>
+        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{desc}</p>
+      </div>
+    </div>
+  );
+}
