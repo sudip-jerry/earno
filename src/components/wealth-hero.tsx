@@ -53,6 +53,9 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
     const digits = symbol === "₹" || symbol === "¥" ? 0 : v >= 1000 ? 0 : 2;
     return `${symbol}${v.toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: 0 })}`;
   };
+
+  return (
+    <section className="px-5 pt-5">
       {/* Label row */}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span className="uppercase tracking-wider text-[10px] font-medium">
