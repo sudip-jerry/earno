@@ -334,7 +334,10 @@ function Home() {
             isLive={isLive}
             hideBalance={hideBalance}
             onToggleHide={() => setHideBalance((v) => !v)}
-            onToggleMode={(v) => toggleMode.mutate(v)}
+            onToggleMode={(v) => {
+              if (v) setConfirmLive(true);
+              else toggleMode.mutate(false);
+            }}
             modePending={toggleMode.isPending}
           />
 
