@@ -26,6 +26,7 @@ import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, LogOut, Zap, AlertTrian
 import { useTheme, type ThemeMode } from "@/hooks/use-theme";
 import { useStrictness, STRICTNESS_PRESETS, type Strictness } from "@/hooks/use-strictness";
 import { useCurrency, CURRENCY_OPTIONS, CURRENCY_SYMBOL, type CurrencyCode } from "@/hooks/use-currency";
+import { STYLE_PRESETS, type TradingStyle } from "@/lib/risk-engine";
 
 function CurrencyControl() {
   const { code, setCurrency, isUpdating } = useCurrency();
