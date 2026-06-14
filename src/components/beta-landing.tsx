@@ -1,4 +1,6 @@
 import { Link } from "@tanstack/react-router";
+import { HelpFlow } from "@/routes/_authenticated/help";
+
 import {
   ArrowRight,
   Brain,
