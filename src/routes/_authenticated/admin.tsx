@@ -132,6 +132,12 @@ function AdminPage() {
           <ChevronLeft className="size-5" />
         </Link>
         <h1 className="text-xl font-semibold">Admin</h1>
+        <Link
+          to="/beta-report"
+          className="ml-auto text-xs px-3 h-8 inline-flex items-center rounded-full border bg-card hover:bg-muted"
+        >
+          Beta Report →
+        </Link>
       </header>
 
       <section className="px-5 grid grid-cols-4 gap-2">
