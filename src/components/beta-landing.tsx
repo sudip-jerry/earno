@@ -174,6 +174,13 @@ export function BetaLanding() {
           </div>
         </div>
       </section>
+
+      {/* Inline Get Started flow — same as Help overlay */}
+      <section className="px-5 pb-12">
+        <div className="mx-auto max-w-md rounded-3xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+          <HelpFlow />
+        </div>
+      </section>
     </div>
   );
 }
