@@ -408,13 +408,27 @@ function SettingsPage() {
         </div>
 
         {get("mode") === "live" ? (
-          <div className="mt-3 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 flex gap-2 text-xs text-destructive">
-            <AlertTriangle className="size-4 shrink-0 mt-0.5" />
-            <p>
-              Live mode places real futures trades. Use only after paper testing. A working CoinDCX
-              API key with Futures permissions is required.
-            </p>
-          </div>
+          <>
+            <div className="mt-3 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 flex gap-2 text-xs text-destructive">
+              <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+              <p>
+                Live mode places real futures trades. Use only after paper testing. A working CoinDCX
+                API key with Futures permissions is required.
+              </p>
+            </div>
+            <LiveFunding
+              walletsFn={walletsFn}
+              source={get("live_wallet_source")}
+              mode={get("live_allocation_mode")}
+              amount={get("live_allocation_amount")}
+              pct={get("live_allocation_pct")}
+              setSource={(v) => set("live_wallet_source", v)}
+              setMode={(v) => set("live_allocation_mode", v)}
+              setAmount={(v) => set("live_allocation_amount", v)}
+              setPct={(v) => set("live_allocation_pct", v)}
+              hasCreds={!!status.data?.hasCredentials}
+            />
+          </>
         ) : null}
       </section>
 
