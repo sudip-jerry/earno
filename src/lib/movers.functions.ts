@@ -636,24 +636,41 @@ function spotToCandlePair(market: string): string {
 export const getTopMovers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => marketSchema.parse(d ?? {}))
-  .handler(async ({ data, context }): Promise<{ ok: true; movers: Mover[] } | { ok: false; error: string }> => {
+  .handler(async ({ data, context }): Promise<{ ok: true; movers: Mover[]; risk: { capital: number; style: string; minSL: number; atrMult: number; maxAutoSL: number; targetMult: number; minRR: number; riskPct: number } } | { ok: false; error: string }> => {
     const market = data.market ?? "futures";
     const preset = STRICT_PRESETS[data.strictness ?? "moderate"];
-    // Pull trade params for risk-check enrichment (best-effort; fall back to sane defaults).
+    // Pull risk preset for the active user — used by the Scanner card to render
+    // volatility-adjusted target / stop / position size / status.
+    let stylePreset = (await import("@/lib/risk-engine")).STYLE_PRESETS.balanced;
+    let capital = 1000;
     let tpPct = 0.6;
     let slPct = 0.4;
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { data: cfg } = await supabaseAdmin
         .from("bot_config")
-        .select("take_profit_pct,stop_loss_pct")
+        .select("trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,risk_per_trade_pct,paper_equity,take_profit_pct,stop_loss_pct")
         .eq("user_id", context.userId)
         .maybeSingle();
       if (cfg) {
+        const { presetFromConfig } = await import("@/lib/risk-engine");
+        stylePreset = presetFromConfig(cfg);
+        capital = Number(cfg.paper_equity ?? 1000);
         tpPct = Number(cfg.take_profit_pct ?? tpPct);
         slPct = Number(cfg.stop_loss_pct ?? slPct);
       }
     } catch { /* keep defaults */ }
+    const riskSummary = {
+      capital,
+      style: stylePreset.key,
+      minSL: stylePreset.minSL,
+      atrMult: stylePreset.atrMult,
+      maxAutoSL: stylePreset.maxAutoSL,
+      targetMult: stylePreset.targetMult,
+      minRR: stylePreset.minRR,
+      riskPct: stylePreset.riskPct,
+    };
+
 
     try {
       if (market === "spot") {
