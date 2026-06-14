@@ -11,6 +11,8 @@ export type DashboardStats = {
   dailyLossUsedPct: number; // 0..100 of cap
   openCount: number;
   consecutiveLosses: number;
+  realizedPnlAllTime: number;
+  portfolioValue: number;
 };
 
 export const getDashboardStats = createServerFn({ method: "GET" })
