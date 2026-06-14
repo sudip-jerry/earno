@@ -25,26 +25,39 @@ function timeAgo(iso: string | null): string {
 
 export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
   const [riskOpen, setRiskOpen] = useState(false);
-  const status = stats?.engineStatus ?? "paused";
+  const rawStatus = stats?.engineStatus ?? "paused";
+  // Derive "Risk Locked" when running but daily loss limit reached.
+  const isRiskLocked =
+    rawStatus === "active" && stats?.riskHealthy === false && (stats?.dailyLossUsedPct ?? 0) >= 80;
+  const status: "active" | "paused" | "cooldown" | "risk_locked" = isRiskLocked
+    ? "risk_locked"
+    : rawStatus;
+
   const badge =
     status === "active"
-      ? { label: "Active", cls: "bg-emerald-500 text-white" }
+      ? { label: "Running", cls: "bg-emerald-500 text-white" }
       : status === "cooldown"
         ? { label: "Cooldown", cls: "bg-amber-500 text-white" }
-        : { label: "Paused", cls: "bg-muted text-muted-foreground" };
+        : status === "risk_locked"
+          ? { label: "Risk Locked", cls: "bg-destructive text-white" }
+          : { label: "Paused", cls: "bg-muted text-muted-foreground" };
 
   const reason =
-    status === "cooldown"
-      ? (stats?.riskReason ?? "Cooling down after recent trades.")
-      : status === "paused"
-        ? "Bot is paused. Tap Start Bot to resume scanning."
-        : (stats?.noTradeReason ?? "Scanning markets for setups.");
+    status === "risk_locked"
+      ? "Risk lock active because the daily loss limit was reached. The bot will resume tomorrow or after you adjust risk settings."
+      : status === "cooldown"
+        ? (stats?.riskReason ?? "Bot is cooling down after recent trades.")
+        : status === "paused"
+          ? "Bot is paused. Tap Start Bot to resume scanning."
+          : (stats?.noTradeReason ?? "Bot is running and scanning markets for setups.");
 
-  const riskLabel = stats?.riskHealthy
-    ? "Active"
-    : status === "cooldown"
-      ? "Engaged"
-      : "Limit reached";
+  const riskLabel = status === "risk_locked"
+    ? "Locked"
+    : stats?.riskHealthy
+      ? "Active"
+      : status === "cooldown"
+        ? "Engaged"
+        : "Limit reached";
 
   return (
     <section className="px-5 mt-5">
