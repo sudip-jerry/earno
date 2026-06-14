@@ -61,6 +61,10 @@ import {
   Bot,
   LineChart,
   Crown as CrownIcon,
+  MoreHorizontal,
+  Moon,
+  Sun,
+  Monitor,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
