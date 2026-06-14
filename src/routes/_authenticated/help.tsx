@@ -36,15 +36,43 @@ const STEPS = [
 ] as const;
 
 function HelpPage() {
+  return (
+    <div className="min-h-svh bg-background pb-28">
+      <HelpFlow
+        headerLeft={
+          <Link to="/" className="size-9 grid place-items-center rounded-full hover:bg-muted -ml-2">
+            <ChevronLeft className="size-5" />
+          </Link>
+        }
+      />
+    </div>
+  );
+}
+
+export function HelpFlow({
+  onClose,
+  headerLeft,
+}: {
+  onClose?: () => void;
+  headerLeft?: React.ReactNode;
+}) {
   const [step, setStep] = useState(0);
   const total = STEPS.length;
 
   return (
-    <div className="min-h-svh bg-background pb-28">
-      <header className="px-5 pt-6 pb-4 flex items-center gap-2">
-        <Link to="/" className="size-9 grid place-items-center rounded-full hover:bg-muted -ml-2">
-          <ChevronLeft className="size-5" />
-        </Link>
+    <div className="flex flex-col h-full">
+      <header className="px-5 pt-6 pb-4 flex items-center gap-2 shrink-0">
+        {headerLeft ??
+          (onClose ? (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="size-9 grid place-items-center rounded-full hover:bg-muted -ml-2"
+            >
+              <ChevronLeft className="size-5" />
+            </button>
+          ) : null)}
         <h1 className="text-base font-semibold">Get started</h1>
         <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
           {step + 1} / {total}
@@ -52,7 +80,7 @@ function HelpPage() {
       </header>
 
       {/* Progress */}
-      <div className="px-5">
+      <div className="px-5 shrink-0">
         <div className="flex gap-1.5">
           {STEPS.map((s, i) => (
             <div
@@ -66,7 +94,7 @@ function HelpPage() {
         </div>
       </div>
 
-      <div className="px-5 pt-6 animate-fade-in" key={step}>
+      <div className="px-5 pt-6 pb-32 overflow-y-auto animate-fade-in flex-1" key={step}>
         {step === 0 && <StepWelcome />}
         {step === 1 && <StepFlow />}
         {step === 2 && <StepPaper />}
@@ -74,7 +102,7 @@ function HelpPage() {
       </div>
 
       {/* Footer CTAs */}
-      <div className="fixed bottom-20 left-0 right-0 px-5">
+      <div className="sticky bottom-0 left-0 right-0 px-5 pb-5 pt-3 bg-gradient-to-t from-background via-background to-transparent">
         <div className="mx-auto max-w-md flex items-center gap-2">
           {step > 0 && (
             <button
@@ -98,6 +126,7 @@ function HelpPage() {
             <>
               <Link
                 to="/"
+                onClick={onClose}
                 className="flex-1 h-12 rounded-full text-white text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-sm hover:opacity-95"
                 style={{ backgroundColor: PRIMARY }}
               >
@@ -105,6 +134,7 @@ function HelpPage() {
               </Link>
               <Link
                 to="/settings"
+                onClick={onClose}
                 className="h-12 px-4 rounded-full border border-border bg-background text-sm font-medium hover:bg-muted inline-flex items-center"
               >
                 Connect Exchange
@@ -116,6 +146,7 @@ function HelpPage() {
     </div>
   );
 }
+
 
 /* ---------------- Steps ---------------- */
 
