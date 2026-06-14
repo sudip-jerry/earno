@@ -282,12 +282,6 @@ function Home() {
           draggable={false}
         />
         <div className="flex items-center gap-0.5 shrink-0">
-          <ThemeToggle />
-          {isAdmin && (
-            <Link to="/admin" title="Admin" className="size-9 grid place-items-center rounded-full hover:bg-muted">
-              <ShieldCheck className="size-5 text-primary" />
-            </Link>
-          )}
           <Link
             to="/upgrade"
             title={`Plan: ${PLAN_NAME[tier]}`}
@@ -297,21 +291,46 @@ function Home() {
               tier === "free" ? <Sparkles className="size-5 text-muted-foreground" /> :
               <Sparkles className="size-5 text-primary" />}
           </Link>
-          <Link to="/help" className="size-9 grid place-items-center rounded-full hover:bg-muted">
-            <HelpCircle className="size-5 text-muted-foreground" />
-          </Link>
           <Link to="/settings" className="size-9 grid place-items-center rounded-full hover:bg-muted">
             <Settings className="size-5 text-muted-foreground" />
           </Link>
-          <button
-            type="button"
-            onClick={() => setShowGuide(true)}
-            className="size-9 grid place-items-center rounded-full hover:bg-muted"
-            aria-label="Get started guide"
-            title="Get started"
-          >
-            <Rocket className="size-5 text-primary" />
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="size-9 grid place-items-center rounded-full hover:bg-muted">
+              <MoreHorizontal className="size-5 text-muted-foreground" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {isAdmin && (
+                <DropdownMenuItem onClick={() => navigate({ to: "/admin" })}>
+                  <ShieldCheck className="size-4 mr-2" />
+                  Admin
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => navigate({ to: "/help" })}>
+                <HelpCircle className="size-4 mr-2" />
+                Help
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowGuide(true)}>
+                <Rocket className="size-4 mr-2" />
+                Get started
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setTheme("light")}>
+                <Sun className="size-4 mr-2" />
+                Light
+                {theme === "light" ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("dark")}>
+                <Moon className="size-4 mr-2" />
+                Dark
+                {theme === "dark" ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("system")}>
+                <Monitor className="size-4 mr-2" />
+                System
+                {theme === "system" ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
