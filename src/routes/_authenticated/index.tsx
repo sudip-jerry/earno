@@ -321,7 +321,7 @@ function Home() {
               </span>
             </div>
             <p className="text-[40px] leading-none font-semibold tracking-tight mt-2 tabular-nums">
-              {hideBalance ? masked : fmt(equity)}
+              {hideBalance ? masked : fmt(portfolio)}
             </p>
             <div className="flex items-center gap-2 mt-2 text-sm tabular-nums">
               <span className={tone(s?.todayPnl)}>
