@@ -99,6 +99,7 @@ type Tab = (typeof TABS)[number];
 function Home() {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
   const updateFn = useServerFn(updateConfig);
   const killFn = useServerFn(killAll);
   const statsFn = useServerFn(getDashboardStats);
