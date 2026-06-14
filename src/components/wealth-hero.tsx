@@ -37,11 +37,22 @@ function toneClass(n: number | null | undefined) {
 }
 
 export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggleHide }: Props) {
-  const { fmt } = useCurrency();
+  const { fmt, rate, symbol } = useCurrency();
   const portfolio = stats?.portfolioValue ?? equityFallback;
 
-  return (
-    <section className="px-5 pt-5">
+  // Milestones in display currency (nice round numbers).
+  const displayValue = portfolio * rate;
+  const { next: nextDisplay, prev: prevDisplay } = nextNiceMilestone(displayValue);
+  const milestoneProgress =
+    nextDisplay > prevDisplay
+      ? Math.min(100, Math.max(0, ((displayValue - prevDisplay) / (nextDisplay - prevDisplay)) * 100))
+      : 0;
+  const toGo = Math.max(0, nextDisplay - displayValue);
+
+  const fmtDisplay = (v: number) => {
+    const digits = symbol === "₹" || symbol === "¥" ? 0 : v >= 1000 ? 0 : 2;
+    return `${symbol}${v.toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: 0 })}`;
+  };
       {/* Label row */}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span className="uppercase tracking-wider text-[10px] font-medium">
