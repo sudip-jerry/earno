@@ -1,16 +1,26 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Info } from "lucide-react";
 import type { Mover, Action, ConfidenceLabel } from "@/lib/movers.functions";
 import { RecommendationModal } from "@/components/recommendation-modal";
 import { useCurrency } from "@/hooks/use-currency";
+import { computeRiskPlan, STYLE_PRESETS, type RiskPlan, type StylePreset } from "@/lib/risk-engine";
+
+export type RiskMeta = {
+  capital: number;
+  style: string;
+  minSL: number;
+  atrMult: number;
+  maxAutoSL: number;
+  targetMult: number;
+  minRR: number;
+  riskPct: number;
+};
 
 type Props = {
   mover: Mover;
-  /** Auto-derived defaults; user can override via inline inputs. */
-  tpPct: number;
-  slPct: number;
-  riskAmountUsd: number;
+  /** Volatility preset + capital — supplied by getTopMovers' `risk` field. */
+  riskMeta: RiskMeta;
   dailyRiskAvailable?: boolean;
   booking?: boolean;
   onBook: (side: "long" | "short", overrides: { tpPct: number; slPct: number }) => void;
@@ -43,30 +53,58 @@ function labelCls(l: ConfidenceLabel): string {
   return "text-destructive";
 }
 
+function statusBadge(p: RiskPlan) {
+  if (p.status === "auto_eligible")
+    return { label: "Auto-book Eligible", cls: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" };
+  if (p.status === "manual_review")
+    return { label: "Manual Review", cls: "bg-amber-500/10 text-amber-500 border-amber-500/30" };
+  return { label: "Avoid", cls: "bg-destructive/10 text-destructive border-destructive/30" };
+}
+
 function formatPrice(p: number): string {
   return p.toLocaleString(undefined, { maximumFractionDigits: 6 });
 }
 
+function presetFromMeta(meta: RiskMeta): StylePreset {
+  const base = STYLE_PRESETS[(meta.style as keyof typeof STYLE_PRESETS)] ?? STYLE_PRESETS.balanced;
+  return {
+    ...base,
+    riskPct: meta.riskPct,
+    minSL: meta.minSL,
+    atrMult: meta.atrMult,
+    maxAutoSL: meta.maxAutoSL,
+    targetMult: meta.targetMult,
+    minRR: meta.minRR,
+  };
+}
+
 export function OpportunityCard({
   mover,
-  tpPct,
-  slPct,
-  riskAmountUsd,
+  riskMeta,
   dailyRiskAvailable = true,
   booking = false,
   onBook,
   compact = false,
 }: Props) {
   const [whyOpen, setWhyOpen] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [tpInput, setTpInput] = useState<number>(tpPct);
-  const [slInput, setSlInput] = useState<number>(slPct);
   const { fmt } = useCurrency();
   const meta = actionMeta(mover.action);
   const tradable = mover.action === "long" || mover.action === "short";
-  const isAutoEligible = mover.tier === "auto";
   const lowZone = formatPrice(mover.price * 0.999);
   const highZone = formatPrice(mover.price * 1.001);
+
+  const plan = useMemo(() => {
+    return computeRiskPlan({
+      atrPct: mover.atrPct,
+      preset: presetFromMeta(riskMeta),
+      capital: riskMeta.capital,
+      unsupported: mover.bias === "wait",
+    });
+  }, [mover.atrPct, mover.bias, riskMeta]);
+
+  const badge = statusBadge(plan);
+  const canBook = tradable && plan.status === "auto_eligible";
+  const reviewOnly = tradable && plan.status === "manual_review";
 
   return (
     <div className={`rounded-2xl border bg-card ${compact ? "p-3" : "p-4"}`}>
@@ -78,11 +116,11 @@ export function OpportunityCard({
             <span className={`inline-flex items-center px-2 h-5 rounded text-[10px] font-semibold border ${meta.cls}`}>
               {meta.label}
             </span>
-            <span className="inline-flex items-center px-2 h-5 rounded text-[10px] font-medium border bg-muted/60 text-muted-foreground border-border">
-              {mover.reasonLabel}
+            <span className={`inline-flex items-center px-2 h-5 rounded text-[10px] font-semibold border ${badge.cls}`}>
+              {badge.label}
             </span>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{mover.shortReason}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{plan.reason ?? mover.shortReason}</p>
         </div>
         <div className="text-right shrink-0">
           <p className="text-lg font-semibold tabular-nums leading-none">
@@ -112,77 +150,47 @@ export function OpportunityCard({
       )}
 
       {/* Trade plan */}
-      <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-[11px]">
         <div>
           <p className="uppercase tracking-wider text-muted-foreground">Entry zone</p>
-          <p className="tabular-nums font-medium text-foreground mt-0.5">
-            {lowZone}–{highZone}
+          <p className="tabular-nums font-medium text-foreground mt-0.5">{lowZone}–{highZone}</p>
+        </div>
+        <div>
+          <p className="uppercase tracking-wider text-muted-foreground">Target</p>
+          <p className="tabular-nums font-medium text-emerald-500 mt-0.5">+{plan.tpPct.toFixed(2)}%</p>
+        </div>
+        <div>
+          <p className="uppercase tracking-wider text-muted-foreground">Stop</p>
+          <p className="tabular-nums font-medium text-destructive mt-0.5">−{plan.slPct.toFixed(2)}%</p>
+        </div>
+        <div>
+          <p className="uppercase tracking-wider text-muted-foreground">Stop type</p>
+          <p className="font-medium text-foreground mt-0.5">Volatility-based</p>
+        </div>
+        <div>
+          <p className="uppercase tracking-wider text-muted-foreground">Risk</p>
+          <p className="tabular-nums font-medium text-foreground mt-0.5">{fmt(plan.riskAmount)}</p>
+        </div>
+        <div>
+          <p className="uppercase tracking-wider text-muted-foreground">Risk-reward</p>
+          <p className={`tabular-nums font-medium mt-0.5 ${plan.rr < riskMeta.minRR ? "text-amber-500" : "text-foreground"}`}>
+            {plan.rr > 0 ? `${plan.rr.toFixed(1)} : 1` : "—"}
           </p>
         </div>
-        <div>
-          <p className="uppercase tracking-wider text-muted-foreground">Target (auto)</p>
-          {editing ? (
-            <input
-              type="number"
-              step={0.1}
-              min={0.1}
-              max={50}
-              value={tpInput}
-              onChange={(e) => setTpInput(Number(e.target.value))}
-              className="mt-0.5 w-16 h-6 px-1 rounded border bg-background text-emerald-500 tabular-nums text-[11px]"
-            />
-          ) : (
-            <p className="tabular-nums font-medium text-emerald-500 mt-0.5">+{tpInput.toFixed(2)}%</p>
-          )}
-        </div>
-        <div>
-          <p className="uppercase tracking-wider text-muted-foreground">Stop (auto)</p>
-          {editing ? (
-            <input
-              type="number"
-              step={0.5}
-              min={0.1}
-              max={50}
-              value={slInput}
-              onChange={(e) => setSlInput(Number(e.target.value))}
-              className="mt-0.5 w-16 h-6 px-1 rounded border bg-background text-destructive tabular-nums text-[11px]"
-            />
-          ) : (
-            <p className="tabular-nums font-medium text-destructive mt-0.5">−{slInput.toFixed(2)}%</p>
-          )}
+        <div className="col-span-2">
+          <p className="uppercase tracking-wider text-muted-foreground">Position size</p>
+          <p className="tabular-nums font-medium text-foreground mt-0.5">{fmt(plan.positionSize)}</p>
         </div>
       </div>
 
-      {/* Risk-Reward summary */}
-      {(() => {
-        const rr = slInput > 0 ? tpInput / slInput : 0;
-        const weak = rr > 0 && rr < 1.5;
-        return (
-          <div className="mt-2 flex items-center justify-between rounded-lg bg-muted/40 px-2.5 py-1.5 text-[11px]">
-            <span className="text-muted-foreground">Risk-Reward</span>
-            <span className={`tabular-nums font-semibold ${weak ? "text-amber-500" : "text-foreground"}`}>
-              {rr > 0 ? `${rr.toFixed(1)} : 1` : "—"}
-              {weak && <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wider">Weak</span>}
-            </span>
-          </div>
-        );
-      })()}
+      <p className="mt-2 text-[10px] text-muted-foreground leading-snug">
+        Stop is based on recent market volatility, not a fixed percentage.
+      </p>
 
-      <div className="mt-2 flex items-center justify-between text-[11px]">
-        <button
-          type="button"
-          onClick={() => setEditing((v) => !v)}
-          className="text-muted-foreground hover:text-foreground underline underline-offset-2"
-        >
-          {editing ? "Use auto" : "Override TP/SL"}
-        </button>
-        <span className="text-muted-foreground">
-          Risk per trade <span className="tabular-nums font-medium text-foreground">{fmt(riskAmountUsd)}</span>
-        </span>
-      </div>
-
-      {tradable && !isAutoEligible ? (
-        <p className="mt-2 text-[10px] text-amber-500">Manual book — not auto-eligible</p>
+      {reviewOnly ? (
+        <p className="mt-2 text-[11px] text-amber-500">
+          Manual review required — {plan.reason?.toLowerCase() ?? "risk rejected"}.
+        </p>
       ) : null}
 
       {/* Actions */}
@@ -190,13 +198,13 @@ export function OpportunityCard({
         <Button
           size="sm"
           className={`flex-1 h-9 rounded-lg text-white ${meta.btnCls} disabled:opacity-60`}
-          disabled={!tradable || booking}
+          disabled={!canBook || booking}
           onClick={() =>
-            tradable &&
-            onBook(mover.action === "short" ? "short" : "long", { tpPct: tpInput, slPct: slInput })
+            canBook &&
+            onBook(mover.action === "short" ? "short" : "long", { tpPct: plan.tpPct, slPct: plan.slPct })
           }
         >
-          {booking ? "Booking…" : meta.btn}
+          {booking ? "Booking…" : reviewOnly ? "Manual review" : meta.btn}
         </Button>
         <button
           type="button"
@@ -209,12 +217,12 @@ export function OpportunityCard({
         </button>
       </div>
 
-
-
       <RecommendationModal
         open={whyOpen}
         onOpenChange={setWhyOpen}
         mover={mover}
+        plan={plan}
+        riskMeta={riskMeta}
         dailyRiskAvailable={dailyRiskAvailable}
       />
     </div>
