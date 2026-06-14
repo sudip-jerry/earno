@@ -408,16 +408,54 @@ function TpSlEditor({
   const [tp, setTp] = useState<string>(takeProfit != null ? String(takeProfit) : "");
   const [sl, setSl] = useState<string>(stopLoss != null ? String(stopLoss) : "");
   const [tpUnit, setTpUnit] = useState<"price" | "pct">("price");
-  const [slUnit, setSlUnit] = useState<"price" | "pct">("pct");
+  const [slUnit, setSlUnit] = useState<"price" | "pct">("price");
 
   useEffect(() => {
     if (!editing) {
       setTp(takeProfit != null ? String(takeProfit) : "");
       setSl(stopLoss != null ? String(stopLoss) : "");
       setTpUnit("price");
-      setSlUnit("pct");
+      setSlUnit("price");
     }
   }, [editing, takeProfit, stopLoss]);
+
+  // Convert displayed value when toggling units so the underlying meaning is preserved.
+  const handleTpUnit = (next: "price" | "pct") => {
+    if (next === tpUnit) return;
+    const raw = tp.trim();
+    if (raw !== "" && entry > 0) {
+      const n = Number(raw);
+      if (Number.isFinite(n)) {
+        if (next === "pct" && tpUnit === "price") {
+          const pct = ((n - entry) / entry) * 100 * (side === "long" ? 1 : -1);
+          setTp(pct > 0 ? pct.toFixed(4).replace(/\.?0+$/, "") : "");
+        } else if (next === "price" && tpUnit === "pct") {
+          const dir = side === "long" ? 1 : -1;
+          const price = entry * (1 + (dir * n) / 100);
+          setTp(String(price));
+        }
+      }
+    }
+    setTpUnit(next);
+  };
+  const handleSlUnit = (next: "price" | "pct") => {
+    if (next === slUnit) return;
+    const raw = sl.trim();
+    if (raw !== "" && entry > 0) {
+      const n = Number(raw);
+      if (Number.isFinite(n)) {
+        if (next === "pct" && slUnit === "price") {
+          const pct = ((entry - n) / entry) * 100 * (side === "long" ? 1 : -1);
+          setSl(pct > 0 ? pct.toFixed(4).replace(/\.?0+$/, "") : "");
+        } else if (next === "price" && slUnit === "pct") {
+          const dir = side === "long" ? 1 : -1;
+          const price = entry * (1 - (dir * n) / 100);
+          setSl(String(price));
+        }
+      }
+    }
+    setSlUnit(next);
+  };
 
   const save = useMutation({
     mutationFn: async (v: { takeProfit: number | null; stopLoss: number | null }) =>
@@ -510,7 +548,7 @@ function TpSlEditor({
         <div className="space-y-1">
           <div className="flex items-center justify-between text-[10px] text-muted-foreground">
             <span>Take Profit ({side === "long" ? ">" : "<"} {fmtNum(entry, 6)})</span>
-            <UnitToggle value={tpUnit} onChange={setTpUnit} />
+            <UnitToggle value={tpUnit} onChange={handleTpUnit} />
           </div>
           <div className="relative">
             <input
@@ -535,7 +573,7 @@ function TpSlEditor({
         <div className="space-y-1">
           <div className="flex items-center justify-between text-[10px] text-muted-foreground">
             <span>Stop Loss ({side === "long" ? "<" : ">"} {fmtNum(entry, 6)})</span>
-            <UnitToggle value={slUnit} onChange={setSlUnit} />
+            <UnitToggle value={slUnit} onChange={handleSlUnit} />
           </div>
           <div className="relative">
             <input
