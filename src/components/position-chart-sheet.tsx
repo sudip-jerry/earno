@@ -92,12 +92,19 @@ export function PositionChartSheet(props: PositionChartProps) {
     const el = containerRef.current;
     const styles = getComputedStyle(document.documentElement);
     const cssVar = (n: string) => styles.getPropertyValue(n).trim();
-    const fg = `hsl(${cssVar("--foreground") || "0 0% 95%"})`;
-    const muted = `hsl(${cssVar("--muted-foreground") || "0 0% 60%"})`;
-    const border = `hsl(${cssVar("--border") || "0 0% 20%"})`;
+    const cssColor = (name: string, fallback: string) => {
+      const raw = cssVar(name);
+      if (!raw) return fallback;
+      return raw.startsWith("#") || raw.includes("(") ? raw : `hsl(${raw})`;
+    };
+    const muted = cssColor("--muted-foreground", "#5B6472");
+    const border = cssColor("--border", "#E6E9F0");
+    const width = Math.max(320, el.clientWidth || el.parentElement?.clientWidth || 320);
+    const height = Math.max(280, el.clientHeight || el.parentElement?.clientHeight || 280);
 
     const chart = createChart(el, {
-      autoSize: true,
+      width,
+      height,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
         textColor: muted,
@@ -123,8 +130,16 @@ export function PositionChartSheet(props: PositionChartProps) {
     });
     chartRef.current = chart;
     seriesRef.current = series;
-    void fg;
+    const resize = () => {
+      const nextWidth = Math.max(320, el.clientWidth || el.parentElement?.clientWidth || 320);
+      const nextHeight = Math.max(280, el.clientHeight || el.parentElement?.clientHeight || 280);
+      chart.resize(nextWidth, nextHeight);
+    };
+    const ro = new ResizeObserver(resize);
+    ro.observe(el);
+    requestAnimationFrame(resize);
     return () => {
+      ro.disconnect();
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
