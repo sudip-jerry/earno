@@ -1,18 +1,21 @@
-import type { ActivityItem } from "@/lib/stats.functions";
+import type { ActivityItem, ActivityMeta } from "@/lib/stats.functions";
 import { History } from "lucide-react";
+import { useCurrency } from "@/hooks/use-currency";
 
 function fmtTime(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-function classify(msg: string): { tag: string; tone: "positive" | "negative" | "warn" | "neutral" } {
-  if (/^Auto-booked/i.test(msg)) return { tag: "Opened", tone: "positive" };
+function classify(msg: string, meta?: ActivityMeta | null): { tag: string; tone: "positive" | "negative" | "warn" | "neutral" } {
+  const kind = meta?.kind;
+  if (kind === "auto_book" || /^Auto-booked/i.test(msg)) return { tag: "Opened", tone: "positive" };
+  if (kind === "skip" || /^Skipped/i.test(msg)) return { tag: "Skipped", tone: "warn" };
   if (/^Auto-closed/i.test(msg)) return { tag: "Closed", tone: "neutral" };
   if (/paused|cap hit|limit/i.test(msg)) return { tag: "Paused", tone: "warn" };
   if (/Scan complete/i.test(msg)) return { tag: "Scan", tone: "neutral" };
   if (/failed|error/i.test(msg)) return { tag: "Error", tone: "negative" };
-  if (/skipped|cooldown/i.test(msg)) return { tag: "Skipped", tone: "warn" };
+  if (/cooldown/i.test(msg)) return { tag: "Skipped", tone: "warn" };
   return { tag: "Info", tone: "neutral" };
 }
 
@@ -22,6 +25,57 @@ const toneCls = {
   warn: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   neutral: "bg-muted text-muted-foreground",
 };
+
+function KV({ label, value, tone }: { label: string; value: string; tone?: "ok" | "bad" }) {
+  const cls = tone === "ok" ? "text-emerald-500" : tone === "bad" ? "text-destructive" : "text-foreground";
+  return (
+    <div className="flex items-center justify-between text-[11px]">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={`tabular-nums font-medium ${cls}`}>{value}</span>
+    </div>
+  );
+}
+
+function StructuredEntry({ it }: { it: ActivityItem }) {
+  const { fmt } = useCurrency();
+  const m = it.meta!;
+  if (m.kind === "auto_book") {
+    const sideLabel = (m.side ?? "").toUpperCase();
+    return (
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-foreground">
+          Auto-booked {sideLabel} {m.symbol}
+        </p>
+        <div className="mt-1.5 space-y-1 rounded-lg bg-muted/40 px-2.5 py-1.5">
+          {m.confidence != null && <KV label="Confidence" value={`${m.confidence}%`} />}
+          {m.tpPct != null && <KV label="Target" value={`+${m.tpPct.toFixed(2)}%`} tone="ok" />}
+          {m.slPct != null && <KV label="Stop" value={`−${m.slPct.toFixed(2)}%`} tone="bad" />}
+          <KV label="Stop Type" value={m.stopType ?? "Volatility-based"} />
+          {m.riskAmount != null && <KV label="Risk" value={fmt(m.riskAmount)} />}
+          {m.rr != null && <KV label="Risk-Reward" value={`${m.rr.toFixed(2)} : 1`} />}
+        </div>
+      </div>
+    );
+  }
+  if (m.kind === "skip") {
+    return (
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-foreground">Skipped {m.symbol}</p>
+        <div className="mt-1.5 space-y-1 rounded-lg bg-amber-500/5 border border-amber-500/20 px-2.5 py-1.5">
+          {m.reason && <KV label="Reason" value={m.reason} tone="bad" />}
+          {m.requiredSL != null && <KV label="Required Stop" value={`${m.requiredSL.toFixed(2)}%`} />}
+          {m.allowedSL != null && <KV label="Allowed Stop" value={`${m.allowedSL.toFixed(2)}%`} />}
+          {m.rr != null && m.reason === "Risk-reward weak" && (
+            <KV label="R:R" value={`${m.rr.toFixed(2)} : 1`} />
+          )}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <p className="text-xs text-foreground/90 leading-relaxed flex-1 min-w-0">{it.message}</p>
+  );
+}
 
 export function RecentActivity({ items }: { items: ActivityItem[] }) {
   return (
@@ -38,7 +92,8 @@ export function RecentActivity({ items }: { items: ActivityItem[] }) {
             </p>
           )}
           {items.map((it) => {
-            const c = classify(it.message);
+            const c = classify(it.message, it.meta);
+            const structured = it.meta?.kind === "auto_book" || it.meta?.kind === "skip";
             return (
               <div key={it.id} className="px-4 py-2.5 flex items-start gap-3">
                 <span className="text-[10px] tabular-nums text-muted-foreground w-10 shrink-0 mt-0.5">
@@ -49,9 +104,11 @@ export function RecentActivity({ items }: { items: ActivityItem[] }) {
                 >
                   {c.tag}
                 </span>
-                <p className="text-xs text-foreground/90 leading-relaxed flex-1 min-w-0">
-                  {it.message}
-                </p>
+                {structured ? (
+                  <StructuredEntry it={it} />
+                ) : (
+                  <p className="text-xs text-foreground/90 leading-relaxed flex-1 min-w-0">{it.message}</p>
+                )}
               </div>
             );
           })}
