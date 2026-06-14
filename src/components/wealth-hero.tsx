@@ -59,10 +59,10 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
         </span>
         <div className="min-w-0">
           <p className={`text-[11px] font-semibold leading-tight ${isLive ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>
-            {isLive ? "Live trading — real money" : "Paper trading — simulation only"}
+            {isLive ? "Live Trading — real money" : "Paper Trading — practice value, not real money."}
           </p>
           <p className="text-[10px] text-muted-foreground leading-tight">
-            {isLive ? "Orders and P&L reflect your real account." : "No real money. Values are practice, not earnings."}
+            {isLive ? "Orders and P&L reflect your real account." : "Use this to test the bot without risk."}
           </p>
         </div>
         <span
@@ -77,7 +77,7 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
       {/* Label row */}
       <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
         <span className="uppercase tracking-wider text-[10px] font-medium">
-          {isLive ? "Account balance" : "Virtual portfolio (simulated)"}
+          Portfolio Value
         </span>
         <button
           type="button"
@@ -94,17 +94,7 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
         <p className="text-[40px] leading-none font-semibold tracking-tight tabular-nums">
           {hideBalance ? masked : fmt(portfolio)}
         </p>
-        {!isLive && (
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-            sim
-          </span>
-        )}
       </div>
-      {!isLive && (
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          Practice value — not real earnings.
-        </p>
-      )}
 
       {/* Today / 7-day / 30-day */}
       {!hasHistory ? (
@@ -117,19 +107,19 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
       ) : (
         <div className="mt-3 grid grid-cols-3 gap-2">
           <WealthStat
-            label={isLive ? "Today" : "Today (sim)"}
+            label="Today's Change"
             value={hideBalance ? masked : (stats ? fmt(stats.todayPnl, { signed: true }) : "—")}
             pct={stats?.todayPnlPct}
             icon={<ArrowUpRight className="size-3" />}
           />
           <WealthStat
-            label={isLive ? "7-day" : "7-day (sim)"}
+            label="7-Day Change"
             value={hideBalance ? masked : (stats ? fmt(stats.weekChangeAbs, { signed: true }) : "—")}
             pct={stats?.weekChangePct}
             icon={<TrendingUp className="size-3" />}
           />
           <WealthStat
-            label={isLive ? "30-day" : "30-day (sim)"}
+            label="30-Day Change"
             value={hideBalance ? masked : (stats ? fmt(stats.monthlyGrowthAbs, { signed: true }) : "—")}
             pct={stats?.monthlyGrowthPct}
             icon={<CalendarRange className="size-3" />}
