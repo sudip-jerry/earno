@@ -1,4 +1,4 @@
-import { Eye, EyeOff, ArrowUpRight, Target, TrendingUp, CalendarRange } from "lucide-react";
+import { Eye, EyeOff, ArrowUpRight, Target, TrendingUp, CalendarRange, Sparkles } from "lucide-react";
 import type { DashboardStats, EquityPoint } from "@/lib/stats.functions";
 import { useCurrency } from "@/hooks/use-currency";
 
@@ -9,6 +9,20 @@ type Props = {
   hideBalance: boolean;
   onToggleHide: () => void;
 };
+
+// Nice round milestone ladder in the user's display currency.
+// Scales 1, 2.5, 5, 10 x 10^n.
+function nextNiceMilestone(value: number): { next: number; prev: number } {
+  if (!Number.isFinite(value) || value <= 0) return { next: 1000, prev: 0 };
+  const bases = [1, 2.5, 5];
+  const ladder: number[] = [];
+  for (let exp = 2; exp <= 12; exp++) {
+    for (const b of bases) ladder.push(b * Math.pow(10, exp));
+  }
+  const next = ladder.find((m) => m > value) ?? value * 2;
+  const prev = [...ladder].reverse().find((m) => m <= value) ?? 0;
+  return { next, prev };
+}
 
 const masked = "••••••";
 
@@ -23,8 +37,22 @@ function toneClass(n: number | null | undefined) {
 }
 
 export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggleHide }: Props) {
-  const { fmt } = useCurrency();
+  const { fmt, rate, symbol } = useCurrency();
   const portfolio = stats?.portfolioValue ?? equityFallback;
+
+  // Milestones in display currency (nice round numbers).
+  const displayValue = portfolio * rate;
+  const { next: nextDisplay, prev: prevDisplay } = nextNiceMilestone(displayValue);
+  const milestoneProgress =
+    nextDisplay > prevDisplay
+      ? Math.min(100, Math.max(0, ((displayValue - prevDisplay) / (nextDisplay - prevDisplay)) * 100))
+      : 0;
+  const toGo = Math.max(0, nextDisplay - displayValue);
+
+  const fmtDisplay = (v: number) => {
+    const digits = symbol === "₹" || symbol === "¥" ? 0 : v >= 1000 ? 0 : 2;
+    return `${symbol}${v.toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: 0 })}`;
+  };
 
   return (
     <section className="px-5 pt-5">
@@ -83,43 +111,52 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
         <div className="flex items-center gap-2">
           <Target className="size-4 text-primary" />
           <p className="text-xs font-semibold">Next milestone</p>
-          <span className="ml-auto text-xs tabular-nums text-muted-foreground">
-            {hideBalance ? masked : fmt(stats?.nextMilestone ?? 0)}
+          <span className="ml-auto text-xs tabular-nums font-semibold">
+            {hideBalance ? masked : fmtDisplay(nextDisplay)}
           </span>
         </div>
         <div className="mt-3 h-2 w-full rounded-full bg-muted overflow-hidden">
           <div
             className="h-full rounded-full bg-gradient-to-r from-primary to-[#3B82F6] transition-all"
-            style={{ width: `${stats?.milestoneProgressPct ?? 0}%` }}
+            style={{ width: `${milestoneProgress}%` }}
           />
         </div>
         <div className="mt-2 flex justify-between text-[10px] uppercase tracking-wider text-muted-foreground tabular-nums">
-          <span>{hideBalance ? masked : fmt(stats?.prevMilestone ?? 0)}</span>
-          <span>{(stats?.milestoneProgressPct ?? 0).toFixed(0)}%</span>
+          <span>{milestoneProgress.toFixed(0)}% there</span>
+          <span>{hideBalance ? masked : `${fmtDisplay(toGo)} to go`}</span>
         </div>
       </div>
 
-      {/* Wealth path: sparkline + projections */}
+      {/* Wealth path: projection horizon */}
       <div className="mt-3 rounded-2xl border bg-card p-4">
         <div className="flex items-center gap-2">
-          <TrendingUp className="size-4 text-primary" />
+          <Sparkles className="size-4 text-primary" />
           <p className="text-xs font-semibold">Wealth path</p>
-          <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
-            Projected at current CAGR
-          </span>
+          {stats && stats.cagrPct > 0 && (
+            <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
+              At {pctStr(stats.cagrPct, 1)} CAGR
+            </span>
+          )}
         </div>
-        <div className="mt-3">
-          <Sparkline points={stats?.equityCurve ?? []} />
-        </div>
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <ProjTile label="6 mo" value={hideBalance ? masked : (stats?.projected6m != null ? fmt(stats.projected6m) : "—")} />
-          <ProjTile label="1 yr" value={hideBalance ? masked : (stats?.projected12m != null ? fmt(stats.projected12m) : "—")} />
-          <ProjTile label="2 yr" value={hideBalance ? masked : (stats?.projected24m != null ? fmt(stats.projected24m) : "—")} />
-        </div>
-        {stats && stats.cagrPct <= 0 && (
-          <p className="mt-3 text-[11px] text-muted-foreground leading-relaxed">
-            Projections appear once your portfolio is compounding. Keep trading consistently — the path builds with every winning day.
-          </p>
+
+        {stats && stats.cagrPct > 0 ? (
+          <>
+            <div className="mt-3 rounded-xl bg-muted/30 p-2">
+              <Sparkline points={stats?.equityCurve ?? []} />
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <ProjTile label="In 6 mo" value={hideBalance ? masked : (stats.projected6m != null ? fmt(stats.projected6m) : "—")} highlight={false} />
+              <ProjTile label="In 1 yr" value={hideBalance ? masked : (stats.projected12m != null ? fmt(stats.projected12m) : "—")} highlight />
+              <ProjTile label="In 2 yr" value={hideBalance ? masked : (stats.projected24m != null ? fmt(stats.projected24m) : "—")} highlight={false} />
+            </div>
+          </>
+        ) : (
+          <div className="mt-3 rounded-xl bg-muted/30 px-4 py-6 text-center">
+            <p className="text-xs font-medium text-foreground">Your wealth path appears here</p>
+            <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
+              Keep trading consistently — projections unlock once your portfolio is compounding.
+            </p>
+          </div>
         )}
       </div>
 
@@ -172,11 +209,11 @@ function WealthStat({
   );
 }
 
-function ProjTile({ label, value }: { label: string; value: string }) {
+function ProjTile({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="rounded-xl bg-muted/40 p-2.5">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-0.5 text-sm font-semibold tabular-nums">{value}</p>
+    <div className={`rounded-xl p-2.5 ${highlight ? "bg-primary/10 ring-1 ring-primary/30" : "bg-muted/40"}`}>
+      <p className={`text-[10px] uppercase tracking-wider ${highlight ? "text-primary" : "text-muted-foreground"}`}>{label}</p>
+      <p className={`mt-0.5 text-sm font-semibold tabular-nums ${highlight ? "text-primary" : ""}`}>{value}</p>
     </div>
   );
 }
