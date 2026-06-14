@@ -458,8 +458,8 @@ function TpSlEditor({
   };
 
   const save = useMutation({
-    mutationFn: async (v: { takeProfit: number | null; stopLoss: number | null }) =>
-      updateFn({ data: { positionId, takeProfit: v.takeProfit, stopLoss: v.stopLoss } }),
+    mutationFn: async (v: { takeProfit?: number | null; stopLoss?: number | null }) =>
+      updateFn({ data: { positionId, ...v } }),
     onSuccess: () => {
       toast.success("TP/SL updated");
       setEditing(false);
@@ -610,12 +610,16 @@ function TpSlEditor({
           size="sm"
           className="h-8 flex-1"
           disabled={save.isPending || tpInvalid || slInvalid}
-          onClick={() =>
-            save.mutate({
-              takeProfit: tpPrice != null && !Number.isNaN(tpPrice) ? tpPrice : null,
-              stopLoss: slPrice != null && !Number.isNaN(slPrice) ? slPrice : null,
-            })
-          }
+          onClick={() => {
+            const next: { takeProfit?: number | null; stopLoss?: number | null } = {};
+            if (tp.trim() !== "" || takeProfit != null) {
+              next.takeProfit = tpPrice != null && !Number.isNaN(tpPrice) ? tpPrice : null;
+            }
+            if (sl.trim() !== "" || stopLoss != null) {
+              next.stopLoss = slPrice != null && !Number.isNaN(slPrice) ? slPrice : null;
+            }
+            save.mutate(next);
+          }}
         >
           {save.isPending ? "Saving…" : "Save"}
         </Button>
