@@ -110,23 +110,29 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     const startOfDay = new Date();
     startOfDay.setUTCHours(0, 0, 0, 0);
 
-    const [{ data: today }, { data: closedAll }, { data: openRows }, { data: cfg }, { data: events }] = await Promise.all([
+    // Read mode first so positions queries can be scoped to the active mode.
+    const { data: cfg } = await supabase
+      .from("bot_config")
+      .select("daily_loss_cap_pct,paper_equity,live_allocation_amount,is_running,min_scalp_score,auto_book,mode")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+
+    const mode = (cfg?.mode === "live" ? "live" : "paper") as "paper" | "live";
+
+    const [{ data: today }, { data: closedAll }, { data: openRows }, { data: events }] = await Promise.all([
       supabase
         .from("positions")
         .select("pnl,closed_at,status")
         .eq("status", "closed")
+        .eq("mode", mode)
         .gte("closed_at", startOfDay.toISOString()),
       supabase
         .from("positions")
         .select("pnl,closed_at,status")
         .eq("status", "closed")
+        .eq("mode", mode)
         .order("closed_at", { ascending: true }),
-      supabase.from("positions").select("id").eq("status", "open"),
-      supabase
-        .from("bot_config")
-        .select("daily_loss_cap_pct,paper_equity,is_running,min_scalp_score,auto_book")
-        .eq("user_id", context.userId)
-        .maybeSingle(),
+      supabase.from("positions").select("id").eq("status", "open").eq("mode", mode),
       supabase
         .from("bot_events")
         .select("id,created_at,level,message,meta")
@@ -140,7 +146,9 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     const allEvents = events ?? [];
 
     const todayPnl = todayRows.reduce((a, r) => a + Number(r.pnl ?? 0), 0);
-    const equity = Number(cfg?.paper_equity ?? 1000);
+    const baselineEquity =
+      mode === "live" ? Number(cfg?.live_allocation_amount ?? 0) : Number(cfg?.paper_equity ?? 1000);
+    const equity = baselineEquity;
     const todayPnlPct = equity > 0 ? (todayPnl / equity) * 100 : 0;
     const tradesToday = todayRows.length;
 
