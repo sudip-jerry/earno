@@ -4,12 +4,42 @@
  * NEVER import this from anything reachable by the client bundle at module scope.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  atrPctFromCandles,
+  computeRiskPlan,
+  presetFromConfig,
+  type StylePreset,
+} from "@/lib/risk-engine";
 
 const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
+const CANDLES = (pair: string, interval: string, limit: number) =>
+  `https://public.coindcx.com/market_data/candles?pair=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
 const PUB_HEADERS = {
   accept: "application/json",
   "user-agent": "Mozilla/5.0 (compatible; Earn'O/1.0; +https://earno.lovable.app)",
 };
+
+async function fetchAtrPct(pair: string): Promise<number | null> {
+  try {
+    const res = await fetch(CANDLES(pair, "5m", 30), {
+      headers: PUB_HEADERS,
+      signal: AbortSignal.timeout(3500),
+    });
+    if (!res.ok) return null;
+    const raw = (await res.json()) as Array<{ open: number | string; high: number | string; low: number | string; close: number | string }>;
+    if (!Array.isArray(raw) || raw.length < 16) return null;
+    const candles = raw.map((k) => ({
+      open: num(k.open),
+      high: num(k.high),
+      low: num(k.low),
+      close: num(k.close),
+    }));
+    return atrPctFromCandles(candles, 14);
+  } catch {
+    return null;
+  }
+}
+
 
 type Strictness = "less" | "moderate" | "strict";
 type PlanTier = "free" | "reco" | "auto5" | "unlimited";
