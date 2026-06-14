@@ -187,7 +187,10 @@ export function CopilotBeta() {
   };
 
   return (
+    <>
+      <BetaLanding />
     <section className="px-5 pt-5 space-y-4">
+
       {/* Header */}
       <div className="flex items-center gap-2">
         <div className="size-8 rounded-xl bg-primary/10 text-primary grid place-items-center">
