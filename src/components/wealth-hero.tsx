@@ -127,34 +127,22 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
         </div>
       </div>
 
-      {/* Wealth path: projection horizon */}
+      {/* Performance history */}
       <div className="mt-3 rounded-2xl border bg-card p-4">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-primary" />
-          <p className="text-xs font-semibold">Wealth path</p>
-          {stats && stats.cagrPct > 0 && (
-            <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
-              At {pctStr(stats.cagrPct, 1)} CAGR
-            </span>
-          )}
+          <p className="text-xs font-semibold">Performance history</p>
         </div>
 
-        {stats && stats.cagrPct > 0 ? (
-          <>
-            <div className="mt-3 rounded-xl bg-muted/30 p-2">
-              <Sparkline points={stats?.equityCurve ?? []} />
-            </div>
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              <ProjTile label="In 6 mo" value={hideBalance ? masked : (stats.projected6m != null ? fmt(stats.projected6m) : "—")} highlight={false} />
-              <ProjTile label="In 1 yr" value={hideBalance ? masked : (stats.projected12m != null ? fmt(stats.projected12m) : "—")} highlight />
-              <ProjTile label="In 2 yr" value={hideBalance ? masked : (stats.projected24m != null ? fmt(stats.projected24m) : "—")} highlight={false} />
-            </div>
-          </>
+        {stats && stats.equityCurve && stats.equityCurve.length > 0 ? (
+          <div className="mt-3 rounded-xl bg-muted/30 p-2">
+            <Sparkline points={stats.equityCurve} />
+          </div>
         ) : (
           <div className="mt-3 rounded-xl bg-muted/30 px-4 py-6 text-center">
-            <p className="text-xs font-medium text-foreground">Your wealth path appears here</p>
+            <p className="text-xs font-medium text-foreground">Performance history appears here</p>
             <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
-              Keep trading consistently — projections unlock once your portfolio is compounding.
+              Start trading to see your equity curve and historical performance.
             </p>
           </div>
         )}
@@ -209,14 +197,6 @@ function WealthStat({
   );
 }
 
-function ProjTile({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div className={`rounded-xl p-2.5 ${highlight ? "bg-primary/10 ring-1 ring-primary/30" : "bg-muted/40"}`}>
-      <p className={`text-[10px] uppercase tracking-wider ${highlight ? "text-primary" : "text-muted-foreground"}`}>{label}</p>
-      <p className={`mt-0.5 text-sm font-semibold tabular-nums ${highlight ? "text-primary" : ""}`}>{value}</p>
-    </div>
-  );
-}
 
 function FactTile({
   label, value, sub, tone,
