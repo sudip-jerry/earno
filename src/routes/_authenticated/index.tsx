@@ -120,13 +120,16 @@ function Home() {
     },
   });
 
+  const currentMode = (cfg.data?.mode ?? "paper") as "paper" | "live";
+
   const positions = useQuery({
-    queryKey: ["positions_open"],
+    queryKey: ["positions_open", currentMode],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("positions")
         .select("id,symbol,side,leverage,entry_price,mark_price,pnl_pct,opened_at")
         .eq("status", "open")
+        .eq("mode", currentMode)
         .order("opened_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
@@ -135,7 +138,7 @@ function Home() {
   });
 
   const stats = useQuery({
-    queryKey: ["dashboard_stats"],
+    queryKey: ["dashboard_stats", currentMode],
     queryFn: () => statsFn({ data: undefined }),
     refetchInterval: 15_000,
   });
@@ -161,7 +164,11 @@ function Home() {
 
   const toggleMode = useMutation({
     mutationFn: async (live: boolean) => updateFn({ data: { mode: live ? "live" : "paper" } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["bot_config"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bot_config"] });
+      qc.invalidateQueries({ queryKey: ["dashboard_stats"] });
+      qc.invalidateQueries({ queryKey: ["positions_open"] });
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
   });
 
