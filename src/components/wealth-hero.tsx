@@ -11,7 +11,6 @@ type Props = {
 };
 
 // Nice round milestone ladder in the user's display currency.
-// Scales 1, 2.5, 5, 10 x 10^n.
 function nextNiceMilestone(value: number): { next: number; prev: number } {
   if (!Number.isFinite(value) || value <= 0) return { next: 1000, prev: 0 };
   const bases = [1, 2.5, 5];
@@ -37,24 +36,9 @@ function toneClass(n: number | null | undefined) {
 }
 
 export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggleHide }: Props) {
-  const { fmt, rate, symbol } = useCurrency();
+  const { fmt } = useCurrency();
   const portfolio = stats?.portfolioValue ?? equityFallback;
-
-  // Milestones in display currency (nice round numbers).
-  const displayValue = portfolio * rate;
-  const { next: nextDisplay, prev: prevDisplay } = nextNiceMilestone(displayValue);
-  const milestoneProgress =
-    nextDisplay > prevDisplay
-      ? Math.min(100, Math.max(0, ((displayValue - prevDisplay) / (nextDisplay - prevDisplay)) * 100))
-      : 0;
-  const toGo = Math.max(0, nextDisplay - displayValue);
-
-  const fmtDisplay = (v: number) => {
-    const digits = symbol === "₹" || symbol === "¥" ? 0 : v >= 1000 ? 0 : 2;
-    return `${symbol}${v.toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: 0 })}`;
-  };
-
-  const pnlLabel = isLive ? "P&L" : "Simulated P&L";
+  const hasHistory = !!stats && stats.closedAllTime > 0;
 
   return (
     <section className="px-5 pt-5">
@@ -123,7 +107,7 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
       )}
 
       {/* Today / 7-day / 30-day */}
-      {stats && stats.closedAllTime === 0 ? (
+      {!hasHistory ? (
         <div className="mt-3 rounded-2xl border bg-card p-4 text-center">
           <p className="text-xs text-muted-foreground">Not enough history yet</p>
           <p className="text-[10px] text-muted-foreground mt-1">
@@ -152,9 +136,29 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
           />
         </div>
       )}
+    </section>
+  );
+}
 
-      {/* Milestone progress */}
-      <div className="mt-4 rounded-2xl border bg-card p-4">
+export function MilestoneCard({
+  stats, equityFallback, hideBalance,
+}: { stats?: DashboardStats; equityFallback: number; hideBalance: boolean }) {
+  const { rate, symbol } = useCurrency();
+  const portfolio = stats?.portfolioValue ?? equityFallback;
+  const displayValue = portfolio * rate;
+  const { next: nextDisplay, prev: prevDisplay } = nextNiceMilestone(displayValue);
+  const milestoneProgress =
+    nextDisplay > prevDisplay
+      ? Math.min(100, Math.max(0, ((displayValue - prevDisplay) / (nextDisplay - prevDisplay)) * 100))
+      : 0;
+  const toGo = Math.max(0, nextDisplay - displayValue);
+  const fmtDisplay = (v: number) => {
+    const digits = symbol === "₹" || symbol === "¥" ? 0 : v >= 1000 ? 0 : 2;
+    return `${symbol}${v.toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: 0 })}`;
+  };
+  return (
+    <section className="px-5 mt-5">
+      <div className="rounded-2xl border bg-card p-4">
         <div className="flex items-center gap-2">
           <Target className="size-4 text-primary" />
           <p className="text-xs font-semibold">Next milestone</p>
@@ -173,41 +177,30 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
           <span>{hideBalance ? masked : `${fmtDisplay(toGo)} to go`}</span>
         </div>
       </div>
+    </section>
+  );
+}
 
-      {/* Performance history */}
-      <div className="mt-3 rounded-2xl border bg-card p-4">
+export function PerformanceHistoryCard({ stats }: { stats?: DashboardStats }) {
+  return (
+    <section className="px-5 mt-5">
+      <div className="rounded-2xl border bg-card p-4">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-primary" />
           <p className="text-xs font-semibold">Performance history</p>
         </div>
-
-        {stats && stats.equityCurve && stats.equityCurve.length > 0 ? (
+        {stats && stats.equityCurve && stats.equityCurve.length > 1 ? (
           <div className="mt-3 rounded-xl bg-muted/30 p-2">
             <Sparkline points={stats.equityCurve} />
           </div>
         ) : (
           <div className="mt-3 rounded-xl bg-muted/30 px-4 py-6 text-center">
-            <p className="text-xs font-medium text-foreground">Performance history appears here</p>
+            <p className="text-xs font-medium text-foreground">Not enough history yet</p>
             <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
-              Start trading to see your equity curve and historical performance.
+              Your equity curve will appear once trades close.
             </p>
           </div>
         )}
-      </div>
-
-      {/* Success-question chip row */}
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <FactTile
-          label="Consistency"
-          value={stats && stats.tradingDays30d > 0 ? `${stats.consistencyPct.toFixed(0)}%` : "—"}
-          sub={stats?.tradingDays30d ? `${stats.tradingDays30d}d active` : "Last 30 days"}
-        />
-        <FactTile
-          label="On track?"
-          value={(stats?.monthlyGrowthPct ?? 0) >= 5 ? "Yes" : (stats?.monthlyGrowthPct ?? 0) > 0 ? "Building" : "Not yet"}
-          sub={`${pctStr(stats?.monthlyGrowthPct, 1)} · 30d`}
-          tone={(stats?.monthlyGrowthPct ?? 0) >= 5 ? "positive" : (stats?.monthlyGrowthPct ?? 0) > 0 ? "neutral" : "negative"}
-        />
       </div>
     </section>
   );
@@ -245,26 +238,6 @@ function WealthStat({
 }
 
 
-function FactTile({
-  label, value, sub, tone,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: "positive" | "negative" | "neutral";
-}) {
-  const t =
-    tone === "positive" ? "text-emerald-500" :
-    tone === "negative" ? "text-destructive" :
-    "text-foreground";
-  return (
-    <div className="rounded-2xl border bg-card p-3">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-base font-semibold tabular-nums ${t}`}>{value}</p>
-      {sub && <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">{sub}</p>}
-    </div>
-  );
-}
 
 function Sparkline({ points }: { points: EquityPoint[] }) {
   const w = 320;

@@ -23,12 +23,25 @@ export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
         ? { label: "Cooldown", cls: "bg-amber-500 text-white" }
         : { label: "Paused", cls: "bg-muted text-muted-foreground" };
 
+  const reason =
+    status === "cooldown"
+      ? (stats?.riskReason ?? "Cooling down after recent trades.")
+      : status === "paused"
+        ? "Bot is paused. Tap Start Bot to resume scanning."
+        : (stats?.noTradeReason ?? "Scanning markets for setups.");
+
+  const riskLabel = stats?.riskHealthy
+    ? "Active"
+    : status === "cooldown"
+      ? "Engaged"
+      : "Limit reached";
+
   return (
     <section className="px-5 mt-5">
       <div className="rounded-2xl border bg-card p-4">
         <div className="flex items-center gap-2">
           <Activity className="size-4 text-primary" />
-          <p className="text-xs font-semibold uppercase tracking-wider">Wealth Engine Status</p>
+          <p className="text-xs font-semibold uppercase tracking-wider">Wealth Engine</p>
           <span
             className={`ml-auto inline-flex items-center text-[10px] px-2 h-5 rounded-full font-bold tracking-wider ${badge.cls}`}
           >
@@ -39,26 +52,46 @@ export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
           </span>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        {/* Always-on reason block */}
+        <div className="mt-3 rounded-xl bg-muted/40 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Reason</p>
+          <p className="mt-0.5 text-xs text-foreground leading-relaxed">{reason}</p>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <Cell
             icon={<Radar className="size-3.5 text-primary" />}
             label="Markets scanned"
             value={
-              (stats?.marketsScannedToday ?? 0) === 0 && status === "cooldown"
+              status === "paused"
                 ? "Paused"
-                : (stats?.marketsScannedToday ?? 0).toLocaleString()
+                : status === "cooldown" && (stats?.marketsScannedToday ?? 0) === 0
+                  ? "Paused"
+                  : (stats?.marketsScannedToday ?? 0).toLocaleString()
             }
-            hint={status === "cooldown" && (stats?.marketsScannedToday ?? 0) === 0 ? "Scanning paused during cooldown" : undefined}
+            hint={
+              status === "paused"
+                ? "Bot is stopped"
+                : status === "cooldown" && (stats?.marketsScannedToday ?? 0) === 0
+                  ? "Scanning paused during cooldown"
+                  : undefined
+            }
           />
           <Cell
             icon={<Target className="size-3.5 text-primary" />}
             label="Opportunities found"
             value={
-              (stats?.opportunitiesFoundToday ?? 0) === 0 && status === "cooldown"
-                ? "Paused"
-                : (stats?.opportunitiesFoundToday ?? 0).toLocaleString()
+              status === "paused"
+                ? "—"
+                : status === "cooldown" && (stats?.opportunitiesFoundToday ?? 0) === 0
+                  ? "Paused"
+                  : (stats?.opportunitiesFoundToday ?? 0).toLocaleString()
             }
-            hint={status === "cooldown" && (stats?.opportunitiesFoundToday ?? 0) === 0 ? "Waiting for next scan cycle" : undefined}
+            hint={
+              status === "cooldown" && (stats?.opportunitiesFoundToday ?? 0) === 0
+                ? "Waiting for next scan cycle"
+                : undefined
+            }
           />
           <Cell
             icon={<CheckCircle2 className="size-3.5 text-primary" />}
@@ -84,19 +117,10 @@ export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
               )
             }
             label="Risk protection"
-            value={stats?.riskHealthy ? "Active" : "Attention"}
+            value={riskLabel}
             tone={stats?.riskHealthy ? "positive" : "warn"}
           />
         </div>
-
-        {status === "cooldown" && (
-          <div className="mt-3 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-semibold">Reason</p>
-            <p className="mt-0.5 text-xs text-foreground leading-relaxed">
-              {stats?.riskReason ?? "Waiting after recent trades."}
-            </p>
-          </div>
-        )}
       </div>
     </section>
   );

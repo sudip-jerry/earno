@@ -391,11 +391,12 @@ export async function runAutoBookPass(
       openSlot--;
       openSymbols.add(s.symbol);
       lastOpen.set(s.symbol, Date.now());
+      const rr = slPct > 0 ? (tpPct / slPct) : 0;
       await logEvent(
         supabase,
         cfg.user_id,
         "info",
-        `Auto-booked ${s.side.toUpperCase()} ${s.symbol} @ ${s.price} · conf ${s.confidence.toFixed(0)} · TP ${tpPct.toFixed(1)}% / SL ${slPct}%`,
+        `Auto-booked ${s.side.toUpperCase()} ${s.symbol} · Confidence ${s.confidence.toFixed(0)}% · Target +${tpPct.toFixed(1)}% · Stop −${slPct.toFixed(1)}% · R:R ${rr.toFixed(1)}:1`,
       );
     }
 
