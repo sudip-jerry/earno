@@ -559,6 +559,32 @@ function SettingsPage() {
 
 
 
+      {hasChanges && (
+        <div className="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-4 flex gap-3 z-50 safe-area-pb">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => setPending({})}
+            disabled={updCfg.isPending}
+          >
+            <RotateCcw className="size-4 mr-2" />
+            Reset
+          </Button>
+          <Button
+            className="flex-1"
+            onClick={() => {
+              updCfg.mutate(pending, {
+                onSuccess: () => setPending({}),
+              });
+            }}
+            disabled={updCfg.isPending}
+          >
+            <Save className="size-4 mr-2" />
+            Save changes
+          </Button>
+        </div>
+      )}
+
       <section className="px-5 mt-8 space-y-2">
         <Link to="/about" className="block rounded-xl border bg-card p-3 text-sm hover:bg-muted">
           About Earn'O
