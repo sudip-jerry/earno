@@ -306,14 +306,8 @@ function Home() {
 
       {tab === "Overview" && (
         <>
-          {/* Wealth command center */}
-          <WealthHero
-            stats={s}
-            equityFallback={equity}
-            isLive={isLive}
-            hideBalance={hideBalance}
-            onToggleHide={() => setHideBalance((v) => !v)}
-          />
+          {/* 1. Wealth Engine Status — primary card */}
+          <WealthEngineStatus stats={s} />
 
           {/* Action row */}
           <section className="px-5 mt-5">
@@ -337,7 +331,6 @@ function Home() {
             </div>
           </section>
 
-
           {/* Featured banner */}
           {!canRunBot && (
             <Link
@@ -356,6 +349,24 @@ function Home() {
               </div>
             </Link>
           )}
+
+          {/* 2. Portfolio Summary */}
+          <WealthHero
+            stats={s}
+            equityFallback={equity}
+            isLive={isLive}
+            hideBalance={hideBalance}
+            onToggleHide={() => setHideBalance((v) => !v)}
+          />
+
+          {/* 3. Recent Activity */}
+          <RecentActivity items={s?.recentActivity ?? []} />
+
+          {/* 4. Why no trade? (only when no open positions) */}
+          <WhyNoTrade stats={s} />
+
+          {/* 5. Bot Health */}
+          <BotHealth stats={s} />
 
           {/* Daily-loss meter */}
           <section className="px-5 mt-5">
@@ -376,7 +387,7 @@ function Home() {
             </div>
           </section>
 
-          {/* Stat grid */}
+          {/* 6. Detailed statistics */}
           <section className="px-5 mt-3 grid grid-cols-2 gap-2">
             <StatTile label="Open positions" value={`${s?.openCount ?? positions.data?.length ?? 0}`} />
             <StatTile label="Trades today" value={`${s?.tradesToday ?? 0}`} />
