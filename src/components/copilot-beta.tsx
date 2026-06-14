@@ -410,8 +410,6 @@ export function CopilotBeta() {
         mover={whyMover}
         dailyRiskAvailable={(statsQ.data?.dailyLossUsedPct ?? 0) < 100}
       />
-
-      {void noTradeReason}
     </section>
   );
 }
