@@ -125,7 +125,7 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
       {/* Today / Monthly / CAGR */}
       <div className="mt-3 grid grid-cols-3 gap-2">
         <WealthStat
-          label="Today"
+          label={isLive ? "Today" : "Today (sim)"}
           value={hideBalance ? masked : (stats ? fmt(stats.todayPnl, { signed: true }) : "—")}
           pct={stats?.todayPnlPct}
           icon={<ArrowUpRight className="size-3" />}
