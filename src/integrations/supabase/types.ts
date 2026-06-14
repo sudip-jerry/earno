@@ -78,6 +78,10 @@ export type Database = {
           ema_slow: number
           is_running: boolean
           leverage: number
+          live_allocation_amount: number
+          live_allocation_mode: string
+          live_allocation_pct: number
+          live_wallet_source: string
           max_auto_sl_pct: number
           max_open_positions: number
           max_trades_per_day: number
@@ -111,6 +115,10 @@ export type Database = {
           ema_slow?: number
           is_running?: boolean
           leverage?: number
+          live_allocation_amount?: number
+          live_allocation_mode?: string
+          live_allocation_pct?: number
+          live_wallet_source?: string
           max_auto_sl_pct?: number
           max_open_positions?: number
           max_trades_per_day?: number
@@ -144,6 +152,10 @@ export type Database = {
           ema_slow?: number
           is_running?: boolean
           leverage?: number
+          live_allocation_amount?: number
+          live_allocation_mode?: string
+          live_allocation_pct?: number
+          live_wallet_source?: string
           max_auto_sl_pct?: number
           max_open_positions?: number
           max_trades_per_day?: number
