@@ -636,9 +636,11 @@ function ClosedSummary({ rows }: { rows: ClosedRow[] }) {
 function ClosedList({
   rows,
   isLoading,
+  onViewChart,
 }: {
   rows: ClosedRow[];
   isLoading: boolean;
+  onViewChart: (r: ClosedRow) => void;
 }) {
   const { fmt } = useCurrency();
 
