@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useRouterState } from "@tanstack/react-router";
 import { HelpFlow } from "@/routes/_authenticated/help";
-import mascot from "@/assets/earno-icon.png.asset.json";
+import mascot from "@/assets/earney-wave.png.asset.json";
 
 export function HelpFab() {
   const [open, setOpen] = useState(false);
