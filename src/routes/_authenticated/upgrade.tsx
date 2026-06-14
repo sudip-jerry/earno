@@ -84,7 +84,7 @@ function UpgradePage() {
               `${PLAN_NAME[tier]} active until ${new Date(v.expires_at).toLocaleDateString()}`,
             );
             qc.invalidateQueries({ queryKey: ["entitlements"] });
-            navigate({ to: "/" });
+            navigate({ to: "/dashboard" });
           } catch (e) {
             toast.error(e instanceof Error ? e.message : "Verification failed");
           }
@@ -111,7 +111,7 @@ function UpgradePage() {
       );
       setCode("");
       qc.invalidateQueries({ queryKey: ["entitlements"] });
-      navigate({ to: "/" });
+      navigate({ to: "/dashboard" });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not redeem"),
   });
@@ -124,7 +124,7 @@ function UpgradePage() {
     <div className="min-h-svh bg-background pb-16">
       <header className="px-5 pt-6 pb-4 flex items-center gap-2">
         <Link
-          to="/"
+          to="/dashboard"
           className="size-9 grid place-items-center rounded-full hover:bg-muted -ml-2"
         >
           <ChevronLeft className="size-5" />
