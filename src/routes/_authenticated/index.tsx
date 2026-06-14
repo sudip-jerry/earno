@@ -14,6 +14,7 @@ import { TabBar } from "@/components/tab-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PositionsStrip } from "@/components/positions-strip";
 import { CopilotBeta } from "@/components/copilot-beta";
+import { WealthHero } from "@/components/wealth-hero";
 import { useCurrency } from "@/hooks/use-currency";
 import { toast } from "sonner";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
@@ -29,7 +30,6 @@ import {
   EyeOff,
   Radar,
   Briefcase,
-  ArrowUpRight,
   Flame,
   ChevronRight,
   Zap,
@@ -302,50 +302,18 @@ function Home() {
 
       {tab === "Overview" && (
         <>
-          {/* Portfolio hero */}
-          <section className="px-5 pt-5">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>{isLive ? "Account balance" : "Virtual portfolio"}</span>
-              <button
-                type="button"
-                onClick={() => setHideBalance((v) => !v)}
-                aria-label={hideBalance ? "Show balance" : "Hide balance"}
-                className="size-5 grid place-items-center rounded hover:bg-muted text-muted-foreground"
-              >
-                {hideBalance ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-              </button>
-              <span className={`ml-auto inline-flex items-center gap-1 text-[11px] px-2 h-5 rounded-full ${
-                isLive ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
-              }`}>
-                {isLive ? "LIVE" : "PAPER"}
-              </span>
-            </div>
-            <p className="text-[40px] leading-none font-semibold tracking-tight mt-2 tabular-nums">
-              {hideBalance ? masked : fmt(portfolio)}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm tabular-nums">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Today</span>
-                <span className={tone(s?.todayPnl)}>
-                  {hideBalance ? masked : (s ? fmt(s.todayPnl, { signed: true }) : "—")}
-                </span>
-                <span className={`inline-flex items-center gap-0.5 text-xs px-1.5 h-5 rounded ${
-                  (s?.todayPnlPct ?? 0) >= 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive"
-                }`}>
-                  <ArrowUpRight className={`size-3 ${(s?.todayPnlPct ?? 0) < 0 ? "rotate-90" : ""}`} />
-                  {pct(s?.todayPnlPct)}
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">All-time</span>
-                <span className={tone(s?.realizedPnlAllTime)}>
-                  {hideBalance ? masked : (s ? fmt(s.realizedPnlAllTime, { signed: true }) : "—")}
-                </span>
-              </div>
-            </div>
+          {/* Wealth command center */}
+          <WealthHero
+            stats={s}
+            equityFallback={equity}
+            isLive={isLive}
+            hideBalance={hideBalance}
+            onToggleHide={() => setHideBalance((v) => !v)}
+          />
 
-            {/* Action row */}
-            <div className="grid grid-cols-3 gap-2 mt-5">
+          {/* Action row */}
+          <section className="px-5 mt-5">
+            <div className="grid grid-cols-3 gap-2">
               <ActionTile
                 icon={<Power className="size-4" />}
                 label={isRunning ? "Stop bot" : "Start bot"}
@@ -364,6 +332,7 @@ function Home() {
               />
             </div>
           </section>
+
 
           {/* Featured banner */}
           {!canRunBot && (
