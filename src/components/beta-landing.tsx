@@ -1,4 +1,6 @@
 import { Link } from "@tanstack/react-router";
+import { HelpFlow } from "@/routes/_authenticated/help";
+
 import {
   ArrowRight,
   Brain,
@@ -170,6 +172,13 @@ export function BetaLanding() {
               Get Started <ArrowRight className="size-4" />
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* Inline Get Started flow — same as Help overlay */}
+      <section className="px-5 pb-12">
+        <div className="mx-auto max-w-md rounded-3xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+          <HelpFlow />
         </div>
       </section>
     </div>
