@@ -402,6 +402,7 @@ export async function runAutoBookPass(
     result.opened += opened;
     result.skipped += skipped;
     result.details.push({ user: cfg.user_id, opened, skipped });
+    await logScanEvent(supabase, cfg.user_id, scannedCount, setups.length, opened, skipped, topConfidenceOverall);
   }
 
   return result;
