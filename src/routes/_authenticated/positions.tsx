@@ -10,7 +10,8 @@ import { PositionsStrip } from "@/components/positions-strip";
 import { useLivePrices } from "@/hooks/use-live-prices";
 import { useCurrency } from "@/hooks/use-currency";
 import { toast } from "sonner";
-import { Briefcase, RefreshCw, HelpCircle, Pencil, Target, Shield } from "lucide-react";
+import { Briefcase, RefreshCw, HelpCircle, Pencil, Target, Shield, LineChart } from "lucide-react";
+import { PositionChartSheet } from "@/components/position-chart-sheet";
 
 export const Route = createFileRoute("/_authenticated/positions")({
   head: () => ({
