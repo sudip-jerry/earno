@@ -126,6 +126,7 @@ export function RecentActivity({ items }: { items: ActivityItem[] }) {
           {items.map((it) => {
             const c = classify(it.message, it.meta);
             const structured = it.meta?.kind === "auto_book" || it.meta?.kind === "skip";
+            const clean = structured ? null : sanitize(it.message);
             return (
               <div key={it.id} className="px-4 py-2.5 flex items-start gap-3">
                 <span className="text-[10px] tabular-nums text-muted-foreground w-10 shrink-0 mt-0.5">
@@ -139,7 +140,14 @@ export function RecentActivity({ items }: { items: ActivityItem[] }) {
                 {structured ? (
                   <StructuredEntry it={it} />
                 ) : (
-                  <p className="text-xs text-foreground/90 leading-relaxed flex-1 min-w-0">{it.message}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-foreground/90 leading-relaxed">{clean!.text}</p>
+                    {clean!.reason && (
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        Reason: <span className="text-foreground font-medium">{clean!.reason}</span>
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             );
