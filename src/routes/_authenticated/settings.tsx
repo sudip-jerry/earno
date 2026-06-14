@@ -383,7 +383,7 @@ function SettingsPage() {
           </Row>
         </div>
 
-        {c?.mode === "live" ? (
+        {get("mode") === "live" ? (
           <div className="mt-3 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 flex gap-2 text-xs text-destructive">
             <AlertTriangle className="size-4 shrink-0 mt-0.5" />
             <p>
