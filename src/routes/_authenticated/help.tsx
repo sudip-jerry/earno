@@ -13,6 +13,10 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import journeyAsset from "@/assets/earno-journey.png.asset.json";
+import mascotHappy from "@/assets/earney-happy.png.asset.json";
+import mascotAnalyzing from "@/assets/earney-analyzing.png.asset.json";
+import mascotThinking from "@/assets/earney-thinking.png.asset.json";
+import mascotConfident from "@/assets/earney-confident.png.asset.json";
 
 const PRIMARY = "#082567";
 
@@ -151,17 +155,23 @@ export function HelpFlow({
 function StepWelcome() {
   return (
     <section>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-        Wealth, Engineered.
-      </p>
-      <h2 className="mt-2 text-[32px] leading-[1.05] font-semibold tracking-tight">
-        Welcome to <span className="text-primary">Earn'O</span>
-      </h2>
-      <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+      <div className="flex items-end gap-3">
+        <img src={mascotHappy.url} alt="Earney mascot" className="size-24 -mb-1 shrink-0 drop-shadow" />
+        <div className="pb-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+            Hi, I'm Earney
+          </p>
+          <h2 className="mt-1 text-[28px] leading-[1.05] font-semibold tracking-tight">
+            Welcome to <span className="text-primary">Earn'O</span>
+          </h2>
+        </div>
+      </div>
+      <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
         Your AI market companion. Spot opportunities, understand the why, and
         grow your portfolio — with paper trading, manual control, or full
         automation.
       </p>
+
 
       <div className="mt-5 grid grid-cols-3 gap-2">
         <Pillar icon={<Brain className="size-4" />} label="AI insight" />
@@ -197,13 +207,18 @@ function StepWelcome() {
 function StepFlow() {
   return (
     <section>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-        How it works
-      </p>
-      <h2 className="mt-2 text-[28px] leading-tight font-semibold tracking-tight">
-        Scan → Analyze → Explain → Trade
-      </h2>
-      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+      <div className="flex items-end gap-3">
+        <img src={mascotAnalyzing.url} alt="Earney analyzing" className="size-24 -mb-1 shrink-0 drop-shadow" />
+        <div className="pb-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+            How it works
+          </p>
+          <h2 className="mt-1 text-[22px] leading-tight font-semibold tracking-tight">
+            Scan → Analyze → Explain → Trade
+          </h2>
+        </div>
+      </div>
+      <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
         Hundreds of markets scanned live, ranked by confidence, every signal
         explained in plain English.
       </p>
@@ -223,13 +238,18 @@ function StepFlow() {
 function StepPaper() {
   return (
     <section>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-        Risk free
-      </p>
-      <h2 className="mt-2 text-[28px] leading-tight font-semibold tracking-tight">
-        Paper Trading First
-      </h2>
-      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+      <div className="flex items-end gap-3">
+        <img src={mascotThinking.url} alt="Earney thinking" className="size-24 -mb-1 shrink-0 drop-shadow" />
+        <div className="pb-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+            Risk free
+          </p>
+          <h2 className="mt-1 text-[24px] leading-tight font-semibold tracking-tight">
+            Paper Trading First
+          </h2>
+        </div>
+      </div>
+      <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
         Start with virtual capital. No exchange, no API keys, no real money at
         risk. Same signals, same scores — zero downside.
       </p>
@@ -261,13 +281,18 @@ function StepPaper() {
 function StepAutomate() {
   return (
     <section>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-        When you're ready
-      </p>
-      <h2 className="mt-2 text-[28px] leading-tight font-semibold tracking-tight">
-        Automate When Ready
-      </h2>
-      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+      <div className="flex items-end gap-3">
+        <img src={mascotConfident.url} alt="Earney confident" className="size-24 -mb-1 shrink-0 drop-shadow" />
+        <div className="pb-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+            When you're ready
+          </p>
+          <h2 className="mt-1 text-[24px] leading-tight font-semibold tracking-tight">
+            Automate When Ready
+          </h2>
+        </div>
+      </div>
+      <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
         Connect your exchange when you're confident. Earn'O executes with your
         risk rules, your limits, your control.
       </p>
