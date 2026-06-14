@@ -723,6 +723,14 @@ function ClosedList({
             <p className="text-[10px] text-muted-foreground mt-2">
               {new Date(p.opened_at).toLocaleString()} → {p.closed_at ? new Date(p.closed_at).toLocaleString() : "—"}
             </p>
+            <button
+              type="button"
+              onClick={() => onViewChart(p)}
+              className="mt-2 w-full h-9 rounded-lg border text-xs font-medium hover:bg-muted inline-flex items-center justify-center gap-1.5"
+            >
+              <LineChart className="size-3.5" />
+              View Trade Chart
+            </button>
           </li>
         );
       })}
