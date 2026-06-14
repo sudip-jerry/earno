@@ -74,6 +74,55 @@ export const testConnection = createServerFn({ method: "POST" })
     return { ok: true, usdtBalance: usdt?.balance ?? "0" };
   });
 
+/** Returns available USDT in spot and futures wallets. Used by Live-mode allocation UI. */
+export const getWalletBalances = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { coindcxAuthedPost } = await import("@/lib/coindcx.server");
+
+    const { data: creds } = await supabaseAdmin
+      .from("api_credentials")
+      .select("api_key,api_secret")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (!creds) return { ok: false as const, error: "No CoinDCX credentials saved." };
+
+    const [spotRes, futRes] = await Promise.all([
+      coindcxAuthedPost<Array<{ currency: string; balance: string; locked_balance?: string }>>(
+        "/exchange/v1/users/balances",
+        creds.api_key,
+        creds.api_secret,
+      ),
+      coindcxAuthedPost<Array<{ asset?: string; currency?: string; balance?: string; available_balance?: string }>>(
+        "/exchange/v1/derivatives/futures/wallets",
+        creds.api_key,
+        creds.api_secret,
+      ),
+    ]);
+
+    const spot = spotRes.ok
+      ? Number((spotRes.data.find((b) => b.currency === "USDT")?.balance ?? "0")) || 0
+      : 0;
+    const futures = futRes.ok
+      ? (() => {
+          const row = (futRes.data ?? []).find(
+            (b) => (b.asset ?? b.currency) === "USDT",
+          );
+          const v = row?.available_balance ?? row?.balance ?? "0";
+          return Number(v) || 0;
+        })()
+      : 0;
+
+    return {
+      ok: true as const,
+      spot,
+      futures,
+      spotError: spotRes.ok ? null : spotRes.error,
+      futuresError: futRes.ok ? null : futRes.error,
+    };
+  });
+
 const configSchema = z.object({
   mode: z.enum(["paper", "live"]).optional(),
   is_running: z.boolean().optional(),
