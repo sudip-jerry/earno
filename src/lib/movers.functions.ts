@@ -624,6 +624,7 @@ async function enrichMover(
     reasonLabel,
     tpPct,
     slPct,
+    atrPct,
   };
 }
 
