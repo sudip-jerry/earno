@@ -43,12 +43,22 @@ export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
           <Cell
             icon={<Radar className="size-3.5 text-primary" />}
             label="Markets scanned"
-            value={(stats?.marketsScannedToday ?? 0).toLocaleString()}
+            value={
+              (stats?.marketsScannedToday ?? 0) === 0 && status === "cooldown"
+                ? "Paused"
+                : (stats?.marketsScannedToday ?? 0).toLocaleString()
+            }
+            hint={status === "cooldown" && (stats?.marketsScannedToday ?? 0) === 0 ? "Scanning paused during cooldown" : undefined}
           />
           <Cell
             icon={<Target className="size-3.5 text-primary" />}
             label="Opportunities found"
-            value={(stats?.opportunitiesFoundToday ?? 0).toLocaleString()}
+            value={
+              (stats?.opportunitiesFoundToday ?? 0) === 0 && status === "cooldown"
+                ? "Paused"
+                : (stats?.opportunitiesFoundToday ?? 0).toLocaleString()
+            }
+            hint={status === "cooldown" && (stats?.opportunitiesFoundToday ?? 0) === 0 ? "Waiting for next scan cycle" : undefined}
           />
           <Cell
             icon={<CheckCircle2 className="size-3.5 text-primary" />}
@@ -73,23 +83,33 @@ export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
                 <ShieldAlert className="size-3.5 text-amber-500" />
               )
             }
-            label="Risk status"
-            value={stats?.riskHealthy ? "Healthy" : "Attention"}
+            label="Risk protection"
+            value={stats?.riskHealthy ? "Active" : "Attention"}
             tone={stats?.riskHealthy ? "positive" : "warn"}
           />
         </div>
+
+        {status === "cooldown" && (
+          <div className="mt-3 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-semibold">Reason</p>
+            <p className="mt-0.5 text-xs text-foreground leading-relaxed">
+              {stats?.riskReason ?? "Waiting after recent trades."}
+            </p>
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
 function Cell({
-  icon, label, value, tone,
+  icon, label, value, tone, hint,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   tone?: "positive" | "warn";
+  hint?: string;
 }) {
   const valueCls =
     tone === "positive" ? "text-emerald-600 dark:text-emerald-400" :
@@ -102,6 +122,7 @@ function Cell({
         <span className="truncate">{label}</span>
       </div>
       <p className={`mt-1 text-sm font-semibold tabular-nums ${valueCls}`}>{value}</p>
+      {hint && <p className="mt-0.5 text-[10px] text-muted-foreground leading-tight">{hint}</p>}
     </div>
   );
 }
