@@ -34,10 +34,10 @@ export function HelpFab() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="How it works"
-        className="fixed z-40 bottom-24 right-4 size-14 rounded-full bg-background shadow-lg ring-1 ring-border grid place-items-center hover:scale-105 active:scale-95 transition-transform"
+        className="fixed z-40 bottom-24 right-4 size-16 rounded-full bg-gradient-to-br from-white to-primary/5 dark:from-card dark:to-primary/10 shadow-xl ring-1 ring-primary/20 grid place-items-center hover:scale-110 active:scale-95 transition-transform"
       >
-        <img src={mascot.url} alt="Earn'O" className="size-10 object-contain" />
-        <span className="absolute -top-1 -right-1 size-3 rounded-full bg-primary ring-2 ring-background" />
+        <img src={mascot.url} alt="Meet Earney" className="size-14 object-contain drop-shadow-sm" />
+        <span className="absolute -top-0.5 -right-0.5 size-3.5 rounded-full bg-emerald-500 ring-2 ring-background animate-pulse" />
       </button>
 
       {open && (
