@@ -878,6 +878,7 @@ const livePricesSchema = z.object({
 });
 
 export const getLivePrices = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d) => livePricesSchema.parse(d))
   .handler(async ({ data }) => {
     const wanted = new Set(data.symbols);
