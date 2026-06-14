@@ -405,7 +405,7 @@ function SettingsPage() {
             min={2}
             max={5}
             step={1}
-            value={c?.leverage ?? 3}
+            value={c?.leverage ?? 2}
             onCommit={(v) => updCfg.mutate({ leverage: v })}
           />
           <SliderField
@@ -423,7 +423,7 @@ function SettingsPage() {
             min={0.5}
             max={10}
             step={0.5}
-            value={c?.stop_loss_pct ?? 2}
+            value={c?.stop_loss_pct ?? 1.5}
             onCommit={(v) => updCfg.mutate({ stop_loss_pct: v })}
           />
           <Row label="Trailing stop" inset={false}>
@@ -438,7 +438,7 @@ function SettingsPage() {
             min={0.5}
             max={5}
             step={0.5}
-            value={c?.risk_per_trade_pct ?? 2}
+            value={c?.risk_per_trade_pct ?? 1}
             onCommit={(v) => updCfg.mutate({ risk_per_trade_pct: v })}
           />
           <SliderField
@@ -447,7 +447,7 @@ function SettingsPage() {
             min={1}
             max={5}
             step={1}
-            value={c?.max_open_positions ?? 3}
+            value={c?.max_open_positions ?? 2}
             onCommit={(v) => updCfg.mutate({ max_open_positions: v })}
           />
           <SliderField
@@ -465,7 +465,7 @@ function SettingsPage() {
             min={1}
             max={20}
             step={1}
-            value={c?.daily_loss_cap_pct ?? 6}
+            value={c?.daily_loss_cap_pct ?? 3}
             onCommit={(v) => updCfg.mutate({ daily_loss_cap_pct: v })}
           />
           <SliderField
