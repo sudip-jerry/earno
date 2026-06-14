@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { TabBar } from "@/components/tab-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PositionsStrip } from "@/components/positions-strip";
+import { CopilotBeta } from "@/components/copilot-beta";
 import { useCurrency } from "@/hooks/use-currency";
 import { toast } from "sonner";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
@@ -59,7 +60,7 @@ function tone(n: number | null | undefined) {
   return n >= 0 ? "text-emerald-500" : "text-destructive";
 }
 
-const TABS = ["Overview", "Bot", "Activity"] as const;
+const TABS = ["Overview", "Bot", "Activity", "Beta ✨"] as const;
 type Tab = (typeof TABS)[number];
 
 function Home() {
@@ -499,6 +500,8 @@ function Home() {
           </Link>
         </section>
       )}
+
+      {tab === "Beta ✨" && <CopilotBeta />}
 
       {/* Bottom action bar */}
       <div className="fixed bottom-14 inset-x-0 bg-background/90 backdrop-blur border-t px-5 py-3 flex items-center gap-3 z-20">
