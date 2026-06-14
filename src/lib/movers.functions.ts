@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { atrPctFromCandles } from "@/lib/risk-engine";
 
 export type Bias = "long" | "short" | "wait";
 export type Action = "long" | "short" | "wait" | "avoid";
@@ -68,6 +69,8 @@ export type Mover = {
   // Auto TP/SL derived from confidence (TP 3–5%, SL 20%)
   tpPct: number;
   slPct: number;
+  /** ATR% (14-period over 5m candles); null when not enough data. */
+  atrPct: number | null;
 };
 
 const PUBLIC_FUTURES_TICKER =
@@ -503,6 +506,7 @@ async function enrichMover(
       reasonLabel,
       tpPct,
       slPct,
+      atrPct: null,
     };
   }
 
@@ -518,6 +522,7 @@ async function enrichMover(
 
   const closes5 = c5Raw?.map((k) => k.close) ?? [];
   const rsi = closes5.length >= 15 ? rsi14(closes5) : null;
+  const atrPct = c5Raw ? atrPctFromCandles(c5Raw, 14) : null;
   const vwap = c5Raw ? approxVwap(c5Raw) : null;
   const vwapStatus: Mover["vwapStatus"] = vwap == null ? "unknown" : base.price >= vwap ? "above" : "below";
   const vwapDistPct = vwap != null && vwap > 0 ? ((base.price - vwap) / vwap) * 100 : null;
@@ -619,6 +624,7 @@ async function enrichMover(
     reasonLabel,
     tpPct,
     slPct,
+    atrPct,
   };
 }
 
@@ -630,24 +636,41 @@ function spotToCandlePair(market: string): string {
 export const getTopMovers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => marketSchema.parse(d ?? {}))
-  .handler(async ({ data, context }): Promise<{ ok: true; movers: Mover[] } | { ok: false; error: string }> => {
+  .handler(async ({ data, context }): Promise<{ ok: true; movers: Mover[]; risk: { capital: number; style: string; minSL: number; atrMult: number; maxAutoSL: number; targetMult: number; minRR: number; riskPct: number } } | { ok: false; error: string }> => {
     const market = data.market ?? "futures";
     const preset = STRICT_PRESETS[data.strictness ?? "moderate"];
-    // Pull trade params for risk-check enrichment (best-effort; fall back to sane defaults).
+    // Pull risk preset for the active user — used by the Scanner card to render
+    // volatility-adjusted target / stop / position size / status.
+    let stylePreset = (await import("@/lib/risk-engine")).STYLE_PRESETS.balanced;
+    let capital = 1000;
     let tpPct = 0.6;
     let slPct = 0.4;
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { data: cfg } = await supabaseAdmin
         .from("bot_config")
-        .select("take_profit_pct,stop_loss_pct")
+        .select("trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,risk_per_trade_pct,paper_equity,take_profit_pct,stop_loss_pct")
         .eq("user_id", context.userId)
         .maybeSingle();
       if (cfg) {
+        const { presetFromConfig } = await import("@/lib/risk-engine");
+        stylePreset = presetFromConfig(cfg);
+        capital = Number(cfg.paper_equity ?? 1000);
         tpPct = Number(cfg.take_profit_pct ?? tpPct);
         slPct = Number(cfg.stop_loss_pct ?? slPct);
       }
     } catch { /* keep defaults */ }
+    const riskSummary = {
+      capital,
+      style: stylePreset.key,
+      minSL: stylePreset.minSL,
+      atrMult: stylePreset.atrMult,
+      maxAutoSL: stylePreset.maxAutoSL,
+      targetMult: stylePreset.targetMult,
+      minRR: stylePreset.minRR,
+      riskPct: stylePreset.riskPct,
+    };
+
 
     try {
       if (market === "spot") {
@@ -661,7 +684,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
         rows.sort((a, b) => b.change24h - a.change24h);
         const top = rows.slice(0, 15).map((r, i) => ({ ...r, rank24h: i + 1 }));
         const enriched = await Promise.all(top.map((r, i) => enrichMover(r, spotToCandlePair(r.symbol), "spot", i < 10, tpPct, slPct, preset)));
-        return { ok: true, movers: enriched };
+        return { ok: true, movers: enriched, risk: riskSummary };
       }
 
       const res = await fetch(PUBLIC_FUTURES_TICKER, { headers: PUBLIC_API_HEADERS, signal: AbortSignal.timeout(6000) });
@@ -688,7 +711,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
       const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 30, tpPct, slPct, preset)));
       // Sort enriched output by confidence so highest setups surface first.
       enriched.sort((a, b) => b.confidence - a.confidence);
-      return { ok: true, movers: enriched };
+      return { ok: true, movers: enriched, risk: riskSummary };
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : "fetch failed" };
     }
@@ -713,7 +736,7 @@ export const bookManualTrade = createServerFn({ method: "POST" })
 
     const { data: cfg, error: cfgErr } = await supabaseAdmin
       .from("bot_config")
-      .select("mode,leverage,risk_per_trade_pct,paper_equity,max_open_positions")
+      .select("mode,leverage,risk_per_trade_pct,paper_equity,max_open_positions,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr")
       .eq("user_id", context.userId)
       .maybeSingle();
     if (cfgErr || !cfg) throw new Error(cfgErr?.message ?? "No bot config found");
@@ -728,15 +751,19 @@ export const bookManualTrade = createServerFn({ method: "POST" })
     }
 
     const equity = Number(cfg.paper_equity ?? 0);
-    const riskPct = Number(cfg.risk_per_trade_pct ?? 1);
     const lev = Number(cfg.leverage ?? 3);
-    // Auto TP/SL from confidence (3–5% TP, 20% SL), overridable per trade.
-    const auto = autoTpSlForConfidence(data.confidence ?? 50);
-    const tp = data.tpPct ?? auto.tpPct;
-    const sl = data.slPct ?? auto.slPct;
+    const { presetFromConfig } = await import("@/lib/risk-engine");
+    const style = presetFromConfig(cfg);
+    // When user did not override, fall back to the preset floor (volatility-aware
+    // values come from the Scanner card itself and are passed in via overrides).
+    const sl = data.slPct ?? style.minSL;
+    const tp = data.tpPct ?? +(sl * style.targetMult).toFixed(2);
 
-    const notional = Math.min((equity * riskPct) / sl, equity) * lev;
+    // Position size derived from max-loss, NOT leverage.
+    const riskAmount = (equity * style.riskPct) / 100;
+    const notional = sl > 0 ? riskAmount / (sl / 100) : 0;
     const qty = notional / data.price;
+
 
     const stop_loss = data.side === "long" ? data.price * (1 - sl / 100) : data.price * (1 + sl / 100);
     const take_profit = data.side === "long" ? data.price * (1 + tp / 100) : data.price * (1 - tp / 100);

@@ -4,12 +4,43 @@
  * NEVER import this from anything reachable by the client bundle at module scope.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  atrPctFromCandles,
+  computeRiskPlan,
+  presetFromConfig,
+  type StylePreset,
+} from "@/lib/risk-engine";
+
 
 const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
+const CANDLES = (pair: string, interval: string, limit: number) =>
+  `https://public.coindcx.com/market_data/candles?pair=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
 const PUB_HEADERS = {
   accept: "application/json",
   "user-agent": "Mozilla/5.0 (compatible; Earn'O/1.0; +https://earno.lovable.app)",
 };
+
+async function fetchAtrPct(pair: string): Promise<number | null> {
+  try {
+    const res = await fetch(CANDLES(pair, "5m", 30), {
+      headers: PUB_HEADERS,
+      signal: AbortSignal.timeout(3500),
+    });
+    if (!res.ok) return null;
+    const raw = (await res.json()) as Array<{ open: number | string; high: number | string; low: number | string; close: number | string }>;
+    if (!Array.isArray(raw) || raw.length < 16) return null;
+    const candles = raw.map((k) => ({
+      open: num(k.open),
+      high: num(k.high),
+      low: num(k.low),
+      close: num(k.close),
+    }));
+    return atrPctFromCandles(candles, 14);
+  } catch {
+    return null;
+  }
+}
+
 
 type Strictness = "less" | "moderate" | "strict";
 type PlanTier = "free" | "reco" | "auto5" | "unlimited";
@@ -37,12 +68,8 @@ function num(x: unknown, d = 0): number {
   return Number.isFinite(n) ? n : d;
 }
 
-function autoTpSl(confidence: number): { tpPct: number; slPct: number } {
-  const c = Math.max(0, Math.min(100, confidence));
-  // 3% TP at conf<=50, 5% TP at conf>=100, linear in between.
-  const tpPct = 3 + ((Math.max(50, c) - 50) / 50) * 2;
-  return { tpPct, slPct: 20 };
-}
+
+
 
 /**
  * Build a dynamic scan universe from the CoinDCX futures ticker:
@@ -173,7 +200,14 @@ type BotConfig = {
   min_scalp_score: number | null;
   allow_short: boolean;
   strategy: string | null;
+  trading_style: string | null;
+  min_sl_pct: number | null;
+  atr_multiplier: number | null;
+  max_auto_sl_pct: number | null;
+  target_multiplier: number | null;
+  min_rr: number | null;
 };
+
 
 async function getPlanTier(supabase: SupabaseClient, userId: string): Promise<PlanTier> {
   const { data, error } = await supabase.rpc("current_plan_tier", { _user_id: userId });
@@ -186,8 +220,9 @@ async function logEvent(
   userId: string,
   level: "info" | "warn" | "error",
   message: string,
+  meta?: Record<string, unknown>,
 ) {
-  await supabase.from("bot_events").insert({ user_id: userId, level, message });
+  await supabase.from("bot_events").insert({ user_id: userId, level, message, meta: meta ?? null });
 }
 
 async function logScanEvent(
@@ -232,7 +267,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,strategy",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -331,6 +366,8 @@ export async function runAutoBookPass(
       if (t > prev) lastOpen.set(r.symbol as string, t);
     }
 
+    const preset: StylePreset = presetFromConfig(cfg);
+
     for (const s of setups) {
       if (openSlot <= 0 || remainingToday <= opened) break;
       if (openSymbols.has(s.symbol)) {
@@ -351,10 +388,36 @@ export async function runAutoBookPass(
         continue;
       }
 
-      const { tpPct, slPct } = autoTpSl(s.confidence);
-      const riskPct = Number(cfg.risk_per_trade_pct ?? 1);
+      // Volatility-adjusted risk plan
+      const atrPct = await fetchAtrPct(s.symbol);
+      const plan = computeRiskPlan({ atrPct, preset, capital: equity });
+
+      if (plan.status !== "auto_eligible") {
+        skipped++;
+        const reasonText =
+          plan.reason === "Volatility too high for auto-book"
+            ? `Skipped ${s.symbol} · Reason Volatility too high · Required Stop ${plan.requiredSL.toFixed(2)}% · Allowed ${preset.maxAutoSL.toFixed(2)}%`
+            : plan.reason === "Risk-reward weak"
+              ? `Skipped ${s.symbol} · Reason Risk-reward weak · R:R ${plan.rr.toFixed(2)}:1 · Required ${preset.minRR.toFixed(1)}:1`
+              : `Skipped ${s.symbol} · ${plan.reason ?? "Risk rejected"}`;
+        await logEvent(supabase, cfg.user_id, "warn", reasonText, {
+          kind: "skip",
+          symbol: s.symbol,
+          side: s.side,
+          confidence: Math.round(s.confidence),
+          atrPct: plan.atrPct,
+          requiredSL: plan.requiredSL,
+          allowedSL: preset.maxAutoSL,
+          rr: plan.rr,
+          reason: plan.reason,
+        });
+        continue;
+      }
+
+      const { tpPct, slPct } = plan;
       const lev = Number(cfg.leverage ?? 3);
-      const notional = Math.min((equity * riskPct) / slPct, equity) * lev;
+      // Position size derives from risk amount, NOT from leverage.
+      const notional = plan.positionSize;
       if (notional <= 0 || s.price <= 0) {
         skipped++;
         continue;
@@ -391,14 +454,27 @@ export async function runAutoBookPass(
       openSlot--;
       openSymbols.add(s.symbol);
       lastOpen.set(s.symbol, Date.now());
-      const rr = slPct > 0 ? (tpPct / slPct) : 0;
       await logEvent(
         supabase,
         cfg.user_id,
         "info",
-        `Auto-booked ${s.side.toUpperCase()} ${s.symbol} · Confidence ${s.confidence.toFixed(0)}% · Target +${tpPct.toFixed(1)}% · Stop −${slPct.toFixed(1)}% · R:R ${rr.toFixed(1)}:1`,
+        `Auto-booked ${s.side.toUpperCase()} ${s.symbol} · Confidence ${s.confidence.toFixed(0)}% · Target +${tpPct.toFixed(2)}% · Stop −${slPct.toFixed(2)}% · Stop Type Volatility-based · R:R ${plan.rr.toFixed(2)}:1`,
+        {
+          kind: "auto_book",
+          symbol: s.symbol,
+          side: s.side,
+          confidence: Math.round(s.confidence),
+          tpPct,
+          slPct,
+          atrPct: plan.atrPct,
+          rr: plan.rr,
+          riskAmount: plan.riskAmount,
+          positionSize: plan.positionSize,
+          stopType: "Volatility-based",
+        },
       );
     }
+
 
     result.opened += opened;
     result.skipped += skipped;

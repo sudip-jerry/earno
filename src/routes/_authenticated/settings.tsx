@@ -26,6 +26,7 @@ import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, LogOut, Zap, AlertTrian
 import { useTheme, type ThemeMode } from "@/hooks/use-theme";
 import { useStrictness, STRICTNESS_PRESETS, type Strictness } from "@/hooks/use-strictness";
 import { useCurrency, CURRENCY_OPTIONS, CURRENCY_SYMBOL, type CurrencyCode } from "@/hooks/use-currency";
+import { STYLE_PRESETS, type TradingStyle } from "@/lib/risk-engine";
 
 function CurrencyControl() {
   const { code, setCurrency, isUpdating } = useCurrency();
@@ -125,6 +126,12 @@ type Cfg = {
   auto_close_minutes: number;
   move_to_breakeven: boolean;
   min_scalp_score: number;
+  trading_style: "conservative" | "balanced" | "aggressive";
+  min_sl_pct: number;
+  atr_multiplier: number;
+  max_auto_sl_pct: number;
+  target_multiplier: number;
+  min_rr: number;
 };
 
 const DEFAULTS: Cfg = {
@@ -147,7 +154,14 @@ const DEFAULTS: Cfg = {
   auto_close_minutes: 30,
   move_to_breakeven: true,
   min_scalp_score: 50,
+  trading_style: "balanced",
+  min_sl_pct: 1.2,
+  atr_multiplier: 1.5,
+  max_auto_sl_pct: 4,
+  target_multiplier: 1.7,
+  min_rr: 1.5,
 };
+
 
 function SettingsPage() {
   const qc = useQueryClient();
@@ -172,7 +186,7 @@ function SettingsPage() {
       const { data, error } = await supabase
         .from("bot_config")
         .select(
-          "mode,ema_fast,ema_slow,timeframe,leverage,take_profit_pct,stop_loss_pct,trailing_enabled,risk_per_trade_pct,max_open_positions,daily_loss_cap_pct,allow_short,auto_book,strategy,cooldown_minutes,max_trades_per_day,auto_close_minutes,move_to_breakeven,min_scalp_score",
+          "mode,ema_fast,ema_slow,timeframe,leverage,take_profit_pct,stop_loss_pct,trailing_enabled,risk_per_trade_pct,max_open_positions,daily_loss_cap_pct,allow_short,auto_book,strategy,cooldown_minutes,max_trades_per_day,auto_close_minutes,move_to_breakeven,min_scalp_score,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr",
         )
         .maybeSingle();
       if (error) throw error;
@@ -427,101 +441,179 @@ function SettingsPage() {
         </div>
       </section>
 
-      {/* Risk */}
+      {/* Trading Style preset */}
       <section className="px-5 mt-6">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-          Risk
+          Trading Style
         </h2>
-        <div className="rounded-2xl border bg-card p-4 space-y-5">
-          <SliderField
-            label="Leverage"
-            unit="x"
-            min={2}
-            max={5}
-            step={1}
-            value={get("leverage")}
-            onChange={(v) => set("leverage", v)}
-          />
-          <SliderField
-            label="Take profit"
-            unit="%"
-            min={0.5}
-            max={10}
-            step={0.5}
-            value={get("take_profit_pct")}
-            onChange={(v) => set("take_profit_pct", v)}
-          />
-          <SliderField
-            label="Stop loss"
-            unit="%"
-            min={0.5}
-            max={10}
-            step={0.5}
-            value={get("stop_loss_pct")}
-            onChange={(v) => set("stop_loss_pct", v)}
-          />
-          <Row label="Trailing stop" inset={false}>
-            <Switch
-              checked={get("trailing_enabled")}
-              onCheckedChange={(v) => set("trailing_enabled", v)}
-            />
-          </Row>
-          <SliderField
-            label="Risk per trade"
-            unit="%"
-            min={0.5}
-            max={5}
-            step={0.5}
-            value={get("risk_per_trade_pct")}
-            onChange={(v) => set("risk_per_trade_pct", v)}
-          />
-          <SliderField
-            label="Max open positions"
-            unit=""
-            min={1}
-            max={5}
-            step={1}
-            value={get("max_open_positions")}
-            onChange={(v) => set("max_open_positions", v)}
-          />
-          <SliderField
-            label="Max trades/day"
-            unit=""
-            min={1}
-            max={50}
-            step={1}
-            value={get("max_trades_per_day")}
-            onChange={(v) => set("max_trades_per_day", v)}
-          />
-          <SliderField
-            label="Daily loss cap"
-            unit="%"
-            min={1}
-            max={20}
-            step={1}
-            value={get("daily_loss_cap_pct")}
-            onChange={(v) => set("daily_loss_cap_pct", v)}
-          />
-          <SliderField
-            label="Cooldown after loss"
-            unit=" min"
-            min={0}
-            max={120}
-            step={5}
-            value={get("cooldown_minutes")}
-            onChange={(v) => set("cooldown_minutes", v)}
-          />
-          <SliderField
-            label="Auto-close after"
-            unit=" min"
-            min={1}
-            max={240}
-            step={1}
-            value={get("auto_close_minutes")}
-            onChange={(v) => set("auto_close_minutes", v)}
-          />
+        <div className="grid grid-cols-1 gap-2">
+          {(Object.keys(STYLE_PRESETS) as TradingStyle[]).map((k) => {
+            const p = STYLE_PRESETS[k];
+            const active = get("trading_style") === k;
+            return (
+              <button
+                key={k}
+                type="button"
+                onClick={() => {
+                  set("trading_style", k);
+                  set("risk_per_trade_pct", p.riskPct);
+                  set("min_sl_pct", p.minSL);
+                  set("atr_multiplier", p.atrMult);
+                  set("max_auto_sl_pct", p.maxAutoSL);
+                  set("target_multiplier", p.targetMult);
+                  set("min_rr", p.minRR);
+                }}
+                className={`text-left rounded-2xl border bg-card p-3 transition ${
+                  active ? "border-primary ring-2 ring-primary/30" : "hover:bg-muted/40"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <p className="font-medium text-sm">{p.label}</p>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Risk {p.riskPct}% · Max SL {p.maxAutoSL}%
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">{p.description}</p>
+              </button>
+            );
+          })}
         </div>
+        <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
+          Wider stops reduce noise exits but require smaller position sizes. Risk per trade
+          controls the maximum money lost if stop loss is hit.
+        </p>
       </section>
+
+      {/* Advanced risk settings (collapsed by default) */}
+      <section className="px-5 mt-6">
+        <details className="rounded-2xl border bg-card overflow-hidden group">
+          <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-sm font-medium">
+            <span>Advanced settings</span>
+            <span className="text-[11px] text-muted-foreground group-open:hidden">Show</span>
+            <span className="text-[11px] text-muted-foreground hidden group-open:inline">Hide</span>
+          </summary>
+          <div className="px-4 pb-4 pt-1 space-y-5">
+            <SliderField
+              label="Minimum SL"
+              unit="%"
+              min={0.5}
+              max={5}
+              step={0.1}
+              value={get("min_sl_pct")}
+              onChange={(v) => set("min_sl_pct", v)}
+            />
+            <SliderField
+              label="ATR Multiplier"
+              unit="x"
+              min={0.5}
+              max={4}
+              step={0.1}
+              value={get("atr_multiplier")}
+              onChange={(v) => set("atr_multiplier", v)}
+            />
+            <SliderField
+              label="Maximum Auto-book SL"
+              unit="%"
+              min={1}
+              max={10}
+              step={0.5}
+              value={get("max_auto_sl_pct")}
+              onChange={(v) => set("max_auto_sl_pct", v)}
+            />
+            <SliderField
+              label="Risk per Trade"
+              unit="%"
+              min={0.25}
+              max={3}
+              step={0.25}
+              value={get("risk_per_trade_pct")}
+              onChange={(v) => set("risk_per_trade_pct", v)}
+            />
+            <p className="text-[11px] text-muted-foreground -mt-2">
+              Risk per trade controls the maximum money lost if stop loss is hit.
+            </p>
+            <SliderField
+              label="Target Multiplier"
+              unit="x"
+              min={1}
+              max={4}
+              step={0.1}
+              value={get("target_multiplier")}
+              onChange={(v) => set("target_multiplier", v)}
+            />
+            <SliderField
+              label="Minimum Risk-Reward"
+              unit=" : 1"
+              min={1}
+              max={4}
+              step={0.1}
+              value={get("min_rr")}
+              onChange={(v) => set("min_rr", v)}
+            />
+            <SliderField
+              label="Daily Loss Cap"
+              unit="%"
+              min={1}
+              max={20}
+              step={1}
+              value={get("daily_loss_cap_pct")}
+              onChange={(v) => set("daily_loss_cap_pct", v)}
+            />
+            <SliderField
+              label="Max Open Positions"
+              unit=""
+              min={1}
+              max={5}
+              step={1}
+              value={get("max_open_positions")}
+              onChange={(v) => set("max_open_positions", v)}
+            />
+            <SliderField
+              label="Cooldown After Loss"
+              unit=" min"
+              min={0}
+              max={120}
+              step={5}
+              value={get("cooldown_minutes")}
+              onChange={(v) => set("cooldown_minutes", v)}
+            />
+            <SliderField
+              label="Max trades/day"
+              unit=""
+              min={1}
+              max={50}
+              step={1}
+              value={get("max_trades_per_day")}
+              onChange={(v) => set("max_trades_per_day", v)}
+            />
+            <SliderField
+              label="Auto-close after"
+              unit=" min"
+              min={1}
+              max={240}
+              step={1}
+              value={get("auto_close_minutes")}
+              onChange={(v) => set("auto_close_minutes", v)}
+            />
+            <SliderField
+              label="Leverage"
+              unit="x"
+              min={2}
+              max={5}
+              step={1}
+              value={get("leverage")}
+              onChange={(v) => set("leverage", v)}
+            />
+            <Row label="Trailing stop" inset={false}>
+              <Switch
+                checked={get("trailing_enabled")}
+                onCheckedChange={(v) => set("trailing_enabled", v)}
+              />
+            </Row>
+          </div>
+        </details>
+      </section>
+
 
       <section className="px-5 mt-6">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">

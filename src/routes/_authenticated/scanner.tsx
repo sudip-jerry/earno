@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+
 import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
 import { TabBar } from "@/components/tab-bar";
 import { PositionsStrip } from "@/components/positions-strip";
@@ -22,13 +22,16 @@ export const Route = createFileRoute("/_authenticated/scanner")({
   component: ScannerPage,
 });
 
-type Cfg = {
-  take_profit_pct: number;
-  stop_loss_pct: number;
-  risk_per_trade_pct: number;
-  paper_equity: number;
-  daily_loss_cap_pct: number;
-};
+const DEFAULT_RISK_META = {
+  capital: 1000,
+  style: "balanced",
+  minSL: 1.2,
+  atrMult: 1.5,
+  maxAutoSL: 4,
+  targetMult: 1.7,
+  minRR: 1.5,
+  riskPct: 1,
+} as const;
 
 function ScannerPage() {
   const qc = useQueryClient();
@@ -48,18 +51,6 @@ function ScannerPage() {
     refetchInterval: 30_000,
   });
 
-  const cfg = useQuery({
-    queryKey: ["bot_config_scanner"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("bot_config")
-        .select("take_profit_pct,stop_loss_pct,risk_per_trade_pct,paper_equity,daily_loss_cap_pct")
-        .maybeSingle();
-      if (error) throw error;
-      return data as Cfg | null;
-    },
-  });
-
   const book = useMutation({
     mutationFn: async (input: { m: Mover; side: "long" | "short"; tpPct: number; slPct: number }) =>
       bookFn({ data: {
@@ -69,13 +60,14 @@ function ScannerPage() {
     onMutate: (v) => setPending(v.m.symbol),
     onSettled: () => setPending(null),
     onSuccess: (_d, v) => {
-      toast.success(`${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked · TP ${v.tpPct}% / SL ${v.slPct}%`);
+      toast.success(`${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked · Target +${v.tpPct.toFixed(2)}% · Stop −${v.slPct.toFixed(2)}%`);
       qc.invalidateQueries({ queryKey: ["positions_open"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Booking failed"),
   });
 
   const all = q.data?.ok ? q.data.movers : [];
+  const riskMeta = (q.data?.ok ? q.data.risk : null) ?? DEFAULT_RISK_META;
   const filtered = useMemo(() => {
     return all.filter((m) => {
       if (tradableOnly && m.action !== "long" && m.action !== "short") return false;
@@ -86,11 +78,7 @@ function ScannerPage() {
   }, [all, tradableOnly, action, minConfidence]);
 
   const errorMsg = q.data && !q.data.ok ? q.data.error : null;
-  const c = cfg.data;
-  const tpPct = Number(c?.take_profit_pct ?? 0.6);
-  const slPct = Number(c?.stop_loss_pct ?? 0.4);
-  const equity = Number(c?.paper_equity ?? 0);
-  const riskAmount = (equity * Number(c?.risk_per_trade_pct ?? 1)) / 100;
+
 
   return (
     <div className="min-h-svh bg-background pb-28">
@@ -173,9 +161,7 @@ function ScannerPage() {
             <li key={m.symbol}>
               <OpportunityCard
                 mover={m}
-                tpPct={m.tpPct}
-                slPct={m.slPct}
-                riskAmountUsd={riskAmount}
+                riskMeta={riskMeta}
                 booking={booking}
                 onBook={(s, ov) => book.mutate({ m, side: s, tpPct: ov.tpPct, slPct: ov.slPct })}
               />

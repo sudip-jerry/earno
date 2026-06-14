@@ -3,11 +3,34 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export type EquityPoint = { t: string; equity: number };
 
+export type ActivityMeta = {
+  kind?: string;
+  symbol?: string;
+  side?: string;
+  confidence?: number;
+  tpPct?: number;
+  slPct?: number;
+  atrPct?: number | null;
+  rr?: number;
+  riskAmount?: number;
+  positionSize?: number;
+  stopType?: string;
+  requiredSL?: number;
+  allowedSL?: number;
+  reason?: string | null;
+  scanned?: number;
+  opportunities?: number;
+  opened?: number;
+  skipped?: number;
+  top_confidence?: number;
+};
+
 export type ActivityItem = {
   id: string;
   at: string;
   level: "info" | "warn" | "error";
   message: string;
+  meta?: ActivityMeta | null;
 };
 
 export type EngineStatus = "active" | "paused" | "cooldown";
@@ -267,6 +290,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       at: e.created_at as string,
       level: (e.level as ActivityItem["level"]) ?? "info",
       message: e.message as string,
+      meta: (e.meta as ActivityItem["meta"]) ?? null,
     }));
 
     return {
