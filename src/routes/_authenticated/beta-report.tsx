@@ -333,7 +333,7 @@ function TesterCard({
                   className="h-7 text-xs"
                   asChild
                 >
-                  <Link to="/_authenticated/settings">Review Settings</Link>
+                  <Link to="/settings">Review Settings</Link>
                 </Button>
                 <Button
                   size="sm"
