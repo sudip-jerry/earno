@@ -164,6 +164,10 @@ const DEFAULTS: Cfg = {
   max_auto_sl_pct: 4,
   target_multiplier: 1.7,
   min_rr: 1.5,
+  live_wallet_source: "futures",
+  live_allocation_mode: "amount",
+  live_allocation_amount: 0,
+  live_allocation_pct: 100,
 };
 
 
