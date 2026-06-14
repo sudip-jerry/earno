@@ -132,6 +132,10 @@ type Cfg = {
   max_auto_sl_pct: number;
   target_multiplier: number;
   min_rr: number;
+  live_wallet_source: "futures" | "spot";
+  live_allocation_mode: "full" | "amount" | "percent";
+  live_allocation_amount: number;
+  live_allocation_pct: number;
 };
 
 const DEFAULTS: Cfg = {
