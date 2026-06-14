@@ -68,6 +68,7 @@ function PositionsPage() {
   const closeFn = useServerFn(closeManualTrade);
   const [pending, setPending] = useState<string | null>(null);
   const [tab, setTab] = useState<"open" | "closed">("open");
+  const [chartOpen, setChartOpen] = useState<PositionRow | ClosedRow | null>(null);
   const { fmt } = useCurrency();
 
   const q = useQuery({
