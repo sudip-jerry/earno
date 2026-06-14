@@ -127,6 +127,28 @@ type Cfg = {
   min_scalp_score: number;
 };
 
+const DEFAULTS: Cfg = {
+  mode: "paper",
+  ema_fast: 9,
+  ema_slow: 21,
+  timeframe: "5m",
+  leverage: 2,
+  take_profit_pct: 3,
+  stop_loss_pct: 1.5,
+  trailing_enabled: true,
+  risk_per_trade_pct: 1,
+  max_open_positions: 2,
+  daily_loss_cap_pct: 3,
+  allow_short: true,
+  auto_book: false,
+  strategy: "vwap_pullback",
+  cooldown_minutes: 15,
+  max_trades_per_day: 10,
+  auto_close_minutes: 30,
+  move_to_breakeven: true,
+  min_scalp_score: 50,
+};
+
 function SettingsPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -137,6 +159,7 @@ function SettingsPage() {
 
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
+  const [pending, setPending] = useState<Partial<Cfg>>({});
 
   const status = useQuery({
     queryKey: ["cred_status"],
@@ -156,6 +179,16 @@ function SettingsPage() {
       return data as Cfg | null;
     },
   });
+
+  const c = cfg.data;
+
+  const get = <K extends keyof Cfg>(k: K): Cfg[K] =>
+    (pending[k] ?? c?.[k] ?? DEFAULTS[k]) as Cfg[K];
+
+  const set = <K extends keyof Cfg>(k: K, v: Cfg[K]) =>
+    setPending((p) => ({ ...p, [k]: v }));
+
+  const hasChanges = Object.keys(pending).length > 0;
 
   const save = useMutation({
     mutationFn: async () => saveFn({ data: { apiKey, apiSecret } }),
@@ -180,8 +213,11 @@ function SettingsPage() {
 
   const updCfg = useMutation({
     mutationFn: async (patch: Partial<Cfg>) => updateFn({ data: patch }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["bot_config_full"] }),
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bot_config_full"] });
+      toast.success("Settings saved");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
   });
 
   const signOut = async () => {
@@ -192,8 +228,6 @@ function SettingsPage() {
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   };
-
-  const c = cfg.data;
 
   return (
     <div className="min-h-svh bg-background pb-12">
