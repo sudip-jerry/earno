@@ -684,7 +684,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
         rows.sort((a, b) => b.change24h - a.change24h);
         const top = rows.slice(0, 15).map((r, i) => ({ ...r, rank24h: i + 1 }));
         const enriched = await Promise.all(top.map((r, i) => enrichMover(r, spotToCandlePair(r.symbol), "spot", i < 10, tpPct, slPct, preset)));
-        return { ok: true, movers: enriched };
+        return { ok: true, movers: enriched, risk: riskSummary };
       }
 
       const res = await fetch(PUBLIC_FUTURES_TICKER, { headers: PUBLIC_API_HEADERS, signal: AbortSignal.timeout(6000) });
@@ -711,7 +711,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
       const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 30, tpPct, slPct, preset)));
       // Sort enriched output by confidence so highest setups surface first.
       enriched.sort((a, b) => b.confidence - a.confidence);
-      return { ok: true, movers: enriched };
+      return { ok: true, movers: enriched, risk: riskSummary };
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : "fetch failed" };
     }
