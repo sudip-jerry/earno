@@ -111,43 +111,52 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
         <div className="flex items-center gap-2">
           <Target className="size-4 text-primary" />
           <p className="text-xs font-semibold">Next milestone</p>
-          <span className="ml-auto text-xs tabular-nums text-muted-foreground">
-            {hideBalance ? masked : fmt(stats?.nextMilestone ?? 0)}
+          <span className="ml-auto text-xs tabular-nums font-semibold">
+            {hideBalance ? masked : fmtDisplay(nextDisplay)}
           </span>
         </div>
         <div className="mt-3 h-2 w-full rounded-full bg-muted overflow-hidden">
           <div
             className="h-full rounded-full bg-gradient-to-r from-primary to-[#3B82F6] transition-all"
-            style={{ width: `${stats?.milestoneProgressPct ?? 0}%` }}
+            style={{ width: `${milestoneProgress}%` }}
           />
         </div>
         <div className="mt-2 flex justify-between text-[10px] uppercase tracking-wider text-muted-foreground tabular-nums">
-          <span>{hideBalance ? masked : fmt(stats?.prevMilestone ?? 0)}</span>
-          <span>{(stats?.milestoneProgressPct ?? 0).toFixed(0)}%</span>
+          <span>{milestoneProgress.toFixed(0)}% there</span>
+          <span>{hideBalance ? masked : `${fmtDisplay(toGo)} to go`}</span>
         </div>
       </div>
 
-      {/* Wealth path: sparkline + projections */}
+      {/* Wealth path: projection horizon */}
       <div className="mt-3 rounded-2xl border bg-card p-4">
         <div className="flex items-center gap-2">
-          <TrendingUp className="size-4 text-primary" />
+          <Sparkles className="size-4 text-primary" />
           <p className="text-xs font-semibold">Wealth path</p>
-          <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
-            Projected at current CAGR
-          </span>
+          {stats && stats.cagrPct > 0 && (
+            <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
+              At {pctStr(stats.cagrPct, 1)} CAGR
+            </span>
+          )}
         </div>
-        <div className="mt-3">
-          <Sparkline points={stats?.equityCurve ?? []} />
-        </div>
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <ProjTile label="6 mo" value={hideBalance ? masked : (stats?.projected6m != null ? fmt(stats.projected6m) : "—")} />
-          <ProjTile label="1 yr" value={hideBalance ? masked : (stats?.projected12m != null ? fmt(stats.projected12m) : "—")} />
-          <ProjTile label="2 yr" value={hideBalance ? masked : (stats?.projected24m != null ? fmt(stats.projected24m) : "—")} />
-        </div>
-        {stats && stats.cagrPct <= 0 && (
-          <p className="mt-3 text-[11px] text-muted-foreground leading-relaxed">
-            Projections appear once your portfolio is compounding. Keep trading consistently — the path builds with every winning day.
-          </p>
+
+        {stats && stats.cagrPct > 0 ? (
+          <>
+            <div className="mt-3 rounded-xl bg-muted/30 p-2">
+              <Sparkline points={stats?.equityCurve ?? []} />
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <ProjTile label="In 6 mo" value={hideBalance ? masked : (stats.projected6m != null ? fmt(stats.projected6m) : "—")} highlight={false} />
+              <ProjTile label="In 1 yr" value={hideBalance ? masked : (stats.projected12m != null ? fmt(stats.projected12m) : "—")} highlight />
+              <ProjTile label="In 2 yr" value={hideBalance ? masked : (stats.projected24m != null ? fmt(stats.projected24m) : "—")} highlight={false} />
+            </div>
+          </>
+        ) : (
+          <div className="mt-3 rounded-xl bg-muted/30 px-4 py-6 text-center">
+            <p className="text-xs font-medium text-foreground">Your wealth path appears here</p>
+            <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
+              Keep trading consistently — projections unlock once your portfolio is compounding.
+            </p>
+          </div>
         )}
       </div>
 
