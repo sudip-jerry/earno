@@ -195,9 +195,9 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
         />
         <FactTile
           label="On track?"
-          value={(stats?.cagrPct ?? 0) >= 20 ? "Yes" : (stats?.cagrPct ?? 0) > 0 ? "Building" : "Not yet"}
-          sub={`${pctStr(stats?.cagrPct, 1)} CAGR`}
-          tone={(stats?.cagrPct ?? 0) >= 20 ? "positive" : (stats?.cagrPct ?? 0) > 0 ? "neutral" : "negative"}
+          value={(stats?.monthlyGrowthPct ?? 0) >= 5 ? "Yes" : (stats?.monthlyGrowthPct ?? 0) > 0 ? "Building" : "Not yet"}
+          sub={`${pctStr(stats?.monthlyGrowthPct, 1)} · 30d`}
+          tone={(stats?.monthlyGrowthPct ?? 0) >= 5 ? "positive" : (stats?.monthlyGrowthPct ?? 0) > 0 ? "neutral" : "negative"}
         />
       </div>
     </section>
