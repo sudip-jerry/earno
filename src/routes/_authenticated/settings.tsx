@@ -599,7 +599,7 @@ function SliderField({
   max,
   step,
   value,
-  onCommit,
+  onChange,
 }: {
   label: string;
   unit: string;
@@ -607,11 +607,10 @@ function SliderField({
   max: number;
   step: number;
   value: number;
-  onCommit: (v: number) => void;
+  onChange: (v: number) => void;
 }) {
   const [local, setLocal] = useState(value);
-  // Sync when server value changes
-  useState(() => setLocal(value));
+  useEffect(() => { setLocal(value); }, [value]);
   return (
     <div>
       <div className="flex justify-between items-baseline mb-2">
@@ -627,7 +626,7 @@ function SliderField({
         step={step}
         value={[local]}
         onValueChange={(v) => setLocal(v[0]!)}
-        onValueCommit={(v) => onCommit(v[0]!)}
+        onValueCommit={(v) => onChange(v[0]!)}
       />
     </div>
   );
