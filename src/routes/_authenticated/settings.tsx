@@ -8,6 +8,7 @@ import {
   getCredentialStatus,
   testConnection,
   updateConfig,
+  getWalletBalances,
 } from "@/lib/bot.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -132,6 +133,10 @@ type Cfg = {
   max_auto_sl_pct: number;
   target_multiplier: number;
   min_rr: number;
+  live_wallet_source: "futures" | "spot";
+  live_allocation_mode: "full" | "amount" | "percent";
+  live_allocation_amount: number;
+  live_allocation_pct: number;
 };
 
 const DEFAULTS: Cfg = {
@@ -160,6 +165,10 @@ const DEFAULTS: Cfg = {
   max_auto_sl_pct: 4,
   target_multiplier: 1.7,
   min_rr: 1.5,
+  live_wallet_source: "futures",
+  live_allocation_mode: "amount",
+  live_allocation_amount: 0,
+  live_allocation_pct: 100,
 };
 
 
@@ -170,6 +179,7 @@ function SettingsPage() {
   const statusFn = useServerFn(getCredentialStatus);
   const testFn = useServerFn(testConnection);
   const updateFn = useServerFn(updateConfig);
+  const walletsFn = useServerFn(getWalletBalances);
 
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
@@ -186,7 +196,7 @@ function SettingsPage() {
       const { data, error } = await supabase
         .from("bot_config")
         .select(
-          "mode,ema_fast,ema_slow,timeframe,leverage,take_profit_pct,stop_loss_pct,trailing_enabled,risk_per_trade_pct,max_open_positions,daily_loss_cap_pct,allow_short,auto_book,strategy,cooldown_minutes,max_trades_per_day,auto_close_minutes,move_to_breakeven,min_scalp_score,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr",
+          "mode,ema_fast,ema_slow,timeframe,leverage,take_profit_pct,stop_loss_pct,trailing_enabled,risk_per_trade_pct,max_open_positions,daily_loss_cap_pct,allow_short,auto_book,strategy,cooldown_minutes,max_trades_per_day,auto_close_minutes,move_to_breakeven,min_scalp_score,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct",
         )
         .maybeSingle();
       if (error) throw error;
@@ -398,13 +408,27 @@ function SettingsPage() {
         </div>
 
         {get("mode") === "live" ? (
-          <div className="mt-3 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 flex gap-2 text-xs text-destructive">
-            <AlertTriangle className="size-4 shrink-0 mt-0.5" />
-            <p>
-              Live mode places real futures trades. Use only after paper testing. A working CoinDCX
-              API key with Futures permissions is required.
-            </p>
-          </div>
+          <>
+            <div className="mt-3 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 flex gap-2 text-xs text-destructive">
+              <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+              <p>
+                Live mode places real futures trades. Use only after paper testing. A working CoinDCX
+                API key with Futures permissions is required.
+              </p>
+            </div>
+            <LiveFunding
+              walletsFn={walletsFn}
+              source={get("live_wallet_source")}
+              mode={get("live_allocation_mode")}
+              amount={get("live_allocation_amount")}
+              pct={get("live_allocation_pct")}
+              setSource={(v) => set("live_wallet_source", v)}
+              setMode={(v) => set("live_allocation_mode", v)}
+              setAmount={(v) => set("live_allocation_amount", v)}
+              setPct={(v) => set("live_allocation_pct", v)}
+              hasCreds={!!status.data?.hasCredentials}
+            />
+          </>
         ) : null}
       </section>
 
@@ -689,6 +713,161 @@ function SettingsPage() {
           Sign out
         </Button>
       </section>
+    </div>
+  );
+}
+
+function LiveFunding({
+  walletsFn,
+  source,
+  mode,
+  amount,
+  pct,
+  setSource,
+  setMode,
+  setAmount,
+  setPct,
+  hasCreds,
+}: {
+  walletsFn: () => Promise<{ ok: true; spot: number; futures: number; spotError: string | null; futuresError: string | null } | { ok: false; error: string }>;
+  source: "futures" | "spot";
+  mode: "full" | "amount" | "percent";
+  amount: number;
+  pct: number;
+  setSource: (v: "futures" | "spot") => void;
+  setMode: (v: "full" | "amount" | "percent") => void;
+  setAmount: (v: number) => void;
+  setPct: (v: number) => void;
+  hasCreds: boolean;
+}) {
+  const wallets = useQuery({
+    queryKey: ["wallet_balances"],
+    queryFn: () => walletsFn(),
+    enabled: hasCreds,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const available =
+    wallets.data && wallets.data.ok
+      ? source === "futures"
+        ? wallets.data.futures
+        : wallets.data.spot
+      : 0;
+  const allocated =
+    mode === "full"
+      ? available
+      : mode === "percent"
+        ? Math.max(0, (available * pct) / 100)
+        : Math.min(amount, available);
+
+  return (
+    <div className="mt-3 rounded-2xl border bg-card p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Live funding</h3>
+        <button
+          type="button"
+          onClick={() => wallets.refetch()}
+          className="text-[11px] text-muted-foreground hover:text-foreground"
+          disabled={!hasCreds || wallets.isFetching}
+        >
+          {wallets.isFetching ? "Refreshing…" : "Refresh"}
+        </button>
+      </div>
+
+      <div>
+        <Label className="text-xs">Fund from wallet</Label>
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5 rounded-lg bg-muted p-1">
+          {(["futures", "spot"] as const).map((w) => {
+            const active = source === w;
+            const bal = wallets.data?.ok ? (w === "futures" ? wallets.data.futures : wallets.data.spot) : null;
+            return (
+              <button
+                key={w}
+                type="button"
+                onClick={() => setSource(w)}
+                className={`h-12 rounded-md text-xs font-medium transition flex flex-col items-center justify-center ${
+                  active ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span className="capitalize">{w === "futures" ? "Futures wallet" : "Trade wallet"}</span>
+                <span className="text-[10px] opacity-70 tabular-nums">
+                  {bal != null ? `${bal.toFixed(2)} USDT` : hasCreds ? "—" : "Save API key"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <Label className="text-xs">Allocation</Label>
+        <Select value={mode} onValueChange={(v) => setMode(v as typeof mode)}>
+          <SelectTrigger className="w-full mt-1.5"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="full">Use full wallet</SelectItem>
+            <SelectItem value="amount">Fixed USDT amount</SelectItem>
+            <SelectItem value="percent">% of wallet</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {mode === "amount" ? (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <Label htmlFor="alloc-amt" className="text-xs">Amount (USDT)</Label>
+            {available > 0 ? (
+              <button
+                type="button"
+                onClick={() => setAmount(Number(available.toFixed(2)))}
+                className="text-[11px] text-primary hover:underline"
+              >
+                Use available ({available.toFixed(2)})
+              </button>
+            ) : null}
+          </div>
+          <Input
+            id="alloc-amt"
+            type="number"
+            min={0}
+            step={1}
+            value={amount}
+            onChange={(e) => setAmount(Math.max(0, Number(e.target.value) || 0))}
+          />
+        </div>
+      ) : null}
+
+      {mode === "percent" ? (
+        <div>
+          <div className="flex justify-between items-baseline mb-2">
+            <Label className="text-xs">% of wallet</Label>
+            <span className="text-sm font-medium tabular-nums">{pct}%</span>
+          </div>
+          <Slider min={1} max={100} step={1} value={[pct]} onValueChange={(v) => setPct(v[0]!)} />
+        </div>
+      ) : null}
+
+      <div className="rounded-lg bg-muted/50 p-3 text-xs space-y-1">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Available</span>
+          <span className="tabular-nums">{available.toFixed(2)} USDT</span>
+        </div>
+        <div className="flex justify-between font-medium">
+          <span>Bot will use</span>
+          <span className="tabular-nums">{allocated.toFixed(2)} USDT</span>
+        </div>
+        {mode === "amount" && amount > available && available > 0 ? (
+          <p className="text-destructive text-[11px]">
+            Amount exceeds available balance — bot will cap at {available.toFixed(2)} USDT.
+          </p>
+        ) : null}
+        {!hasCreds ? (
+          <p className="text-muted-foreground text-[11px]">Save your CoinDCX API key above to see live balances.</p>
+        ) : null}
+        {wallets.data && !wallets.data.ok ? (
+          <p className="text-destructive text-[11px]">{wallets.data.error}</p>
+        ) : null}
+      </div>
     </div>
   );
 }
