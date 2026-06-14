@@ -312,14 +312,13 @@ function Home() {
           {/* 1. Wealth Engine Status — primary card */}
           <WealthEngineStatus stats={s} />
 
-          {/* Action row */}
+          {/* Action row — single bot control area lives in the bottom bar */}
           <section className="px-5 mt-5">
             <div className="grid grid-cols-3 gap-2">
               <ActionTile
-                icon={<Power className="size-4" />}
-                label={isRunning ? "Stop bot" : "Start bot"}
-                tone={isRunning ? "danger" : "primary"}
-                onClick={() => toggleRun.mutate(!isRunning)}
+                icon={<Bot className="size-4" />}
+                label="Bot panel"
+                onClick={() => setTab("Bot")}
               />
               <ActionTile
                 icon={<Radar className="size-4" />}
@@ -517,7 +516,7 @@ function Home() {
 
       {tab === "Beta ✨" && <CopilotBeta />}
 
-      {/* Bottom action bar */}
+      {/* Bottom action bar — primary bot control */}
       <div className="fixed bottom-14 inset-x-0 bg-background/90 backdrop-blur border-t px-5 py-3 flex items-center gap-3 z-20">
         <Button
           variant={isRunning ? "outline" : "default"}
@@ -526,20 +525,21 @@ function Home() {
           disabled={toggleRun.isPending}
         >
           <Power className="size-4 mr-2" />
-          {isRunning ? "Stop bot" : "Start bot"}
+          {isRunning ? "Pause Bot" : "Start Bot"}
         </Button>
         <Button
           variant="destructive"
-          className="h-12 px-4 rounded-xl"
+          className="h-12 px-4 rounded-xl border-2 border-destructive/60"
           onClick={() => {
-            if (confirm("Emergency stop: halt bot AND close all open positions at market. Continue?"))
+            if (confirm("Emergency Stop: halt the bot AND close all open positions at market. Continue?"))
               kill.mutate();
           }}
           disabled={kill.isPending}
-          aria-label="Emergency stop"
+          aria-label="Emergency Stop"
+          title="Emergency Stop — halts automation and closes positions"
         >
           <AlertTriangle className="size-4 mr-1" />
-          Stop
+          Emergency Stop
         </Button>
       </div>
 

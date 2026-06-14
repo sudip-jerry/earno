@@ -94,6 +94,23 @@ export function OpportunityCard({
         </div>
       </div>
 
+      {/* Why earnO selected this */}
+      {mover.reasons && mover.reasons.length > 0 && (
+        <div className="mt-3 rounded-xl bg-muted/40 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+            Why earnO selected this
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {mover.reasons.slice(0, 5).map((r, i) => (
+              <li key={i} className="text-[11px] text-foreground leading-snug flex gap-1.5">
+                <span className="text-primary mt-0.5">•</span>
+                <span>{r}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Trade plan */}
       <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
         <div>
