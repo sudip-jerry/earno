@@ -153,6 +153,21 @@ export function OpportunityCard({
         </div>
       </div>
 
+      {/* Risk-Reward summary */}
+      {(() => {
+        const rr = slInput > 0 ? tpInput / slInput : 0;
+        const weak = rr > 0 && rr < 1.5;
+        return (
+          <div className="mt-2 flex items-center justify-between rounded-lg bg-muted/40 px-2.5 py-1.5 text-[11px]">
+            <span className="text-muted-foreground">Risk-Reward</span>
+            <span className={`tabular-nums font-semibold ${weak ? "text-amber-500" : "text-foreground"}`}>
+              {rr > 0 ? `${rr.toFixed(1)} : 1` : "—"}
+              {weak && <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wider">Weak</span>}
+            </span>
+          </div>
+        );
+      })()}
+
       <div className="mt-2 flex items-center justify-between text-[11px]">
         <button
           type="button"
@@ -162,7 +177,7 @@ export function OpportunityCard({
           {editing ? "Use auto" : "Override TP/SL"}
         </button>
         <span className="text-muted-foreground">
-          Risk <span className="tabular-nums font-medium text-foreground">{fmt(riskAmountUsd)}</span>
+          Risk per trade <span className="tabular-nums font-medium text-foreground">{fmt(riskAmountUsd)}</span>
         </span>
       </div>
 
