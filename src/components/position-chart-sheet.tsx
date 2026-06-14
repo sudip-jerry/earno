@@ -120,12 +120,12 @@ export function PositionChartSheet(props: PositionChartProps) {
       handleScale: { axisPressedMouseMove: false },
     });
     const candleOptions = {
-      upColor: "hsl(142 71% 45%)",
-      downColor: "hsl(0 84% 60%)",
-      borderUpColor: "hsl(142 71% 45%)",
-      borderDownColor: "hsl(0 84% 60%)",
-      wickUpColor: "hsl(142 71% 45%)",
-      wickDownColor: "hsl(0 84% 60%)",
+      upColor: "#16A34A",
+      downColor: "#DC2626",
+      borderUpColor: "#16A34A",
+      borderDownColor: "#DC2626",
+      wickUpColor: "#16A34A",
+      wickDownColor: "#DC2626",
       priceFormat: { type: "price", precision: 6, minMove: 0.000001 },
     } as const;
     const chartWithFallback = chart as IChartApi & {
@@ -190,13 +190,13 @@ export function PositionChartSheet(props: PositionChartProps) {
       linesRef.current.push(l);
     };
 
-    add(entryPrice, "hsl(217 91% 60%)", "Entry");
+    add(entryPrice, "#1D4ED8", "Entry");
     if (isClosed) {
-      add(exitPrice ?? null, "hsl(38 92% 50%)", "Exit");
+      add(exitPrice ?? null, "#F59E0B", "Exit");
     } else {
-      add(takeProfit ?? null, "hsl(142 71% 45%)", "Target", LineStyle.Dashed);
-      add(stopLoss ?? null, "hsl(0 84% 60%)", "Stop", LineStyle.Dashed);
-      if (currentPrice != null) add(currentPrice, "hsl(280 70% 65%)", "Current", LineStyle.Dotted);
+      add(takeProfit ?? null, "#16A34A", "Target", LineStyle.Dashed);
+      add(stopLoss ?? null, "#DC2626", "Stop", LineStyle.Dashed);
+      if (currentPrice != null) add(currentPrice, "#9333EA", "Current", LineStyle.Dotted);
     }
 
     // Markers
@@ -216,7 +216,7 @@ export function PositionChartSheet(props: PositionChartProps) {
     markers.push({
       time: clamp(openedTs) as Time,
       position: side === "long" ? "belowBar" : "aboveBar",
-      color: "hsl(217 91% 60%)",
+      color: "#1D4ED8",
       shape: side === "long" ? "arrowUp" : "arrowDown",
       text: side === "long" ? "Entry L" : "Entry S",
     });
@@ -224,7 +224,7 @@ export function PositionChartSheet(props: PositionChartProps) {
       markers.push({
         time: clamp(closedTs) as Time,
         position: side === "long" ? "aboveBar" : "belowBar",
-        color: "hsl(38 92% 50%)",
+        color: "#F59E0B",
         shape: "circle",
         text: "Exit",
       });
