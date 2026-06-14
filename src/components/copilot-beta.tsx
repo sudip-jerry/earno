@@ -9,6 +9,7 @@ import { RecommendationModal } from "@/components/recommendation-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { BetaLanding } from "@/components/beta-landing";
 import {
   Sparkles,
   TrendingUp,
@@ -187,7 +188,10 @@ export function CopilotBeta() {
   };
 
   return (
+    <>
+      <BetaLanding />
     <section className="px-5 pt-5 space-y-4">
+
       {/* Header */}
       <div className="flex items-center gap-2">
         <div className="size-8 rounded-xl bg-primary/10 text-primary grid place-items-center">
@@ -411,7 +415,9 @@ export function CopilotBeta() {
         dailyRiskAvailable={(statsQ.data?.dailyLossUsedPct ?? 0) < 100}
       />
     </section>
+    </>
   );
+
 }
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
