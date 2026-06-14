@@ -62,19 +62,19 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
       <div
         className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
           isLive
-            ? "border-destructive/30 bg-destructive/5"
+            ? "border-emerald-500/30 bg-emerald-500/10"
             : "border-amber-500/30 bg-amber-500/10"
         }`}
       >
         <span
           className={`inline-flex items-center justify-center size-6 rounded-full ${
-            isLive ? "bg-destructive/15 text-destructive" : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+            isLive ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
           }`}
         >
           {isLive ? <BadgeCheck className="size-3.5" /> : <FlaskConical className="size-3.5" />}
         </span>
         <div className="min-w-0">
-          <p className={`text-[11px] font-semibold leading-tight ${isLive ? "text-destructive" : "text-amber-700 dark:text-amber-300"}`}>
+          <p className={`text-[11px] font-semibold leading-tight ${isLive ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>
             {isLive ? "Live trading — real money" : "Paper trading — simulation only"}
           </p>
           <p className="text-[10px] text-muted-foreground leading-tight">
@@ -83,7 +83,7 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
         </div>
         <span
           className={`ml-auto inline-flex items-center gap-1 text-[10px] px-2 h-5 rounded-full font-bold tracking-wider ${
-            isLive ? "bg-destructive text-destructive-foreground" : "bg-amber-500 text-white"
+            isLive ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"
           }`}
         >
           {isLive ? "LIVE" : "PAPER"}
