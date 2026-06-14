@@ -309,8 +309,14 @@ function Home() {
 
       {tab === "Overview" && (
         <>
-          {/* 1. Wealth Engine Status — primary card */}
-          <WealthEngineStatus stats={s} />
+          {/* 1. Portfolio value + period changes (mode banner inside) */}
+          <WealthHero
+            stats={s}
+            equityFallback={equity}
+            isLive={isLive}
+            hideBalance={hideBalance}
+            onToggleHide={() => setHideBalance((v) => !v)}
+          />
 
           {/* Action row — single bot control area lives in the bottom bar */}
           <section className="px-5 mt-5">
@@ -352,22 +358,22 @@ function Home() {
             </Link>
           )}
 
-          {/* 2. Portfolio Summary */}
-          <WealthHero
-            stats={s}
-            equityFallback={equity}
-            isLive={isLive}
-            hideBalance={hideBalance}
-            onToggleHide={() => setHideBalance((v) => !v)}
-          />
+          {/* 2. Wealth Engine Status */}
+          <WealthEngineStatus stats={s} />
 
-          {/* 3. Recent Activity */}
+          {/* 3. Next milestone */}
+          <MilestoneCard stats={s} equityFallback={equity} hideBalance={hideBalance} />
+
+          {/* 4. Recent Activity */}
           <RecentActivity items={s?.recentActivity ?? []} />
 
-          {/* 4. Why no trade? (only when no open positions) */}
+          {/* 5. Performance history */}
+          <PerformanceHistoryCard stats={s} />
+
+          {/* Why no trade (only when no open positions) */}
           <WhyNoTrade stats={s} />
 
-          {/* 5. Bot Health */}
+          {/* Bot Health */}
           <BotHealth stats={s} />
 
           {/* Daily-loss meter */}
@@ -389,23 +395,25 @@ function Home() {
             </div>
           </section>
 
-          {/* 6. Detailed statistics */}
-          <section className="px-5 mt-3 grid grid-cols-2 gap-2">
-            <StatTile label="Open positions" value={`${s?.openCount ?? positions.data?.length ?? 0}`} />
-            <StatTile label="Trades today" value={`${s?.tradesToday ?? 0}`} />
-            <StatTile
-              label="Win rate"
-              value={s && s.closedAllTime > 0 ? `${(s.winRateAllTime * 100).toFixed(0)}%` : "—"}
-              sub={s ? `${s.closedAllTime} closed` : undefined}
-            />
-            <StatTile
-              label="Max drawdown"
-              value={hideBalance ? masked : (s ? fmt(s.maxDrawdown) : "—")}
-              sub={s && s.consecutiveLosses > 0 ? `${s.consecutiveLosses} loss streak` : undefined}
-            />
-          </section>
+          {/* Detailed statistics — only after enough history */}
+          {s && s.closedAllTime >= 5 && (
+            <section className="px-5 mt-3 grid grid-cols-2 gap-2">
+              <StatTile label="Open positions" value={`${s?.openCount ?? positions.data?.length ?? 0}`} />
+              <StatTile label="Trades today" value={`${s?.tradesToday ?? 0}`} />
+              <StatTile
+                label="Win rate"
+                value={`${(s.winRateAllTime * 100).toFixed(0)}%`}
+                sub={`${s.closedAllTime} closed`}
+              />
+              <StatTile
+                label="Max drawdown"
+                value={hideBalance ? masked : fmt(s.maxDrawdown)}
+                sub={s.consecutiveLosses > 0 ? `${s.consecutiveLosses} loss streak` : undefined}
+              />
+            </section>
+          )}
 
-          {/* Products list */}
+          {/* 6. Products */}
           <section className="px-5 mt-6">
             <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Products</h2>
             <div className="rounded-2xl border bg-card divide-y">
@@ -417,6 +425,7 @@ function Home() {
           </section>
         </>
       )}
+
 
       {tab === "Bot" && (
         <section className="px-5 pt-5 space-y-3">
