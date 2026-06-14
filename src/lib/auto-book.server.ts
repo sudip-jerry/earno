@@ -206,6 +206,10 @@ type BotConfig = {
   max_auto_sl_pct: number | null;
   target_multiplier: number | null;
   min_rr: number | null;
+  live_wallet_source?: string | null;
+  live_allocation_mode?: string | null;
+  live_allocation_amount?: number | null;
+  live_allocation_pct?: number | null;
 };
 
 
