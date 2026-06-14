@@ -72,7 +72,7 @@ function BetaReportPage() {
     <div className="min-h-svh bg-background pb-16">
       <header className="px-5 pt-6 pb-4 flex items-center gap-2">
         <Link
-          to="/_authenticated/admin"
+          to="/admin"
           className="size-9 grid place-items-center rounded-full hover:bg-muted -ml-2"
         >
           <ChevronLeft className="size-5" />
