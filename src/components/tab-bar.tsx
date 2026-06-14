@@ -4,7 +4,7 @@ import { LayoutDashboard, Radar, Briefcase, Flame, Settings as Cog } from "lucid
 export function TabBar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const tabs = [
-    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/", label: "Dashboard", icon: LayoutDashboard },
     { to: "/scanner", label: "Scanner", icon: Radar },
     { to: "/positions", label: "Positions", icon: Briefcase },
     { to: "/movers", label: "Movers", icon: Flame },

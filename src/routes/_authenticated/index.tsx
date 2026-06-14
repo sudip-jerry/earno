@@ -42,7 +42,7 @@ import {
   Crown as CrownIcon,
 } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/dashboard")({
+export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "Dashboard — EarnO" },
