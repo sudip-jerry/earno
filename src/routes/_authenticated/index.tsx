@@ -438,10 +438,8 @@ function Home() {
 
           {/* 6. Products */}
           <section className="px-5 mt-6">
-            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Products</h2>
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">More</h2>
             <div className="rounded-2xl border bg-card divide-y">
-              <ProductRow to="/scanner" icon={<Radar className="size-5 text-primary" />} title="Scanner" desc="Auto-book setups ranked by confidence" />
-              <ProductRow to="/positions" icon={<Briefcase className="size-5 text-primary" />} title="Positions" desc="Manage open trades & override TP/SL" />
               <ProductRow to="/movers" icon={<Flame className="size-5 text-destructive" />} title="Movers" desc="Biggest gainers and losers right now" />
               <ProductRow to="/settings" icon={<Settings className="size-5 text-muted-foreground" />} title="Settings" desc="Risk, leverage, exchange keys" />
             </div>
