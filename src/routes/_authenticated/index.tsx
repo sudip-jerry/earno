@@ -479,7 +479,11 @@ function Home() {
 
 
 
-          <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setTab("Overview")}
+            className="w-full rounded-2xl border bg-card p-4 flex items-center justify-between hover:bg-muted/40 transition text-left"
+          >
             <div className="flex items-center gap-3 min-w-0">
               <div className={`size-2.5 rounded-full shrink-0 ${isLive ? "bg-destructive" : "bg-emerald-500"}`} />
               <div className="min-w-0">
@@ -489,14 +493,8 @@ function Home() {
                 </p>
               </div>
             </div>
-            <Switch
-              checked={isLive}
-              onCheckedChange={(v) => {
-                if (v && !confirm("Switch to LIVE? Real money will be at risk.")) return;
-                toggleMode.mutate(v);
-              }}
-            />
-          </div>
+            <ChevronRight className="size-4 text-muted-foreground" />
+          </button>
 
           {isLive && (
             <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive flex items-center gap-2">
