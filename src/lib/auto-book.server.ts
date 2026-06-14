@@ -190,6 +190,23 @@ async function logEvent(
   await supabase.from("bot_events").insert({ user_id: userId, level, message });
 }
 
+async function logScanEvent(
+  supabase: SupabaseClient,
+  userId: string,
+  scanned: number,
+  opportunities: number,
+  opened: number,
+  skipped: number,
+  topConfidence: number,
+) {
+  await supabase.from("bot_events").insert({
+    user_id: userId,
+    level: "info",
+    message: `Scan complete: ${scanned} markets, ${opportunities} opportunities`,
+    meta: { kind: "scan", scanned, opportunities, opened, skipped, top_confidence: topConfidence },
+  });
+}
+
 async function logPauseEvent(supabase: SupabaseClient, userId: string, message: string) {
   const since = new Date(Date.now() - 30 * 60_000).toISOString();
   const { data } = await supabase
