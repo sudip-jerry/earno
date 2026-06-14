@@ -265,6 +265,15 @@ function Home() {
           <Link to="/settings" className="size-9 grid place-items-center rounded-full hover:bg-muted">
             <Settings className="size-5 text-muted-foreground" />
           </Link>
+          <button
+            type="button"
+            onClick={() => setShowGuide(true)}
+            className="size-9 grid place-items-center rounded-full hover:bg-muted"
+            aria-label="Get started guide"
+            title="Get started"
+          >
+            <Rocket className="size-5 text-primary" />
+          </button>
         </div>
       </header>
 
