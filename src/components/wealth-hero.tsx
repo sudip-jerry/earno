@@ -1,6 +1,7 @@
 import { Eye, EyeOff, ArrowUpRight, Target, TrendingUp, CalendarRange, Sparkles, FlaskConical, BadgeCheck } from "lucide-react";
 import type { DashboardStats, EquityPoint } from "@/lib/stats.functions";
 import { useCurrency } from "@/hooks/use-currency";
+import { Switch } from "@/components/ui/switch";
 
 type Props = {
   stats?: DashboardStats;
@@ -8,6 +9,8 @@ type Props = {
   isLive: boolean;
   hideBalance: boolean;
   onToggleHide: () => void;
+  onToggleMode?: (live: boolean) => void;
+  modePending?: boolean;
 };
 
 // Nice round milestone ladder in the user's display currency.
@@ -35,44 +38,52 @@ function toneClass(n: number | null | undefined) {
   return n >= 0 ? "text-emerald-500" : "text-destructive";
 }
 
-export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggleHide }: Props) {
+export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggleHide, onToggleMode, modePending }: Props) {
   const { fmt } = useCurrency();
   const portfolio = stats?.portfolioValue ?? equityFallback;
   const hasHistory = !!stats && stats.closedAllTime > 0;
 
   return (
     <section className="px-5 pt-5">
-      {/* Mode banner — makes paper vs live unmistakable */}
+      {/* Mode toggle — single source of truth for paper vs live */}
       <div
-        className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+        className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${
           isLive
             ? "border-emerald-500/30 bg-emerald-500/10"
             : "border-amber-500/30 bg-amber-500/10"
         }`}
       >
         <span
-          className={`inline-flex items-center justify-center size-6 rounded-full ${
+          className={`inline-flex items-center justify-center size-6 rounded-full shrink-0 ${
             isLive ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
           }`}
         >
           {isLive ? <BadgeCheck className="size-3.5" /> : <FlaskConical className="size-3.5" />}
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className={`text-[11px] font-semibold leading-tight ${isLive ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>
-            {isLive ? "Live Trading — real money" : "Paper Trading — practice value, not real money."}
+            {isLive ? "Live — real money" : "Paper — practice mode"}
           </p>
           <p className="text-[10px] text-muted-foreground leading-tight">
-            {isLive ? "Orders and P&L reflect your real account." : "Use this to test the bot without risk."}
+            All numbers below reflect this mode.
           </p>
         </div>
-        <span
-          className={`ml-auto inline-flex items-center gap-1 text-[10px] px-2 h-5 rounded-full font-bold tracking-wider ${
-            isLive ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"
-          }`}
-        >
-          {isLive ? "LIVE" : "PAPER"}
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={`text-[10px] font-semibold tracking-wider ${!isLive ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground"}`}>PAPER</span>
+          <Switch
+            checked={isLive}
+            disabled={!onToggleMode || modePending}
+            onCheckedChange={(v) => {
+              if (!onToggleMode) return;
+              if (v && !confirm("Switch to LIVE? Real money will be at risk.")) return;
+              onToggleMode(v);
+            }}
+            aria-label="Toggle paper or live trading"
+          />
+          <span className={`text-[10px] font-semibold tracking-wider ${isLive ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground"}`}>LIVE</span>
+        </div>
       </div>
+
 
       {/* Label row */}
       <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">

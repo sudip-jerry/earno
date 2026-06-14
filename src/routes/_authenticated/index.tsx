@@ -316,6 +316,8 @@ function Home() {
             isLive={isLive}
             hideBalance={hideBalance}
             onToggleHide={() => setHideBalance((v) => !v)}
+            onToggleMode={(v) => toggleMode.mutate(v)}
+            modePending={toggleMode.isPending}
           />
 
           {/* Action row — single bot control area lives in the bottom bar */}
