@@ -305,10 +305,19 @@ function PositionsPage() {
                 />
 
 
-                <div className="mt-3">
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 rounded-lg border"
+                    onClick={() => setChartOpen(p)}
+                  >
+                    <LineChart className="size-4 mr-1" />
+                    View Chart
+                  </Button>
                   <Button
                     variant="outline"
-                    className="w-full h-9 rounded-lg"
+                    className="h-9 rounded-lg"
                     disabled={closing || !live}
                     onClick={() => {
                       if (!live) return;
@@ -324,13 +333,13 @@ function PositionsPage() {
                     {closing
                       ? "Submitting…"
                       : live
-                      ? `Close · Limit @ ${fmtNum(live, 6)}`
-                      : "Waiting for live price…"}
+                      ? `Close @ ${fmtNum(live, 6)}`
+                      : "Waiting price…"}
                   </Button>
-                  <p className="text-[10px] text-muted-foreground mt-1 text-center">
-                    Limit orders pay lower CoinDCX fees than market orders.
-                  </p>
                 </div>
+                <p className="text-[10px] text-muted-foreground mt-1 text-center">
+                  Limit close uses lower CoinDCX fees than market.
+                </p>
               </li>
             );
           })}
