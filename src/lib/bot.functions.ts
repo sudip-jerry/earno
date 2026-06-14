@@ -97,6 +97,13 @@ const configSchema = z.object({
   auto_close_minutes: z.number().int().min(1).max(720).optional(),
   move_to_breakeven: z.boolean().optional(),
   min_scalp_score: z.number().int().min(0).max(100).optional(),
+  // Volatility-adjusted risk preset
+  trading_style: z.enum(["conservative", "balanced", "aggressive"]).optional(),
+  min_sl_pct: z.number().min(0.1).max(20).optional(),
+  atr_multiplier: z.number().min(0.5).max(5).optional(),
+  max_auto_sl_pct: z.number().min(0.5).max(20).optional(),
+  target_multiplier: z.number().min(0.5).max(10).optional(),
+  min_rr: z.number().min(0.5).max(10).optional(),
 });
 
 export const updateConfig = createServerFn({ method: "POST" })
