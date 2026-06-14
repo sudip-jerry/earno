@@ -573,7 +573,7 @@ function TpSlEditor({
         <div className="space-y-1">
           <div className="flex items-center justify-between text-[10px] text-muted-foreground">
             <span>Stop Loss ({side === "long" ? "<" : ">"} {fmtNum(entry, 6)})</span>
-            <UnitToggle value={slUnit} onChange={setSlUnit} />
+            <UnitToggle value={slUnit} onChange={handleSlUnit} />
           </div>
           <div className="relative">
             <input
