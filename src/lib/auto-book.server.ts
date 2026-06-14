@@ -213,6 +213,51 @@ type BotConfig = {
 };
 
 
+/** Returns the USDT capital to size positions against. Paper uses paper_equity.
+ * Live reads the user's CoinDCX wallet (futures or spot) and applies the
+ * configured allocation (full / fixed amount / % of wallet). */
+async function resolveEquity(supabase: SupabaseClient, cfg: BotConfig): Promise<number> {
+  if (cfg.mode !== "live") return Number(cfg.paper_equity ?? 0);
+
+  try {
+    const { data: creds } = await supabase
+      .from("api_credentials")
+      .select("api_key,api_secret")
+      .eq("user_id", cfg.user_id)
+      .maybeSingle();
+    if (!creds) return 0;
+
+    const { coindcxAuthedPost } = await import("@/lib/coindcx.server");
+    const source = (cfg.live_wallet_source ?? "futures") as "futures" | "spot";
+    let available = 0;
+    if (source === "spot") {
+      const r = await coindcxAuthedPost<Array<{ currency: string; balance: string }>>(
+        "/exchange/v1/users/balances",
+        creds.api_key as string,
+        creds.api_secret as string,
+      );
+      if (r.ok) available = Number(r.data.find((b) => b.currency === "USDT")?.balance ?? 0) || 0;
+    } else {
+      const r = await coindcxAuthedPost<Array<{ asset?: string; currency?: string; balance?: string; available_balance?: string }>>(
+        "/exchange/v1/derivatives/futures/wallets",
+        creds.api_key as string,
+        creds.api_secret as string,
+      );
+      if (r.ok) {
+        const row = (r.data ?? []).find((b) => (b.asset ?? b.currency) === "USDT");
+        available = Number(row?.available_balance ?? row?.balance ?? 0) || 0;
+      }
+    }
+
+    const mode = (cfg.live_allocation_mode ?? "amount") as "full" | "amount" | "percent";
+    if (mode === "full") return available;
+    if (mode === "percent") return Math.max(0, (available * Number(cfg.live_allocation_pct ?? 100)) / 100);
+    return Math.min(Number(cfg.live_allocation_amount ?? 0), available);
+  } catch {
+    return 0;
+  }
+}
+
 async function getPlanTier(supabase: SupabaseClient, userId: string): Promise<PlanTier> {
   const { data, error } = await supabase.rpc("current_plan_tier", { _user_id: userId });
   if (error) return "free";
