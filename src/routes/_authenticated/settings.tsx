@@ -8,6 +8,7 @@ import {
   getCredentialStatus,
   testConnection,
   updateConfig,
+  getWalletBalances,
 } from "@/lib/bot.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
