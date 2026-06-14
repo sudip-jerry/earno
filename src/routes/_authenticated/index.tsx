@@ -30,7 +30,7 @@ import {
   EyeOff,
   Radar,
   Briefcase,
-  ArrowUpRight,
+  Briefcase,
   Flame,
   ChevronRight,
   Zap,
