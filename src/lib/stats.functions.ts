@@ -8,6 +8,7 @@ export type ActivityItem = {
   at: string;
   level: "info" | "warn" | "error";
   message: string;
+  meta?: Record<string, unknown> | null;
 };
 
 export type EngineStatus = "active" | "paused" | "cooldown";
