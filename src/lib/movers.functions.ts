@@ -522,6 +522,7 @@ async function enrichMover(
 
   const closes5 = c5Raw?.map((k) => k.close) ?? [];
   const rsi = closes5.length >= 15 ? rsi14(closes5) : null;
+  const atrPct = c5Raw ? atrPctFromCandles(c5Raw, 14) : null;
   const vwap = c5Raw ? approxVwap(c5Raw) : null;
   const vwapStatus: Mover["vwapStatus"] = vwap == null ? "unknown" : base.price >= vwap ? "above" : "below";
   const vwapDistPct = vwap != null && vwap > 0 ? ((base.price - vwap) / vwap) * 100 : null;
