@@ -68,12 +68,8 @@ function num(x: unknown, d = 0): number {
   return Number.isFinite(n) ? n : d;
 }
 
-function autoTpSl(confidence: number): { tpPct: number; slPct: number } {
-  const c = Math.max(0, Math.min(100, confidence));
-  // 3% TP at conf<=50, 5% TP at conf>=100, linear in between.
-  const tpPct = 3 + ((Math.max(50, c) - 50) / 50) * 2;
-  return { tpPct, slPct: 20 };
-}
+
+
 
 /**
  * Build a dynamic scan universe from the CoinDCX futures ticker:
