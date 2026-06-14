@@ -47,6 +47,76 @@ function fmtPrice(n: number | null | undefined): string {
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: 6 });
 }
 
+type CandlePoint = { time: number; open: number; high: number; low: number; close: number };
+
+function MiniCandleChart({
+  candles,
+  entryPrice,
+  exitPrice,
+  currentPrice,
+}: {
+  candles: CandlePoint[];
+  entryPrice: number;
+  exitPrice?: number | null;
+  currentPrice?: number | null;
+}) {
+  const data = candles.slice(-90);
+  if (!data.length) return null;
+  const values = data.flatMap((c) => [c.high, c.low]);
+  if (Number.isFinite(entryPrice)) values.push(entryPrice);
+  if (exitPrice != null && Number.isFinite(exitPrice)) values.push(exitPrice);
+  if (currentPrice != null && Number.isFinite(currentPrice)) values.push(currentPrice);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const pad = Math.max((max - min) * 0.12, max * 0.002, 0.000001);
+  const low = min - pad;
+  const high = max + pad;
+  const W = 360;
+  const H = 340;
+  const left = 10;
+  const right = 48;
+  const top = 14;
+  const bottom = 24;
+  const plotW = W - left - right;
+  const plotH = H - top - bottom;
+  const y = (price: number) => top + ((high - price) / Math.max(high - low, 0.000001)) * plotH;
+  const x = (i: number) => left + (i / Math.max(data.length - 1, 1)) * plotW;
+  const candleW = Math.max(2, Math.min(7, (plotW / Math.max(data.length, 1)) * 0.58));
+  const line = (price: number | null | undefined, color: string, label: string) => {
+    if (price == null || !Number.isFinite(price)) return null;
+    const yy = y(price);
+    return (
+      <g key={label}>
+        <line x1={left} x2={W - right + 4} y1={yy} y2={yy} stroke={color} strokeDasharray="4 4" strokeWidth="1" />
+        <text x={W - right + 8} y={yy + 3} fill={color} fontSize="9" fontWeight="600">{label}</text>
+      </g>
+    );
+  };
+  return (
+    <svg className="absolute inset-2 h-[calc(100%-1rem)] w-[calc(100%-1rem)]" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+      {[0.25, 0.5, 0.75].map((p) => (
+        <line key={p} x1={left} x2={W - right} y1={top + plotH * p} y2={top + plotH * p} stroke="var(--border)" strokeDasharray="2 5" />
+      ))}
+      {data.map((c, i) => {
+        const xx = x(i);
+        const up = c.close >= c.open;
+        const color = up ? "#16A34A" : "#DC2626";
+        const bodyTop = y(Math.max(c.open, c.close));
+        const bodyBottom = y(Math.min(c.open, c.close));
+        return (
+          <g key={`${c.time}-${i}`}>
+            <line x1={xx} x2={xx} y1={y(c.high)} y2={y(c.low)} stroke={color} strokeWidth="1.2" />
+            <rect x={xx - candleW / 2} y={bodyTop} width={candleW} height={Math.max(1.5, bodyBottom - bodyTop)} fill={up ? color : "#fff"} stroke={color} strokeWidth="1" />
+          </g>
+        );
+      })}
+      {line(entryPrice, "#1D4ED8", "Entry")}
+      {line(exitPrice, "#F59E0B", "Exit")}
+      {line(currentPrice, "#9333EA", "Live")}
+    </svg>
+  );
+}
+
 export function PositionChartSheet(props: PositionChartProps) {
   const {
     open,
@@ -70,7 +140,7 @@ export function PositionChartSheet(props: PositionChartProps) {
   const fetchCandles = useServerFn(getChartCandles);
   const candlesQ = useQuery({
     queryKey: ["chart_candles", symbol, interval],
-    queryFn: () => fetchCandles({ data: { symbol, interval, limit: 240 } }),
+    queryFn: async () => (await fetchCandles({ data: { symbol, interval, limit: 240 } })) ?? { candles: [] },
     enabled: open,
     refetchInterval: open && !isClosed ? 15_000 : false,
     staleTime: 10_000,
