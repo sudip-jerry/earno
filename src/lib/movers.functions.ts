@@ -68,6 +68,8 @@ export type Mover = {
   // Auto TP/SL derived from confidence (TP 3–5%, SL 20%)
   tpPct: number;
   slPct: number;
+  /** ATR% (14-period over 5m candles); null when not enough data. */
+  atrPct: number | null;
 };
 
 const PUBLIC_FUTURES_TICKER =
