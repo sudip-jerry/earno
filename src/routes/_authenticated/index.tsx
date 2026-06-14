@@ -82,6 +82,7 @@ function Home() {
 
   const [tab, setTab] = useState<Tab>("Overview");
   const [hideBalance, setHideBalance] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
 
