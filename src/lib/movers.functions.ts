@@ -736,7 +736,7 @@ export const bookManualTrade = createServerFn({ method: "POST" })
 
     const { data: cfg, error: cfgErr } = await supabaseAdmin
       .from("bot_config")
-      .select("mode,leverage,risk_per_trade_pct,paper_equity,max_open_positions")
+      .select("mode,leverage,risk_per_trade_pct,paper_equity,max_open_positions,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr")
       .eq("user_id", context.userId)
       .maybeSingle();
     if (cfgErr || !cfg) throw new Error(cfgErr?.message ?? "No bot config found");
@@ -751,15 +751,19 @@ export const bookManualTrade = createServerFn({ method: "POST" })
     }
 
     const equity = Number(cfg.paper_equity ?? 0);
-    const riskPct = Number(cfg.risk_per_trade_pct ?? 1);
     const lev = Number(cfg.leverage ?? 3);
-    // Auto TP/SL from confidence (3–5% TP, 20% SL), overridable per trade.
-    const auto = autoTpSlForConfidence(data.confidence ?? 50);
-    const tp = data.tpPct ?? auto.tpPct;
-    const sl = data.slPct ?? auto.slPct;
+    const { presetFromConfig } = await import("@/lib/risk-engine");
+    const style = presetFromConfig(cfg);
+    // When user did not override, fall back to the preset floor (volatility-aware
+    // values come from the Scanner card itself and are passed in via overrides).
+    const sl = data.slPct ?? style.minSL;
+    const tp = data.tpPct ?? +(sl * style.targetMult).toFixed(2);
 
-    const notional = Math.min((equity * riskPct) / sl, equity) * lev;
+    // Position size derived from max-loss, NOT leverage.
+    const riskAmount = (equity * style.riskPct) / 100;
+    const notional = sl > 0 ? riskAmount / (sl / 100) : 0;
     const qty = notional / data.price;
+
 
     const stop_loss = data.side === "long" ? data.price * (1 - sl / 100) : data.price * (1 + sl / 100);
     const take_profit = data.side === "long" ? data.price * (1 + tp / 100) : data.price * (1 - tp / 100);
