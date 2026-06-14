@@ -33,6 +33,13 @@ import {
   Flame,
   ChevronRight,
   Zap,
+  Rocket,
+  CheckCircle2,
+  KeyRound,
+  SlidersHorizontal,
+  Bot,
+  LineChart,
+  Crown as CrownIcon,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
