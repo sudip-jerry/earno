@@ -311,6 +311,81 @@ function SettingsPage() {
         </Link>
       </header>
 
+      {/* Account section — Profile, plan, admin, help, appearance */}
+      <section className="px-5">
+        <div className="rounded-2xl border bg-card overflow-hidden">
+          {/* Profile row */}
+          <div className="flex items-center gap-3 p-4">
+            <div className="size-11 rounded-full bg-primary/10 text-primary grid place-items-center font-semibold overflow-hidden shrink-0">
+              {profile.data?.avatar_url ? (
+                <img src={profile.data.avatar_url} alt="" className="size-full object-cover" />
+              ) : (
+                (profile.data?.display_name?.[0] ?? profile.data?.email?.[0] ?? "U").toUpperCase()
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium truncate">{profile.data?.display_name ?? "Welcome"}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{profile.data?.email ?? ""}</p>
+            </div>
+            <span className={`text-[10px] px-2 h-5 inline-flex items-center rounded-full font-medium shrink-0 ${
+              tier === "unlimited" ? "bg-primary text-primary-foreground" :
+              tier === "auto5" ? "bg-primary/10 text-primary" :
+              "bg-muted text-muted-foreground"
+            }`}>
+              {PLAN_NAME[tier]}
+            </span>
+          </div>
+
+          <div className="border-t divide-y">
+            <AccountRow
+              to="/upgrade"
+              icon={tier === "unlimited" ? <Crown className="size-4 text-primary" /> : <Sparkles className="size-4 text-primary" />}
+              label="Plan &amp; Upgrade"
+              hint={tier === "unlimited" ? "You're on Unlimited" : tier === "auto5" ? "Auto-Trader plan" : "Free plan — upgrade for auto-trading"}
+            />
+            {isAdmin && (
+              <AccountRow
+                to="/admin"
+                icon={<ShieldCheck className="size-4 text-primary" />}
+                label="Admin"
+                hint="Manage users, plans, app settings"
+              />
+            )}
+            <AccountRow
+              to="/help"
+              icon={<HelpCircle className="size-4 text-muted-foreground" />}
+              label="Help &amp; Support"
+              hint="FAQs and how-to guides"
+            />
+            <AccountRow
+              to="/about"
+              icon={<Rocket className="size-4 text-muted-foreground" />}
+              label="About earn'O"
+              hint="What we do and how the bot works"
+            />
+            <div className="flex items-center gap-3 p-4">
+              <div className="size-8 rounded-full bg-muted grid place-items-center shrink-0">
+                {theme === "dark" ? <Moon className="size-4" /> : theme === "light" ? <Sun className="size-4" /> : <Monitor className="size-4" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">Appearance</p>
+                <p className="text-[11px] text-muted-foreground">Light, dark, or follow system</p>
+              </div>
+              <Select value={theme} onValueChange={(v) => setTheme(v as ThemeMode)}>
+                <SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">Light</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                  <SelectItem value="system">System</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+
       {/* CoinDCX credentials */}
       <section className="px-5">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
