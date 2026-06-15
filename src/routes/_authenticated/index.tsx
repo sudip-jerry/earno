@@ -318,23 +318,6 @@ function Home() {
         )}
       </section>
 
-      {/* Upgrade nudge — kept lower, soft */}
-      {tier === "free" && (
-        <section className="px-5 mt-6">
-          <Link
-            to="/upgrade"
-            className="block rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/5 to-transparent p-4 hover:bg-primary/5 transition"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[11px] text-muted-foreground">{PLAN_NAME[tier]} plan</p>
-                <p className="text-sm font-semibold mt-0.5">Unlock 24/7 auto-trading</p>
-              </div>
-              <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-            </div>
-          </Link>
-        </section>
-      )}
 
       {/* Secondary content — moved below the fold */}
       <div className="mt-8 space-y-2">
