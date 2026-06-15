@@ -534,15 +534,20 @@ export async function runAutoBookPass(
   return result;
 }
 
-/** Update mark_price + pnl for every open position; auto-close TP/SL. */
-export async function runMarkPass(supabase: SupabaseClient): Promise<{
+/** Update mark_price + pnl for open positions; auto-close TP/SL. Scope to a user when given. */
+export async function runMarkPass(
+  supabase: SupabaseClient,
+  opts: { userId?: string } = {},
+): Promise<{
   updated: number;
   closed: number;
 }> {
-  const { data: open } = await supabase
+  let q = supabase
     .from("positions")
     .select("id,user_id,symbol,side,leverage,qty,entry_price,take_profit,stop_loss,opened_at")
     .eq("status", "open");
+  if (opts.userId) q = q.eq("user_id", opts.userId);
+  const { data: open } = await q;
   const positions = open ?? [];
   if (!positions.length) return { updated: 0, closed: 0 };
 
