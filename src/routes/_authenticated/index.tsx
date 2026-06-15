@@ -510,11 +510,7 @@ function Home() {
 
 
 
-          <button
-            type="button"
-            onClick={() => setTab("Overview")}
-            className="w-full rounded-2xl border bg-card p-4 flex items-center justify-between hover:bg-muted/40 transition text-left"
-          >
+          <div className="w-full rounded-2xl border bg-card p-4 flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
               <div className={`size-2.5 rounded-full shrink-0 ${isLive ? "bg-destructive" : "bg-emerald-500"}`} />
               <div className="min-w-0">
@@ -524,8 +520,21 @@ function Home() {
                 </p>
               </div>
             </div>
-            <ChevronRight className="size-4 text-muted-foreground" />
-          </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={`text-[11px] font-semibold tracking-wider ${!isLive ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>PAPER</span>
+              <Switch
+                checked={isLive}
+                disabled={toggleMode.isPending}
+                onCheckedChange={(v) => {
+                  if (v) setConfirmLive(true);
+                  else toggleMode.mutate(false);
+                }}
+                aria-label="Toggle paper or live trading"
+              />
+              <span className={`text-[11px] font-semibold tracking-wider ${isLive ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>LIVE</span>
+            </div>
+          </div>
+
 
           {isLive && (
             <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive flex items-center gap-2">
