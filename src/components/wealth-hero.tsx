@@ -11,6 +11,8 @@ type Props = {
   onToggleHide: () => void;
   onToggleMode?: (live: boolean) => void;
   modePending?: boolean;
+  hideModeBanner?: boolean;
+  hide30d?: boolean;
 };
 
 // Nice round milestone ladder in the user's display currency.
@@ -38,7 +40,7 @@ function toneClass(n: number | null | undefined) {
   return n >= 0 ? "text-emerald-500" : "text-destructive";
 }
 
-export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggleHide, onToggleMode, modePending }: Props) {
+export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggleHide, onToggleMode, modePending, hideModeBanner, hide30d }: Props) {
   const { fmt } = useCurrency();
   const portfolio = stats?.portfolioValue ?? equityFallback;
   const hasHistory = !!stats && stats.closedAllTime > 0;
@@ -46,6 +48,9 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
   return (
     <section className="px-5 pt-5">
       {/* Mode toggle — single source of truth for paper vs live */}
+      {!hideModeBanner && (
+      <>
+
       <div
         className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${
           isLive
@@ -79,6 +84,9 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
           <span className={`text-[11px] font-semibold tracking-wider ${isLive ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground"}`}>LIVE</span>
         </div>
       </div>
+      </>
+      )}
+
 
 
       {/* Label row */}
@@ -112,7 +120,7 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
           </p>
         </div>
       ) : (
-        <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className={`mt-3 grid gap-2 ${hide30d ? "grid-cols-2" : "grid-cols-3"}`}>
           <WealthStat
             label="Today's Change"
             value={hideBalance ? masked : (stats ? fmt(stats.todayPnl, { signed: true }) : "—")}
@@ -125,17 +133,20 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
             pct={stats?.weekChangePct}
             icon={<TrendingUp className="size-3" />}
           />
-          <WealthStat
-            label="30-Day Change"
-            value={hideBalance ? masked : (stats ? fmt(stats.monthlyGrowthAbs, { signed: true }) : "—")}
-            pct={stats?.monthlyGrowthPct}
-            icon={<CalendarRange className="size-3" />}
-          />
+          {!hide30d && (
+            <WealthStat
+              label="30-Day Change"
+              value={hideBalance ? masked : (stats ? fmt(stats.monthlyGrowthAbs, { signed: true }) : "—")}
+              pct={stats?.monthlyGrowthPct}
+              icon={<CalendarRange className="size-3" />}
+            />
+          )}
         </div>
       )}
     </section>
   );
 }
+
 
 export function MilestoneCard({
   stats, equityFallback, hideBalance,

@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Radar, Briefcase, Flame, Settings as Cog } from "lucide-react";
+import { LayoutDashboard, Radar, Briefcase, Bot, Settings as Cog } from "lucide-react";
 
 export function TabBar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -7,7 +7,7 @@ export function TabBar() {
     { to: "/", label: "Dashboard", icon: LayoutDashboard },
     { to: "/scanner", label: "Scanner", icon: Radar },
     { to: "/positions", label: "Positions", icon: Briefcase },
-    { to: "/movers", label: "Movers", icon: Flame },
+    { to: "/bot", label: "Bot", icon: Bot },
     { to: "/settings", label: "Settings", icon: Cog },
   ] as const;
 
