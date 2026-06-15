@@ -1,0 +1,1 @@
+UPDATE public.bot_config SET is_running = true, auto_book = true WHERE user_id IN ('8a067000-6d39-4f4a-b854-70f8c86bd741','6163db97-de72-44e8-b1f6-e3d0a0c38f1b');
