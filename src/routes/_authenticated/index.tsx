@@ -187,7 +187,7 @@ function Home() {
         <img
           src={earnoStacked.url}
           alt="earn'O"
-          className="h-8 w-auto select-none"
+          className="h-11 w-auto select-none"
           draggable={false}
         />
         <div className="flex items-center gap-2 shrink-0">
