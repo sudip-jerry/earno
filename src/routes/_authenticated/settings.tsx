@@ -1081,3 +1081,26 @@ function NumberStepper({
     </div>
   );
 }
+
+function AccountRow({
+  to,
+  icon,
+  label,
+  hint,
+}: {
+  to: "/upgrade" | "/admin" | "/help" | "/about";
+  icon: React.ReactNode;
+  label: string;
+  hint?: string;
+}) {
+  return (
+    <Link to={to} className="flex items-center gap-3 p-4 hover:bg-muted/40 transition">
+      <div className="size-8 rounded-full bg-muted grid place-items-center shrink-0">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium" dangerouslySetInnerHTML={{ __html: label }} />
+        {hint ? <p className="text-[11px] text-muted-foreground truncate">{hint}</p> : null}
+      </div>
+      <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+    </Link>
+  );
+}
