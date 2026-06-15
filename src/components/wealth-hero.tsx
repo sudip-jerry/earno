@@ -11,6 +11,8 @@ type Props = {
   onToggleHide: () => void;
   onToggleMode?: (live: boolean) => void;
   modePending?: boolean;
+  hideModeBanner?: boolean;
+  hide30d?: boolean;
 };
 
 // Nice round milestone ladder in the user's display currency.
