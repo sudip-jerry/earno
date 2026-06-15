@@ -19,6 +19,7 @@ import { Route as AuthenticatedScannerRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPositionsRouteImport } from './routes/_authenticated/positions'
 import { Route as AuthenticatedMoversRouteImport } from './routes/_authenticated/movers'
 import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
+import { Route as AuthenticatedBotRouteImport } from './routes/_authenticated/bot'
 import { Route as AuthenticatedBetaReportRouteImport } from './routes/_authenticated/beta-report'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAboutRouteImport } from './routes/_authenticated/about'
@@ -74,6 +75,11 @@ const AuthenticatedHelpRoute = AuthenticatedHelpRouteImport.update({
   path: '/help',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedBotRoute = AuthenticatedBotRouteImport.update({
+  id: '/bot',
+  path: '/bot',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedBetaReportRoute = AuthenticatedBetaReportRouteImport.update({
   id: '/beta-report',
   path: '/beta-report',
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AuthenticatedAboutRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/beta-report': typeof AuthenticatedBetaReportRoute
+  '/bot': typeof AuthenticatedBotRoute
   '/help': typeof AuthenticatedHelpRoute
   '/movers': typeof AuthenticatedMoversRoute
   '/positions': typeof AuthenticatedPositionsRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/about': typeof AuthenticatedAboutRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/beta-report': typeof AuthenticatedBetaReportRoute
+  '/bot': typeof AuthenticatedBotRoute
   '/help': typeof AuthenticatedHelpRoute
   '/movers': typeof AuthenticatedMoversRoute
   '/positions': typeof AuthenticatedPositionsRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/_authenticated/about': typeof AuthenticatedAboutRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/beta-report': typeof AuthenticatedBetaReportRoute
+  '/_authenticated/bot': typeof AuthenticatedBotRoute
   '/_authenticated/help': typeof AuthenticatedHelpRoute
   '/_authenticated/movers': typeof AuthenticatedMoversRoute
   '/_authenticated/positions': typeof AuthenticatedPositionsRoute
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/beta-report'
+    | '/bot'
     | '/help'
     | '/movers'
     | '/positions'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/beta-report'
+    | '/bot'
     | '/help'
     | '/movers'
     | '/positions'
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '/_authenticated/about'
     | '/_authenticated/admin'
     | '/_authenticated/beta-report'
+    | '/_authenticated/bot'
     | '/_authenticated/help'
     | '/_authenticated/movers'
     | '/_authenticated/positions'
@@ -282,6 +294,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHelpRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/bot': {
+      id: '/_authenticated/bot'
+      path: '/bot'
+      fullPath: '/bot'
+      preLoaderRoute: typeof AuthenticatedBotRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/beta-report': {
       id: '/_authenticated/beta-report'
       path: '/beta-report'
@@ -324,6 +343,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAboutRoute: typeof AuthenticatedAboutRoute
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedBetaReportRoute: typeof AuthenticatedBetaReportRoute
+  AuthenticatedBotRoute: typeof AuthenticatedBotRoute
   AuthenticatedHelpRoute: typeof AuthenticatedHelpRoute
   AuthenticatedMoversRoute: typeof AuthenticatedMoversRoute
   AuthenticatedPositionsRoute: typeof AuthenticatedPositionsRoute
@@ -338,6 +358,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAboutRoute: AuthenticatedAboutRoute,
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedBetaReportRoute: AuthenticatedBetaReportRoute,
+  AuthenticatedBotRoute: AuthenticatedBotRoute,
   AuthenticatedHelpRoute: AuthenticatedHelpRoute,
   AuthenticatedMoversRoute: AuthenticatedMoversRoute,
   AuthenticatedPositionsRoute: AuthenticatedPositionsRoute,
@@ -360,13 +381,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
