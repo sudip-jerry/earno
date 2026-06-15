@@ -254,7 +254,7 @@ export const triggerMyAutoBookNow = createServerFn({ method: "POST" })
     const { runAutoBookPass, runMarkPass } = await import("@/lib/auto-book.server");
     const [book, mark] = await Promise.all([
       runAutoBookPass(supabaseAdmin, { userId: context.userId }),
-      runMarkPass(supabaseAdmin),
+      runMarkPass(supabaseAdmin, { userId: context.userId }),
     ]);
     return {
       ok: true,
