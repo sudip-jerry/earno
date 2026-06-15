@@ -340,7 +340,7 @@ function SettingsPage() {
             <AccountRow
               to="/upgrade"
               icon={tier === "unlimited" ? <Crown className="size-4 text-primary" /> : <Sparkles className="size-4 text-primary" />}
-              label="Plan &amp; Upgrade"
+              label={"Plan & Upgrade"}
               hint={tier === "unlimited" ? "You're on Unlimited" : tier === "auto5" ? "Auto-Trader plan" : "Free plan — upgrade for auto-trading"}
             />
             {isAdmin && (
@@ -354,7 +354,7 @@ function SettingsPage() {
             <AccountRow
               to="/help"
               icon={<HelpCircle className="size-4 text-muted-foreground" />}
-              label="Help &amp; Support"
+              label={"Help & Support"}
               hint="FAQs and how-to guides"
             />
             <AccountRow
@@ -1097,7 +1097,7 @@ function AccountRow({
     <Link to={to} className="flex items-center gap-3 p-4 hover:bg-muted/40 transition">
       <div className="size-8 rounded-full bg-muted grid place-items-center shrink-0">{icon}</div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium" dangerouslySetInnerHTML={{ __html: label }} />
+        <p className="text-sm font-medium">{label}</p>
         {hint ? <p className="text-[11px] text-muted-foreground truncate">{hint}</p> : null}
       </div>
       <ChevronRight className="size-4 text-muted-foreground shrink-0" />
