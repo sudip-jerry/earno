@@ -10,6 +10,8 @@ import {
   updateConfig,
   getWalletBalances,
 } from "@/lib/bot.functions";
+import { getMyEntitlements } from "@/lib/plans.functions";
+import { PLAN_NAME, type PlanTier } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +25,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, LogOut, Zap, AlertTriangle, Save, RotateCcw } from "lucide-react";
+import {
+  ChevronLeft,
+  HelpCircle,
+  CheckCircle2,
+  XCircle,
+  LogOut,
+  Zap,
+  AlertTriangle,
+  Save,
+  RotateCcw,
+  ShieldCheck,
+  Crown,
+  Sparkles,
+  Rocket,
+  ChevronRight,
+  Sun,
+  Moon,
+  Monitor,
+} from "lucide-react";
 import { useTheme, type ThemeMode } from "@/hooks/use-theme";
 import { useStrictness, STRICTNESS_PRESETS, type Strictness } from "@/hooks/use-strictness";
 import { useCurrency, CURRENCY_OPTIONS, CURRENCY_SYMBOL, type CurrencyCode } from "@/hooks/use-currency";
