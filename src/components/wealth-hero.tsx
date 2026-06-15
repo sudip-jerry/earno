@@ -40,7 +40,7 @@ function toneClass(n: number | null | undefined) {
   return n >= 0 ? "text-emerald-500" : "text-destructive";
 }
 
-export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggleHide, onToggleMode, modePending }: Props) {
+export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggleHide, onToggleMode, modePending, hideModeBanner, hide30d }: Props) {
   const { fmt } = useCurrency();
   const portfolio = stats?.portfolioValue ?? equityFallback;
   const hasHistory = !!stats && stats.closedAllTime > 0;
@@ -48,6 +48,9 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
   return (
     <section className="px-5 pt-5">
       {/* Mode toggle — single source of truth for paper vs live */}
+      {!hideModeBanner && (
+      <>
+
       <div
         className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${
           isLive
