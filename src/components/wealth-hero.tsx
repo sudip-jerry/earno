@@ -120,7 +120,7 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
           </p>
         </div>
       ) : (
-        <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className={`mt-3 grid gap-2 ${hide30d ? "grid-cols-2" : "grid-cols-3"}`}>
           <WealthStat
             label="Today's Change"
             value={hideBalance ? masked : (stats ? fmt(stats.todayPnl, { signed: true }) : "—")}
