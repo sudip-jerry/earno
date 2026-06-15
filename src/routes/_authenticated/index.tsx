@@ -399,3 +399,31 @@ function Metric({ label, value, icon }: { label: string; value: string; icon?: R
     </div>
   );
 }
+
+function MarketTogglePill() {
+  const { market, setMarket } = useMarketMode();
+  const opts: { v: MarketMode; label: string }[] = [
+    { v: "futures", label: "Futures" },
+    { v: "spot", label: "Coins" },
+  ];
+  return (
+    <div className="inline-flex rounded-full bg-muted/60 p-0.5 text-[11px] font-medium">
+      {opts.map((o) => {
+        const active = market === o.v;
+        return (
+          <button
+            key={o.v}
+            type="button"
+            onClick={() => setMarket(o.v)}
+            className={`px-2.5 h-6 rounded-full transition ${
+              active ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
