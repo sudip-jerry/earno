@@ -28,8 +28,10 @@ import {
   Activity,
   Sparkles,
   MessageCircle,
+  Crown,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useMarketMode, type MarketMode } from "@/hooks/use-market-mode";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -180,7 +182,7 @@ function Home() {
 
   return (
     <div className="min-h-svh bg-background pb-28">
-      {/* Calm header — brand left, mode pill right */}
+      {/* Calm header — brand · market toggle · mode pill */}
       <header className="px-5 pt-5 pb-2 flex items-center justify-between gap-3">
         <img
           src={earnoStacked.url}
@@ -188,23 +190,42 @@ function Home() {
           className="h-8 w-auto select-none"
           draggable={false}
         />
-        <button
-          type="button"
-          onClick={() => {
-            if (isLive) toggleMode.mutate(false);
-            else setConfirmLive(true);
-          }}
-          className={`inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-wider px-2.5 h-7 rounded-full transition ${
-            isLive
-              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15"
-              : "bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/15"
-          }`}
-          aria-label="Toggle paper or live trading"
-        >
-          <span className={`size-1.5 rounded-full ${isLive ? "bg-emerald-500" : "bg-amber-500"}`} />
-          {isLive ? "LIVE" : "PAPER"}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <MarketTogglePill />
+          <button
+            type="button"
+            onClick={() => {
+              if (isLive) toggleMode.mutate(false);
+              else setConfirmLive(true);
+            }}
+            className={`inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-wider px-2.5 h-7 rounded-full transition ${
+              isLive
+                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15"
+                : "bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/15"
+            }`}
+            aria-label="Toggle paper or live trading"
+          >
+            <span className={`size-1.5 rounded-full ${isLive ? "bg-emerald-500" : "bg-amber-500"}`} />
+            {isLive ? "LIVE" : "PAPER"}
+          </button>
+        </div>
       </header>
+
+      {/* Lean upgrade strip — only for free tier, sits high but stays subtle */}
+      {tier === "free" && (
+        <Link
+          to="/upgrade"
+          className="mx-5 mt-2 flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-primary/[0.04] px-3 py-2 hover:bg-primary/[0.07] transition"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <Crown className="size-3.5 text-primary shrink-0" />
+            <p className="text-[12px] font-medium truncate">
+              Unlock 24/7 auto-trading
+            </p>
+          </div>
+          <span className="text-[11px] font-semibold text-primary shrink-0">Upgrade →</span>
+        </Link>
+      )}
 
       {/* 1. Portfolio summary (mode banner hidden, 30-day hidden until enough history) */}
       <WealthHero
@@ -216,6 +237,7 @@ function Home() {
         hideModeBanner
         hide30d={!s || s.closedAllTime < 30}
       />
+
 
       {/* 2. Wealth Engine status — calm */}
       <section className="px-5 mt-6">
@@ -296,23 +318,6 @@ function Home() {
         )}
       </section>
 
-      {/* Upgrade nudge — kept lower, soft */}
-      {tier === "free" && (
-        <section className="px-5 mt-6">
-          <Link
-            to="/upgrade"
-            className="block rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/5 to-transparent p-4 hover:bg-primary/5 transition"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[11px] text-muted-foreground">{PLAN_NAME[tier]} plan</p>
-                <p className="text-sm font-semibold mt-0.5">Unlock 24/7 auto-trading</p>
-              </div>
-              <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-            </div>
-          </Link>
-        </section>
-      )}
 
       {/* Secondary content — moved below the fold */}
       <div className="mt-8 space-y-2">
@@ -394,3 +399,31 @@ function Metric({ label, value, icon }: { label: string; value: string; icon?: R
     </div>
   );
 }
+
+function MarketTogglePill() {
+  const { market, setMarket } = useMarketMode();
+  const opts: { v: MarketMode; label: string }[] = [
+    { v: "futures", label: "Futures" },
+    { v: "spot", label: "Coins" },
+  ];
+  return (
+    <div className="inline-flex rounded-full bg-muted/60 p-0.5 text-[11px] font-medium">
+      {opts.map((o) => {
+        const active = market === o.v;
+        return (
+          <button
+            key={o.v}
+            type="button"
+            onClick={() => setMarket(o.v)}
+            className={`px-2.5 h-6 rounded-full transition ${
+              active ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+

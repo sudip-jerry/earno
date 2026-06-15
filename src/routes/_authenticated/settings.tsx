@@ -10,6 +10,8 @@ import {
   updateConfig,
   getWalletBalances,
 } from "@/lib/bot.functions";
+import { getMyEntitlements } from "@/lib/plans.functions";
+import { PLAN_NAME, type PlanTier } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +25,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, LogOut, Zap, AlertTriangle, Save, RotateCcw } from "lucide-react";
+import {
+  ChevronLeft,
+  HelpCircle,
+  CheckCircle2,
+  XCircle,
+  LogOut,
+  Zap,
+  AlertTriangle,
+  Save,
+  RotateCcw,
+  ShieldCheck,
+  Crown,
+  Sparkles,
+  Rocket,
+  ChevronRight,
+  Sun,
+  Moon,
+  Monitor,
+} from "lucide-react";
 import { useTheme, type ThemeMode } from "@/hooks/use-theme";
 import { useStrictness, STRICTNESS_PRESETS, type Strictness } from "@/hooks/use-strictness";
 import { useCurrency, CURRENCY_OPTIONS, CURRENCY_SYMBOL, type CurrencyCode } from "@/hooks/use-currency";
@@ -180,6 +200,8 @@ function SettingsPage() {
   const testFn = useServerFn(testConnection);
   const updateFn = useServerFn(updateConfig);
   const walletsFn = useServerFn(getWalletBalances);
+  const entFn = useServerFn(getMyEntitlements);
+  const { theme, setTheme } = useTheme();
 
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
@@ -188,6 +210,28 @@ function SettingsPage() {
   const status = useQuery({
     queryKey: ["cred_status"],
     queryFn: () => statusFn({ data: undefined }),
+  });
+
+  const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
+  const tier: PlanTier = ent.data?.tier ?? "free";
+  const isAdmin = !!ent.data?.isAdmin;
+
+  const profile = useQuery({
+    queryKey: ["my_profile"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("display_name,email")
+        .eq("id", u.user.id)
+        .maybeSingle();
+      return {
+        display_name: (data?.display_name as string | null) ?? (u.user.user_metadata?.full_name as string | undefined) ?? null,
+        email: (data?.email as string | null) ?? u.user.email ?? null,
+        avatar_url: (u.user.user_metadata?.avatar_url as string | undefined) ?? null,
+      };
+    },
   });
 
   const cfg = useQuery({
@@ -266,6 +310,81 @@ function SettingsPage() {
           <HelpCircle className="size-5 text-muted-foreground" />
         </Link>
       </header>
+
+      {/* Account section — Profile, plan, admin, help, appearance */}
+      <section className="px-5">
+        <div className="rounded-2xl border bg-card overflow-hidden">
+          {/* Profile row */}
+          <div className="flex items-center gap-3 p-4">
+            <div className="size-11 rounded-full bg-primary/10 text-primary grid place-items-center font-semibold overflow-hidden shrink-0">
+              {profile.data?.avatar_url ? (
+                <img src={profile.data.avatar_url} alt="" className="size-full object-cover" />
+              ) : (
+                (profile.data?.display_name?.[0] ?? profile.data?.email?.[0] ?? "U").toUpperCase()
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium truncate">{profile.data?.display_name ?? "Welcome"}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{profile.data?.email ?? ""}</p>
+            </div>
+            <span className={`text-[10px] px-2 h-5 inline-flex items-center rounded-full font-medium shrink-0 ${
+              tier === "unlimited" ? "bg-primary text-primary-foreground" :
+              tier === "auto5" ? "bg-primary/10 text-primary" :
+              "bg-muted text-muted-foreground"
+            }`}>
+              {PLAN_NAME[tier]}
+            </span>
+          </div>
+
+          <div className="border-t divide-y">
+            <AccountRow
+              to="/upgrade"
+              icon={tier === "unlimited" ? <Crown className="size-4 text-primary" /> : <Sparkles className="size-4 text-primary" />}
+              label={"Plan & Upgrade"}
+              hint={tier === "unlimited" ? "You're on Unlimited" : tier === "auto5" ? "Auto-Trader plan" : "Free plan — upgrade for auto-trading"}
+            />
+            {isAdmin && (
+              <AccountRow
+                to="/admin"
+                icon={<ShieldCheck className="size-4 text-primary" />}
+                label="Admin"
+                hint="Manage users, plans, app settings"
+              />
+            )}
+            <AccountRow
+              to="/help"
+              icon={<HelpCircle className="size-4 text-muted-foreground" />}
+              label={"Help & Support"}
+              hint="FAQs and how-to guides"
+            />
+            <AccountRow
+              to="/about"
+              icon={<Rocket className="size-4 text-muted-foreground" />}
+              label="About earn'O"
+              hint="What we do and how the bot works"
+            />
+            <div className="flex items-center gap-3 p-4">
+              <div className="size-8 rounded-full bg-muted grid place-items-center shrink-0">
+                {theme === "dark" ? <Moon className="size-4" /> : theme === "light" ? <Sun className="size-4" /> : <Monitor className="size-4" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">Appearance</p>
+                <p className="text-[11px] text-muted-foreground">Light, dark, or follow system</p>
+              </div>
+              <Select value={theme} onValueChange={(v) => setTheme(v as ThemeMode)}>
+                <SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">Light</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                  <SelectItem value="system">System</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
 
       {/* CoinDCX credentials */}
       <section className="px-5">
@@ -960,5 +1079,28 @@ function NumberStepper({
         +
       </Button>
     </div>
+  );
+}
+
+function AccountRow({
+  to,
+  icon,
+  label,
+  hint,
+}: {
+  to: "/upgrade" | "/admin" | "/help" | "/about";
+  icon: React.ReactNode;
+  label: string;
+  hint?: string;
+}) {
+  return (
+    <Link to={to} className="flex items-center gap-3 p-4 hover:bg-muted/40 transition">
+      <div className="size-8 rounded-full bg-muted grid place-items-center shrink-0">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{label}</p>
+        {hint ? <p className="text-[11px] text-muted-foreground truncate">{hint}</p> : null}
+      </div>
+      <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+    </Link>
   );
 }
