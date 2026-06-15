@@ -133,17 +133,20 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
             pct={stats?.weekChangePct}
             icon={<TrendingUp className="size-3" />}
           />
-          <WealthStat
-            label="30-Day Change"
-            value={hideBalance ? masked : (stats ? fmt(stats.monthlyGrowthAbs, { signed: true }) : "—")}
-            pct={stats?.monthlyGrowthPct}
-            icon={<CalendarRange className="size-3" />}
-          />
+          {!hide30d && (
+            <WealthStat
+              label="30-Day Change"
+              value={hideBalance ? masked : (stats ? fmt(stats.monthlyGrowthAbs, { signed: true }) : "—")}
+              pct={stats?.monthlyGrowthPct}
+              icon={<CalendarRange className="size-3" />}
+            />
+          )}
         </div>
       )}
     </section>
   );
 }
+
 
 export function MilestoneCard({
   stats, equityFallback, hideBalance,
