@@ -84,6 +84,9 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
           <span className={`text-[11px] font-semibold tracking-wider ${isLive ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground"}`}>LIVE</span>
         </div>
       </div>
+      </>
+      )}
+
 
 
       {/* Label row */}
