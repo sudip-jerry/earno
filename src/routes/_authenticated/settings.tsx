@@ -200,6 +200,8 @@ function SettingsPage() {
   const testFn = useServerFn(testConnection);
   const updateFn = useServerFn(updateConfig);
   const walletsFn = useServerFn(getWalletBalances);
+  const entFn = useServerFn(getMyEntitlements);
+  const { theme, setTheme } = useTheme();
 
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
@@ -208,6 +210,28 @@ function SettingsPage() {
   const status = useQuery({
     queryKey: ["cred_status"],
     queryFn: () => statusFn({ data: undefined }),
+  });
+
+  const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
+  const tier: PlanTier = ent.data?.tier ?? "free";
+  const isAdmin = !!ent.data?.isAdmin;
+
+  const profile = useQuery({
+    queryKey: ["my_profile"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("display_name,email")
+        .eq("id", u.user.id)
+        .maybeSingle();
+      return {
+        display_name: (data?.display_name as string | null) ?? (u.user.user_metadata?.full_name as string | undefined) ?? null,
+        email: (data?.email as string | null) ?? u.user.email ?? null,
+        avatar_url: (u.user.user_metadata?.avatar_url as string | undefined) ?? null,
+      };
+    },
   });
 
   const cfg = useQuery({
