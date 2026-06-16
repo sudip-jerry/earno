@@ -92,6 +92,7 @@ export type Database = {
           move_to_breakeven: boolean
           paper_equity: number
           risk_per_trade_pct: number
+          scan_interval_minutes: number
           scanner_top_n: number
           stop_loss_pct: number
           strategy: string
@@ -129,6 +130,7 @@ export type Database = {
           move_to_breakeven?: boolean
           paper_equity?: number
           risk_per_trade_pct?: number
+          scan_interval_minutes?: number
           scanner_top_n?: number
           stop_loss_pct?: number
           strategy?: string
@@ -166,6 +168,7 @@ export type Database = {
           move_to_breakeven?: boolean
           paper_equity?: number
           risk_per_trade_pct?: number
+          scan_interval_minutes?: number
           scanner_top_n?: number
           stop_loss_pct?: number
           strategy?: string
