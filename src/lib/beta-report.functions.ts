@@ -44,6 +44,27 @@ export type TuneSuggestion = {
   patch: Partial<Cfg>;
 };
 
+export type DayStats = {
+  closed: number;
+  open: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  pnl: number;
+  avgPnlPct: number;
+  bestTrade: number;
+  worstTrade: number;
+  longTrades: number;
+  longWins: number;
+  longPnl: number;
+  longWinRate: number;
+  shortTrades: number;
+  shortWins: number;
+  shortPnl: number;
+  shortWinRate: number;
+  topCloseReason: string | null;
+};
+
 export type TesterReport = {
   userId: string;
   email: string | null;
@@ -64,10 +85,57 @@ export type TesterReport = {
   maxDrawdown: number;
   profitFactor: number;
   settings: Cfg | null;
+  today: DayStats;
   diagnosis: string[];
   diagnosisStage: "none" | "early" | "ready";
   suggestions: TuneSuggestion[];
 };
+
+function emptyDay(): DayStats {
+  return {
+    closed: 0, open: 0, wins: 0, losses: 0, winRate: 0, pnl: 0, avgPnlPct: 0,
+    bestTrade: 0, worstTrade: 0,
+    longTrades: 0, longWins: 0, longPnl: 0, longWinRate: 0,
+    shortTrades: 0, shortWins: 0, shortPnl: 0, shortWinRate: 0,
+    topCloseReason: null,
+  };
+}
+
+function computeDayStats(positions: Pos[], sinceIso: string): DayStats {
+  const since = new Date(sinceIso).getTime();
+  const closedToday = positions.filter(
+    (t) => t.status === "closed" && t.closed_at && new Date(t.closed_at).getTime() >= since,
+  );
+  const openedToday = positions.filter((t) => new Date(t.opened_at).getTime() >= since);
+  if (closedToday.length === 0 && openedToday.length === 0) return emptyDay();
+  const wins = closedToday.filter((t) => Number(t.pnl ?? 0) > 0).length;
+  const losses = closedToday.filter((t) => Number(t.pnl ?? 0) < 0).length;
+  const pnl = closedToday.reduce((s, t) => s + Number(t.pnl ?? 0), 0);
+  const avgPnlPct = closedToday.length
+    ? closedToday.reduce((s, t) => s + Number(t.pnl_pct ?? 0), 0) / closedToday.length
+    : 0;
+  const longs = closedToday.filter((t) => t.side === "long");
+  const shorts = closedToday.filter((t) => t.side === "short");
+  const longWins = longs.filter((t) => Number(t.pnl ?? 0) > 0).length;
+  const shortWins = shorts.filter((t) => Number(t.pnl ?? 0) > 0).length;
+  const pnls = closedToday.map((t) => Number(t.pnl ?? 0));
+  return {
+    closed: closedToday.length,
+    open: openedToday.filter((t) => t.status === "open").length,
+    wins, losses,
+    winRate: closedToday.length ? (wins / closedToday.length) * 100 : 0,
+    pnl, avgPnlPct,
+    bestTrade: pnls.length ? Math.max(...pnls) : 0,
+    worstTrade: pnls.length ? Math.min(...pnls) : 0,
+    longTrades: longs.length, longWins,
+    longPnl: longs.reduce((s, t) => s + Number(t.pnl ?? 0), 0),
+    longWinRate: longs.length ? (longWins / longs.length) * 100 : 0,
+    shortTrades: shorts.length, shortWins,
+    shortPnl: shorts.reduce((s, t) => s + Number(t.pnl ?? 0), 0),
+    shortWinRate: shorts.length ? (shortWins / shorts.length) * 100 : 0,
+    topCloseReason: topMode(closedToday.map((t) => t.exit_reason)),
+  };
+}
 
 function profitFactor(closed: Pos[]): number {
   let gain = 0,
@@ -241,6 +309,12 @@ export const getBetaReport = createServerFn({ method: "GET" })
       byUser.set(p.user_id, a);
     }
 
+    const sinceIso = (() => {
+      const d = new Date();
+      d.setUTCHours(0, 0, 0, 0);
+      return d.toISOString();
+    })();
+
     const testers: TesterReport[] = [];
     for (const p of profiles ?? []) {
       const trades = byUser.get(p.id) ?? [];
@@ -287,6 +361,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
         maxDrawdown: maxDrawdown(closed),
         profitFactor: profitFactor(closed),
         settings: cfgMap.get(p.id) ?? null,
+        today: computeDayStats(trades, sinceIso),
       };
       const stage: TesterReport["diagnosisStage"] =
         closed.length < 30 ? "none" : closed.length <= 50 ? "early" : "ready";
@@ -294,6 +369,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
         stage === "ready" ? buildDiagnosis(base) : { diagnosis: [], suggestions: [] };
       testers.push({ ...base, diagnosisStage: stage, diagnosis, suggestions });
     }
+
 
     testers.sort((a, b) => b.realizedPnl - a.realizedPnl);
 
@@ -326,6 +402,26 @@ export const getBetaReport = createServerFn({ method: "GET" })
         return m.slice(idx, idx + 80);
       })
       .filter(Boolean) as string[];
+
+    const todayGlobal = computeDayStats(allPos, sinceIso);
+    const todayBySymbol = new Map<string, number>();
+    const todayClosed = allPos.filter(
+      (t) => t.status === "closed" && t.closed_at && new Date(t.closed_at).getTime() >= new Date(sinceIso).getTime(),
+    );
+    for (const t of todayClosed) {
+      todayBySymbol.set(t.symbol, (todayBySymbol.get(t.symbol) ?? 0) + Number(t.pnl ?? 0));
+    }
+    let todayBestPair: string | null = null,
+      todayWorstPair: string | null = null,
+      tbp = -Infinity,
+      twp = Infinity;
+    for (const [s, p] of todayBySymbol) {
+      if (p > tbp) ((todayBestPair = s), (tbp = p));
+      if (p < twp) ((todayWorstPair = s), (twp = p));
+    }
+    const todayActiveTesters = testers.filter(
+      (t) => t.today.closed > 0 || t.today.open > 0,
+    ).length;
 
     return {
       testers,
@@ -377,9 +473,15 @@ export const getBetaReport = createServerFn({ method: "GET" })
         worstPair,
         topCloseReason: topMode(closedAll.map((t) => t.exit_reason)),
         topSkipReason: topMode(skipReasons),
+        today: todayGlobal,
+        todayActiveTesters,
+        todayBestPair,
+        todayWorstPair,
+        todaySinceIso: sinceIso,
       },
     };
   });
+
 
 const tunePatchSchema = z.object({
   userId: z.string().uuid(),

@@ -111,6 +111,68 @@ function BetaReportPage() {
             />
           </section>
 
+          <section className="px-5 mt-5">
+            <div className="flex items-baseline justify-between mb-2">
+              <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Today (since 00:00 UTC)
+              </h2>
+              <span className="text-[10px] text-muted-foreground">
+                {s.todayActiveTesters} active
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <Tile
+                label="PnL"
+                value={money(s.today.pnl)}
+                tone={s.today.pnl >= 0 ? "pos" : "neg"}
+              />
+              <Tile label="Closed" value={`${s.today.closed}`} />
+              <Tile label="Open" value={`${s.today.open}`} />
+              <Tile
+                label="Win %"
+                value={`${fmt(s.today.winRate, 1)}%`}
+                tone={s.today.winRate >= 50 ? "pos" : s.today.winRate > 0 ? "neg" : undefined}
+              />
+              <Tile label="Wins" value={`${s.today.wins}`} tone="pos" />
+              <Tile label="Losses" value={`${s.today.losses}`} tone="neg" />
+              <Tile
+                label="Longs"
+                value={`${s.today.longTrades} · ${fmt(s.today.longWinRate, 0)}%`}
+              />
+              <Tile
+                label="L PnL"
+                value={money(s.today.longPnl)}
+                tone={s.today.longPnl >= 0 ? "pos" : "neg"}
+              />
+              <Tile
+                label="Best"
+                value={money(s.today.bestTrade)}
+                tone="pos"
+              />
+              <Tile
+                label="Shorts"
+                value={`${s.today.shortTrades} · ${fmt(s.today.shortWinRate, 0)}%`}
+              />
+              <Tile
+                label="S PnL"
+                value={money(s.today.shortPnl)}
+                tone={s.today.shortPnl >= 0 ? "pos" : "neg"}
+              />
+              <Tile
+                label="Worst"
+                value={money(s.today.worstTrade)}
+                tone="neg"
+              />
+              <Tile label="Avg %" value={pct(s.today.avgPnlPct)} />
+              <Tile label="Top exit" value={s.today.topCloseReason ?? "—"} />
+              <Tile
+                label="Best/Worst pair"
+                value={`${s.todayBestPair ?? "—"} / ${s.todayWorstPair ?? "—"}`}
+              />
+            </div>
+          </section>
+
+
           <section className="px-5 mt-4 grid grid-cols-2 gap-2 text-xs">
             <Card label="Best tester">
               {s.bestTester ? (
@@ -265,6 +327,43 @@ function TesterCard({
           v={`${fmt(t.longWinRate, 0)}/${fmt(t.shortWinRate, 0)}%`}
         />
       </div>
+
+      <div className="mt-3 rounded-lg border bg-muted/40 p-2">
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+            Today
+          </p>
+          <p
+            className={`text-xs font-semibold tabular-nums ${t.today.pnl >= 0 ? "text-emerald-500" : "text-destructive"}`}
+          >
+            {money(t.today.pnl)}
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-1.5 text-[11px]">
+          <Stat k="Closed" v={`${t.today.closed}`} />
+          <Stat k="Open" v={`${t.today.open}`} />
+          <Stat
+            k="Win %"
+            v={`${fmt(t.today.winRate, 0)}%`}
+            tone={t.today.winRate >= 50 ? "pos" : t.today.winRate > 0 ? "neg" : undefined}
+          />
+          <Stat
+            k={`Longs ${t.today.longTrades}`}
+            v={`${fmt(t.today.longWinRate, 0)}% · ${money(t.today.longPnl)}`}
+            tone={t.today.longPnl >= 0 ? "pos" : "neg"}
+          />
+          <Stat
+            k={`Shorts ${t.today.shortTrades}`}
+            v={`${fmt(t.today.shortWinRate, 0)}% · ${money(t.today.shortPnl)}`}
+            tone={t.today.shortPnl >= 0 ? "pos" : "neg"}
+          />
+          <Stat k="Avg %" v={pct(t.today.avgPnlPct)} />
+          <Stat k="Best" v={money(t.today.bestTrade)} tone="pos" />
+          <Stat k="Worst" v={money(t.today.worstTrade)} tone="neg" />
+          <Stat k="Top exit" v={t.today.topCloseReason ?? "—"} />
+        </div>
+      </div>
+
 
       {t.settings && (
         <div className="mt-3 rounded-lg border bg-muted/40 p-2 text-[11px] text-muted-foreground">
