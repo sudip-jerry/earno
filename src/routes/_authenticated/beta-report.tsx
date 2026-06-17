@@ -108,6 +108,10 @@ function BetaReportPage() {
 
       <ExportBar />
 
+      <TuningActionsSection actions={tuningActions} />
+
+
+
       {!s ? (
         <div className="px-5 text-sm text-muted-foreground">Loading report…</div>
       ) : (
