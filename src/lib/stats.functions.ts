@@ -72,6 +72,10 @@ export type DashboardStats = {
   lastAnalysisAt: string | null;
   riskHealthy: boolean;
   riskReason: string | null;
+  dailyLossCapPct: number;
+  maxTradesPerDay: number;
+  maxOpenPositions: number;
+  cooldownMinutes: number;
 
   // Why no trade
   topConfidenceToday: number;
