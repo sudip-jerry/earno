@@ -96,6 +96,7 @@ function Home() {
   const [hideBalance, setHideBalance] = useState(false);
   const [confirmLive, setConfirmLive] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
+  const [riskOpen, setRiskOpen] = useState(false);
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
 
