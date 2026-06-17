@@ -519,3 +519,218 @@ export const adminApplyTune = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
+// ---------- CSV exports (admin) ----------
+
+function csvCell(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === "object") {
+    const s = JSON.stringify(v);
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  const s = String(v);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function toCsv(rows: Record<string, unknown>[], columns?: string[]): string {
+  if (rows.length === 0) return (columns ?? []).join(",") + "\n";
+  const cols = columns ?? Array.from(
+    rows.reduce((set, r) => {
+      Object.keys(r).forEach((k) => set.add(k));
+      return set;
+    }, new Set<string>()),
+  );
+  const head = cols.join(",");
+  const body = rows
+    .map((r) => cols.map((c) => csvCell(r[c])).join(","))
+    .join("\n");
+  return head + "\n" + body + "\n";
+}
+
+export const exportAllTradesCsv = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const [{ data: positions, error: e1 }, { data: profiles, error: e2 }] =
+      await Promise.all([
+        supabaseAdmin
+          .from("positions")
+          .select("*")
+          .order("opened_at", { ascending: false })
+          .limit(50000),
+        supabaseAdmin.from("profiles").select("id,email,display_name"),
+      ]);
+    if (e1) throw new Error(e1.message);
+    if (e2) throw new Error(e2.message);
+
+    const pMap = new Map<string, { email: string | null; name: string | null }>();
+    for (const p of profiles ?? []) {
+      pMap.set(p.id, { email: p.email ?? null, name: p.display_name ?? null });
+    }
+
+    const rows = (positions ?? []).map((t) => {
+      const u = pMap.get(t.user_id);
+      const opened = t.opened_at ? new Date(t.opened_at).getTime() : null;
+      const closed = t.closed_at ? new Date(t.closed_at).getTime() : null;
+      return {
+        user_email: u?.email ?? "",
+        user_name: u?.name ?? "",
+        user_id: t.user_id,
+        position_id: t.id,
+        mode: t.mode,
+        symbol: t.symbol,
+        instrument: t.instrument ?? "",
+        side: t.side,
+        status: t.status,
+        leverage: t.leverage,
+        qty: t.qty,
+        entry_price: t.entry_price,
+        mark_price: t.mark_price ?? "",
+        stop_loss: t.stop_loss ?? "",
+        take_profit: t.take_profit ?? "",
+        exit_price: t.exit_price ?? "",
+        exit_reason: t.exit_reason ?? "",
+        pnl: t.pnl ?? "",
+        pnl_pct: t.pnl_pct ?? "",
+        exchange_order_id: t.exchange_order_id ?? "",
+        opened_at: t.opened_at,
+        closed_at: t.closed_at ?? "",
+        hold_minutes:
+          opened && closed ? Math.round((closed - opened) / 60_000) : "",
+        updated_at: t.updated_at,
+      };
+    });
+
+    return { csv: toCsv(rows), count: rows.length };
+  });
+
+export const exportSignalsCsv = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const [{ data: events, error: e1 }, { data: profiles, error: e2 }] =
+      await Promise.all([
+        supabaseAdmin
+          .from("bot_events")
+          .select("*")
+          .in("level", ["signal", "trade"])
+          .order("created_at", { ascending: false })
+          .limit(50000),
+        supabaseAdmin.from("profiles").select("id,email,display_name"),
+      ]);
+    if (e1) throw new Error(e1.message);
+    if (e2) throw new Error(e2.message);
+
+    const pMap = new Map<string, { email: string | null; name: string | null }>();
+    for (const p of profiles ?? []) {
+      pMap.set(p.id, { email: p.email ?? null, name: p.display_name ?? null });
+    }
+
+    const rows = (events ?? []).map((e) => {
+      const u = pMap.get(e.user_id);
+      return {
+        created_at: e.created_at,
+        user_email: u?.email ?? "",
+        user_id: e.user_id,
+        level: e.level,
+        message: e.message,
+        meta: e.meta ?? "",
+        event_id: e.id,
+      };
+    });
+
+    return { csv: toCsv(rows), count: rows.length };
+  });
+
+export const exportAlgoConfigsCsv = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const [{ data: cfgs, error: e1 }, { data: profiles, error: e2 }] =
+      await Promise.all([
+        supabaseAdmin.from("bot_config").select("*").order("updated_at", { ascending: false }),
+        supabaseAdmin.from("profiles").select("id,email,display_name"),
+      ]);
+    if (e1) throw new Error(e1.message);
+    if (e2) throw new Error(e2.message);
+
+    const pMap = new Map<string, { email: string | null; name: string | null }>();
+    for (const p of profiles ?? []) {
+      pMap.set(p.id, { email: p.email ?? null, name: p.display_name ?? null });
+    }
+
+    const rows = (cfgs ?? []).map((c) => ({
+      user_email: pMap.get(c.user_id)?.email ?? "",
+      user_name: pMap.get(c.user_id)?.name ?? "",
+      ...c,
+    }));
+
+    return { csv: toCsv(rows), count: rows.length };
+  });
+
+export const getAlgoConfigsOverview = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const [{ data: cfgs, error: e1 }, { data: profiles, error: e2 }, { data: tuneEvents }] =
+      await Promise.all([
+        supabaseAdmin.from("bot_config").select("*").order("updated_at", { ascending: false }),
+        supabaseAdmin.from("profiles").select("id,email,display_name"),
+        supabaseAdmin
+          .from("bot_events")
+          .select("user_id,message,meta,created_at")
+          .ilike("message", "Admin applied tune%")
+          .order("created_at", { ascending: false })
+          .limit(500),
+      ]);
+    if (e1) throw new Error(e1.message);
+    if (e2) throw new Error(e2.message);
+
+    const pMap = new Map<string, { email: string | null; name: string | null }>();
+    for (const p of profiles ?? []) {
+      pMap.set(p.id, { email: p.email ?? null, name: p.display_name ?? null });
+    }
+
+    return {
+      configs: (cfgs ?? []).map((c) => ({
+        user_id: c.user_id,
+        user_email: pMap.get(c.user_id)?.email ?? null,
+        user_name: pMap.get(c.user_id)?.name ?? null,
+        mode: c.mode,
+        is_running: c.is_running,
+        trading_style: c.trading_style,
+        atr_multiplier: Number(c.atr_multiplier),
+        target_multiplier: Number(c.target_multiplier),
+        min_rr: Number(c.min_rr),
+        risk_per_trade_pct: Number(c.risk_per_trade_pct),
+        max_open_positions: c.max_open_positions,
+        max_trades_per_day: c.max_trades_per_day,
+        auto_close_minutes: c.auto_close_minutes,
+        min_scalp_score: c.min_scalp_score,
+        allow_long: c.allow_long,
+        allow_short: c.allow_short,
+        leverage: c.leverage,
+        cooldown_minutes: c.cooldown_minutes,
+        daily_loss_cap_pct: Number(c.daily_loss_cap_pct),
+        scan_interval_minutes: c.scan_interval_minutes,
+        updated_at: c.updated_at,
+      })),
+      recentTunes: (tuneEvents ?? []).map((e) => ({
+        user_email: pMap.get(e.user_id)?.email ?? null,
+        user_id: e.user_id,
+        message: e.message,
+        meta: e.meta,
+        created_at: e.created_at,
+      })),
+    };
+  });
