@@ -8,9 +8,28 @@ import { getMyEntitlements } from "@/lib/plans.functions";
 import {
   getBetaReport,
   adminApplyTune,
+  exportAllTradesCsv,
+  exportSignalsCsv,
+  exportAlgoConfigsCsv,
   type TesterReport,
   type TuneSuggestion,
 } from "@/lib/beta-report.functions";
+
+function downloadCsv(filename: string, csv: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function ts() {
+  return new Date().toISOString().replace(/[:.]/g, "-");
+}
 
 export const Route = createFileRoute("/_authenticated/beta-report")({
   head: () => ({ meta: [{ title: "Beta Report — Earn'O" }] }),
