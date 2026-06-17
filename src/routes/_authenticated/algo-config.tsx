@@ -9,7 +9,9 @@ import { toast } from "sonner";
 import { getMyEntitlements } from "@/lib/plans.functions";
 import {
   exportAlgoConfigsCsv,
+  exportAlgoAuditCsv,
   getAlgoConfigsOverview,
+  getAlgoAuditLog,
 } from "@/lib/beta-report.functions";
 
 export const Route = createFileRoute("/_authenticated/algo-config")({
