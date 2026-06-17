@@ -558,8 +558,10 @@ function ExportBar() {
         </div>
         <p className="text-[10px] text-muted-foreground mt-2">
           Trades = all positions (paper + live, open + closed) with PnL, SL/TP,
-          exit reason. Signals = scanner events (level=signal/trade) with full
-          meta. Configs = current per-user bot settings.
+          exit reason. Signals = scanner & auto-book events across users
+          (scan results, auto-booked signals with confidence/target/stop/RR,
+          skipped, paused) + each tester's config snapshot. Configs = current
+          per-user bot settings.
         </p>
       </div>
     </section>
