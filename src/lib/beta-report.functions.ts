@@ -608,93 +608,25 @@ export const exportAllTradesCsv = createServerFn({ method: "GET" })
     return { csv: toCsv(rows), count: rows.length };
   });
 
-// Categorize a bot_events message into a signals-report event_type.
-function classifySignalMessage(msg: string): string | null {
-  if (!msg) return null;
-  if (/^Auto-booked\b/i.test(msg)) return "auto_booked";
-  if (/^Auto-book skipped\b/i.test(msg)) return "auto_book_skipped";
-  if (/^Auto-book paused\b/i.test(msg)) return "auto_book_paused";
-  if (/^Scan complete\b/i.test(msg)) return "scan_complete";
-  if (/^Opportunity\b/i.test(msg)) return "opportunity";
-  if (/^Signal\b/i.test(msg)) return "signal";
-  if (/^Admin applied tune\b/i.test(msg)) return "admin_tune";
-  return null;
-}
-
-// Parse "Auto-booked LONG B-EVAA_USDT · Confidence 100% · Target +2.04% · Stop −1.20% · Stop Type Volatility-based · R:R 1.70:1"
-function parseAutoBooked(msg: string) {
-  const out: Record<string, string> = {};
-  const m1 = msg.match(/^Auto-booked\s+(LONG|SHORT)\s+([A-Z0-9_\-]+)/i);
-  if (m1) {
-    out.side = m1[1].toLowerCase();
-    out.symbol = m1[2];
-  }
-  const pairs: Array<[RegExp, string]> = [
-    [/Confidence\s+([0-9.]+)%/i, "confidence_pct"],
-    [/Target\s+([+\-−]?[0-9.]+)%/i, "target_pct"],
-    [/Stop\s+([+\-−]?[0-9.]+)%/i, "stop_pct"],
-    [/Stop Type\s+([A-Za-z0-9\- ]+?)(?:\s+·|$)/i, "stop_type"],
-    [/R:R\s+([0-9.]+:[0-9.]+)/i, "rr"],
-  ];
-  for (const [re, key] of pairs) {
-    const m = msg.match(re);
-    if (m) out[key] = m[1].replace("−", "-").trim();
-  }
-  return out;
-}
-
-// Parse "Scan complete: 35 markets, 15 opportunities"
-function parseScanComplete(msg: string) {
-  const out: Record<string, string> = {};
-  const m = msg.match(/Scan complete:\s*(\d+)\s+markets?,\s*(\d+)\s+opportunit/i);
-  if (m) {
-    out.markets = m[1];
-    out.opportunities = m[2];
-  }
-  return out;
-}
-
-// Parse "Auto-book paused: daily loss cap hit (-117.60 USDT)" or "max open positions reached (3/3)" etc.
-function parsePause(msg: string) {
-  const out: Record<string, string> = {};
-  const reason = msg.replace(/^Auto-book paused:\s*/i, "");
-  out.pause_reason = reason.replace(/\s*\([^)]*\)\s*$/, "").trim();
-  const nums = reason.match(/\(([^)]+)\)/);
-  if (nums) out.pause_detail = nums[1];
-  return out;
-}
-
 export const exportSignalsCsv = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // Pull a wide net — we filter/classify in JS since there's no enum column.
-    const [{ data: events, error: e1 }, { data: profiles, error: e2 }, { data: configs }] =
+    // One row per scanned symbol per user per scan — driven by bot_signals.
+    const [{ data: signals, error: e1 }, { data: profiles, error: e2 }, { data: configs }] =
       await Promise.all([
         supabaseAdmin
-          .from("bot_events")
+          .from("bot_signals")
           .select("*")
-          .or(
-            [
-              "message.ilike.Auto-booked%",
-              "message.ilike.Auto-book skipped%",
-              "message.ilike.Auto-book paused%",
-              "message.ilike.Scan complete%",
-              "message.ilike.Opportunity%",
-              "message.ilike.Signal%",
-              "level.eq.signal",
-              "level.eq.trade",
-            ].join(","),
-          )
           .order("created_at", { ascending: false })
           .limit(50000),
         supabaseAdmin.from("profiles").select("id,email,display_name"),
         supabaseAdmin
           .from("bot_config")
           .select(
-            "user_id,mode,trading_style,atr_multiplier,target_multiplier,min_rr,min_scalp_score,risk_per_trade_pct,leverage,max_open_positions,max_trades_per_day,auto_close_minutes,allow_long,allow_short,is_running,auto_book",
+            "user_id,mode,trading_style,atr_multiplier,target_multiplier,min_rr,min_scalp_score,auto_book_confidence_threshold,display_confidence_threshold,risk_per_trade_pct,leverage,max_open_positions,max_trades_per_day,auto_close_minutes,allow_long,allow_short,is_running,auto_book",
           ),
       ]);
     if (e1) throw new Error(e1.message);
@@ -707,64 +639,70 @@ export const exportSignalsCsv = createServerFn({ method: "GET" })
     const cMap = new Map<string, Record<string, unknown>>();
     for (const c of configs ?? []) cMap.set(c.user_id, c as Record<string, unknown>);
 
-    const rows = (events ?? [])
-      .map((e) => {
-        const event_type = classifySignalMessage(e.message ?? "");
-        if (!event_type) return null;
-        const u = pMap.get(e.user_id);
-        const cfg = cMap.get(e.user_id) ?? {};
-        const meta = (e.meta ?? {}) as Record<string, unknown>;
-
-        let parsed: Record<string, string> = {};
-        if (event_type === "auto_booked") parsed = parseAutoBooked(e.message ?? "");
-        else if (event_type === "scan_complete") parsed = parseScanComplete(e.message ?? "");
-        else if (event_type === "auto_book_paused") parsed = parsePause(e.message ?? "");
-
-        return {
-          created_at: e.created_at,
-          user_email: u?.email ?? "",
-          user_name: u?.name ?? "",
-          user_id: e.user_id,
-          event_type,
-          level: e.level,
-          message: e.message,
-          // Parsed signal fields (empty when not applicable)
-          symbol: parsed.symbol ?? (meta.symbol as string) ?? "",
-          side: parsed.side ?? (meta.side as string) ?? "",
-          confidence_pct: parsed.confidence_pct ?? "",
-          target_pct: parsed.target_pct ?? "",
-          stop_pct: parsed.stop_pct ?? "",
-          stop_type: parsed.stop_type ?? "",
-          rr: parsed.rr ?? "",
-          markets: parsed.markets ?? "",
-          opportunities: parsed.opportunities ?? "",
-          pause_reason: parsed.pause_reason ?? "",
-          pause_detail: parsed.pause_detail ?? "",
-          // Tester config snapshot at time of export (best-effort)
-          cfg_mode: (cfg.mode as string) ?? "",
-          cfg_trading_style: (cfg.trading_style as string) ?? "",
-          cfg_is_running: cfg.is_running ?? "",
-          cfg_auto_book: cfg.auto_book ?? "",
-          cfg_atr_multiplier: cfg.atr_multiplier ?? "",
-          cfg_target_multiplier: cfg.target_multiplier ?? "",
-          cfg_min_rr: cfg.min_rr ?? "",
-          cfg_min_scalp_score: cfg.min_scalp_score ?? "",
-          cfg_risk_per_trade_pct: cfg.risk_per_trade_pct ?? "",
-          cfg_leverage: cfg.leverage ?? "",
-          cfg_max_open_positions: cfg.max_open_positions ?? "",
-          cfg_max_trades_per_day: cfg.max_trades_per_day ?? "",
-          cfg_auto_close_minutes: cfg.auto_close_minutes ?? "",
-          cfg_allow_long: cfg.allow_long ?? "",
-          cfg_allow_short: cfg.allow_short ?? "",
-          // Raw meta for downstream analytics
-          meta: e.meta ? JSON.stringify(e.meta) : "",
-          event_id: e.id,
-        };
-      })
-      .filter((r): r is NonNullable<typeof r> => r !== null);
+    const rows = (signals ?? []).map((s) => {
+      const u = pMap.get(s.user_id);
+      const cfg = cMap.get(s.user_id) ?? {};
+      return {
+        created_at: s.created_at,
+        scan_id: s.scan_id,
+        user_id: s.user_id,
+        user_name: s.user_name ?? u?.name ?? "",
+        user_email: u?.email ?? "",
+        symbol: s.symbol,
+        price: s.price ?? "",
+        action: s.action,
+        side_bias: s.side_bias ?? "",
+        confidence_pct: s.confidence_pct ?? "",
+        confidence_band: s.confidence_band ?? "",
+        reason: s.reason ?? "",
+        final_decision: s.final_decision ?? "",
+        booked: s.booked,
+        booked_trade_id: s.booked_trade_id ?? "",
+        rejection_reason: s.rejection_reason ?? "",
+        strategy: s.strategy ?? "",
+        timeframe: s.timeframe ?? "",
+        config_id: s.config_id ?? "",
+        // indicators
+        trend_status: s.trend_status ?? "",
+        vwap_status: s.vwap_status ?? "",
+        ema_alignment: s.ema_alignment ?? "",
+        rsi: s.rsi ?? "",
+        volume_spike_ratio: s.volume_spike_ratio ?? "",
+        spread_pct: s.spread_pct ?? "",
+        atr_pct: s.atr_pct ?? "",
+        distance_from_vwap_pct: s.distance_from_vwap_pct ?? "",
+        distance_from_ema21_pct: s.distance_from_ema21_pct ?? "",
+        impulse_candle_pct: s.impulse_candle_pct ?? "",
+        risk_reward: s.risk_reward ?? "",
+        market_regime: s.market_regime ?? "",
+        cooldown_active: s.cooldown_active ?? "",
+        daily_loss_available: s.daily_loss_available ?? "",
+        max_position_available: s.max_position_available ?? "",
+        // tester config snapshot
+        cfg_mode: (cfg.mode as string) ?? "",
+        cfg_trading_style: (cfg.trading_style as string) ?? "",
+        cfg_is_running: cfg.is_running ?? "",
+        cfg_auto_book: cfg.auto_book ?? "",
+        cfg_auto_book_confidence_threshold: cfg.auto_book_confidence_threshold ?? "",
+        cfg_display_confidence_threshold: cfg.display_confidence_threshold ?? "",
+        cfg_atr_multiplier: cfg.atr_multiplier ?? "",
+        cfg_target_multiplier: cfg.target_multiplier ?? "",
+        cfg_min_rr: cfg.min_rr ?? "",
+        cfg_min_scalp_score: cfg.min_scalp_score ?? "",
+        cfg_risk_per_trade_pct: cfg.risk_per_trade_pct ?? "",
+        cfg_leverage: cfg.leverage ?? "",
+        cfg_max_open_positions: cfg.max_open_positions ?? "",
+        cfg_max_trades_per_day: cfg.max_trades_per_day ?? "",
+        cfg_auto_close_minutes: cfg.auto_close_minutes ?? "",
+        cfg_allow_long: cfg.allow_long ?? "",
+        cfg_allow_short: cfg.allow_short ?? "",
+        signal_id: s.id,
+      };
+    });
 
     return { csv: toCsv(rows), count: rows.length };
   });
+
 
 export const exportAlgoConfigsCsv = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
