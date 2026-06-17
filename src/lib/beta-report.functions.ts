@@ -92,9 +92,10 @@ export type TesterReport = {
   avgHoldMinutes: number;
   maxDrawdown: number;
   profitFactor: number;
+  maxConsecutiveLosses: number;
   settings: Cfg | null;
   today: DayStats;
-  diagnosis: string[];
+  diagnosis: DiagnosisItem[];
   diagnosisStage: "none" | "early" | "ready";
   suggestions: TuneSuggestion[];
 };
