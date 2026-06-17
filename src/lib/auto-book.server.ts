@@ -139,51 +139,6 @@ export async function fetchMarkPrices(symbols: string[]): Promise<Record<string,
   return out;
 }
 
-const STRICT_PRESETS: Record<Strictness, { autoConf: number; volMin: number; change5mMin: number }> = {
-  less: { autoConf: 60, volMin: 250_000, change5mMin: 0.05 },
-  moderate: { autoConf: 70, volMin: 500_000, change5mMin: 0.08 },
-  strict: { autoConf: 80, volMin: 1_000_000, change5mMin: 0.12 },
-};
-
-/**
- * Lightweight scoring used by the cron worker. Uses ticker-only signals
- * (no candle fetch per symbol — keeps the cron under its 10s budget).
- * Returns up to `topN` auto-eligible setups in confidence order.
- */
-function pickAutoEligibleSetupsFromUniverse(
-  universe: Array<{ symbol: string; price: number; change24h: number; volume24h: number }>,
-  strictness: Strictness,
-  topN: number,
-  allowShort: boolean,
-) {
-  const preset = STRICT_PRESETS[strictness];
-  const candidates: Array<{ symbol: string; price: number; side: "long" | "short"; confidence: number }> = [];
-  for (const row of universe) {
-    if (row.volume24h < preset.volMin) continue;
-    const abs24 = Math.abs(row.change24h);
-    if (abs24 < preset.change5mMin) continue;
-    const side: "long" | "short" = row.change24h >= 0 ? "long" : "short";
-    if (side === "short" && !allowShort) continue;
-    const confidence = Math.min(100, 50 + abs24 * 6);
-    if (confidence < preset.autoConf) continue;
-    candidates.push({ symbol: row.symbol, price: row.price, side, confidence });
-  }
-  candidates.sort((a, b) => b.confidence - a.confidence);
-  return candidates.slice(0, topN);
-}
-
-function bestConfidenceFromUniverse(
-  universe: Array<{ symbol: string; price: number; change24h: number; volume24h: number }>,
-): number {
-  let best = 0;
-  for (const row of universe) {
-    const c = Math.min(100, 50 + Math.abs(row.change24h) * 6);
-    if (c > best) best = c;
-  }
-  return best;
-}
-
-
 type BotConfig = {
   user_id: string;
   mode: string;
@@ -210,6 +165,8 @@ type BotConfig = {
   symbol_sl_cooldown_minutes: number | null;
   symbol_blacklist_threshold: number | null;
   regime_filter_enabled: boolean | null;
+  auto_book_confidence_threshold: number | null;
+  display_confidence_threshold: number | null;
   live_wallet_source?: string | null;
   live_allocation_mode?: string | null;
   live_allocation_amount?: number | null;
@@ -308,6 +265,8 @@ async function logPauseEvent(supabase: SupabaseClient, userId: string, message: 
   if (!data?.length) await logEvent(supabase, userId, "warn", message);
 }
 
+import { analyzeSymbol, HARD_SPREAD_BLOCK_PCT, type SignalAnalysis } from "@/lib/signal-scoring.server";
+
 /** Run one auto-book pass. Optionally restrict to a single user (manual trigger). */
 export async function runAutoBookPass(
   supabase: SupabaseClient,
@@ -321,7 +280,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -330,34 +289,102 @@ export async function runAutoBookPass(
   const { data: cfgs } = await q;
 
   const users = (cfgs ?? []) as BotConfig[];
-  const result = { users: users.length, opened: 0, skipped: 0, details: [] as Array<{ user: string; opened: number; skipped: number; reason?: string }> };
+  const result = {
+    users: users.length,
+    opened: 0,
+    skipped: 0,
+    details: [] as Array<{ user: string; opened: number; skipped: number; reason?: string }>,
+  };
   if (!users.length) return result;
 
-  // Single ticker fetch shared across users.
-  const universe = await fetchScanUniverse(20, 20);
-  const setups = pickAutoEligibleSetupsFromUniverse(universe, "moderate", 15, true);
-  const topConfidenceOverall = setups[0]?.confidence ?? bestConfidenceFromUniverse(universe);
+  const scanId = crypto.randomUUID();
+
+  // Fetch profiles once for user_name on signal rows.
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id,display_name,email")
+    .in(
+      "id",
+      users.map((u) => u.user_id),
+    );
+  const nameByUser = new Map<string, string>(
+    (profiles ?? []).map((p) => [p.id as string, ((p.display_name as string) || (p.email as string) || "") as string]),
+  );
+
+  // Universe + per-symbol analysis (shared across users in this pass).
+  const universe = await fetchScanUniverse(25, 25);
   const scannedCount = universe.length;
-  if (!setups.length) {
-    for (const u of users) {
-      result.details.push({ user: u.user_id, opened: 0, skipped: 0, reason: "no setups" });
-      await logScanEvent(supabase, u.user_id, scannedCount, 0, 0, 0, topConfidenceOverall);
+  const analyses: SignalAnalysis[] = [];
+  if (universe.length) {
+    const settled = await Promise.allSettled(
+      universe.map((u) => analyzeSymbol(u.symbol, u.price, u.change24h)),
+    );
+    for (const s of settled) {
+      if (s.status === "fulfilled" && s.value) analyses.push(s.value);
     }
-    return result;
   }
+  // Sort by confidence so booking targets highest-conviction setups first.
+  analyses.sort((a, b) => b.confidence_pct - a.confidence_pct);
+  const topConfidenceOverall = analyses[0]?.confidence_pct ?? 0;
 
   for (const cfg of users) {
     let opened = 0;
     let skipped = 0;
+    const userName = nameByUser.get(cfg.user_id) ?? "";
+    const autoConfThreshold = Number(cfg.auto_book_confidence_threshold ?? 70);
+    const displayConfThreshold = Number(cfg.display_confidence_threshold ?? 55);
+
+    const signalRows: Record<string, unknown>[] = [];
+    const pushSignal = (
+      a: SignalAnalysis,
+      final: string,
+      bookedTradeId: string | null,
+      rejection: string | null,
+      gates: {
+        cooldown_active: boolean;
+        daily_loss_available: boolean;
+        max_position_available: boolean;
+        risk_reward: number | null;
+      },
+    ) => {
+      signalRows.push({
+        scan_id: scanId,
+        user_id: cfg.user_id,
+        user_name: userName,
+        symbol: a.symbol,
+        price: a.price,
+        action: a.action,
+        side_bias: a.side_bias,
+        confidence_pct: a.confidence_pct,
+        confidence_band: a.confidence_band,
+        reason: a.reason,
+        final_decision: final,
+        booked: bookedTradeId != null,
+        booked_trade_id: bookedTradeId,
+        rejection_reason: rejection,
+        strategy: cfg.strategy ?? "default",
+        timeframe: "5m",
+        config_id: cfg.user_id,
+        trend_status: a.trend_status,
+        vwap_status: a.vwap_status,
+        ema_alignment: a.ema_alignment,
+        rsi: a.rsi,
+        volume_spike_ratio: a.volume_spike_ratio,
+        spread_pct: a.spread_pct,
+        atr_pct: a.atr_pct,
+        distance_from_vwap_pct: a.distance_from_vwap_pct,
+        distance_from_ema21_pct: a.distance_from_ema21_pct,
+        impulse_candle_pct: a.impulse_candle_pct,
+        risk_reward: gates.risk_reward,
+        market_regime: a.market_regime,
+        cooldown_active: gates.cooldown_active,
+        daily_loss_available: gates.daily_loss_available,
+        max_position_available: gates.max_position_available,
+      });
+    };
 
     const planTier = await getPlanTier(supabase, cfg.user_id);
     const planDailyLimit = AUTO_PLAN_DAILY_LIMIT[planTier];
-    if (planDailyLimit <= 0) {
-      await logPauseEvent(supabase, cfg.user_id, "Auto-book skipped: current plan does not include automation");
-      result.details.push({ user: cfg.user_id, opened: 0, skipped: setups.length, reason: "plan does not allow auto-book" });
-      result.skipped += setups.length;
-      continue;
-    }
 
     // Daily loss cap check.
     const startOfDay = new Date();
@@ -370,14 +397,10 @@ export async function runAutoBookPass(
 
     const todayPnl = (todayPos ?? []).reduce((acc, p) => acc + Number(p.pnl ?? 0), 0);
     const equity = await resolveEquity(supabase, cfg);
+    let dailyLossAvailable = true;
     if (cfg.daily_loss_cap_pct != null && equity > 0) {
       const cap = (Number(cfg.daily_loss_cap_pct) / 100) * equity;
-      if (todayPnl <= -cap) {
-        await logPauseEvent(supabase, cfg.user_id, `Auto-book paused: daily loss cap hit (${todayPnl.toFixed(2)} USDT)`);
-        result.details.push({ user: cfg.user_id, opened: 0, skipped: setups.length, reason: "daily loss cap" });
-        result.skipped += setups.length;
-        continue;
-      }
+      if (todayPnl <= -cap) dailyLossAvailable = false;
     }
 
     const todayAutoCount = (todayPos ?? []).filter((p) =>
@@ -385,12 +408,6 @@ export async function runAutoBookPass(
     ).length;
     const dailyLimit = Math.min(cfg.max_trades_per_day ?? 999, planDailyLimit);
     const remainingToday = Math.max(0, dailyLimit - todayAutoCount);
-    if (remainingToday <= 0) {
-      await logPauseEvent(supabase, cfg.user_id, `Auto-book paused: daily auto-book limit reached (${todayAutoCount}/${dailyLimit})`);
-      result.details.push({ user: cfg.user_id, opened: 0, skipped: setups.length, reason: "daily trade limit" });
-      result.skipped += setups.length;
-      continue;
-    }
 
     const { data: openRows, count: openCount } = await supabase
       .from("positions")
@@ -400,18 +417,26 @@ export async function runAutoBookPass(
 
     let openSlot = Math.max(0, (cfg.max_open_positions ?? 5) - (openCount ?? 0));
     const openSymbols = new Set((openRows ?? []).map((r) => r.symbol as string));
-    if (openSlot <= 0) {
-      await logPauseEvent(supabase, cfg.user_id, `Auto-book paused: max open positions reached (${openCount ?? 0}/${cfg.max_open_positions ?? 5})`);
-      result.details.push({ user: cfg.user_id, opened: 0, skipped: setups.length, reason: "max open positions" });
-      result.skipped += setups.length;
-      continue;
+    const maxPositionAvailable = openSlot > 0;
+
+    // Pause-level reasons → log but still emit per-symbol signals so the
+    // operator sees why nothing was booked.
+    let userBlockReason: string | null = null;
+    if (planDailyLimit <= 0) userBlockReason = "Plan does not allow auto-book";
+    else if (!dailyLossAvailable) userBlockReason = "Daily loss cap hit";
+    else if (remainingToday <= 0)
+      userBlockReason = `Daily auto-book limit reached (${todayAutoCount}/${dailyLimit})`;
+    else if (!maxPositionAvailable)
+      userBlockReason = `Max open positions reached (${openCount ?? 0}/${cfg.max_open_positions ?? 5})`;
+
+    if (userBlockReason) {
+      await logPauseEvent(supabase, cfg.user_id, `Auto-book paused: ${userBlockReason}`);
     }
 
-    // Cooldown: last opened time per symbol (last 24h window covers any sensible cooldown).
+    // Cooldown lookups (last 24h).
     const cooldownMs = (cfg.cooldown_minutes ?? 15) * 60_000;
     const symbolSlCooldownMs = Math.max(0, Number(cfg.symbol_sl_cooldown_minutes ?? 180)) * 60_000;
     const blacklistThreshold = Math.max(1, Number(cfg.symbol_blacklist_threshold ?? 3));
-
     const { data: recent } = await supabase
       .from("positions")
       .select("symbol,opened_at,closed_at,exit_reason,pnl,side")
@@ -420,8 +445,6 @@ export async function runAutoBookPass(
     const lastOpen = new Map<string, number>();
     const lastSlClose = new Map<string, number>();
     const lossCountBySymbol = new Map<string, number>();
-    let longNet24h = 0;
-    let shortNet24h = 0;
     for (const r of recent ?? []) {
       const sym = r.symbol as string;
       const t = new Date(r.opened_at as string).getTime();
@@ -434,157 +457,161 @@ export async function runAutoBookPass(
         if (ct > prevC) lastSlClose.set(sym, ct);
       }
       if (pnl < 0) lossCountBySymbol.set(sym, (lossCountBySymbol.get(sym) ?? 0) + 1);
-      if (r.side === "long") longNet24h += pnl;
-      else if (r.side === "short") shortNet24h += pnl;
-    }
-
-    // Auto-regime filter: throttle the bleeding side when one side is materially worse.
-    let longConfBoost = 0;
-    let shortConfBoost = 0;
-    if (cfg.regime_filter_enabled !== false) {
-      if (longNet24h < -1 && longNet24h <= shortNet24h * 1.5 - 5) longConfBoost = 10;
-      else if (shortNet24h < -1 && shortNet24h <= longNet24h * 1.5 - 5) shortConfBoost = 10;
     }
 
     const preset: StylePreset = presetFromConfig(cfg);
 
-    for (const s of setups) {
-      if (openSlot <= 0 || remainingToday <= opened) break;
-      if (openSymbols.has(s.symbol)) {
-        skipped++;
-        continue;
-      }
-      if (s.side === "short" && !cfg.allow_short) {
-        skipped++;
-        continue;
-      }
-      if (s.side === "long" && cfg.allow_long === false) {
-        skipped++;
-        continue;
-      }
-      // 24h symbol blacklist after N losses
-      if ((lossCountBySymbol.get(s.symbol) ?? 0) >= blacklistThreshold) {
-        skipped++;
-        await logEvent(supabase, cfg.user_id, "warn", `Skipped ${s.symbol} · Symbol blacklisted (${lossCountBySymbol.get(s.symbol)} losses in 24h)`, {
-          kind: "skip", symbol: s.symbol, reason: "symbol_blacklist",
-        });
-        continue;
-      }
-      // Per-symbol SL cooldown
-      const lastSl = lastSlClose.get(s.symbol);
-      if (lastSl && Date.now() - lastSl < symbolSlCooldownMs) {
-        const mins = Math.floor((symbolSlCooldownMs - (Date.now() - lastSl)) / 60_000);
-        skipped++;
-        await logEvent(supabase, cfg.user_id, "warn", `Skipped ${s.symbol} · SL cooldown active (${mins}m remaining)`, {
-          kind: "skip", symbol: s.symbol, reason: "sl_cooldown",
-        });
-        continue;
-      }
-      // Regime-adjusted min confidence
-      const minConf = Number(cfg.min_scalp_score ?? 0) + (s.side === "long" ? longConfBoost : shortConfBoost);
-      if (s.confidence < minConf) {
-        skipped++;
-        continue;
-      }
-      const last = lastOpen.get(s.symbol);
-      if (last && Date.now() - last < cooldownMs) {
-        skipped++;
-        continue;
-      }
+    for (const a of analyses) {
+      const sym = a.symbol;
+      const cooldownActive =
+        (lastOpen.get(sym) != null && Date.now() - (lastOpen.get(sym) as number) < cooldownMs) ||
+        (lastSlClose.get(sym) != null && Date.now() - (lastSlClose.get(sym) as number) < symbolSlCooldownMs);
 
-
-      // Volatility-adjusted risk plan
-      const atrPct = await fetchAtrPct(s.symbol);
-      const plan = computeRiskPlan({ atrPct, preset, capital: equity });
-
-      if (plan.status !== "auto_eligible") {
-        skipped++;
-        const reasonText =
-          plan.reason === "Volatility too high for auto-book"
-            ? `Skipped ${s.symbol} · Reason Volatility too high · Required Stop ${plan.requiredSL.toFixed(2)}% · Allowed ${preset.maxAutoSL.toFixed(2)}%`
-            : plan.reason === "Risk-reward weak"
-              ? `Skipped ${s.symbol} · Reason Risk-reward weak · R:R ${plan.rr.toFixed(2)}:1 · Required ${preset.minRR.toFixed(1)}:1`
-              : `Skipped ${s.symbol} · ${plan.reason ?? "Risk rejected"}`;
-        await logEvent(supabase, cfg.user_id, "warn", reasonText, {
-          kind: "skip",
-          symbol: s.symbol,
-          side: s.side,
-          confidence: Math.round(s.confidence),
-          atrPct: plan.atrPct,
-          requiredSL: plan.requiredSL,
-          allowedSL: preset.maxAutoSL,
-          rr: plan.rr,
-          reason: plan.reason,
-        });
-        continue;
-      }
-
-      const { tpPct, slPct } = plan;
-      const lev = Number(cfg.leverage ?? 3);
-      // Position size derives from risk amount, NOT from leverage.
-      const notional = plan.positionSize;
-      if (notional <= 0 || s.price <= 0) {
-        skipped++;
-        continue;
-      }
-      const qty = notional / s.price;
-      const stop_loss = s.side === "long" ? s.price * (1 - slPct / 100) : s.price * (1 + slPct / 100);
-      const take_profit = s.side === "long" ? s.price * (1 + tpPct / 100) : s.price * (1 - tpPct / 100);
-
-      const { error } = await supabase.from("positions").insert({
-        user_id: cfg.user_id,
-        mode: cfg.mode,
-        symbol: s.symbol,
-        side: s.side,
-        leverage: lev,
-        qty,
-        entry_price: s.price,
-        mark_price: s.price,
-        stop_loss,
-        take_profit,
-        pnl: 0,
-        pnl_pct: 0,
-        status: "open",
-        instrument: "futures",
-        exchange_order_id: cfg.mode === "paper" ? `paper-auto-${Date.now()}` : null,
+      // Compute risk plan up front so we can include rr on every row.
+      const plan = computeRiskPlan({
+        atrPct: a.atr_pct,
+        preset,
+        capital: equity,
+        unsupported: a.side_bias === "neutral",
       });
 
-      if (error) {
-        skipped++;
-        await logEvent(supabase, cfg.user_id, "error", `Auto-book ${s.symbol} failed: ${error.message}`);
-        continue;
+      // Decide gating.
+      let rejection: string | null = null;
+      let final: string = "skip";
+
+      if (a.action === "AVOID" || a.side_bias === "neutral") {
+        rejection = "Bias unclear / avoid";
+        final = "avoid";
+      } else if (a.side_bias === "short" && !cfg.allow_short) {
+        rejection = "Shorts disabled in config";
+        final = "skip";
+      } else if (a.side_bias === "long" && cfg.allow_long === false) {
+        rejection = "Longs disabled in config";
+        final = "skip";
+      } else if ((lossCountBySymbol.get(sym) ?? 0) >= blacklistThreshold) {
+        rejection = `Symbol blacklisted (${lossCountBySymbol.get(sym)} losses in 24h)`;
+        final = "skip";
+      } else if (cooldownActive) {
+        rejection = "Cooldown active";
+        final = "skip";
+      } else if (a.spread_pct != null && a.spread_pct > HARD_SPREAD_BLOCK_PCT) {
+        rejection = `Spread too high (${a.spread_pct.toFixed(2)}%)`;
+        final = "skip";
+      } else if (plan.status !== "auto_eligible") {
+        rejection = plan.reason ?? "Risk plan rejected";
+        final = "skip";
+      } else if (!dailyLossAvailable) {
+        rejection = "Daily loss cap hit";
+        final = "skip";
+      } else if (remainingToday - opened <= 0) {
+        rejection = "Daily auto-book limit reached";
+        final = "skip";
+      } else if (openSlot <= 0) {
+        rejection = "Max open positions reached";
+        final = "skip";
+      } else if (openSymbols.has(sym)) {
+        rejection = "Position already open on symbol";
+        final = "skip";
+      } else if (a.confidence_pct < autoConfThreshold) {
+        rejection = `Below auto-book threshold (${a.confidence_pct} < ${autoConfThreshold})`;
+        final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
       }
 
-      opened++;
-      openSlot--;
-      openSymbols.add(s.symbol);
-      lastOpen.set(s.symbol, Date.now());
-      await logEvent(
-        supabase,
-        cfg.user_id,
-        "info",
-        `Auto-booked ${s.side.toUpperCase()} ${s.symbol} · Confidence ${s.confidence.toFixed(0)}% · Target +${tpPct.toFixed(2)}% · Stop −${slPct.toFixed(2)}% · Stop Type Volatility-based · R:R ${plan.rr.toFixed(2)}:1`,
-        {
-          kind: "auto_book",
-          symbol: s.symbol,
-          side: s.side,
-          confidence: Math.round(s.confidence),
-          tpPct,
-          slPct,
-          atrPct: plan.atrPct,
-          rr: plan.rr,
-          riskAmount: plan.riskAmount,
-          positionSize: plan.positionSize,
-          stopType: "Volatility-based",
-        },
-      );
+      let bookedTradeId: string | null = null;
+
+      if (rejection == null) {
+        // Book.
+        const side = a.side_bias as "long" | "short";
+        const { tpPct, slPct } = plan;
+        const lev = Number(cfg.leverage ?? 3);
+        const notional = plan.positionSize;
+        if (notional <= 0 || a.price <= 0) {
+          rejection = "Position sizing failed";
+          final = "skip";
+        } else {
+          const qty = notional / a.price;
+          const stop_loss =
+            side === "long" ? a.price * (1 - slPct / 100) : a.price * (1 + slPct / 100);
+          const take_profit =
+            side === "long" ? a.price * (1 + tpPct / 100) : a.price * (1 - tpPct / 100);
+          const { data: inserted, error } = await supabase
+            .from("positions")
+            .insert({
+              user_id: cfg.user_id,
+              mode: cfg.mode,
+              symbol: a.symbol,
+              side,
+              leverage: lev,
+              qty,
+              entry_price: a.price,
+              mark_price: a.price,
+              stop_loss,
+              take_profit,
+              pnl: 0,
+              pnl_pct: 0,
+              status: "open",
+              instrument: "futures",
+              exchange_order_id: cfg.mode === "paper" ? `paper-auto-${Date.now()}` : null,
+            })
+            .select("id")
+            .single();
+          if (error || !inserted) {
+            rejection = error?.message ?? "Insert failed";
+            final = "skip";
+            await logEvent(supabase, cfg.user_id, "error", `Auto-book ${a.symbol} failed: ${rejection}`);
+          } else {
+            bookedTradeId = inserted.id as string;
+            final = "booked";
+            opened++;
+            openSlot--;
+            openSymbols.add(sym);
+            lastOpen.set(sym, Date.now());
+            await logEvent(
+              supabase,
+              cfg.user_id,
+              "info",
+              `Auto-booked ${side.toUpperCase()} ${a.symbol} · Confidence ${a.confidence_pct.toFixed(0)}% · Target +${tpPct.toFixed(2)}% · Stop −${slPct.toFixed(2)}% · Stop Type Volatility-based · R:R ${plan.rr.toFixed(2)}:1`,
+              {
+                kind: "auto_book",
+                symbol: a.symbol,
+                side,
+                confidence: Math.round(a.confidence_pct),
+                tpPct,
+                slPct,
+                atrPct: plan.atrPct,
+                rr: plan.rr,
+                riskAmount: plan.riskAmount,
+                positionSize: plan.positionSize,
+                stopType: "Volatility-based",
+              },
+            );
+          }
+        }
+      } else {
+        // Display-quality but not booked: count as an opportunity-skip.
+        skipped++;
+      }
+
+      pushSignal(a, final, bookedTradeId, rejection, {
+        cooldown_active: cooldownActive,
+        daily_loss_available: dailyLossAvailable,
+        max_position_available: maxPositionAvailable,
+        risk_reward: plan.rr || null,
+      });
     }
 
+    // Bulk insert signals for this user (chunked to stay under payload limits).
+    if (signalRows.length) {
+      const CHUNK = 200;
+      for (let i = 0; i < signalRows.length; i += CHUNK) {
+        await supabase.from("bot_signals").insert(signalRows.slice(i, i + CHUNK));
+      }
+    }
 
     result.opened += opened;
     result.skipped += skipped;
-    result.details.push({ user: cfg.user_id, opened, skipped });
-    await logScanEvent(supabase, cfg.user_id, scannedCount, setups.length, opened, skipped, topConfidenceOverall);
+    result.details.push({ user: cfg.user_id, opened, skipped, reason: userBlockReason ?? undefined });
+    await logScanEvent(supabase, cfg.user_id, scannedCount, analyses.filter((x) => x.action === "LONG" || x.action === "SHORT").length, opened, skipped, topConfidenceOverall);
   }
 
   return result;
