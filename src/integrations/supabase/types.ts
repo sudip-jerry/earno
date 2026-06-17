@@ -71,10 +71,12 @@ export type Database = {
           allow_short: boolean
           atr_multiplier: number
           auto_book: boolean
+          auto_book_confidence_threshold: number
           auto_close_minutes: number
           cooldown_minutes: number
           created_at: string
           daily_loss_cap_pct: number
+          display_confidence_threshold: number
           ema_fast: number
           ema_slow: number
           is_running: boolean
@@ -113,10 +115,12 @@ export type Database = {
           allow_short?: boolean
           atr_multiplier?: number
           auto_book?: boolean
+          auto_book_confidence_threshold?: number
           auto_close_minutes?: number
           cooldown_minutes?: number
           created_at?: string
           daily_loss_cap_pct?: number
+          display_confidence_threshold?: number
           ema_fast?: number
           ema_slow?: number
           is_running?: boolean
@@ -155,10 +159,12 @@ export type Database = {
           allow_short?: boolean
           atr_multiplier?: number
           auto_book?: boolean
+          auto_book_confidence_threshold?: number
           auto_close_minutes?: number
           cooldown_minutes?: number
           created_at?: string
           daily_loss_cap_pct?: number
+          display_confidence_threshold?: number
           ema_fast?: number
           ema_slow?: number
           is_running?: boolean
@@ -251,6 +257,117 @@ export type Database = {
           message?: string
           meta?: Json | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      bot_signals: {
+        Row: {
+          action: string
+          atr_pct: number | null
+          booked: boolean
+          booked_trade_id: string | null
+          confidence_band: string | null
+          confidence_pct: number | null
+          config_id: string | null
+          cooldown_active: boolean | null
+          created_at: string
+          daily_loss_available: boolean | null
+          distance_from_ema21_pct: number | null
+          distance_from_vwap_pct: number | null
+          ema_alignment: string | null
+          final_decision: string | null
+          id: string
+          impulse_candle_pct: number | null
+          market_regime: string | null
+          max_position_available: boolean | null
+          price: number | null
+          reason: string | null
+          rejection_reason: string | null
+          risk_reward: number | null
+          rsi: number | null
+          scan_id: string
+          side_bias: string | null
+          spread_pct: number | null
+          strategy: string | null
+          symbol: string
+          timeframe: string | null
+          trend_status: string | null
+          user_id: string
+          user_name: string | null
+          volume_spike_ratio: number | null
+          vwap_status: string | null
+        }
+        Insert: {
+          action: string
+          atr_pct?: number | null
+          booked?: boolean
+          booked_trade_id?: string | null
+          confidence_band?: string | null
+          confidence_pct?: number | null
+          config_id?: string | null
+          cooldown_active?: boolean | null
+          created_at?: string
+          daily_loss_available?: boolean | null
+          distance_from_ema21_pct?: number | null
+          distance_from_vwap_pct?: number | null
+          ema_alignment?: string | null
+          final_decision?: string | null
+          id?: string
+          impulse_candle_pct?: number | null
+          market_regime?: string | null
+          max_position_available?: boolean | null
+          price?: number | null
+          reason?: string | null
+          rejection_reason?: string | null
+          risk_reward?: number | null
+          rsi?: number | null
+          scan_id: string
+          side_bias?: string | null
+          spread_pct?: number | null
+          strategy?: string | null
+          symbol: string
+          timeframe?: string | null
+          trend_status?: string | null
+          user_id: string
+          user_name?: string | null
+          volume_spike_ratio?: number | null
+          vwap_status?: string | null
+        }
+        Update: {
+          action?: string
+          atr_pct?: number | null
+          booked?: boolean
+          booked_trade_id?: string | null
+          confidence_band?: string | null
+          confidence_pct?: number | null
+          config_id?: string | null
+          cooldown_active?: boolean | null
+          created_at?: string
+          daily_loss_available?: boolean | null
+          distance_from_ema21_pct?: number | null
+          distance_from_vwap_pct?: number | null
+          ema_alignment?: string | null
+          final_decision?: string | null
+          id?: string
+          impulse_candle_pct?: number | null
+          market_regime?: string | null
+          max_position_available?: boolean | null
+          price?: number | null
+          reason?: string | null
+          rejection_reason?: string | null
+          risk_reward?: number | null
+          rsi?: number | null
+          scan_id?: string
+          side_bias?: string | null
+          spread_pct?: number | null
+          strategy?: string | null
+          symbol?: string
+          timeframe?: string | null
+          trend_status?: string | null
+          user_id?: string
+          user_name?: string | null
+          volume_spike_ratio?: number | null
+          vwap_status?: string | null
         }
         Relationships: []
       }
