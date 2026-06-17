@@ -526,6 +526,87 @@ function Home() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={riskOpen} onOpenChange={setRiskOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {s?.riskHealthy ?? true ? (
+                <ShieldCheck className="size-5 text-emerald-500" />
+              ) : (
+                <AlertTriangle className="size-5 text-amber-500" />
+              )}
+              Risk Protection — {s?.riskHealthy ?? true ? "Active" : "Warning"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-left">
+              {s?.riskReason ??
+                (s?.riskHealthy
+                  ? "All guardrails healthy. Bot is trading within safe limits."
+                  : "A guardrail is currently engaged. Details below.")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-2 text-sm">
+            <RiskRow
+              label="Daily loss used"
+              value={`${(s?.dailyLossUsedPct ?? 0).toFixed(0)}% of cap`}
+              sub={`Cap: -${s?.dailyLossCapPct ?? 0}% of equity`}
+              warn={(s?.dailyLossUsedPct ?? 0) >= 80}
+            />
+            <RiskRow
+              label="Trades today"
+              value={`${s?.tradesExecutedToday ?? 0} / ${s?.maxTradesPerDay ?? 0}`}
+              warn={(s?.tradesExecutedToday ?? 0) >= (s?.maxTradesPerDay ?? 999)}
+            />
+            <RiskRow
+              label="Open positions"
+              value={`${s?.openCount ?? 0} / ${s?.maxOpenPositions ?? 0}`}
+              warn={(s?.openCount ?? 0) >= (s?.maxOpenPositions ?? 999)}
+            />
+            <RiskRow
+              label="Consecutive losses"
+              value={`${s?.consecutiveLosses ?? 0}`}
+              warn={(s?.consecutiveLosses ?? 0) >= 3}
+            />
+            <RiskRow
+              label="Min confidence"
+              value={`${s?.minConfidenceRequired ?? 0}`}
+              sub={`Top today: ${s?.topConfidenceToday ?? 0}`}
+            />
+            <RiskRow
+              label="Cooldown after loss"
+              value={`${s?.cooldownMinutes ?? 0} min`}
+            />
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            <AlertDialogAction onClick={() => navigate({ to: "/settings" })}>
+              Change risk settings
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function RiskRow({
+  label, value, sub, warn,
+}: { label: string; value: string; sub?: string; warn?: boolean }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border bg-background/40 px-3 py-2">
+      <div>
+        <p className="text-xs font-medium">{label}</p>
+        {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
+      </div>
+      <span
+        className={`text-sm font-semibold tabular-nums ${
+          warn ? "text-amber-600 dark:text-amber-400" : "text-foreground"
+        }`}
+      >
+        {value}
+      </span>
     </div>
   );
 }
