@@ -44,6 +44,14 @@ export type TuneSuggestion = {
   patch: Partial<Cfg>;
 };
 
+export type DiagnosisStatus = "Healthy" | "Watch" | "Needs Tuning" | "Risk Locked";
+export type DiagnosisItem = {
+  status: DiagnosisStatus;
+  issue: string;
+  evidence: string;
+  action: string;
+};
+
 export type DayStats = {
   closed: number;
   open: number;
@@ -84,9 +92,10 @@ export type TesterReport = {
   avgHoldMinutes: number;
   maxDrawdown: number;
   profitFactor: number;
+  maxConsecutiveLosses: number;
   settings: Cfg | null;
   today: DayStats;
-  diagnosis: string[];
+  diagnosis: DiagnosisItem[];
   diagnosisStage: "none" | "early" | "ready";
   suggestions: TuneSuggestion[];
 };
@@ -178,95 +187,176 @@ function topMode(arr: (string | null)[]): string | null {
   return best;
 }
 
-function buildDiagnosis(r: Omit<TesterReport, "diagnosis" | "diagnosisStage" | "suggestions">) {
-  const out: string[] = [];
-  const sugg: TuneSuggestion[] = [];
-  if (!r.settings) return { diagnosis: out, suggestions: sugg };
-  const s = r.settings;
+function maxConsecLosses(closed: Pos[]): number {
+  const sorted = [...closed].sort((a, b) =>
+    (a.closed_at ?? "").localeCompare(b.closed_at ?? ""),
+  );
+  let cur = 0, best = 0;
+  for (const t of sorted) {
+    if (Number(t.pnl ?? 0) < 0) { cur++; if (cur > best) best = cur; }
+    else cur = 0;
+  }
+  return best;
+}
 
-  if (r.longTrades >= 5 && r.shortTrades >= 5) {
-    const longAvg = r.longTrades ? r.longPnl / r.longTrades : 0;
-    const shortAvg = r.shortTrades ? r.shortPnl / r.shortTrades : 0;
-    if (longAvg < 0 && shortAvg > 0) {
-      out.push("Long trades are underperforming.");
-      out.push("Short trades are currently performing better.");
+function buildDiagnosis(
+  r: Omit<TesterReport, "diagnosis" | "diagnosisStage" | "suggestions">,
+): { diagnosis: DiagnosisItem[]; suggestions: TuneSuggestion[] } {
+  const out: DiagnosisItem[] = [];
+  const sugg: TuneSuggestion[] = [];
+  const s = r.settings;
+  const today = r.today;
+  const pf = r.profitFactor;
+  const fmtMoney = (n: number) => `${n >= 0 ? "+" : "−"}$${Math.abs(n).toFixed(2)}`;
+  const pfText = Number.isFinite(pf) ? pf.toFixed(2) : "∞";
+
+  // 1. Risk Locked — consecutive losses streak
+  if (r.maxConsecutiveLosses >= 5) {
+    out.push({
+      status: "Risk Locked",
+      issue: "Loss streak protection should engage.",
+      evidence: `Max consecutive losses: ${r.maxConsecutiveLosses}. Today PnL ${fmtMoney(today.pnl)} over ${today.closed} trades.`,
+      action: "Pause auto-book, review recent stop-outs and confirmation rules.",
+    });
+  }
+
+  // 2. Stop-loss dominated losing day
+  if (today.closed >= 3 && today.pnl < 0 && today.topCloseReason === "stop_loss") {
+    out.push({
+      status: "Needs Tuning",
+      issue: "Stop losses are driving today's loss.",
+      evidence: `Today PnL ${fmtMoney(today.pnl)}, top exit reason: stop_loss (${today.losses}/${today.closed} losses).`,
+      action: "Tighten entry confirmation or reduce max trades per day.",
+    });
+    if (s && s.min_scalp_score < 80) {
       sugg.push({
-        key: "reduce-long",
-        label: "Temporarily reduce long auto-booking",
-        rationale: "Short side is outperforming in current sample.",
-        patch: { allow_short: true },
-      });
-    } else if (shortAvg < 0 && longAvg > 0) {
-      out.push("Short trades are underperforming.");
-      sugg.push({
-        key: "reduce-short",
-        label: "Temporarily reduce short auto-booking",
-        rationale: "Long side is outperforming in current sample.",
-        patch: { allow_short: false },
+        key: "score-up-sl",
+        label: "Raise minimum confidence",
+        rationale: "Stop-outs dominate — filter weaker entries.",
+        patch: { min_scalp_score: Math.min(85, s.min_scalp_score + 5) },
       });
     }
   }
 
-  if (r.winRate < 45 && s.atr_multiplier < 2.2) {
-    out.push("Stop loss may be too tight.");
-    sugg.push({
-      key: "atr-up",
-      label: "Increase ATR multiplier",
-      rationale: "Low win rate often signals premature stop-outs.",
-      patch: { atr_multiplier: Math.min(2.5, Number(s.atr_multiplier) + 0.3) },
+  // 3. Directional underperformance (today)
+  const longAvg = today.longTrades ? today.longPnl / today.longTrades : 0;
+  const shortAvg = today.shortTrades ? today.shortPnl / today.shortTrades : 0;
+  if (today.shortTrades >= 3 && today.shortPnl < 0 && today.shortPnl <= today.longPnl - Math.abs(today.longPnl) * 0.5) {
+    out.push({
+      status: "Watch",
+      issue: "Shorts are underperforming today.",
+      evidence: `Short PnL ${fmtMoney(today.shortPnl)} (win ${today.shortWinRate.toFixed(0)}%) vs long ${fmtMoney(today.longPnl)} (win ${today.longWinRate.toFixed(0)}%).`,
+      action: "Raise short confidence threshold or disable short auto-book temporarily.",
+    });
+    if (s?.allow_short) {
+      sugg.push({
+        key: "disable-short",
+        label: "Disable short auto-book",
+        rationale: "Short side is bleeding today.",
+        patch: { allow_short: false },
+      });
+    }
+  } else if (today.longTrades >= 3 && today.longPnl < 0 && today.longPnl <= today.shortPnl - Math.abs(today.shortPnl) * 0.5) {
+    out.push({
+      status: "Watch",
+      issue: "Longs are underperforming today.",
+      evidence: `Long PnL ${fmtMoney(today.longPnl)} (win ${today.longWinRate.toFixed(0)}%) vs short ${fmtMoney(today.shortPnl)} (win ${today.shortWinRate.toFixed(0)}%).`,
+      action: "Raise long confidence threshold or pause long auto-book temporarily.",
     });
   }
-  if (r.winRate > 65 && r.avgPnlPct < 0.5 && s.target_multiplier < 2.5) {
-    out.push("Target may be too conservative.");
-    sugg.push({
-      key: "tgt-up",
-      label: "Increase target multiplier",
-      rationale: "High win rate but small wins — let winners run.",
-      patch: { target_multiplier: Math.min(2.8, Number(s.target_multiplier) + 0.3) },
+
+  // 4. Lifetime directional underperformance
+  if (r.longTrades >= 10 && r.shortTrades >= 10) {
+    if (r.longWinRate < 40 && r.shortWinRate > r.longWinRate + 15) {
+      out.push({
+        status: "Watch",
+        issue: "Long side weak over lifetime sample.",
+        evidence: `Long win ${r.longWinRate.toFixed(0)}% (${r.longTrades} trades, ${fmtMoney(r.longPnl)}) vs short ${r.shortWinRate.toFixed(0)}% (${fmtMoney(r.shortPnl)}).`,
+        action: "Tighten long entry filter or reduce long position sizing.",
+      });
+    } else if (r.shortWinRate < 40 && r.longWinRate > r.shortWinRate + 15) {
+      out.push({
+        status: "Watch",
+        issue: "Short side weak over lifetime sample.",
+        evidence: `Short win ${r.shortWinRate.toFixed(0)}% (${r.shortTrades} trades, ${fmtMoney(r.shortPnl)}) vs long ${r.longWinRate.toFixed(0)}% (${fmtMoney(r.longPnl)}).`,
+        action: "Tighten short entry filter or disable short auto-book.",
+      });
+    }
+  }
+
+  // 5. Profit factor below 1
+  if (r.closed >= 20 && pf < 1) {
+    out.push({
+      status: "Needs Tuning",
+      issue: "Profit factor is below 1.",
+      evidence: `Profit factor ${pfText}, lifetime PnL ${fmtMoney(r.realizedPnl)} across ${r.closed} trades.`,
+      action: "Reduce trade frequency and review symbol allowlist.",
+    });
+    if (s && s.min_scalp_score < 75) {
+      sugg.push({
+        key: "score-up-pf",
+        label: "Raise minimum confidence",
+        rationale: "Profit factor < 1 — filter weaker signals.",
+        patch: { min_scalp_score: Math.min(80, s.min_scalp_score + 10) },
+      });
+    }
+  } else if (r.closed >= 20 && pf < 1.1) {
+    out.push({
+      status: "Watch",
+      issue: "Profit factor is marginal.",
+      evidence: `Profit factor ${pfText} on ${r.closed} trades. Lifetime PnL ${fmtMoney(r.realizedPnl)}.`,
+      action: "Monitor closely; consider tightening entry score by +5.",
     });
   }
-  if (s.max_open_positions <= 2 && r.closed > 50) {
-    out.push("Max open positions may be limiting opportunity capture.");
-    sugg.push({
-      key: "mop-up",
-      label: "Increase max open positions",
-      rationale: "Low concurrency caps trade frequency.",
-      patch: { max_open_positions: Math.min(5, s.max_open_positions + 1) },
+
+  // 6. Drawdown disproportionate to PnL
+  if (r.closed >= 20 && r.realizedPnl > 0 && r.maxDrawdown > r.realizedPnl * 1.5) {
+    out.push({
+      status: "Watch",
+      issue: "Drawdown is large relative to net PnL.",
+      evidence: `Max drawdown ${fmtMoney(-r.maxDrawdown)} vs realized ${fmtMoney(r.realizedPnl)}.`,
+      action: "Reduce risk per trade or lower max open positions.",
+    });
+    if (s && s.risk_per_trade_pct > 0.75) {
+      sugg.push({
+        key: "risk-dn",
+        label: "Reduce risk per trade",
+        rationale: "Drawdown is large relative to net PnL.",
+        patch: { risk_per_trade_pct: Math.max(0.5, Number(s.risk_per_trade_pct) - 0.25) },
+      });
+    }
+  }
+
+  // 7. Overtrading with negative day
+  if (s && today.closed >= s.max_open_positions * 4 && today.pnl < 0) {
+    out.push({
+      status: "Needs Tuning",
+      issue: "High trade count with negative day.",
+      evidence: `${today.closed} trades today, PnL ${fmtMoney(today.pnl)}, top exit ${today.topCloseReason ?? "n/a"}.`,
+      action: "Lower max trades per day or raise minimum confidence.",
     });
   }
-  if (s.auto_close_minutes <= 60 && r.avgPnlPct < 0.4) {
-    out.push("Auto-close may be too early.");
-    sugg.push({
-      key: "ac-up",
-      label: "Extend auto-close window",
-      rationale: "Trades may need more time to mature.",
-      patch: { auto_close_minutes: Math.min(360, s.auto_close_minutes + 60) },
-    });
-  }
-  if (r.maxDrawdown > Math.abs(r.realizedPnl) * 1.5 && s.risk_per_trade_pct > 0.75) {
-    out.push("Risk per trade may be too high.");
-    sugg.push({
-      key: "risk-dn",
-      label: "Reduce risk per trade",
-      rationale: "Drawdown is large relative to net PnL.",
-      patch: { risk_per_trade_pct: Math.max(0.5, Number(s.risk_per_trade_pct) - 0.5) },
-    });
-  }
-  if (r.winRate < 40 && s.min_scalp_score < 70) {
-    sugg.push({
-      key: "score-up",
-      label: "Increase minimum confidence",
-      rationale: "Filter weaker signals to lift win rate.",
-      patch: { min_scalp_score: Math.min(80, s.min_scalp_score + 10) },
-    });
-  }
-  if (r.winRate > 70 && s.atr_multiplier > 1.6) {
-    sugg.push({
-      key: "atr-dn",
-      label: "Reduce ATR multiplier",
-      rationale: "Win rate is high — tighter stops may improve R:R.",
-      patch: { atr_multiplier: Math.max(1.3, Number(s.atr_multiplier) - 0.2) },
-    });
+
+  // Default Healthy gating
+  const longNegStrong = r.longTrades >= 10 && r.longPnl < 0 && Math.abs(r.longPnl) > Math.abs(r.realizedPnl) * 0.5;
+  const shortNegStrong = r.shortTrades >= 10 && r.shortPnl < 0 && Math.abs(r.shortPnl) > Math.abs(r.realizedPnl) * 0.5;
+  void longAvg; void shortAvg;
+  if (out.length === 0) {
+    if (pf > 1.1 && r.realizedPnl > 0 && !longNegStrong && !shortNegStrong) {
+      out.push({
+        status: "Healthy",
+        issue: "Settings look balanced.",
+        evidence: `Profit factor ${pfText}, lifetime PnL ${fmtMoney(r.realizedPnl)}, long ${fmtMoney(r.longPnl)} / short ${fmtMoney(r.shortPnl)}.`,
+        action: "Continue monitoring; no change required.",
+      });
+    } else {
+      out.push({
+        status: "Watch",
+        issue: "Mixed performance signals.",
+        evidence: `Profit factor ${pfText}, lifetime PnL ${fmtMoney(r.realizedPnl)}, today ${fmtMoney(today.pnl)} over ${today.closed} trades.`,
+        action: "Keep current settings under observation before tuning.",
+      });
+    }
   }
 
   return { diagnosis: out, suggestions: sugg };
@@ -360,6 +450,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
         avgHoldMinutes: Math.round(avgHoldMs / 60_000),
         maxDrawdown: maxDrawdown(closed),
         profitFactor: profitFactor(closed),
+        maxConsecutiveLosses: maxConsecLosses(closed),
         settings: cfgMap.get(p.id) ?? null,
         today: computeDayStats(trades, sinceIso),
       };
