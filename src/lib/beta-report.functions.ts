@@ -52,6 +52,15 @@ export type DiagnosisItem = {
   action: string;
 };
 
+export type TuningAction = {
+  id: string;
+  priority: "High" | "Medium" | "Low";
+  issue: string;
+  evidence: string;
+  action: string;
+  affected: string;
+};
+
 export type DayStats = {
   closed: number;
   open: number;
@@ -514,8 +523,180 @@ export const getBetaReport = createServerFn({ method: "GET" })
       (t) => t.today.closed > 0 || t.today.open > 0,
     ).length;
 
+    // ===== Tuning Actions =====
+    const tuningActions: TuningAction[] = [];
+    const avgPF =
+      testers.length === 0
+        ? 0
+        : testers
+            .map((t) => (Number.isFinite(t.profitFactor) ? t.profitFactor : 0))
+            .reduce((a, b) => a + b, 0) / testers.length;
+
+    // Rule 1 — global PF weak
+    if (closedAll.length >= 30 && avgPF < 1.1) {
+      tuningActions.push({
+        id: "edge-weak",
+        priority: "High",
+        issue: "Edge is weak. Do not switch to live.",
+        evidence: `Average profit factor ${avgPF.toFixed(2)} across ${testers.length} testers, ${closedAll.length} closed trades.`,
+        action: "Keep cohort on paper. Tighten entry filters before promoting any tester.",
+        affected: "All testers",
+      });
+    }
+
+    // Rule 2 — stop_loss dominant
+    const topReason = topMode(closedAll.map((t) => t.exit_reason));
+    if (topReason === "stop_loss" && closedAll.length >= 20) {
+      const losers = testers
+        .filter((t) => t.today.topCloseReason === "stop_loss" && t.today.closed >= 3)
+        .map((t) => t.email ?? t.userId.slice(0, 6))
+        .slice(0, 4);
+      tuningActions.push({
+        id: "stop-loss-top",
+        priority: "High",
+        issue: "Stop-loss is the top exit reason.",
+        evidence: `Top close reason across ${closedAll.length} trades is stop_loss. ${losers.length} testers stopped out repeatedly today.`,
+        action: "Require stricter entry confirmation (raise minimum confidence or add VWAP/EMA filter).",
+        affected: losers.length ? losers.join(", ") : "Cohort-wide",
+      });
+    }
+
+    // Rule 3 — directional underperformance today
+    if (todayGlobal.closed >= 5) {
+      if (todayGlobal.shortPnl < 0 && todayGlobal.shortTrades >= 3 && todayGlobal.shortPnl < todayGlobal.longPnl) {
+        const users = testers.filter((t) => t.today.shortPnl < 0 && t.today.shortTrades >= 1)
+          .map((t) => t.email ?? t.userId.slice(0, 6)).slice(0, 4);
+        tuningActions.push({
+          id: "short-weak-today",
+          priority: "Medium",
+          issue: "Shorts are bleeding today.",
+          evidence: `Short PnL ${todayGlobal.shortPnl.toFixed(2)} over ${todayGlobal.shortTrades} trades vs long ${todayGlobal.longPnl.toFixed(2)}.`,
+          action: "Tighten short entry threshold or disable short auto-book until session recovers.",
+          affected: users.length ? users.join(", ") : "Cohort-wide",
+        });
+      }
+      if (todayGlobal.longPnl < 0 && todayGlobal.longTrades >= 3 && todayGlobal.longPnl < todayGlobal.shortPnl) {
+        const users = testers.filter((t) => t.today.longPnl < 0 && t.today.longTrades >= 1)
+          .map((t) => t.email ?? t.userId.slice(0, 6)).slice(0, 4);
+        tuningActions.push({
+          id: "long-weak-today",
+          priority: "Medium",
+          issue: "Longs are bleeding today.",
+          evidence: `Long PnL ${todayGlobal.longPnl.toFixed(2)} over ${todayGlobal.longTrades} trades vs short ${todayGlobal.shortPnl.toFixed(2)}.`,
+          action: "Tighten long entry threshold or pause long auto-book until session recovers.",
+          affected: users.length ? users.join(", ") : "Cohort-wide",
+        });
+      }
+    }
+
+    // Rule 4 — losing symbols (5+ trades, negative)
+    const symbolAgg = new Map<string, { trades: number; pnl: number }>();
+    for (const t of closedAll) {
+      const cur = symbolAgg.get(t.symbol) ?? { trades: 0, pnl: 0 };
+      cur.trades += 1;
+      cur.pnl += Number(t.pnl ?? 0);
+      symbolAgg.set(t.symbol, cur);
+    }
+    const losingSymbols = [...symbolAgg.entries()]
+      .filter(([, v]) => v.trades >= 5 && v.pnl < 0)
+      .sort((a, b) => a[1].pnl - b[1].pnl)
+      .slice(0, 5);
+    if (losingSymbols.length > 0) {
+      tuningActions.push({
+        id: "losing-symbols",
+        priority: "Medium",
+        issue: "Symbols repeatedly losing money.",
+        evidence: losingSymbols
+          .map(([s, v]) => `${s}: ${v.trades} trades, ${v.pnl >= 0 ? "+" : "−"}$${Math.abs(v.pnl).toFixed(2)}`)
+          .join(" · "),
+        action: "Add cooldown on these symbols or remove from allowlist temporarily.",
+        affected: losingSymbols.map(([s]) => s).join(", "),
+      });
+    }
+
+    // Rule 5 — testers with negative PnL and PF < 1
+    const safer = testers.filter(
+      (t) => t.closed >= 20 && t.realizedPnl < 0 && Number.isFinite(t.profitFactor) && t.profitFactor < 1,
+    );
+    if (safer.length > 0) {
+      tuningActions.push({
+        id: "safer-preset",
+        priority: "High",
+        issue: "Testers running unprofitable config.",
+        evidence: safer
+          .slice(0, 4)
+          .map((t) => `${t.email ?? t.userId.slice(0, 6)}: PF ${t.profitFactor.toFixed(2)}, PnL ${t.realizedPnl >= 0 ? "+" : "−"}$${Math.abs(t.realizedPnl).toFixed(2)}`)
+          .join(" · "),
+        action: "Apply safer config preset (lower risk per trade, raise min confidence, cap trades/day).",
+        affected: safer.map((t) => t.email ?? t.userId.slice(0, 6)).join(", "),
+      });
+    }
+
+    // Rule 6 — daily loss cap likely hit (Risk Locked diagnosis)
+    const lockedTesters = testers.filter((t) =>
+      t.diagnosis.some((d) => d.status === "Risk Locked"),
+    );
+    if (lockedTesters.length > 0) {
+      tuningActions.push({
+        id: "loss-cap-hit",
+        priority: "High",
+        issue: "Daily loss protection engaged for testers.",
+        evidence: lockedTesters
+          .slice(0, 4)
+          .map((t) => `${t.email ?? t.userId.slice(0, 6)}: streak ${t.maxConsecutiveLosses}, today ${t.today.pnl >= 0 ? "+" : "−"}$${Math.abs(t.today.pnl).toFixed(2)}`)
+          .join(" · "),
+        action: "Reduce max trades per day or extend cooldown after losses.",
+        affected: lockedTesters.map((t) => t.email ?? t.userId.slice(0, 6)).join(", "),
+      });
+    }
+
+    // Rule 7 — near 50% win rate but positive PnL
+    const filterCandidates = testers.filter(
+      (t) =>
+        t.closed >= 30 &&
+        t.realizedPnl > 0 &&
+        t.winRate >= 45 &&
+        t.winRate <= 55,
+    );
+    if (filterCandidates.length > 0) {
+      tuningActions.push({
+        id: "improve-filters",
+        priority: "Low",
+        issue: "Win rate near coin-flip but PnL positive.",
+        evidence: filterCandidates
+          .slice(0, 4)
+          .map((t) => `${t.email ?? t.userId.slice(0, 6)}: win ${t.winRate.toFixed(0)}%, PnL +$${t.realizedPnl.toFixed(2)}`)
+          .join(" · "),
+        action: "Preserve current TP/SL; improve entry filters to lift win rate without shrinking R:R.",
+        affected: filterCandidates.map((t) => t.email ?? t.userId.slice(0, 6)).join(", "),
+      });
+    }
+
+    // Rule 8 — overtrading (today closed >> max_open_positions)
+    const overtraders = testers.filter(
+      (t) => t.settings && t.today.closed >= Math.max(8, t.settings.max_open_positions * 4),
+    );
+    if (overtraders.length > 0) {
+      tuningActions.push({
+        id: "overtrading",
+        priority: "Medium",
+        issue: "Trade frequency is very high today.",
+        evidence: overtraders
+          .slice(0, 4)
+          .map((t) => `${t.email ?? t.userId.slice(0, 6)}: ${t.today.closed} trades, PnL ${t.today.pnl >= 0 ? "+" : "−"}$${Math.abs(t.today.pnl).toFixed(2)}`)
+          .join(" · "),
+        action: "Reduce auto-book frequency: raise min confidence or lower max trades per day.",
+        affected: overtraders.map((t) => t.email ?? t.userId.slice(0, 6)).join(", "),
+      });
+    }
+
+    // Sort by priority
+    const prioRank = { High: 0, Medium: 1, Low: 2 } as const;
+    tuningActions.sort((a, b) => prioRank[a.priority] - prioRank[b.priority]);
+
     return {
       testers,
+      tuningActions,
       summary: {
         activeTesters: testers.filter((t) => t.settings?.is_running).length,
         totalTesters: testers.length,

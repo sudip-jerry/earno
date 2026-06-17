@@ -13,6 +13,7 @@ import {
   exportAlgoConfigsCsv,
   type TesterReport,
   type TuneSuggestion,
+  type TuningAction,
 } from "@/lib/beta-report.functions";
 
 function downloadCsv(filename: string, csv: string) {
@@ -86,6 +87,7 @@ function BetaReportPage() {
 
   const s = rep.data?.summary;
   const testers = rep.data?.testers ?? [];
+  const tuningActions = rep.data?.tuningActions ?? [];
 
   return (
     <div className="min-h-svh bg-background pb-16">
@@ -105,6 +107,10 @@ function BetaReportPage() {
       </p>
 
       <ExportBar />
+
+      <TuningActionsSection actions={tuningActions} />
+
+
 
       {!s ? (
         <div className="px-5 text-sm text-muted-foreground">Loading report…</div>
@@ -579,6 +585,50 @@ function ExportBar() {
           plus each tester's config snapshot. Configs = current per-user bot
           settings.
         </p>
+      </div>
+    </section>
+  );
+}
+
+function TuningActionsSection({ actions }: { actions: TuningAction[] }) {
+  if (actions.length === 0) return null;
+  const pill = (p: TuningAction["priority"]) => {
+    if (p === "High") return "bg-[#0F52BA] text-white border-[#0F52BA]";
+    if (p === "Medium") return "bg-[#E8F0FB] text-[#0F52BA] border-[#0F52BA]/40";
+    return "bg-white text-[#0F52BA] border-[#0F52BA]/30";
+  };
+  return (
+    <section className="mx-5 mt-2 mb-4 rounded-2xl bg-white text-black border border-[#0F52BA]/20 shadow-sm">
+      <div className="px-4 pt-4 pb-2 flex items-baseline justify-between">
+        <h2 className="text-sm font-semibold text-black">Tuning Actions</h2>
+        <span className="text-[10px] uppercase tracking-wider text-[#0F52BA] font-semibold">
+          {actions.length} recommendation{actions.length === 1 ? "" : "s"}
+        </span>
+      </div>
+      <div className="px-4 pb-4 space-y-2.5">
+        {actions.map((a) => (
+          <div
+            key={a.id}
+            className="rounded-xl border border-[#0F52BA]/15 bg-white p-3"
+          >
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <span
+                className={`text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full border ${pill(a.priority)}`}
+              >
+                {a.priority} priority
+              </span>
+              <span className="text-[10px] text-black/50 truncate max-w-[55%] text-right">
+                {a.affected}
+              </span>
+            </div>
+            <p className="text-xs font-semibold text-black">{a.issue}</p>
+            <p className="text-[11px] text-black/70 mt-1">{a.evidence}</p>
+            <p className="text-[11px] mt-1.5">
+              <span className="text-[#0F52BA] font-semibold">Action: </span>
+              <span className="text-black">{a.action}</span>
+            </p>
+          </div>
+        ))}
       </div>
     </section>
   );
