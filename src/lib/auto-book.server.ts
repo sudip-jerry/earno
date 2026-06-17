@@ -265,7 +265,7 @@ async function logPauseEvent(supabase: SupabaseClient, userId: string, message: 
   if (!data?.length) await logEvent(supabase, userId, "warn", message);
 }
 
-import { analyzeSymbol, HARD_SPREAD_BLOCK_PCT, type SignalAnalysis } from "@/lib/signal-scoring.server";
+
 
 /** Run one auto-book pass. Optionally restrict to a single user (manual trigger). */
 export async function runAutoBookPass(
