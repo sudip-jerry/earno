@@ -178,33 +178,62 @@ function AlgoConfigPage() {
       </section>
 
       <section className="px-5 mt-6">
-        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-          Recent admin tunes
-        </h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Audit log
+          </h2>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs gap-1"
+            disabled={auditExportMut.isPending}
+            onClick={() => auditExportMut.mutate()}
+          >
+            <Download className="size-3" />
+            {auditExportMut.isPending ? "Exporting…" : "CSV"}
+          </Button>
+        </div>
         <div className="space-y-1.5">
-          {(data.data?.recentTunes ?? []).map((t, i) => (
-            <div
-              key={i}
-              className="rounded-lg border bg-card p-2 text-[11px]"
-            >
-              <div className="flex justify-between gap-2">
-                <span className="truncate font-medium">
-                  {t.user_email ?? t.user_id.slice(0, 8)}
-                </span>
-                <span className="text-muted-foreground tabular-nums shrink-0">
-                  {new Date(t.created_at).toLocaleString()}
-                </span>
-              </div>
-              <p className="text-muted-foreground truncate">{t.message}</p>
-              {t.meta != null && (
-                <p className="font-mono text-[10px] text-muted-foreground truncate">
-                  {JSON.stringify(t.meta)}
+          {(audit.data ?? []).map((a) => {
+            const tone =
+              a.source === "admin"
+                ? "border-amber-500/40 bg-amber-500/5"
+                : a.source === "system"
+                  ? "border-blue-500/30 bg-blue-500/5"
+                  : "";
+            return (
+              <div
+                key={a.id}
+                className={`rounded-lg border bg-card p-2 text-[11px] ${tone}`}
+              >
+                <div className="flex justify-between gap-2">
+                  <span className="truncate font-medium">
+                    {a.user_email ?? a.user_id.slice(0, 8)}
+                  </span>
+                  <span className="text-muted-foreground tabular-nums shrink-0">
+                    {new Date(a.changed_at).toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-muted-foreground">
+                  <span className="font-mono text-foreground">{a.field}</span>
+                  {": "}
+                  <span className="line-through opacity-60">
+                    {a.old_value ?? "—"}
+                  </span>
+                  {" → "}
+                  <span className="text-foreground">{a.new_value ?? "—"}</span>
                 </p>
-              )}
-            </div>
-          ))}
-          {(data.data?.recentTunes ?? []).length === 0 && (
-            <p className="text-xs text-muted-foreground">No admin tunes yet.</p>
+                <p className="text-[10px] text-muted-foreground">
+                  by {a.changed_by_email ?? a.source}
+                  {a.source !== "user" && ` · ${a.source}`}
+                </p>
+              </div>
+            );
+          })}
+          {!audit.isLoading && (audit.data ?? []).length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              No changes recorded yet. New edits will appear here.
+            </p>
           )}
         </div>
       </section>
