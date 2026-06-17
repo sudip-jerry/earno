@@ -13,6 +13,7 @@ import {
   exportAlgoConfigsCsv,
   type TesterReport,
   type TuneSuggestion,
+  type TuningAction,
 } from "@/lib/beta-report.functions";
 
 function downloadCsv(filename: string, csv: string) {
