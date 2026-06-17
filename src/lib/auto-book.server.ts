@@ -42,7 +42,7 @@ async function fetchAtrPct(pair: string): Promise<number | null> {
 }
 
 
-type Strictness = "less" | "moderate" | "strict";
+
 type PlanTier = "free" | "reco" | "auto5" | "unlimited";
 
 const AUTO_PLAN_DAILY_LIMIT: Record<PlanTier, number> = {
