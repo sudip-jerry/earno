@@ -96,13 +96,15 @@ function BetaReportPage() {
         >
           <ChevronLeft className="size-5" />
         </Link>
-        <h1 className="text-xl font-semibold">Beta Report</h1>
+      <h1 className="text-xl font-semibold">Beta Report</h1>
       </header>
 
       <p className="px-5 text-[11px] text-muted-foreground -mt-2 mb-3">
         Based on current paper-trading sample. May improve testing quality. Not a
         guarantee of future performance.
       </p>
+
+      <ExportBar />
 
       {!s ? (
         <div className="px-5 text-sm text-muted-foreground">Loading report…</div>
