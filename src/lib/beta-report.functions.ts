@@ -44,6 +44,14 @@ export type TuneSuggestion = {
   patch: Partial<Cfg>;
 };
 
+export type DiagnosisStatus = "Healthy" | "Watch" | "Needs Tuning" | "Risk Locked";
+export type DiagnosisItem = {
+  status: DiagnosisStatus;
+  issue: string;
+  evidence: string;
+  action: string;
+};
+
 export type DayStats = {
   closed: number;
   open: number;
