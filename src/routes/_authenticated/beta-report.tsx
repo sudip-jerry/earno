@@ -412,15 +412,28 @@ function TesterCard({
           </p>
         )}
         {t.diagnosisStage === "ready" && (
-          <ul className="text-xs space-y-0.5 list-disc list-inside">
-            {t.diagnosis.length === 0 ? (
-              <li className="text-muted-foreground list-none">
-                No outliers — settings look balanced.
-              </li>
-            ) : (
-              t.diagnosis.map((d, i) => <li key={i}>{d}</li>)
-            )}
-          </ul>
+          <div className="space-y-2">
+            {t.diagnosis.map((d, i) => {
+              const tone =
+                d.status === "Healthy"
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                  : d.status === "Watch"
+                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                  : d.status === "Needs Tuning"
+                  ? "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30"
+                  : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30";
+              return (
+                <div key={i} className="rounded-lg border bg-card p-2.5">
+                  <span className={`inline-flex items-center text-[10px] font-semibold px-2 h-5 rounded-full border ${tone}`}>
+                    {d.status}
+                  </span>
+                  <p className="mt-1.5 text-xs font-medium">{d.issue}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{d.evidence}</p>
+                  <p className="text-[11px] mt-1"><span className="text-muted-foreground">Action: </span>{d.action}</p>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
