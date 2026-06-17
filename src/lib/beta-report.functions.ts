@@ -309,6 +309,12 @@ export const getBetaReport = createServerFn({ method: "GET" })
       byUser.set(p.user_id, a);
     }
 
+    const sinceIso = (() => {
+      const d = new Date();
+      d.setUTCHours(0, 0, 0, 0);
+      return d.toISOString();
+    })();
+
     const testers: TesterReport[] = [];
     for (const p of profiles ?? []) {
       const trades = byUser.get(p.id) ?? [];
@@ -355,6 +361,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
         maxDrawdown: maxDrawdown(closed),
         profitFactor: profitFactor(closed),
         settings: cfgMap.get(p.id) ?? null,
+        today: computeDayStats(trades, sinceIso),
       };
       const stage: TesterReport["diagnosisStage"] =
         closed.length < 30 ? "none" : closed.length <= 50 ? "early" : "ready";
@@ -362,6 +369,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
         stage === "ready" ? buildDiagnosis(base) : { diagnosis: [], suggestions: [] };
       testers.push({ ...base, diagnosisStage: stage, diagnosis, suggestions });
     }
+
 
     testers.sort((a, b) => b.realizedPnl - a.realizedPnl);
 
