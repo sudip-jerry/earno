@@ -16,6 +16,7 @@ import { Route as AuthenticatedUpgradeRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedTermsRouteImport } from './routes/_authenticated/terms'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedScannerRouteImport } from './routes/_authenticated/scanner'
+import { Route as AuthenticatedPrivacyRouteImport } from './routes/_authenticated/privacy'
 import { Route as AuthenticatedPositionsRouteImport } from './routes/_authenticated/positions'
 import { Route as AuthenticatedMoversRouteImport } from './routes/_authenticated/movers'
 import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
@@ -59,6 +60,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
 const AuthenticatedScannerRoute = AuthenticatedScannerRouteImport.update({
   id: '/scanner',
   path: '/scanner',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPrivacyRoute = AuthenticatedPrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPositionsRoute = AuthenticatedPositionsRouteImport.update({
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/help': typeof AuthenticatedHelpRoute
   '/movers': typeof AuthenticatedMoversRoute
   '/positions': typeof AuthenticatedPositionsRoute
+  '/privacy': typeof AuthenticatedPrivacyRoute
   '/scanner': typeof AuthenticatedScannerRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/terms': typeof AuthenticatedTermsRoute
@@ -141,6 +148,7 @@ export interface FileRoutesByTo {
   '/help': typeof AuthenticatedHelpRoute
   '/movers': typeof AuthenticatedMoversRoute
   '/positions': typeof AuthenticatedPositionsRoute
+  '/privacy': typeof AuthenticatedPrivacyRoute
   '/scanner': typeof AuthenticatedScannerRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/terms': typeof AuthenticatedTermsRoute
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/_authenticated/help': typeof AuthenticatedHelpRoute
   '/_authenticated/movers': typeof AuthenticatedMoversRoute
   '/_authenticated/positions': typeof AuthenticatedPositionsRoute
+  '/_authenticated/privacy': typeof AuthenticatedPrivacyRoute
   '/_authenticated/scanner': typeof AuthenticatedScannerRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/terms': typeof AuthenticatedTermsRoute
@@ -182,6 +191,7 @@ export interface FileRouteTypes {
     | '/help'
     | '/movers'
     | '/positions'
+    | '/privacy'
     | '/scanner'
     | '/settings'
     | '/terms'
@@ -199,6 +209,7 @@ export interface FileRouteTypes {
     | '/help'
     | '/movers'
     | '/positions'
+    | '/privacy'
     | '/scanner'
     | '/settings'
     | '/terms'
@@ -218,6 +229,7 @@ export interface FileRouteTypes {
     | '/_authenticated/help'
     | '/_authenticated/movers'
     | '/_authenticated/positions'
+    | '/_authenticated/privacy'
     | '/_authenticated/scanner'
     | '/_authenticated/settings'
     | '/_authenticated/terms'
@@ -283,6 +295,13 @@ declare module '@tanstack/react-router' {
       path: '/scanner'
       fullPath: '/scanner'
       preLoaderRoute: typeof AuthenticatedScannerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/privacy': {
+      id: '/_authenticated/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof AuthenticatedPrivacyRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/positions': {
@@ -367,6 +386,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHelpRoute: typeof AuthenticatedHelpRoute
   AuthenticatedMoversRoute: typeof AuthenticatedMoversRoute
   AuthenticatedPositionsRoute: typeof AuthenticatedPositionsRoute
+  AuthenticatedPrivacyRoute: typeof AuthenticatedPrivacyRoute
   AuthenticatedScannerRoute: typeof AuthenticatedScannerRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTermsRoute: typeof AuthenticatedTermsRoute
@@ -383,6 +403,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHelpRoute: AuthenticatedHelpRoute,
   AuthenticatedMoversRoute: AuthenticatedMoversRoute,
   AuthenticatedPositionsRoute: AuthenticatedPositionsRoute,
+  AuthenticatedPrivacyRoute: AuthenticatedPrivacyRoute,
   AuthenticatedScannerRoute: AuthenticatedScannerRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTermsRoute: AuthenticatedTermsRoute,
