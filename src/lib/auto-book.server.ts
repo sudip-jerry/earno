@@ -10,6 +10,7 @@ import {
   presetFromConfig,
   type StylePreset,
 } from "@/lib/risk-engine";
+import { analyzeSymbol, HARD_SPREAD_BLOCK_PCT, type SignalAnalysis } from "@/lib/signal-scoring.server";
 
 
 const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
