@@ -21,6 +21,7 @@ import { Route as AuthenticatedMoversRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
 import { Route as AuthenticatedBotRouteImport } from './routes/_authenticated/bot'
 import { Route as AuthenticatedBetaReportRouteImport } from './routes/_authenticated/beta-report'
+import { Route as AuthenticatedAlgoConfigRouteImport } from './routes/_authenticated/algo-config'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAboutRouteImport } from './routes/_authenticated/about'
 import { Route as ApiPublicHooksMarkPositionsRouteImport } from './routes/api/public/hooks/mark-positions'
@@ -85,6 +86,11 @@ const AuthenticatedBetaReportRoute = AuthenticatedBetaReportRouteImport.update({
   path: '/beta-report',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAlgoConfigRoute = AuthenticatedAlgoConfigRouteImport.update({
+  id: '/algo-config',
+  path: '/algo-config',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/about': typeof AuthenticatedAboutRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/algo-config': typeof AuthenticatedAlgoConfigRoute
   '/beta-report': typeof AuthenticatedBetaReportRoute
   '/bot': typeof AuthenticatedBotRoute
   '/help': typeof AuthenticatedHelpRoute
@@ -128,6 +135,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/about': typeof AuthenticatedAboutRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/algo-config': typeof AuthenticatedAlgoConfigRoute
   '/beta-report': typeof AuthenticatedBetaReportRoute
   '/bot': typeof AuthenticatedBotRoute
   '/help': typeof AuthenticatedHelpRoute
@@ -147,6 +155,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/about': typeof AuthenticatedAboutRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/algo-config': typeof AuthenticatedAlgoConfigRoute
   '/_authenticated/beta-report': typeof AuthenticatedBetaReportRoute
   '/_authenticated/bot': typeof AuthenticatedBotRoute
   '/_authenticated/help': typeof AuthenticatedHelpRoute
@@ -167,6 +176,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/about'
     | '/admin'
+    | '/algo-config'
     | '/beta-report'
     | '/bot'
     | '/help'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/about'
     | '/admin'
+    | '/algo-config'
     | '/beta-report'
     | '/bot'
     | '/help'
@@ -201,6 +212,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/about'
     | '/_authenticated/admin'
+    | '/_authenticated/algo-config'
     | '/_authenticated/beta-report'
     | '/_authenticated/bot'
     | '/_authenticated/help'
@@ -308,6 +320,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBetaReportRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/algo-config': {
+      id: '/_authenticated/algo-config'
+      path: '/algo-config'
+      fullPath: '/algo-config'
+      preLoaderRoute: typeof AuthenticatedAlgoConfigRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
@@ -342,6 +361,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAboutRoute: typeof AuthenticatedAboutRoute
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAlgoConfigRoute: typeof AuthenticatedAlgoConfigRoute
   AuthenticatedBetaReportRoute: typeof AuthenticatedBetaReportRoute
   AuthenticatedBotRoute: typeof AuthenticatedBotRoute
   AuthenticatedHelpRoute: typeof AuthenticatedHelpRoute
@@ -357,6 +377,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAboutRoute: AuthenticatedAboutRoute,
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAlgoConfigRoute: AuthenticatedAlgoConfigRoute,
   AuthenticatedBetaReportRoute: AuthenticatedBetaReportRoute,
   AuthenticatedBotRoute: AuthenticatedBotRoute,
   AuthenticatedHelpRoute: AuthenticatedHelpRoute,
