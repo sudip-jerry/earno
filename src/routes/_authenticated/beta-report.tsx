@@ -8,9 +8,28 @@ import { getMyEntitlements } from "@/lib/plans.functions";
 import {
   getBetaReport,
   adminApplyTune,
+  exportAllTradesCsv,
+  exportSignalsCsv,
+  exportAlgoConfigsCsv,
   type TesterReport,
   type TuneSuggestion,
 } from "@/lib/beta-report.functions";
+
+function downloadCsv(filename: string, csv: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function ts() {
+  return new Date().toISOString().replace(/[:.]/g, "-");
+}
 
 export const Route = createFileRoute("/_authenticated/beta-report")({
   head: () => ({ meta: [{ title: "Beta Report — Earn'O" }] }),
@@ -77,13 +96,15 @@ function BetaReportPage() {
         >
           <ChevronLeft className="size-5" />
         </Link>
-        <h1 className="text-xl font-semibold">Beta Report</h1>
+      <h1 className="text-xl font-semibold">Beta Report</h1>
       </header>
 
       <p className="px-5 text-[11px] text-muted-foreground -mt-2 mb-3">
         Based on current paper-trading sample. May improve testing quality. Not a
         guarantee of future performance.
       </p>
+
+      <ExportBar />
 
       {!s ? (
         <div className="px-5 text-sm text-muted-foreground">Loading report…</div>
@@ -463,5 +484,84 @@ function Stat({ k, v, tone }: { k: string; v: string; tone?: "pos" | "neg" }) {
       <p className="text-[9px] uppercase tracking-wider text-muted-foreground">{k}</p>
       <p className={`tabular-nums font-medium ${color}`}>{v}</p>
     </div>
+  );
+}
+
+function ExportBar() {
+  const tradesFn = useServerFn(exportAllTradesCsv);
+  const signalsFn = useServerFn(exportSignalsCsv);
+  const cfgFn = useServerFn(exportAlgoConfigsCsv);
+
+  const trades = useMutation({
+    mutationFn: () => tradesFn(),
+    onSuccess: (r) => {
+      downloadCsv(`trades-${ts()}.csv`, r.csv);
+      toast.success(`Exported ${r.count} trades`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+  const signals = useMutation({
+    mutationFn: () => signalsFn(),
+    onSuccess: (r) => {
+      downloadCsv(`signals-${ts()}.csv`, r.csv);
+      toast.success(`Exported ${r.count} signals`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+  const cfg = useMutation({
+    mutationFn: () => cfgFn(),
+    onSuccess: (r) => {
+      downloadCsv(`algo-configs-${ts()}.csv`, r.csv);
+      toast.success(`Exported ${r.count} configs`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  return (
+    <section className="px-5 mb-4">
+      <div className="rounded-2xl border bg-card p-3">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+            Algo data exports
+          </p>
+          <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
+            <Link to="/algo-config">Algo config screen →</Link>
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            className="h-8 text-xs"
+            disabled={trades.isPending}
+            onClick={() => trades.mutate()}
+          >
+            {trades.isPending ? "Exporting…" : "Download trades CSV"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            disabled={signals.isPending}
+            onClick={() => signals.mutate()}
+          >
+            {signals.isPending ? "Exporting…" : "Download signals CSV"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            disabled={cfg.isPending}
+            onClick={() => cfg.mutate()}
+          >
+            {cfg.isPending ? "Exporting…" : "Download algo configs CSV"}
+          </Button>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-2">
+          Trades = all positions (paper + live, open + closed) with PnL, SL/TP,
+          exit reason. Signals = scanner events (level=signal/trade) with full
+          meta. Configs = current per-user bot settings.
+        </p>
+      </div>
+    </section>
   );
 }
