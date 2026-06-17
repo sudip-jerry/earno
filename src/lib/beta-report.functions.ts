@@ -734,3 +734,76 @@ export const getAlgoConfigsOverview = createServerFn({ method: "GET" })
       })),
     };
   });
+
+export const getAlgoAuditLog = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const [{ data: audit, error: e1 }, { data: profiles, error: e2 }] =
+      await Promise.all([
+        supabaseAdmin
+          .from("bot_config_audit")
+          .select("*")
+          .order("changed_at", { ascending: false })
+          .limit(500),
+        supabaseAdmin.from("profiles").select("id,email,display_name"),
+      ]);
+    if (e1) throw new Error(e1.message);
+    if (e2) throw new Error(e2.message);
+
+    const pMap = new Map<string, { email: string | null; name: string | null }>();
+    for (const p of profiles ?? []) {
+      pMap.set(p.id, { email: p.email ?? null, name: p.display_name ?? null });
+    }
+
+    return (audit ?? []).map((a) => ({
+      id: a.id,
+      changed_at: a.changed_at,
+      user_id: a.user_id,
+      user_email: pMap.get(a.user_id)?.email ?? null,
+      changed_by: a.changed_by,
+      changed_by_email: a.changed_by ? pMap.get(a.changed_by)?.email ?? null : null,
+      source: a.source,
+      field: a.field,
+      old_value: a.old_value,
+      new_value: a.new_value,
+    }));
+  });
+
+export const exportAlgoAuditCsv = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const [{ data: audit, error: e1 }, { data: profiles, error: e2 }] =
+      await Promise.all([
+        supabaseAdmin
+          .from("bot_config_audit")
+          .select("*")
+          .order("changed_at", { ascending: false })
+          .limit(50000),
+        supabaseAdmin.from("profiles").select("id,email,display_name"),
+      ]);
+    if (e1) throw new Error(e1.message);
+    if (e2) throw new Error(e2.message);
+
+    const pMap = new Map<string, { email: string | null }>();
+    for (const p of profiles ?? []) pMap.set(p.id, { email: p.email ?? null });
+
+    const rows = (audit ?? []).map((a) => ({
+      changed_at: a.changed_at,
+      user_email: pMap.get(a.user_id)?.email ?? "",
+      user_id: a.user_id,
+      changed_by_email: a.changed_by ? pMap.get(a.changed_by)?.email ?? "" : "",
+      changed_by: a.changed_by ?? "",
+      source: a.source,
+      field: a.field,
+      old_value: a.old_value ?? "",
+      new_value: a.new_value ?? "",
+    }));
+
+    return { csv: toCsv(rows), count: rows.length };
+  });

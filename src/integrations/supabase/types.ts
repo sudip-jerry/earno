@@ -194,6 +194,39 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_config_audit: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          field: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          source: string
+          user_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          field: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          source?: string
+          user_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          field?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          source?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       bot_events: {
         Row: {
           created_at: string
