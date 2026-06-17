@@ -113,7 +113,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     // Read mode first so positions queries can be scoped to the active mode.
     const { data: cfg } = await supabase
       .from("bot_config")
-      .select("daily_loss_cap_pct,paper_equity,live_allocation_amount,is_running,min_scalp_score,auto_book,mode,max_trades_per_day,max_open_positions,max_consecutive_losses,cooldown_minutes_after_loss")
+      .select("daily_loss_cap_pct,paper_equity,live_allocation_amount,is_running,min_scalp_score,auto_book,mode,max_trades_per_day,max_open_positions,cooldown_minutes")
       .eq("user_id", context.userId)
       .maybeSingle();
 
