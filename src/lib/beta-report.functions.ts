@@ -44,6 +44,27 @@ export type TuneSuggestion = {
   patch: Partial<Cfg>;
 };
 
+export type DayStats = {
+  closed: number;
+  open: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  pnl: number;
+  avgPnlPct: number;
+  bestTrade: number;
+  worstTrade: number;
+  longTrades: number;
+  longWins: number;
+  longPnl: number;
+  longWinRate: number;
+  shortTrades: number;
+  shortWins: number;
+  shortPnl: number;
+  shortWinRate: number;
+  topCloseReason: string | null;
+};
+
 export type TesterReport = {
   userId: string;
   email: string | null;
@@ -64,10 +85,57 @@ export type TesterReport = {
   maxDrawdown: number;
   profitFactor: number;
   settings: Cfg | null;
+  today: DayStats;
   diagnosis: string[];
   diagnosisStage: "none" | "early" | "ready";
   suggestions: TuneSuggestion[];
 };
+
+function emptyDay(): DayStats {
+  return {
+    closed: 0, open: 0, wins: 0, losses: 0, winRate: 0, pnl: 0, avgPnlPct: 0,
+    bestTrade: 0, worstTrade: 0,
+    longTrades: 0, longWins: 0, longPnl: 0, longWinRate: 0,
+    shortTrades: 0, shortWins: 0, shortPnl: 0, shortWinRate: 0,
+    topCloseReason: null,
+  };
+}
+
+function computeDayStats(positions: Pos[], sinceIso: string): DayStats {
+  const since = new Date(sinceIso).getTime();
+  const closedToday = positions.filter(
+    (t) => t.status === "closed" && t.closed_at && new Date(t.closed_at).getTime() >= since,
+  );
+  const openedToday = positions.filter((t) => new Date(t.opened_at).getTime() >= since);
+  if (closedToday.length === 0 && openedToday.length === 0) return emptyDay();
+  const wins = closedToday.filter((t) => Number(t.pnl ?? 0) > 0).length;
+  const losses = closedToday.filter((t) => Number(t.pnl ?? 0) < 0).length;
+  const pnl = closedToday.reduce((s, t) => s + Number(t.pnl ?? 0), 0);
+  const avgPnlPct = closedToday.length
+    ? closedToday.reduce((s, t) => s + Number(t.pnl_pct ?? 0), 0) / closedToday.length
+    : 0;
+  const longs = closedToday.filter((t) => t.side === "long");
+  const shorts = closedToday.filter((t) => t.side === "short");
+  const longWins = longs.filter((t) => Number(t.pnl ?? 0) > 0).length;
+  const shortWins = shorts.filter((t) => Number(t.pnl ?? 0) > 0).length;
+  const pnls = closedToday.map((t) => Number(t.pnl ?? 0));
+  return {
+    closed: closedToday.length,
+    open: openedToday.filter((t) => t.status === "open").length,
+    wins, losses,
+    winRate: closedToday.length ? (wins / closedToday.length) * 100 : 0,
+    pnl, avgPnlPct,
+    bestTrade: pnls.length ? Math.max(...pnls) : 0,
+    worstTrade: pnls.length ? Math.min(...pnls) : 0,
+    longTrades: longs.length, longWins,
+    longPnl: longs.reduce((s, t) => s + Number(t.pnl ?? 0), 0),
+    longWinRate: longs.length ? (longWins / longs.length) * 100 : 0,
+    shortTrades: shorts.length, shortWins,
+    shortPnl: shorts.reduce((s, t) => s + Number(t.pnl ?? 0), 0),
+    shortWinRate: shorts.length ? (shortWins / shorts.length) * 100 : 0,
+    topCloseReason: topMode(closedToday.map((t) => t.exit_reason)),
+  };
+}
 
 function profitFactor(closed: Pos[]): number {
   let gain = 0,
