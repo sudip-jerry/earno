@@ -67,6 +67,7 @@ export type Database = {
       }
       bot_config: {
         Row: {
+          allow_long: boolean
           allow_short: boolean
           atr_multiplier: number
           auto_book: boolean
@@ -91,11 +92,14 @@ export type Database = {
           mode: string
           move_to_breakeven: boolean
           paper_equity: number
+          regime_filter_enabled: boolean
           risk_per_trade_pct: number
           scan_interval_minutes: number
           scanner_top_n: number
           stop_loss_pct: number
           strategy: string
+          symbol_blacklist_threshold: number
+          symbol_sl_cooldown_minutes: number
           take_profit_pct: number
           target_multiplier: number
           timeframe: string
@@ -105,6 +109,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          allow_long?: boolean
           allow_short?: boolean
           atr_multiplier?: number
           auto_book?: boolean
@@ -129,11 +134,14 @@ export type Database = {
           mode?: string
           move_to_breakeven?: boolean
           paper_equity?: number
+          regime_filter_enabled?: boolean
           risk_per_trade_pct?: number
           scan_interval_minutes?: number
           scanner_top_n?: number
           stop_loss_pct?: number
           strategy?: string
+          symbol_blacklist_threshold?: number
+          symbol_sl_cooldown_minutes?: number
           take_profit_pct?: number
           target_multiplier?: number
           timeframe?: string
@@ -143,6 +151,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          allow_long?: boolean
           allow_short?: boolean
           atr_multiplier?: number
           auto_book?: boolean
@@ -167,11 +176,14 @@ export type Database = {
           mode?: string
           move_to_breakeven?: boolean
           paper_equity?: number
+          regime_filter_enabled?: boolean
           risk_per_trade_pct?: number
           scan_interval_minutes?: number
           scanner_top_n?: number
           stop_loss_pct?: number
           strategy?: string
+          symbol_blacklist_threshold?: number
+          symbol_sl_cooldown_minutes?: number
           take_profit_pct?: number
           target_multiplier?: number
           timeframe?: string

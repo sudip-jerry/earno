@@ -199,6 +199,7 @@ type BotConfig = {
   daily_loss_cap_pct: number | null;
   min_scalp_score: number | null;
   allow_short: boolean;
+  allow_long: boolean;
   strategy: string | null;
   trading_style: string | null;
   min_sl_pct: number | null;
@@ -206,11 +207,15 @@ type BotConfig = {
   max_auto_sl_pct: number | null;
   target_multiplier: number | null;
   min_rr: number | null;
+  symbol_sl_cooldown_minutes: number | null;
+  symbol_blacklist_threshold: number | null;
+  regime_filter_enabled: boolean | null;
   live_wallet_source?: string | null;
   live_allocation_mode?: string | null;
   live_allocation_amount?: number | null;
   live_allocation_pct?: number | null;
 };
+
 
 
 /** Returns the USDT capital to size positions against. Paper uses paper_equity.
@@ -316,10 +321,11 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
+
   if (opts.userId) q = q.eq("user_id", opts.userId);
   const { data: cfgs } = await q;
 
@@ -403,16 +409,41 @@ export async function runAutoBookPass(
 
     // Cooldown: last opened time per symbol (last 24h window covers any sensible cooldown).
     const cooldownMs = (cfg.cooldown_minutes ?? 15) * 60_000;
+    const symbolSlCooldownMs = Math.max(0, Number(cfg.symbol_sl_cooldown_minutes ?? 180)) * 60_000;
+    const blacklistThreshold = Math.max(1, Number(cfg.symbol_blacklist_threshold ?? 3));
+
     const { data: recent } = await supabase
       .from("positions")
-      .select("symbol,opened_at")
+      .select("symbol,opened_at,closed_at,exit_reason,pnl,side")
       .eq("user_id", cfg.user_id)
       .gte("opened_at", new Date(Date.now() - 24 * 3600_000).toISOString());
     const lastOpen = new Map<string, number>();
+    const lastSlClose = new Map<string, number>();
+    const lossCountBySymbol = new Map<string, number>();
+    let longNet24h = 0;
+    let shortNet24h = 0;
     for (const r of recent ?? []) {
+      const sym = r.symbol as string;
       const t = new Date(r.opened_at as string).getTime();
-      const prev = lastOpen.get(r.symbol as string) ?? 0;
-      if (t > prev) lastOpen.set(r.symbol as string, t);
+      const prev = lastOpen.get(sym) ?? 0;
+      if (t > prev) lastOpen.set(sym, t);
+      const pnl = Number(r.pnl ?? 0);
+      if (r.exit_reason === "stop_loss" && r.closed_at) {
+        const ct = new Date(r.closed_at as string).getTime();
+        const prevC = lastSlClose.get(sym) ?? 0;
+        if (ct > prevC) lastSlClose.set(sym, ct);
+      }
+      if (pnl < 0) lossCountBySymbol.set(sym, (lossCountBySymbol.get(sym) ?? 0) + 1);
+      if (r.side === "long") longNet24h += pnl;
+      else if (r.side === "short") shortNet24h += pnl;
+    }
+
+    // Auto-regime filter: throttle the bleeding side when one side is materially worse.
+    let longConfBoost = 0;
+    let shortConfBoost = 0;
+    if (cfg.regime_filter_enabled !== false) {
+      if (longNet24h < -1 && longNet24h <= shortNet24h * 1.5 - 5) longConfBoost = 10;
+      else if (shortNet24h < -1 && shortNet24h <= longNet24h * 1.5 - 5) shortConfBoost = 10;
     }
 
     const preset: StylePreset = presetFromConfig(cfg);
@@ -427,7 +458,31 @@ export async function runAutoBookPass(
         skipped++;
         continue;
       }
-      if (cfg.min_scalp_score != null && s.confidence < Number(cfg.min_scalp_score)) {
+      if (s.side === "long" && cfg.allow_long === false) {
+        skipped++;
+        continue;
+      }
+      // 24h symbol blacklist after N losses
+      if ((lossCountBySymbol.get(s.symbol) ?? 0) >= blacklistThreshold) {
+        skipped++;
+        await logEvent(supabase, cfg.user_id, "warn", `Skipped ${s.symbol} · Symbol blacklisted (${lossCountBySymbol.get(s.symbol)} losses in 24h)`, {
+          kind: "skip", symbol: s.symbol, reason: "symbol_blacklist",
+        });
+        continue;
+      }
+      // Per-symbol SL cooldown
+      const lastSl = lastSlClose.get(s.symbol);
+      if (lastSl && Date.now() - lastSl < symbolSlCooldownMs) {
+        const mins = Math.floor((symbolSlCooldownMs - (Date.now() - lastSl)) / 60_000);
+        skipped++;
+        await logEvent(supabase, cfg.user_id, "warn", `Skipped ${s.symbol} · SL cooldown active (${mins}m remaining)`, {
+          kind: "skip", symbol: s.symbol, reason: "sl_cooldown",
+        });
+        continue;
+      }
+      // Regime-adjusted min confidence
+      const minConf = Number(cfg.min_scalp_score ?? 0) + (s.side === "long" ? longConfBoost : shortConfBoost);
+      if (s.confidence < minConf) {
         skipped++;
         continue;
       }
@@ -436,6 +491,7 @@ export async function runAutoBookPass(
         skipped++;
         continue;
       }
+
 
       // Volatility-adjusted risk plan
       const atrPct = await fetchAtrPct(s.symbol);
