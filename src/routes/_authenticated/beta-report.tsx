@@ -328,6 +328,43 @@ function TesterCard({
         />
       </div>
 
+      <div className="mt-3 rounded-lg border bg-muted/40 p-2">
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+            Today
+          </p>
+          <p
+            className={`text-xs font-semibold tabular-nums ${t.today.pnl >= 0 ? "text-emerald-500" : "text-destructive"}`}
+          >
+            {money(t.today.pnl)}
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-1.5 text-[11px]">
+          <Stat k="Closed" v={`${t.today.closed}`} />
+          <Stat k="Open" v={`${t.today.open}`} />
+          <Stat
+            k="Win %"
+            v={`${fmt(t.today.winRate, 0)}%`}
+            tone={t.today.winRate >= 50 ? "pos" : t.today.winRate > 0 ? "neg" : undefined}
+          />
+          <Stat
+            k={`Longs ${t.today.longTrades}`}
+            v={`${fmt(t.today.longWinRate, 0)}% · ${money(t.today.longPnl)}`}
+            tone={t.today.longPnl >= 0 ? "pos" : "neg"}
+          />
+          <Stat
+            k={`Shorts ${t.today.shortTrades}`}
+            v={`${fmt(t.today.shortWinRate, 0)}% · ${money(t.today.shortPnl)}`}
+            tone={t.today.shortPnl >= 0 ? "pos" : "neg"}
+          />
+          <Stat k="Avg %" v={pct(t.today.avgPnlPct)} />
+          <Stat k="Best" v={money(t.today.bestTrade)} tone="pos" />
+          <Stat k="Worst" v={money(t.today.worstTrade)} tone="neg" />
+          <Stat k="Top exit" v={t.today.topCloseReason ?? "—"} />
+        </div>
+      </div>
+
+
       {t.settings && (
         <div className="mt-3 rounded-lg border bg-muted/40 p-2 text-[11px] text-muted-foreground">
           <p className="font-medium text-foreground mb-0.5">Current settings</p>
