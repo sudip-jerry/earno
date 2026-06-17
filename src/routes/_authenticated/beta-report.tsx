@@ -87,6 +87,7 @@ function BetaReportPage() {
 
   const s = rep.data?.summary;
   const testers = rep.data?.testers ?? [];
+  const tuningActions = rep.data?.tuningActions ?? [];
 
   return (
     <div className="min-h-svh bg-background pb-16">
