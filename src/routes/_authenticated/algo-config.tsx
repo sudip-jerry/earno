@@ -35,11 +35,19 @@ function AlgoConfigPage() {
   const entFn = useServerFn(getMyEntitlements);
   const overviewFn = useServerFn(getAlgoConfigsOverview);
   const exportFn = useServerFn(exportAlgoConfigsCsv);
+  const auditFn = useServerFn(getAlgoAuditLog);
+  const auditCsvFn = useServerFn(exportAlgoAuditCsv);
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
   const data = useQuery({
     queryKey: ["algo_configs_overview"],
     queryFn: () => overviewFn(),
+    enabled: !!ent.data?.isAdmin,
+    refetchInterval: 60_000,
+  });
+  const audit = useQuery({
+    queryKey: ["algo_audit"],
+    queryFn: () => auditFn(),
     enabled: !!ent.data?.isAdmin,
     refetchInterval: 60_000,
   });
@@ -50,6 +58,15 @@ function AlgoConfigPage() {
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       downloadCsv(`algo-configs-${stamp}.csv`, r.csv);
       toast.success(`Exported ${r.count} configs`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+  const auditExportMut = useMutation({
+    mutationFn: () => auditCsvFn(),
+    onSuccess: (r) => {
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      downloadCsv(`algo-audit-${stamp}.csv`, r.csv);
+      toast.success(`Exported ${r.count} audit rows`);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
