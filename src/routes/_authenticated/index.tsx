@@ -385,11 +385,19 @@ function Home() {
           <dl className="mt-4 grid grid-cols-4 gap-3">
             <Metric label="Trades today" value={`${s?.tradesToday ?? 0}`} />
             <Metric label="Open" value={`${openCount}`} />
-            <Metric
-              label="Risk"
-              value={s?.riskHealthy ?? true ? "Active" : "Warning"}
-              icon={<ShieldCheck className="size-3 text-emerald-500" />}
-            />
+            <button type="button" onClick={() => setRiskOpen(true)} className="text-left">
+              <dt className="text-[10px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-0.5">
+                Risk <Info className="size-2.5 opacity-60" />
+              </dt>
+              <dd className="mt-1 text-[13px] font-semibold tabular-nums inline-flex items-center gap-1">
+                {s?.riskHealthy ?? true ? (
+                  <ShieldCheck className="size-3 text-emerald-500" />
+                ) : (
+                  <AlertTriangle className="size-3 text-amber-500" />
+                )}
+                {s?.riskHealthy ?? true ? "Active" : "Warning"}
+              </dd>
+            </button>
             <Metric label="Last scan" value={timeAgo(s?.lastAnalysisAt ?? null)} />
           </dl>
 
