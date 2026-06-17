@@ -450,6 +450,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
         avgHoldMinutes: Math.round(avgHoldMs / 60_000),
         maxDrawdown: maxDrawdown(closed),
         profitFactor: profitFactor(closed),
+        maxConsecutiveLosses: maxConsecLosses(closed),
         settings: cfgMap.get(p.id) ?? null,
         today: computeDayStats(trades, sinceIso),
       };
