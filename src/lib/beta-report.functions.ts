@@ -52,6 +52,15 @@ export type DiagnosisItem = {
   action: string;
 };
 
+export type TuningAction = {
+  id: string;
+  priority: "High" | "Medium" | "Low";
+  issue: string;
+  evidence: string;
+  action: string;
+  affected: string;
+};
+
 export type DayStats = {
   closed: number;
   open: number;
