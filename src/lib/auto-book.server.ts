@@ -409,16 +409,41 @@ export async function runAutoBookPass(
 
     // Cooldown: last opened time per symbol (last 24h window covers any sensible cooldown).
     const cooldownMs = (cfg.cooldown_minutes ?? 15) * 60_000;
+    const symbolSlCooldownMs = Math.max(0, Number(cfg.symbol_sl_cooldown_minutes ?? 180)) * 60_000;
+    const blacklistThreshold = Math.max(1, Number(cfg.symbol_blacklist_threshold ?? 3));
+
     const { data: recent } = await supabase
       .from("positions")
-      .select("symbol,opened_at")
+      .select("symbol,opened_at,closed_at,exit_reason,pnl,side")
       .eq("user_id", cfg.user_id)
       .gte("opened_at", new Date(Date.now() - 24 * 3600_000).toISOString());
     const lastOpen = new Map<string, number>();
+    const lastSlClose = new Map<string, number>();
+    const lossCountBySymbol = new Map<string, number>();
+    let longNet24h = 0;
+    let shortNet24h = 0;
     for (const r of recent ?? []) {
+      const sym = r.symbol as string;
       const t = new Date(r.opened_at as string).getTime();
-      const prev = lastOpen.get(r.symbol as string) ?? 0;
-      if (t > prev) lastOpen.set(r.symbol as string, t);
+      const prev = lastOpen.get(sym) ?? 0;
+      if (t > prev) lastOpen.set(sym, t);
+      const pnl = Number(r.pnl ?? 0);
+      if (r.exit_reason === "stop_loss" && r.closed_at) {
+        const ct = new Date(r.closed_at as string).getTime();
+        const prevC = lastSlClose.get(sym) ?? 0;
+        if (ct > prevC) lastSlClose.set(sym, ct);
+      }
+      if (pnl < 0) lossCountBySymbol.set(sym, (lossCountBySymbol.get(sym) ?? 0) + 1);
+      if (r.side === "long") longNet24h += pnl;
+      else if (r.side === "short") shortNet24h += pnl;
+    }
+
+    // Auto-regime filter: throttle the bleeding side when one side is materially worse.
+    let longConfBoost = 0;
+    let shortConfBoost = 0;
+    if (cfg.regime_filter_enabled !== false) {
+      if (longNet24h < -1 && longNet24h <= shortNet24h * 1.5 - 5) longConfBoost = 10;
+      else if (shortNet24h < -1 && shortNet24h <= longNet24h * 1.5 - 5) shortConfBoost = 10;
     }
 
     const preset: StylePreset = presetFromConfig(cfg);
@@ -433,7 +458,31 @@ export async function runAutoBookPass(
         skipped++;
         continue;
       }
-      if (cfg.min_scalp_score != null && s.confidence < Number(cfg.min_scalp_score)) {
+      if (s.side === "long" && cfg.allow_long === false) {
+        skipped++;
+        continue;
+      }
+      // 24h symbol blacklist after N losses
+      if ((lossCountBySymbol.get(s.symbol) ?? 0) >= blacklistThreshold) {
+        skipped++;
+        await logEvent(supabase, cfg.user_id, "warn", `Skipped ${s.symbol} · Symbol blacklisted (${lossCountBySymbol.get(s.symbol)} losses in 24h)`, {
+          kind: "skip", symbol: s.symbol, reason: "symbol_blacklist",
+        });
+        continue;
+      }
+      // Per-symbol SL cooldown
+      const lastSl = lastSlClose.get(s.symbol);
+      if (lastSl && Date.now() - lastSl < symbolSlCooldownMs) {
+        const mins = Math.floor((symbolSlCooldownMs - (Date.now() - lastSl)) / 60_000);
+        skipped++;
+        await logEvent(supabase, cfg.user_id, "warn", `Skipped ${s.symbol} · SL cooldown active (${mins}m remaining)`, {
+          kind: "skip", symbol: s.symbol, reason: "sl_cooldown",
+        });
+        continue;
+      }
+      // Regime-adjusted min confidence
+      const minConf = Number(cfg.min_scalp_score ?? 0) + (s.side === "long" ? longConfBoost : shortConfBoost);
+      if (s.confidence < minConf) {
         skipped++;
         continue;
       }
@@ -442,6 +491,7 @@ export async function runAutoBookPass(
         skipped++;
         continue;
       }
+
 
       // Volatility-adjusted risk plan
       const atrPct = await fetchAtrPct(s.symbol);
