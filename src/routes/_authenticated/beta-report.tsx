@@ -111,6 +111,68 @@ function BetaReportPage() {
             />
           </section>
 
+          <section className="px-5 mt-5">
+            <div className="flex items-baseline justify-between mb-2">
+              <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Today (since 00:00 UTC)
+              </h2>
+              <span className="text-[10px] text-muted-foreground">
+                {s.todayActiveTesters} active
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <Tile
+                label="PnL"
+                value={money(s.today.pnl)}
+                tone={s.today.pnl >= 0 ? "pos" : "neg"}
+              />
+              <Tile label="Closed" value={`${s.today.closed}`} />
+              <Tile label="Open" value={`${s.today.open}`} />
+              <Tile
+                label="Win %"
+                value={`${fmt(s.today.winRate, 1)}%`}
+                tone={s.today.winRate >= 50 ? "pos" : s.today.winRate > 0 ? "neg" : undefined}
+              />
+              <Tile label="Wins" value={`${s.today.wins}`} tone="pos" />
+              <Tile label="Losses" value={`${s.today.losses}`} tone="neg" />
+              <Tile
+                label="Longs"
+                value={`${s.today.longTrades} · ${fmt(s.today.longWinRate, 0)}%`}
+              />
+              <Tile
+                label="L PnL"
+                value={money(s.today.longPnl)}
+                tone={s.today.longPnl >= 0 ? "pos" : "neg"}
+              />
+              <Tile
+                label="Best"
+                value={money(s.today.bestTrade)}
+                tone="pos"
+              />
+              <Tile
+                label="Shorts"
+                value={`${s.today.shortTrades} · ${fmt(s.today.shortWinRate, 0)}%`}
+              />
+              <Tile
+                label="S PnL"
+                value={money(s.today.shortPnl)}
+                tone={s.today.shortPnl >= 0 ? "pos" : "neg"}
+              />
+              <Tile
+                label="Worst"
+                value={money(s.today.worstTrade)}
+                tone="neg"
+              />
+              <Tile label="Avg %" value={pct(s.today.avgPnlPct)} />
+              <Tile label="Top exit" value={s.today.topCloseReason ?? "—"} />
+              <Tile
+                label="Best/Worst pair"
+                value={`${s.todayBestPair ?? "—"} / ${s.todayWorstPair ?? "—"}`}
+              />
+            </div>
+          </section>
+
+
           <section className="px-5 mt-4 grid grid-cols-2 gap-2 text-xs">
             <Card label="Best tester">
               {s.bestTester ? (
