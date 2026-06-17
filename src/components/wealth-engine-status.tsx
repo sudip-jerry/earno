@@ -159,45 +159,91 @@ export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ShieldCheck className="size-4 text-emerald-500" />
-              Risk Protection
+              {stats?.riskHealthy ? (
+                <ShieldCheck className="size-4 text-emerald-500" />
+              ) : (
+                <ShieldAlert className="size-4 text-amber-500" />
+              )}
+              Risk Protection — {riskLabel}
             </DialogTitle>
             <DialogDescription className="text-left">
-              Automatic guardrails that prevent the bot from over-trading or
-              compounding losses.
+              {status === "risk_locked"
+                ? "Daily loss cap reached. Auto-booking is paused to protect capital."
+                : status === "cooldown"
+                  ? (stats?.riskReason ?? "Cooling down after recent trades.")
+                  : stats?.riskHealthy
+                    ? "All guardrails healthy. Bot is trading within safe limits."
+                    : (stats?.riskReason ?? "A guardrail is currently engaged.")}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 text-sm">
-            <div>
-              <p className="font-medium">What it does</p>
-              <ul className="mt-1 list-disc list-inside text-muted-foreground space-y-0.5 text-xs">
-                <li>Caps daily loss as a % of equity</li>
-                <li>Limits trades per day and open positions</li>
-                <li>Adds a cooldown after consecutive losses</li>
-                <li>Skips low-confidence setups below your min score</li>
-              </ul>
-            </div>
-            <div>
-              <p className="font-medium">Current state</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {stats?.riskReason ??
-                  (stats?.riskHealthy
-                    ? "All guardrails healthy."
-                    : "A guardrail is currently engaged.")}
-              </p>
-            </div>
-            <Link
-              to="/settings"
-              onClick={() => setRiskOpen(false)}
-              className="flex items-center justify-between rounded-xl border bg-card p-3 hover:bg-muted/40"
-            >
-              <span className="text-sm font-medium">Change risk settings</span>
-              <ChevronRight className="size-4 text-muted-foreground" />
-            </Link>
+
+          <div className="space-y-2 text-sm">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+              Current guardrails
+            </p>
+            <RiskRow
+              label="Daily loss used"
+              value={`${(stats?.dailyLossUsedPct ?? 0).toFixed(0)}% of cap`}
+              sub={`Cap: -${stats?.dailyLossCapPct ?? 0}% of equity`}
+              warn={(stats?.dailyLossUsedPct ?? 0) >= 80}
+            />
+            <RiskRow
+              label="Trades today"
+              value={`${stats?.tradesExecutedToday ?? 0} / ${stats?.maxTradesPerDay ?? 0}`}
+              warn={(stats?.tradesExecutedToday ?? 0) >= (stats?.maxTradesPerDay ?? 999)}
+            />
+            <RiskRow
+              label="Open positions"
+              value={`${stats?.openCount ?? 0} / ${stats?.maxOpenPositions ?? 0}`}
+              warn={(stats?.openCount ?? 0) >= (stats?.maxOpenPositions ?? 999)}
+            />
+            <RiskRow
+              label="Consecutive losses"
+              value={`${stats?.consecutiveLosses ?? 0}`}
+              warn={(stats?.consecutiveLosses ?? 0) >= 3}
+            />
+            <RiskRow
+              label="Min confidence"
+              value={`${stats?.minConfidenceRequired ?? 0}`}
+              sub={`Top today: ${stats?.topConfidenceToday ?? 0}`}
+            />
+            <RiskRow
+              label="Cooldown after loss"
+              value={`${stats?.cooldownMinutes ?? 0} min`}
+            />
           </div>
+
+          <Link
+            to="/settings"
+            onClick={() => setRiskOpen(false)}
+            className="flex items-center justify-between rounded-xl border bg-card p-3 hover:bg-muted/40"
+          >
+            <span className="text-sm font-medium">Change risk settings</span>
+            <ChevronRight className="size-4 text-muted-foreground" />
+          </Link>
         </DialogContent>
       </Dialog>
     </section>
+  );
+}
+
+function RiskRow({
+  label, value, sub, warn,
+}: { label: string; value: string; sub?: string; warn?: boolean }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border bg-background/40 px-3 py-2">
+      <div>
+        <p className="text-xs font-medium">{label}</p>
+        {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
+      </div>
+      <span
+        className={`text-sm font-semibold tabular-nums ${
+          warn ? "text-amber-600 dark:text-amber-400" : "text-foreground"
+        }`}
+      >
+        {value}
+      </span>
+    </div>
   );
 }
 
