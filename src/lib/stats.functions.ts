@@ -72,6 +72,10 @@ export type DashboardStats = {
   lastAnalysisAt: string | null;
   riskHealthy: boolean;
   riskReason: string | null;
+  dailyLossCapPct: number;
+  maxTradesPerDay: number;
+  maxOpenPositions: number;
+  cooldownMinutes: number;
 
   // Why no trade
   topConfidenceToday: number;
@@ -113,7 +117,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     // Read mode first so positions queries can be scoped to the active mode.
     const { data: cfg } = await supabase
       .from("bot_config")
-      .select("daily_loss_cap_pct,paper_equity,live_allocation_amount,is_running,min_scalp_score,auto_book,mode")
+      .select("daily_loss_cap_pct,paper_equity,live_allocation_amount,is_running,min_scalp_score,auto_book,mode,max_trades_per_day,max_open_positions,cooldown_minutes")
       .eq("user_id", context.userId)
       .maybeSingle();
 
@@ -322,6 +326,10 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       tradesExecutedToday: tradesToday,
       lastAnalysisAt,
       riskHealthy, riskReason,
+      dailyLossCapPct: cap,
+      maxTradesPerDay: Number(cfg?.max_trades_per_day ?? 10),
+      maxOpenPositions: Number(cfg?.max_open_positions ?? 2),
+      cooldownMinutes: Number(cfg?.cooldown_minutes ?? 30),
       topConfidenceToday,
       minConfidenceRequired,
       noTradeReason,
