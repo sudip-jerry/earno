@@ -558,10 +558,13 @@ function ExportBar() {
         </div>
         <p className="text-[10px] text-muted-foreground mt-2">
           Trades = all positions (paper + live, open + closed) with PnL, SL/TP,
-          exit reason. Signals = scanner & auto-book events across users
-          (scan results, auto-booked signals with confidence/target/stop/RR,
-          skipped, paused) + each tester's config snapshot. Configs = current
-          per-user bot settings.
+          exit reason. Signals = one row per scanned symbol per user per scan
+          cycle, with action (LONG/SHORT/WAIT/AVOID), weighted confidence and
+          band, full indicator snapshot (trend, VWAP, EMA, RSI, volume spike,
+          spread, ATR, distances, R:R, regime), risk gates (cooldown, daily
+          loss, max positions), booked/skip/avoid decision, rejection reason,
+          plus each tester's config snapshot. Configs = current per-user bot
+          settings.
         </p>
       </div>
     </section>
