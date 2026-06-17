@@ -403,6 +403,26 @@ export const getBetaReport = createServerFn({ method: "GET" })
       })
       .filter(Boolean) as string[];
 
+    const todayGlobal = computeDayStats(allPos, sinceIso);
+    const todayBySymbol = new Map<string, number>();
+    const todayClosed = allPos.filter(
+      (t) => t.status === "closed" && t.closed_at && new Date(t.closed_at).getTime() >= new Date(sinceIso).getTime(),
+    );
+    for (const t of todayClosed) {
+      todayBySymbol.set(t.symbol, (todayBySymbol.get(t.symbol) ?? 0) + Number(t.pnl ?? 0));
+    }
+    let todayBestPair: string | null = null,
+      todayWorstPair: string | null = null,
+      tbp = -Infinity,
+      twp = Infinity;
+    for (const [s, p] of todayBySymbol) {
+      if (p > tbp) ((todayBestPair = s), (tbp = p));
+      if (p < twp) ((todayWorstPair = s), (twp = p));
+    }
+    const todayActiveTesters = testers.filter(
+      (t) => t.today.closed > 0 || t.today.open > 0,
+    ).length;
+
     return {
       testers,
       summary: {
@@ -453,9 +473,15 @@ export const getBetaReport = createServerFn({ method: "GET" })
         worstPair,
         topCloseReason: topMode(closedAll.map((t) => t.exit_reason)),
         topSkipReason: topMode(skipReasons),
+        today: todayGlobal,
+        todayActiveTesters,
+        todayBestPair,
+        todayWorstPair,
+        todaySinceIso: sinceIso,
       },
     };
   });
+
 
 const tunePatchSchema = z.object({
   userId: z.string().uuid(),
