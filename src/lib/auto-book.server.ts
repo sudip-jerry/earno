@@ -199,6 +199,7 @@ type BotConfig = {
   daily_loss_cap_pct: number | null;
   min_scalp_score: number | null;
   allow_short: boolean;
+  allow_long: boolean;
   strategy: string | null;
   trading_style: string | null;
   min_sl_pct: number | null;
@@ -206,11 +207,15 @@ type BotConfig = {
   max_auto_sl_pct: number | null;
   target_multiplier: number | null;
   min_rr: number | null;
+  symbol_sl_cooldown_minutes: number | null;
+  symbol_blacklist_threshold: number | null;
+  regime_filter_enabled: boolean | null;
   live_wallet_source?: string | null;
   live_allocation_mode?: string | null;
   live_allocation_amount?: number | null;
   live_allocation_pct?: number | null;
 };
+
 
 
 /** Returns the USDT capital to size positions against. Paper uses paper_equity.
@@ -316,10 +321,11 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
+
   if (opts.userId) q = q.eq("user_id", opts.userId);
   const { data: cfgs } = await q;
 
