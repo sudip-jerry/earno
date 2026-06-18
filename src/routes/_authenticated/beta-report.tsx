@@ -8,6 +8,7 @@ import { getMyEntitlements } from "@/lib/plans.functions";
 import {
   getBetaReport,
   adminApplyTune,
+  adminApplyTuningAction,
   exportAllTradesCsv,
   exportSignalsCsv,
   exportAlgoConfigsCsv,
