@@ -592,6 +592,21 @@ function ExportBar() {
 }
 
 function TuningActionsSection({ actions }: { actions: TuningAction[] }) {
+  const qc = useQueryClient();
+  const applyFn = useServerFn(adminApplyTuningAction);
+  const applyMut = useMutation({
+    mutationFn: (v: { kind: TuningAction["kind"]; userIds: string[] }) =>
+      applyFn({ data: v as never }),
+    onSuccess: (r: { updated: number; skipped: number; errors: string[] }) => {
+      toast.success(
+        `Applied to ${r.updated} tester${r.updated === 1 ? "" : "s"}${r.skipped ? `, ${r.skipped} skipped` : ""}`,
+      );
+      if (r.errors?.length) toast.error(r.errors.slice(0, 2).join(" · "));
+      qc.invalidateQueries({ queryKey: ["beta_report"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
   if (actions.length === 0) return null;
   const pill = (p: TuningAction["priority"]) => {
     if (p === "High") return "bg-[#0F52BA] text-white border-[#0F52BA]";
@@ -607,30 +622,65 @@ function TuningActionsSection({ actions }: { actions: TuningAction[] }) {
         </span>
       </div>
       <div className="px-4 pb-4 space-y-2.5">
-        {actions.map((a) => (
-          <div
-            key={a.id}
-            className="rounded-xl border border-[#0F52BA]/15 bg-white p-3"
-          >
-            <div className="flex items-center justify-between gap-2 mb-1.5">
-              <span
-                className={`text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full border ${pill(a.priority)}`}
-              >
-                {a.priority} priority
-              </span>
-              <span className="text-[10px] text-black/50 truncate max-w-[55%] text-right">
-                {a.affected}
-              </span>
+        {actions.map((a) => {
+          const isPending =
+            applyMut.isPending && applyMut.variables?.kind === a.kind;
+          return (
+            <div
+              key={a.id}
+              className="rounded-xl border border-[#0F52BA]/15 bg-white p-3"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <span
+                  className={`text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full border ${pill(a.priority)}`}
+                >
+                  {a.priority} priority
+                </span>
+                <span className="text-[10px] text-black/50 truncate max-w-[55%] text-right">
+                  {a.affected}
+                </span>
+              </div>
+              <p className="text-xs font-semibold text-black">{a.issue}</p>
+              <p className="text-[11px] text-black/70 mt-1">{a.evidence}</p>
+              <p className="text-[11px] mt-1.5">
+                <span className="text-[#0F52BA] font-semibold">Action: </span>
+                <span className="text-black">{a.action}</span>
+              </p>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="text-[10px] text-black/55 italic">
+                  {a.applyHint}
+                </p>
+                {a.applyable && a.affectedUserIds.length > 0 ? (
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs bg-[#0F52BA] hover:bg-[#0F52BA]/90 text-white shrink-0"
+                    disabled={applyMut.isPending}
+                    onClick={() =>
+                      applyMut.mutate({
+                        kind: a.kind,
+                        userIds: a.affectedUserIds,
+                      })
+                    }
+                  >
+                    {isPending
+                      ? "Applying…"
+                      : `Apply to ${a.affectedUserIds.length}`}
+                  </Button>
+                ) : (
+                  <span className="text-[10px] text-black/40 shrink-0">
+                    Manual only
+                  </span>
+                )}
+              </div>
             </div>
-            <p className="text-xs font-semibold text-black">{a.issue}</p>
-            <p className="text-[11px] text-black/70 mt-1">{a.evidence}</p>
-            <p className="text-[11px] mt-1.5">
-              <span className="text-[#0F52BA] font-semibold">Action: </span>
-              <span className="text-black">{a.action}</span>
-            </p>
-          </div>
-        ))}
+          );
+        })}
       </div>
+      <p className="px-4 pb-3 text-[10px] text-black/50">
+        Applies to paper-mode config only. Changes persist and take effect on the
+        next scanner cycle (and all subsequent days).
+      </p>
     </section>
   );
 }
+
