@@ -45,6 +45,7 @@ type Pos = {
 type CfgRow = {
   user_id: string;
   mode: string;
+  is_running: boolean | null;
   paper_equity: number | null;
   max_open_positions: number | null;
   max_trades_per_day: number | null;
