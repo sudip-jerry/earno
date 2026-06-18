@@ -844,7 +844,114 @@ export const adminApplyTune = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// ---------- Apply Tuning Action (bulk per-user) ----------
+
+const tuningKinds = [
+  "edge-weak",
+  "stop-loss-top",
+  "short-weak-today",
+  "long-weak-today",
+  "safer-preset",
+  "loss-cap-hit",
+  "improve-filters",
+  "overtrading",
+] as const;
+
+const applyActionSchema = z.object({
+  kind: z.enum(tuningKinds),
+  userIds: z.array(z.string().uuid()).min(1).max(200),
+});
+
+function clamp(n: number, lo: number, hi: number) {
+  return Math.min(hi, Math.max(lo, n));
+}
+
+type CfgRow = {
+  user_id: string;
+  auto_book_confidence_threshold: number | null;
+  risk_per_trade_pct: number | null;
+  max_trades_per_day: number | null;
+  cooldown_minutes: number | null;
+  allow_short: boolean | null;
+  allow_long: boolean | null;
+};
+
+function buildPatch(kind: typeof tuningKinds[number], cur: CfgRow): Record<string, unknown> | null {
+  const conf = cur.auto_book_confidence_threshold ?? 70;
+  switch (kind) {
+    case "edge-weak":
+    case "stop-loss-top":
+      return { auto_book_confidence_threshold: clamp(conf + 5, 50, 95) };
+    case "improve-filters":
+      return { auto_book_confidence_threshold: clamp(conf + 3, 50, 95) };
+    case "short-weak-today":
+      return { allow_short: false };
+    case "long-weak-today":
+      return { allow_long: false };
+    case "safer-preset":
+      return {
+        risk_per_trade_pct: clamp(Number(cur.risk_per_trade_pct ?? 1) * 0.5, 0.25, 10),
+        auto_book_confidence_threshold: clamp(conf + 10, 50, 95),
+        max_trades_per_day: Math.min(cur.max_trades_per_day ?? 10, 8),
+      };
+    case "loss-cap-hit":
+      return {
+        cooldown_minutes: Math.max(cur.cooldown_minutes ?? 0, 30),
+        max_trades_per_day: Math.min(cur.max_trades_per_day ?? 10, 6),
+      };
+    case "overtrading":
+      return {
+        auto_book_confidence_threshold: clamp(conf + 5, 50, 95),
+        max_trades_per_day: Math.min(cur.max_trades_per_day ?? 10, 6),
+      };
+    default:
+      return null;
+  }
+}
+
+export const adminApplyTuningAction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => applyActionSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: cfgs, error: e1 } = await supabaseAdmin
+      .from("bot_config")
+      .select(
+        "user_id, auto_book_confidence_threshold, risk_per_trade_pct, max_trades_per_day, cooldown_minutes, allow_short, allow_long",
+      )
+      .in("user_id", data.userIds)
+      .eq("mode", "paper");
+    if (e1) throw new Error(e1.message);
+
+    let updated = 0;
+    const errors: string[] = [];
+    for (const cfg of (cfgs ?? []) as CfgRow[]) {
+      const patch = buildPatch(data.kind, cfg);
+      if (!patch || Object.keys(patch).length === 0) continue;
+      const { error: e2 } = await supabaseAdmin
+        .from("bot_config")
+        .update(patch)
+        .eq("user_id", cfg.user_id)
+        .eq("mode", "paper");
+      if (e2) {
+        errors.push(`${cfg.user_id.slice(0, 6)}: ${e2.message}`);
+        continue;
+      }
+      updated += 1;
+      await supabaseAdmin.from("bot_events").insert({
+        user_id: cfg.user_id,
+        level: "info",
+        message: `Admin applied tuning action: ${data.kind}`,
+        meta: { kind: data.kind, patch },
+      });
+    }
+    return { ok: true, updated, skipped: (cfgs?.length ?? 0) - updated, errors };
+  });
+
 // ---------- CSV exports (admin) ----------
+
 
 function csvCell(v: unknown): string {
   if (v === null || v === undefined) return "";
