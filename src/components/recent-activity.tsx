@@ -41,6 +41,7 @@ function sanitize(msg: string): { text: string; reason: string | null } {
 
 function classify(msg: string, meta?: ActivityMeta | null): { tag: string; tone: "positive" | "negative" | "warn" | "neutral" } {
   const kind = meta?.kind;
+  if (kind === "auto_tune" || /^Auto-tuned/i.test(msg)) return { tag: "Auto-tuned", tone: "warn" };
   if (kind === "auto_book" || /^Auto-booked/i.test(msg)) return { tag: "Opened", tone: "positive" };
   if (kind === "skip" || /^Skipped/i.test(msg)) return { tag: "Skipped", tone: "warn" };
   if (/^Auto-closed|^Closed/i.test(msg)) return { tag: "Closed", tone: "neutral" };
