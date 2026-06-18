@@ -944,7 +944,7 @@ export const adminApplyTuningAction = createServerFn({ method: "POST" })
         user_id: cfg.user_id,
         level: "info",
         message: `Admin applied tuning action: ${data.kind}`,
-        meta: { kind: data.kind, patch },
+        meta: { kind: data.kind, patch: patch as Record<string, string | number | boolean | null> },
       });
     }
     return { ok: true, updated, skipped: (cfgs?.length ?? 0) - updated, errors };
