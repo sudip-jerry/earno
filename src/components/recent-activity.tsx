@@ -105,6 +105,26 @@ function StructuredEntry({ it }: { it: ActivityItem }) {
       </div>
     );
   }
+  if (m.kind === "auto_tune") {
+    const kinds = m.rec_kinds ?? [];
+    const fields = m.fields ?? [];
+    return (
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-foreground">
+          Auto-tuned after critical alert
+        </p>
+        <div className="mt-1.5 space-y-1 rounded-lg bg-amber-500/5 border border-amber-500/20 px-2.5 py-1.5">
+          {kinds.length > 0 && (
+            <KV label="Trigger" value={kinds.join(", ")} tone="bad" />
+          )}
+          {fields.length > 0 && (
+            <KV label="Changed" value={fields.join(", ")} />
+          )}
+          <KV label="Effective" value="Next scan cycle" />
+        </div>
+      </div>
+    );
+  }
   return (
     <p className="text-xs text-foreground/90 leading-relaxed flex-1 min-w-0">{it.message}</p>
   );
