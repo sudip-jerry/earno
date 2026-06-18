@@ -32,6 +32,8 @@ function ragStyles(s: RagStatus) {
   };
 }
 
+const AUTO_APPLY_KEY = "earno.autoApplyCritical";
+
 export function RecommendationsPanel() {
   const qc = useQueryClient();
   const getFn = useServerFn(getMyRecommendations);
@@ -39,9 +41,19 @@ export function RecommendationsPanel() {
   const autoApplyFn = useServerFn(autoApplyCriticalRecommendations);
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  // Dedupe auto-apply within the browser session, in addition to the
-  // server-side per-day dedupe via bot_events.
-  const autoAppliedRef = useRef<Set<string>>(new Set());
+  const [autoApply, setAutoApply] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const v = window.localStorage.getItem(AUTO_APPLY_KEY);
+    return v === null ? true : v === "1";
+  });
+  // Prevent overlapping auto-apply calls while one is in-flight.
+  const inFlightRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(AUTO_APPLY_KEY, autoApply ? "1" : "0");
+    }
+  }, [autoApply]);
 
   const q = useQuery({
     queryKey: ["my_recommendations"],
@@ -64,18 +76,20 @@ export function RecommendationsPanel() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
-  // Auto-apply critical (red) recommendations whenever the bot is running.
-  // Server enforces single-write-per-day per kind and skips when bot stopped.
+  // Dynamically auto-apply critical (red) recommendations whenever the bot
+  // is running and the user has auto-apply enabled. The server skips writes
+  // when the patch would be a no-op against current config, so this is safe
+  // to fire on every refetch — it only writes when something actually changes.
   useEffect(() => {
+    if (!autoApply) return;
     const data = q.data;
     if (!data || !data.isRunning || data.overall !== "red") return;
     const redKinds = data.recommendations
       .filter((r) => r.severity === "red")
       .map((r) => r.kind);
     if (redKinds.length === 0) return;
-    const key = redKinds.slice().sort().join("|");
-    if (autoAppliedRef.current.has(key)) return;
-    autoAppliedRef.current.add(key);
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
 
     autoApplyFn({ data: { kinds: redKinds } as never })
       .then((r: { applied: string[]; skipped?: string }) => {
@@ -87,11 +101,11 @@ export function RecommendationsPanel() {
           qc.invalidateQueries({ queryKey: ["dashboard_stats"] });
         }
       })
-      .catch(() => {
-        // allow retry on next refetch
-        autoAppliedRef.current.delete(key);
+      .catch(() => {})
+      .finally(() => {
+        inFlightRef.current = false;
       });
-  }, [q.data, autoApplyFn, qc]);
+  }, [q.data, autoApply, autoApplyFn, qc]);
 
   if (q.isLoading || !q.data) {
     return (
@@ -154,6 +168,31 @@ export function RecommendationsPanel() {
 
         {expanded && (
           <div className="border-t bg-background/40">
+            <div className="flex items-center justify-between px-4 pt-3 pb-1 gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium leading-tight">
+                  Auto-apply critical changes
+                </p>
+                <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                  Dynamic — fires whenever red alerts trigger and the bot is running.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={autoApply}
+                onClick={() => setAutoApply((v) => !v)}
+                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                  autoApply ? "bg-primary" : "bg-muted"
+                }`}
+              >
+                <span
+                  className={`inline-block size-4 transform rounded-full bg-background shadow transition-transform ${
+                    autoApply ? "translate-x-4" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </div>
             {recs.length === 0 ? (
               <p className="px-4 py-5 text-xs text-muted-foreground text-center">
                 No tuning needed right now. We'll re-check after the next scan.
