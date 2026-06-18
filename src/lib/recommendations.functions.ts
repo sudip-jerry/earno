@@ -28,6 +28,7 @@ export type MyRecommendations = {
   overall: RagStatus;
   headline: string;
   recommendations: Recommendation[];
+  isRunning: boolean;
   computedAt: string;
 };
 
