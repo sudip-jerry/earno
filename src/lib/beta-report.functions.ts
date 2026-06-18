@@ -641,11 +641,11 @@ export const getBetaReport = createServerFn({ method: "GET" })
         evidence: losingSymbols
           .map(([s, v]) => `${s}: ${v.trades} trades, ${v.pnl >= 0 ? "+" : "−"}$${Math.abs(v.pnl).toFixed(2)}`)
           .join(" · "),
-        action: "Add cooldown on these symbols or remove from allowlist temporarily.",
-        affected: losingSymbols.map(([s]) => s).join(", "),
-        affectedUserIds: [],
-        applyable: false,
-        applyHint: "No symbol blocklist column yet — handle manually in Algo Config.",
+        action: "Make the dynamic auto-blacklist trigger sooner and hold longer per symbol.",
+        affected: `${losingSymbols.length} symbols · cohort-wide`,
+        affectedUserIds: testers.map((t) => t.userId),
+        applyable: true,
+        applyHint: "Lowers symbol_blacklist_threshold to ≤ 2 losses/24h and extends SL cooldown to ≥ 6h. Auto-rolls off; no static list.",
       });
     }
 
