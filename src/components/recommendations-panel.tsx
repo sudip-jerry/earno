@@ -32,6 +32,8 @@ function ragStyles(s: RagStatus) {
   };
 }
 
+const AUTO_APPLY_KEY = "earno.autoApplyCritical";
+
 export function RecommendationsPanel() {
   const qc = useQueryClient();
   const getFn = useServerFn(getMyRecommendations);
@@ -39,9 +41,19 @@ export function RecommendationsPanel() {
   const autoApplyFn = useServerFn(autoApplyCriticalRecommendations);
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  // Dedupe auto-apply within the browser session, in addition to the
-  // server-side per-day dedupe via bot_events.
-  const autoAppliedRef = useRef<Set<string>>(new Set());
+  const [autoApply, setAutoApply] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const v = window.localStorage.getItem(AUTO_APPLY_KEY);
+    return v === null ? true : v === "1";
+  });
+  // Prevent overlapping auto-apply calls while one is in-flight.
+  const inFlightRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(AUTO_APPLY_KEY, autoApply ? "1" : "0");
+    }
+  }, [autoApply]);
 
   const q = useQuery({
     queryKey: ["my_recommendations"],
@@ -64,18 +76,20 @@ export function RecommendationsPanel() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
-  // Auto-apply critical (red) recommendations whenever the bot is running.
-  // Server enforces single-write-per-day per kind and skips when bot stopped.
+  // Dynamically auto-apply critical (red) recommendations whenever the bot
+  // is running and the user has auto-apply enabled. The server skips writes
+  // when the patch would be a no-op against current config, so this is safe
+  // to fire on every refetch — it only writes when something actually changes.
   useEffect(() => {
+    if (!autoApply) return;
     const data = q.data;
     if (!data || !data.isRunning || data.overall !== "red") return;
     const redKinds = data.recommendations
       .filter((r) => r.severity === "red")
       .map((r) => r.kind);
     if (redKinds.length === 0) return;
-    const key = redKinds.slice().sort().join("|");
-    if (autoAppliedRef.current.has(key)) return;
-    autoAppliedRef.current.add(key);
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
 
     autoApplyFn({ data: { kinds: redKinds } as never })
       .then((r: { applied: string[]; skipped?: string }) => {
@@ -87,11 +101,11 @@ export function RecommendationsPanel() {
           qc.invalidateQueries({ queryKey: ["dashboard_stats"] });
         }
       })
-      .catch(() => {
-        // allow retry on next refetch
-        autoAppliedRef.current.delete(key);
+      .catch(() => {})
+      .finally(() => {
+        inFlightRef.current = false;
       });
-  }, [q.data, autoApplyFn, qc]);
+  }, [q.data, autoApply, autoApplyFn, qc]);
 
   if (q.isLoading || !q.data) {
     return (
