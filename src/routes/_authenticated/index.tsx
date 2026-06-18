@@ -349,6 +349,9 @@ function Home() {
         hide30d={!s || s.closedAllTime < 30}
       />
 
+      {/* ===== Personalized recommendations (RAG) ===== */}
+      <RecommendationsPanel />
+
       {/* ===== Quick actions ===== */}
       <section className="px-5 mt-6">
         <div className="grid grid-cols-3 gap-2.5">
