@@ -511,5 +511,5 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
       } as never,
     });
 
-    return { ok: true, applied: fresh, patch };
+    return { ok: true, applied: fresh, fields: Object.keys(patch) };
   });
