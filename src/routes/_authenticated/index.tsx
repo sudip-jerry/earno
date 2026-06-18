@@ -29,6 +29,7 @@ import {
 import { TabBar } from "@/components/tab-bar";
 import { WealthHero, MilestoneCard, PerformanceHistoryCard } from "@/components/wealth-hero";
 import { RecentActivity } from "@/components/recent-activity";
+import { RecommendationsPanel } from "@/components/recommendations-panel";
 import {
   AlertTriangle,
   ChevronRight,
