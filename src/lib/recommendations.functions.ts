@@ -101,7 +101,7 @@ export const getMyRecommendations = createServerFn({ method: "GET" })
       supabase
         .from("bot_config")
         .select(
-          "user_id,mode,paper_equity,max_open_positions,max_trades_per_day,cooldown_minutes,risk_per_trade_pct,allow_short,allow_long,auto_book_confidence_threshold,symbol_blacklist_threshold,symbol_sl_cooldown_minutes",
+          "user_id,mode,is_running,paper_equity,max_open_positions,max_trades_per_day,cooldown_minutes,risk_per_trade_pct,allow_short,allow_long,auto_book_confidence_threshold,symbol_blacklist_threshold,symbol_sl_cooldown_minutes",
         )
         .eq("user_id", userId)
         .eq("mode", "paper")
