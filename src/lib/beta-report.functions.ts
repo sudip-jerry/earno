@@ -52,13 +52,28 @@ export type DiagnosisItem = {
   action: string;
 };
 
+export type TuningActionKind =
+  | "edge-weak"
+  | "stop-loss-top"
+  | "short-weak-today"
+  | "long-weak-today"
+  | "losing-symbols"
+  | "safer-preset"
+  | "loss-cap-hit"
+  | "improve-filters"
+  | "overtrading";
+
 export type TuningAction = {
   id: string;
+  kind: TuningActionKind;
   priority: "High" | "Medium" | "Low";
   issue: string;
   evidence: string;
   action: string;
   affected: string;
+  affectedUserIds: string[];
+  applyable: boolean;
+  applyHint: string;
 };
 
 export type DayStats = {
