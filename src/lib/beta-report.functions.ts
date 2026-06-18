@@ -551,55 +551,71 @@ export const getBetaReport = createServerFn({ method: "GET" })
     if (closedAll.length >= 30 && avgPF < 1.1) {
       tuningActions.push({
         id: "edge-weak",
+        kind: "edge-weak",
         priority: "High",
         issue: "Edge is weak. Do not switch to live.",
         evidence: `Average profit factor ${avgPF.toFixed(2)} across ${testers.length} testers, ${closedAll.length} closed trades.`,
         action: "Keep cohort on paper. Tighten entry filters before promoting any tester.",
         affected: "All testers",
+        affectedUserIds: testers.map((t) => t.userId),
+        applyable: true,
+        applyHint: "Raises auto-book confidence threshold by +5 for every tester (max 95).",
       });
     }
 
     // Rule 2 — stop_loss dominant
     const topReason = topMode(closedAll.map((t) => t.exit_reason));
     if (topReason === "stop_loss" && closedAll.length >= 20) {
-      const losers = testers
-        .filter((t) => t.today.topCloseReason === "stop_loss" && t.today.closed >= 3)
-        .map((t) => t.email ?? t.userId.slice(0, 6))
-        .slice(0, 4);
+      const losersList = testers.filter(
+        (t) => t.today.topCloseReason === "stop_loss" && t.today.closed >= 3,
+      );
+      const losers = losersList.map((t) => t.email ?? t.userId.slice(0, 6)).slice(0, 4);
       tuningActions.push({
         id: "stop-loss-top",
+        kind: "stop-loss-top",
         priority: "High",
         issue: "Stop-loss is the top exit reason.",
-        evidence: `Top close reason across ${closedAll.length} trades is stop_loss. ${losers.length} testers stopped out repeatedly today.`,
+        evidence: `Top close reason across ${closedAll.length} trades is stop_loss. ${losersList.length} testers stopped out repeatedly today.`,
         action: "Require stricter entry confirmation (raise minimum confidence or add VWAP/EMA filter).",
         affected: losers.length ? losers.join(", ") : "Cohort-wide",
+        affectedUserIds: (losersList.length ? losersList : testers).map((t) => t.userId),
+        applyable: true,
+        applyHint: "Raises auto-book confidence threshold by +5 for affected testers.",
       });
     }
 
     // Rule 3 — directional underperformance today
     if (todayGlobal.closed >= 5) {
       if (todayGlobal.shortPnl < 0 && todayGlobal.shortTrades >= 3 && todayGlobal.shortPnl < todayGlobal.longPnl) {
-        const users = testers.filter((t) => t.today.shortPnl < 0 && t.today.shortTrades >= 1)
-          .map((t) => t.email ?? t.userId.slice(0, 6)).slice(0, 4);
+        const shortList = testers.filter((t) => t.today.shortPnl < 0 && t.today.shortTrades >= 1);
+        const users = shortList.map((t) => t.email ?? t.userId.slice(0, 6)).slice(0, 4);
         tuningActions.push({
           id: "short-weak-today",
+          kind: "short-weak-today",
           priority: "Medium",
           issue: "Shorts are bleeding today.",
           evidence: `Short PnL ${todayGlobal.shortPnl.toFixed(2)} over ${todayGlobal.shortTrades} trades vs long ${todayGlobal.longPnl.toFixed(2)}.`,
           action: "Tighten short entry threshold or disable short auto-book until session recovers.",
           affected: users.length ? users.join(", ") : "Cohort-wide",
+          affectedUserIds: (shortList.length ? shortList : testers).map((t) => t.userId),
+          applyable: true,
+          applyHint: "Disables short auto-book (allow_short = off) for affected testers.",
         });
       }
       if (todayGlobal.longPnl < 0 && todayGlobal.longTrades >= 3 && todayGlobal.longPnl < todayGlobal.shortPnl) {
-        const users = testers.filter((t) => t.today.longPnl < 0 && t.today.longTrades >= 1)
-          .map((t) => t.email ?? t.userId.slice(0, 6)).slice(0, 4);
+        const longList = testers.filter((t) => t.today.longPnl < 0 && t.today.longTrades >= 1);
+        const users = longList.map((t) => t.email ?? t.userId.slice(0, 6)).slice(0, 4);
         tuningActions.push({
           id: "long-weak-today",
+          kind: "long-weak-today",
           priority: "Medium",
           issue: "Longs are bleeding today.",
           evidence: `Long PnL ${todayGlobal.longPnl.toFixed(2)} over ${todayGlobal.longTrades} trades vs short ${todayGlobal.shortPnl.toFixed(2)}.`,
           action: "Tighten long entry threshold or pause long auto-book until session recovers.",
           affected: users.length ? users.join(", ") : "Cohort-wide",
+          affectedUserIds: (longList.length ? longList : testers).map((t) => t.userId),
+          applyable: true,
+          applyHint: "Disables long auto-book (allow_long = off) for affected testers.",
         });
       }
     }
@@ -619,6 +635,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
     if (losingSymbols.length > 0) {
       tuningActions.push({
         id: "losing-symbols",
+        kind: "losing-symbols",
         priority: "Medium",
         issue: "Symbols repeatedly losing money.",
         evidence: losingSymbols
@@ -626,6 +643,9 @@ export const getBetaReport = createServerFn({ method: "GET" })
           .join(" · "),
         action: "Add cooldown on these symbols or remove from allowlist temporarily.",
         affected: losingSymbols.map(([s]) => s).join(", "),
+        affectedUserIds: [],
+        applyable: false,
+        applyHint: "No symbol blocklist column yet — handle manually in Algo Config.",
       });
     }
 
@@ -636,6 +656,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
     if (safer.length > 0) {
       tuningActions.push({
         id: "safer-preset",
+        kind: "safer-preset",
         priority: "High",
         issue: "Testers running unprofitable config.",
         evidence: safer
@@ -644,6 +665,9 @@ export const getBetaReport = createServerFn({ method: "GET" })
           .join(" · "),
         action: "Apply safer config preset (lower risk per trade, raise min confidence, cap trades/day).",
         affected: safer.map((t) => t.email ?? t.userId.slice(0, 6)).join(", "),
+        affectedUserIds: safer.map((t) => t.userId),
+        applyable: true,
+        applyHint: "Halves risk-per-trade, +10 confidence threshold, caps max trades/day at 8.",
       });
     }
 
@@ -654,6 +678,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
     if (lockedTesters.length > 0) {
       tuningActions.push({
         id: "loss-cap-hit",
+        kind: "loss-cap-hit",
         priority: "High",
         issue: "Daily loss protection engaged for testers.",
         evidence: lockedTesters
@@ -662,6 +687,9 @@ export const getBetaReport = createServerFn({ method: "GET" })
           .join(" · "),
         action: "Reduce max trades per day or extend cooldown after losses.",
         affected: lockedTesters.map((t) => t.email ?? t.userId.slice(0, 6)).join(", "),
+        affectedUserIds: lockedTesters.map((t) => t.userId),
+        applyable: true,
+        applyHint: "Sets cooldown ≥ 30 min and caps max trades/day at 6.",
       });
     }
 
@@ -676,6 +704,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
     if (filterCandidates.length > 0) {
       tuningActions.push({
         id: "improve-filters",
+        kind: "improve-filters",
         priority: "Low",
         issue: "Win rate near coin-flip but PnL positive.",
         evidence: filterCandidates
@@ -684,6 +713,9 @@ export const getBetaReport = createServerFn({ method: "GET" })
           .join(" · "),
         action: "Preserve current TP/SL; improve entry filters to lift win rate without shrinking R:R.",
         affected: filterCandidates.map((t) => t.email ?? t.userId.slice(0, 6)).join(", "),
+        affectedUserIds: filterCandidates.map((t) => t.userId),
+        applyable: true,
+        applyHint: "Nudges auto-book confidence threshold by +3 for affected testers.",
       });
     }
 
@@ -694,6 +726,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
     if (overtraders.length > 0) {
       tuningActions.push({
         id: "overtrading",
+        kind: "overtrading",
         priority: "Medium",
         issue: "Trade frequency is very high today.",
         evidence: overtraders
@@ -702,8 +735,12 @@ export const getBetaReport = createServerFn({ method: "GET" })
           .join(" · "),
         action: "Reduce auto-book frequency: raise min confidence or lower max trades per day.",
         affected: overtraders.map((t) => t.email ?? t.userId.slice(0, 6)).join(", "),
+        affectedUserIds: overtraders.map((t) => t.userId),
+        applyable: true,
+        applyHint: "+5 confidence threshold and caps max trades/day at 6.",
       });
     }
+
 
     // Sort by priority
     const prioRank = { High: 0, Medium: 1, Low: 2 } as const;
