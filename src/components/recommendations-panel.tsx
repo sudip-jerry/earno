@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   getMyRecommendations,
   applyMyRecommendations,
+  autoApplyCriticalRecommendations,
   type RagStatus,
   type Recommendation,
 } from "@/lib/recommendations.functions";
