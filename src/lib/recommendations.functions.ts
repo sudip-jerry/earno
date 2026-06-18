@@ -290,9 +290,111 @@ export const getMyRecommendations = createServerFn({ method: "GET" })
       overall,
       headline,
       recommendations: recs,
+      isRunning: !!config?.is_running,
       computedAt: new Date().toISOString(),
     };
   });
+
+// ---------------- Shared patch builder ----------------
+function buildPatchForKinds(
+  kinds: string[],
+  cur: CfgRow,
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  const conf = cur.auto_book_confidence_threshold ?? 70;
+  for (const id of kinds) {
+    switch (id as RecommendationKind) {
+      case "loss-streak":
+        patch.auto_book_confidence_threshold = clamp(
+          Math.max(Number(patch.auto_book_confidence_threshold ?? conf), conf + 10),
+          50,
+          95,
+        );
+        patch.risk_per_trade_pct = clamp(
+          Number(patch.risk_per_trade_pct ?? cur.risk_per_trade_pct ?? 1) * 0.5,
+          0.25,
+          10,
+        );
+        patch.cooldown_minutes = Math.max(
+          Number(patch.cooldown_minutes ?? cur.cooldown_minutes ?? 0),
+          60,
+        );
+        break;
+      case "daily-bleed":
+        patch.max_trades_per_day = Math.min(
+          Number(patch.max_trades_per_day ?? cur.max_trades_per_day ?? 10),
+          6,
+        );
+        patch.auto_book_confidence_threshold = clamp(
+          Math.max(Number(patch.auto_book_confidence_threshold ?? conf), conf + 5),
+          50,
+          95,
+        );
+        break;
+      case "sl-dominated":
+        patch.auto_book_confidence_threshold = clamp(
+          Math.max(Number(patch.auto_book_confidence_threshold ?? conf), conf + 5),
+          50,
+          95,
+        );
+        break;
+      case "shorts-bleeding":
+        patch.allow_short = false;
+        break;
+      case "longs-bleeding":
+        patch.allow_long = false;
+        break;
+      case "low-pf":
+        patch.risk_per_trade_pct = clamp(
+          Number(patch.risk_per_trade_pct ?? cur.risk_per_trade_pct ?? 1) * 0.5,
+          0.25,
+          10,
+        );
+        patch.auto_book_confidence_threshold = clamp(
+          Math.max(Number(patch.auto_book_confidence_threshold ?? conf), conf + 10),
+          50,
+          95,
+        );
+        patch.max_trades_per_day = Math.min(
+          Number(patch.max_trades_per_day ?? cur.max_trades_per_day ?? 10),
+          8,
+        );
+        break;
+      case "overtrading":
+        patch.max_trades_per_day = Math.min(
+          Number(patch.max_trades_per_day ?? cur.max_trades_per_day ?? 10),
+          6,
+        );
+        patch.auto_book_confidence_threshold = clamp(
+          Math.max(Number(patch.auto_book_confidence_threshold ?? conf), conf + 5),
+          50,
+          95,
+        );
+        break;
+      case "wide-net":
+        patch.auto_book_confidence_threshold = Math.max(
+          Number(patch.auto_book_confidence_threshold ?? conf),
+          70,
+        );
+        break;
+      case "auto-blacklist-loose":
+        patch.symbol_blacklist_threshold = Math.min(
+          Number(
+            patch.symbol_blacklist_threshold ?? cur.symbol_blacklist_threshold ?? 3,
+          ),
+          2,
+        );
+        patch.symbol_sl_cooldown_minutes = Math.max(
+          Number(
+            patch.symbol_sl_cooldown_minutes ?? cur.symbol_sl_cooldown_minutes ?? 180,
+          ),
+          360,
+        );
+        break;
+    }
+  }
+  return patch;
+}
 
 const applySchema = z.object({
   ids: z.array(z.string()).min(1).max(20),
