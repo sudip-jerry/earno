@@ -146,7 +146,10 @@ export function RecentActivity({ items }: { items: ActivityItem[] }) {
           )}
           {items.map((it) => {
             const c = classify(it.message, it.meta);
-            const structured = it.meta?.kind === "auto_book" || it.meta?.kind === "skip";
+            const structured =
+              it.meta?.kind === "auto_book" ||
+              it.meta?.kind === "skip" ||
+              it.meta?.kind === "auto_tune";
             const clean = structured ? null : sanitize(it.message);
             return (
               <div key={it.id} className="px-4 py-2.5 flex items-start gap-3">
