@@ -168,6 +168,31 @@ export function RecommendationsPanel() {
 
         {expanded && (
           <div className="border-t bg-background/40">
+            <div className="flex items-center justify-between px-4 pt-3 pb-1 gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium leading-tight">
+                  Auto-apply critical changes
+                </p>
+                <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                  Dynamic — fires whenever red alerts trigger and the bot is running.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={autoApply}
+                onClick={() => setAutoApply((v) => !v)}
+                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                  autoApply ? "bg-primary" : "bg-muted"
+                }`}
+              >
+                <span
+                  className={`inline-block size-4 transform rounded-full bg-background shadow transition-transform ${
+                    autoApply ? "translate-x-4" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </div>
             {recs.length === 0 ? (
               <p className="px-4 py-5 text-xs text-muted-foreground text-center">
                 No tuning needed right now. We'll re-check after the next scan.
