@@ -461,33 +461,18 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
       return { ok: true, skipped: "bot_stopped" as const, applied: [] };
     }
 
-    // Dedupe: any auto_tune events already logged today for these kinds?
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
-    const { data: prior } = await supabase
-      .from("bot_events")
-      .select("meta,created_at")
-      .eq("user_id", userId)
-      .gte("created_at", todayStart.toISOString())
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    const appliedToday = new Set<string>();
-    for (const row of prior ?? []) {
-      const m = (row.meta ?? null) as { kind?: string; rec_kinds?: string[] } | null;
-      if (m?.kind === "auto_tune" && Array.isArray(m.rec_kinds)) {
-        for (const k of m.rec_kinds) appliedToday.add(k);
-      }
+    // Dynamic dedupe: build the patch, then drop fields that already match
+    // the current config. If nothing would actually change, skip silently.
+    // This lets auto-tune fire as often as conditions warrant — re-tightening
+    // when the bot drifts back — but never spams the DB with no-op writes.
+    const rawPatch = buildPatchForKinds(data.kinds, cur);
+    const curRec = cur as unknown as Record<string, unknown>;
+    const patch: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(rawPatch)) {
+      if (curRec[k] !== v) patch[k] = v;
     }
-
-    const fresh = data.kinds.filter((k) => !appliedToday.has(k));
-    if (fresh.length === 0) {
-      return { ok: true, skipped: "already_applied" as const, applied: [] };
-    }
-
-    const patch = buildPatchForKinds(fresh, cur);
     if (Object.keys(patch).length === 0) {
-      return { ok: true, skipped: "no_patch" as const, applied: [] };
+      return { ok: true, skipped: "no_change" as const, applied: [] };
     }
 
     const { error: upErr } = await supabase
@@ -501,15 +486,15 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
     await supabase.from("bot_events").insert({
       user_id: userId,
       level: "warn",
-      message: `Auto-tuned settings after critical alert (${fresh.join(", ")})`,
+      message: `Auto-tuned settings after critical alert (${data.kinds.join(", ")})`,
       meta: {
         kind: "auto_tune",
-        rec_kinds: fresh,
+        rec_kinds: data.kinds,
         fields: Object.keys(patch),
         patch,
         field_summary: fieldList,
       } as never,
     });
 
-    return { ok: true, applied: fresh, fields: Object.keys(patch) };
+    return { ok: true, applied: data.kinds, fields: Object.keys(patch) };
   });
