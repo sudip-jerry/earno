@@ -851,6 +851,7 @@ const tuningKinds = [
   "stop-loss-top",
   "short-weak-today",
   "long-weak-today",
+  "losing-symbols",
   "safer-preset",
   "loss-cap-hit",
   "improve-filters",
@@ -874,6 +875,8 @@ type CfgRow = {
   cooldown_minutes: number | null;
   allow_short: boolean | null;
   allow_long: boolean | null;
+  symbol_blacklist_threshold: number | null;
+  symbol_sl_cooldown_minutes: number | null;
 };
 
 function buildPatch(kind: typeof tuningKinds[number], cur: CfgRow): Record<string, unknown> | null {
@@ -888,6 +891,12 @@ function buildPatch(kind: typeof tuningKinds[number], cur: CfgRow): Record<strin
       return { allow_short: false };
     case "long-weak-today":
       return { allow_long: false };
+    case "losing-symbols":
+      // Tighten the dynamic auto-blacklist (no static list).
+      return {
+        symbol_blacklist_threshold: Math.min(cur.symbol_blacklist_threshold ?? 3, 2),
+        symbol_sl_cooldown_minutes: Math.max(cur.symbol_sl_cooldown_minutes ?? 180, 360),
+      };
     case "safer-preset":
       return {
         risk_per_trade_pct: clamp(Number(cur.risk_per_trade_pct ?? 1) * 0.5, 0.25, 10),
@@ -919,7 +928,7 @@ export const adminApplyTuningAction = createServerFn({ method: "POST" })
     const { data: cfgs, error: e1 } = await supabaseAdmin
       .from("bot_config")
       .select(
-        "user_id, auto_book_confidence_threshold, risk_per_trade_pct, max_trades_per_day, cooldown_minutes, allow_short, allow_long",
+        "user_id, auto_book_confidence_threshold, risk_per_trade_pct, max_trades_per_day, cooldown_minutes, allow_short, allow_long, symbol_blacklist_threshold, symbol_sl_cooldown_minutes",
       )
       .in("user_id", data.userIds)
       .eq("mode", "paper");
