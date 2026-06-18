@@ -417,5 +417,5 @@ export const applyMyRecommendations = createServerFn({ method: "POST" })
       .eq("mode", "paper");
     if (e2) throw new Error(e2.message);
 
-    return { ok: true, applied: data.ids, patch };
+    return { ok: true, applied: data.ids };
   });
