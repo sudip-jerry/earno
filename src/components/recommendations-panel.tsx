@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   getMyRecommendations,
   applyMyRecommendations,
+  autoApplyCriticalRecommendations,
   type RagStatus,
   type Recommendation,
 } from "@/lib/recommendations.functions";
@@ -35,8 +36,12 @@ export function RecommendationsPanel() {
   const qc = useQueryClient();
   const getFn = useServerFn(getMyRecommendations);
   const applyFn = useServerFn(applyMyRecommendations);
+  const autoApplyFn = useServerFn(autoApplyCriticalRecommendations);
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Dedupe auto-apply within the browser session, in addition to the
+  // server-side per-day dedupe via bot_events.
+  const autoAppliedRef = useRef<Set<string>>(new Set());
 
   const q = useQuery({
     queryKey: ["my_recommendations"],
@@ -58,6 +63,35 @@ export function RecommendationsPanel() {
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
+
+  // Auto-apply critical (red) recommendations whenever the bot is running.
+  // Server enforces single-write-per-day per kind and skips when bot stopped.
+  useEffect(() => {
+    const data = q.data;
+    if (!data || !data.isRunning || data.overall !== "red") return;
+    const redKinds = data.recommendations
+      .filter((r) => r.severity === "red")
+      .map((r) => r.kind);
+    if (redKinds.length === 0) return;
+    const key = redKinds.slice().sort().join("|");
+    if (autoAppliedRef.current.has(key)) return;
+    autoAppliedRef.current.add(key);
+
+    autoApplyFn({ data: { kinds: redKinds } as never })
+      .then((r: { applied: string[]; skipped?: string }) => {
+        if (r.applied.length > 0) {
+          toast.warning(
+            `Auto-tuned ${r.applied.length} critical setting${r.applied.length === 1 ? "" : "s"}. Recorded in Recent Activity.`,
+          );
+          qc.invalidateQueries({ queryKey: ["my_recommendations"] });
+          qc.invalidateQueries({ queryKey: ["dashboard_stats"] });
+        }
+      })
+      .catch(() => {
+        // allow retry on next refetch
+        autoAppliedRef.current.delete(key);
+      });
+  }, [q.data, autoApplyFn, qc]);
 
   if (q.isLoading || !q.data) {
     return (

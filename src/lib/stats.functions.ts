@@ -23,6 +23,10 @@ export type ActivityMeta = {
   opened?: number;
   skipped?: number;
   top_confidence?: number;
+  // auto_tune
+  rec_kinds?: string[];
+  fields?: string[];
+  field_summary?: string;
 };
 
 export type ActivityItem = {

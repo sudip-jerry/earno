@@ -41,6 +41,7 @@ function sanitize(msg: string): { text: string; reason: string | null } {
 
 function classify(msg: string, meta?: ActivityMeta | null): { tag: string; tone: "positive" | "negative" | "warn" | "neutral" } {
   const kind = meta?.kind;
+  if (kind === "auto_tune" || /^Auto-tuned/i.test(msg)) return { tag: "Auto-tuned", tone: "warn" };
   if (kind === "auto_book" || /^Auto-booked/i.test(msg)) return { tag: "Opened", tone: "positive" };
   if (kind === "skip" || /^Skipped/i.test(msg)) return { tag: "Skipped", tone: "warn" };
   if (/^Auto-closed|^Closed/i.test(msg)) return { tag: "Closed", tone: "neutral" };
@@ -104,6 +105,26 @@ function StructuredEntry({ it }: { it: ActivityItem }) {
       </div>
     );
   }
+  if (m.kind === "auto_tune") {
+    const kinds = m.rec_kinds ?? [];
+    const fields = m.fields ?? [];
+    return (
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-foreground">
+          Auto-tuned after critical alert
+        </p>
+        <div className="mt-1.5 space-y-1 rounded-lg bg-amber-500/5 border border-amber-500/20 px-2.5 py-1.5">
+          {kinds.length > 0 && (
+            <KV label="Trigger" value={kinds.join(", ")} tone="bad" />
+          )}
+          {fields.length > 0 && (
+            <KV label="Changed" value={fields.join(", ")} />
+          )}
+          <KV label="Effective" value="Next scan cycle" />
+        </div>
+      </div>
+    );
+  }
   return (
     <p className="text-xs text-foreground/90 leading-relaxed flex-1 min-w-0">{it.message}</p>
   );
@@ -125,7 +146,10 @@ export function RecentActivity({ items }: { items: ActivityItem[] }) {
           )}
           {items.map((it) => {
             const c = classify(it.message, it.meta);
-            const structured = it.meta?.kind === "auto_book" || it.meta?.kind === "skip";
+            const structured =
+              it.meta?.kind === "auto_book" ||
+              it.meta?.kind === "skip" ||
+              it.meta?.kind === "auto_tune";
             const clean = structured ? null : sanitize(it.message);
             return (
               <div key={it.id} className="px-4 py-2.5 flex items-start gap-3">
