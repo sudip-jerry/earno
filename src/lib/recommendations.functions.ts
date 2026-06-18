@@ -408,7 +408,7 @@ export const applyMyRecommendations = createServerFn({ method: "POST" })
     const { data: cfg, error: e1 } = await supabase
       .from("bot_config")
       .select(
-        "user_id,paper_equity,max_open_positions,max_trades_per_day,cooldown_minutes,risk_per_trade_pct,allow_short,allow_long,auto_book_confidence_threshold,symbol_blacklist_threshold,symbol_sl_cooldown_minutes",
+        "user_id,mode,is_running,paper_equity,max_open_positions,max_trades_per_day,cooldown_minutes,risk_per_trade_pct,allow_short,allow_long,auto_book_confidence_threshold,symbol_blacklist_threshold,symbol_sl_cooldown_minutes",
       )
       .eq("user_id", userId)
       .eq("mode", "paper")
@@ -416,102 +416,7 @@ export const applyMyRecommendations = createServerFn({ method: "POST" })
     if (e1) throw new Error(e1.message);
     if (!cfg) throw new Error("Paper config not found");
 
-    const cur = cfg as CfgRow;
-    const patch: Record<string, unknown> = {};
-    const conf = cur.auto_book_confidence_threshold ?? 70;
-
-    for (const id of data.ids) {
-      switch (id as RecommendationKind) {
-        case "loss-streak":
-          patch.auto_book_confidence_threshold = clamp(
-            Math.max(Number(patch.auto_book_confidence_threshold ?? conf), conf + 10),
-            50,
-            95,
-          );
-          patch.risk_per_trade_pct = clamp(
-            Number(patch.risk_per_trade_pct ?? cur.risk_per_trade_pct ?? 1) * 0.5,
-            0.25,
-            10,
-          );
-          patch.cooldown_minutes = Math.max(
-            Number(patch.cooldown_minutes ?? cur.cooldown_minutes ?? 0),
-            60,
-          );
-          break;
-        case "daily-bleed":
-          patch.max_trades_per_day = Math.min(
-            Number(patch.max_trades_per_day ?? cur.max_trades_per_day ?? 10),
-            6,
-          );
-          patch.auto_book_confidence_threshold = clamp(
-            Math.max(Number(patch.auto_book_confidence_threshold ?? conf), conf + 5),
-            50,
-            95,
-          );
-          break;
-        case "sl-dominated":
-          patch.auto_book_confidence_threshold = clamp(
-            Math.max(Number(patch.auto_book_confidence_threshold ?? conf), conf + 5),
-            50,
-            95,
-          );
-          break;
-        case "shorts-bleeding":
-          patch.allow_short = false;
-          break;
-        case "longs-bleeding":
-          patch.allow_long = false;
-          break;
-        case "low-pf":
-          patch.risk_per_trade_pct = clamp(
-            Number(patch.risk_per_trade_pct ?? cur.risk_per_trade_pct ?? 1) * 0.5,
-            0.25,
-            10,
-          );
-          patch.auto_book_confidence_threshold = clamp(
-            Math.max(Number(patch.auto_book_confidence_threshold ?? conf), conf + 10),
-            50,
-            95,
-          );
-          patch.max_trades_per_day = Math.min(
-            Number(patch.max_trades_per_day ?? cur.max_trades_per_day ?? 10),
-            8,
-          );
-          break;
-        case "overtrading":
-          patch.max_trades_per_day = Math.min(
-            Number(patch.max_trades_per_day ?? cur.max_trades_per_day ?? 10),
-            6,
-          );
-          patch.auto_book_confidence_threshold = clamp(
-            Math.max(Number(patch.auto_book_confidence_threshold ?? conf), conf + 5),
-            50,
-            95,
-          );
-          break;
-        case "wide-net":
-          patch.auto_book_confidence_threshold = Math.max(
-            Number(patch.auto_book_confidence_threshold ?? conf),
-            70,
-          );
-          break;
-        case "auto-blacklist-loose":
-          patch.symbol_blacklist_threshold = Math.min(
-            Number(
-              patch.symbol_blacklist_threshold ?? cur.symbol_blacklist_threshold ?? 3,
-            ),
-            2,
-          );
-          patch.symbol_sl_cooldown_minutes = Math.max(
-            Number(
-              patch.symbol_sl_cooldown_minutes ?? cur.symbol_sl_cooldown_minutes ?? 180,
-            ),
-            360,
-          );
-          break;
-      }
-    }
-
+    const patch = buildPatchForKinds(data.ids, cfg as CfgRow);
     if (Object.keys(patch).length === 0) return { ok: true, applied: [] };
 
     const { error: e2 } = await supabase
@@ -522,4 +427,89 @@ export const applyMyRecommendations = createServerFn({ method: "POST" })
     if (e2) throw new Error(e2.message);
 
     return { ok: true, applied: data.ids };
+  });
+
+// ---------------- Auto-apply critical recommendations ----------------
+// Called by the home panel when overall === 'red'. Guarantees:
+//  - Skips entirely when the bot is stopped (manual or auto). No DB write.
+//  - Dedupes by (user, rec_kind, UTC day) using bot_events meta.
+//  - Logs exactly one bot_events row per successful auto-tune batch.
+const autoApplySchema = z.object({
+  kinds: z.array(z.string()).min(1).max(20),
+});
+
+export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => autoApplySchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    const { data: cfg } = await supabase
+      .from("bot_config")
+      .select(
+        "user_id,mode,is_running,paper_equity,max_open_positions,max_trades_per_day,cooldown_minutes,risk_per_trade_pct,allow_short,allow_long,auto_book_confidence_threshold,symbol_blacklist_threshold,symbol_sl_cooldown_minutes",
+      )
+      .eq("user_id", userId)
+      .eq("mode", "paper")
+      .maybeSingle();
+
+    if (!cfg) return { ok: false, skipped: "no_config" as const, applied: [] };
+    const cur = cfg as CfgRow;
+
+    // Guard: bot stopped (manual or kill-switch). Do not apply, do not log.
+    if (!cur.is_running) {
+      return { ok: true, skipped: "bot_stopped" as const, applied: [] };
+    }
+
+    // Dedupe: any auto_tune events already logged today for these kinds?
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const { data: prior } = await supabase
+      .from("bot_events")
+      .select("meta,created_at")
+      .eq("user_id", userId)
+      .gte("created_at", todayStart.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    const appliedToday = new Set<string>();
+    for (const row of prior ?? []) {
+      const m = (row.meta ?? null) as { kind?: string; rec_kinds?: string[] } | null;
+      if (m?.kind === "auto_tune" && Array.isArray(m.rec_kinds)) {
+        for (const k of m.rec_kinds) appliedToday.add(k);
+      }
+    }
+
+    const fresh = data.kinds.filter((k) => !appliedToday.has(k));
+    if (fresh.length === 0) {
+      return { ok: true, skipped: "already_applied" as const, applied: [] };
+    }
+
+    const patch = buildPatchForKinds(fresh, cur);
+    if (Object.keys(patch).length === 0) {
+      return { ok: true, skipped: "no_patch" as const, applied: [] };
+    }
+
+    const { error: upErr } = await supabase
+      .from("bot_config")
+      .update(patch as never)
+      .eq("user_id", userId)
+      .eq("mode", "paper");
+    if (upErr) throw new Error(upErr.message);
+
+    const fieldList = Object.keys(patch).join(", ");
+    await supabase.from("bot_events").insert({
+      user_id: userId,
+      level: "warn",
+      message: `Auto-tuned settings after critical alert (${fresh.join(", ")})`,
+      meta: {
+        kind: "auto_tune",
+        rec_kinds: fresh,
+        fields: Object.keys(patch),
+        patch,
+        field_summary: fieldList,
+      } as never,
+    });
+
+    return { ok: true, applied: fresh, patch };
   });
