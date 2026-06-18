@@ -932,7 +932,7 @@ export const adminApplyTuningAction = createServerFn({ method: "POST" })
       if (!patch || Object.keys(patch).length === 0) continue;
       const { error: e2 } = await supabaseAdmin
         .from("bot_config")
-        .update(patch)
+        .update(patch as never)
         .eq("user_id", cfg.user_id)
         .eq("mode", "paper");
       if (e2) {
