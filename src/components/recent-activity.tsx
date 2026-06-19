@@ -59,6 +59,88 @@ const toneCls = {
   neutral: "bg-muted text-muted-foreground",
 };
 
+const TRIGGER_LABEL: Record<string, string> = {
+  "loss-streak": "Several losing trades in a row today",
+  "daily-bleed": "Today's losses were growing fast",
+  "sl-dominated": "Most trades were hitting their stop-loss",
+  "shorts-bleeding": "Short (sell) trades were losing money",
+  "longs-bleeding": "Long (buy) trades were losing money",
+  "low-pf": "Losses have been outweighing wins this week",
+  "overtrading": "Too many trades opened today",
+  "wide-net": "Bot was accepting weak signals",
+  "auto-blacklist-loose": "Bad coins weren't being skipped quickly enough",
+};
+
+function friendlyTrigger(kind: string): string {
+  return TRIGGER_LABEL[kind] ?? kind.replace(/-/g, " ");
+}
+
+function friendlyChanges(
+  patch: NonNullable<ActivityMeta["patch"]> | undefined,
+  fields: string[] | undefined,
+): string[] {
+  const out: string[] = [];
+  const p = patch ?? {};
+  const has = (k: string) =>
+    (k in p) || (fields ?? []).includes(k);
+  if (has("auto_book_confidence_threshold")) {
+    const v = p.auto_book_confidence_threshold;
+    out.push(
+      v != null
+        ? `Only take stronger setups now — confidence raised to ${v}`
+        : "Only take stronger setups now (confidence raised)",
+    );
+  }
+  if (has("risk_per_trade_pct")) {
+    const v = p.risk_per_trade_pct;
+    out.push(
+      v != null
+        ? `Risking less per trade — now ${Number(v).toFixed(2)}% of balance`
+        : "Risking less per trade",
+    );
+  }
+  if (has("cooldown_minutes")) {
+    const v = p.cooldown_minutes;
+    out.push(
+      v != null
+        ? `Waiting ${v} min between trades to cool off`
+        : "Waiting longer between trades",
+    );
+  }
+  if (has("max_trades_per_day")) {
+    const v = p.max_trades_per_day;
+    out.push(
+      v != null
+        ? `Capping today's trades at ${v}`
+        : "Capping today's trade count",
+    );
+  }
+  if (has("allow_short") && p.allow_short === false) {
+    out.push("Paused new short (sell) trades until the trend recovers");
+  }
+  if (has("allow_long") && p.allow_long === false) {
+    out.push("Paused new long (buy) trades until the trend recovers");
+  }
+  if (has("symbol_blacklist_threshold")) {
+    const v = p.symbol_blacklist_threshold;
+    out.push(
+      v != null
+        ? `A coin is auto-skipped after just ${v} losses in a day`
+        : "Auto-skip bad coins sooner",
+    );
+  }
+  if (has("symbol_sl_cooldown_minutes")) {
+    const v = p.symbol_sl_cooldown_minutes;
+    if (v != null) {
+      const hrs = v >= 60 ? `${Math.round(v / 60)} h` : `${v} min`;
+      out.push(`After a stop-loss, that coin rests for ${hrs}`);
+    } else {
+      out.push("Longer rest for coins after a stop-loss");
+    }
+  }
+  return out;
+}
+
 function KV({ label, value, tone }: { label: string; value: string; tone?: "ok" | "bad" }) {
   const cls = tone === "ok" ? "text-emerald-500" : tone === "bad" ? "text-destructive" : "text-foreground";
   return (
