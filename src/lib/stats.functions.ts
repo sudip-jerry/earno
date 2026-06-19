@@ -27,6 +27,7 @@ export type ActivityMeta = {
   rec_kinds?: string[];
   fields?: string[];
   field_summary?: string;
+  patch?: Record<string, unknown>;
 };
 
 export type ActivityItem = {
