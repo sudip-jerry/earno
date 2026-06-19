@@ -106,21 +106,45 @@ function StructuredEntry({ it }: { it: ActivityItem }) {
     );
   }
   if (m.kind === "auto_tune") {
-    const kinds = m.rec_kinds ?? [];
-    const fields = m.fields ?? [];
+    const triggers = (m.rec_kinds ?? []).map(friendlyTrigger);
+    const changes = friendlyChanges(m.patch, m.fields);
     return (
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-foreground">
-          Auto-tuned after critical alert
+          Earno tightened your settings to protect today's capital
         </p>
-        <div className="mt-1.5 space-y-1 rounded-lg bg-amber-500/5 border border-amber-500/20 px-2.5 py-1.5">
-          {kinds.length > 0 && (
-            <KV label="Trigger" value={kinds.join(", ")} tone="bad" />
+        <div className="mt-1.5 space-y-1.5 rounded-lg bg-amber-500/5 border border-amber-500/20 px-2.5 py-2">
+          {triggers.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">
+                Why
+              </p>
+              <ul className="space-y-0.5">
+                {triggers.map((t, i) => (
+                  <li key={i} className="text-[11px] text-foreground/90 leading-snug">
+                    • {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
-          {fields.length > 0 && (
-            <KV label="Changed" value={fields.join(", ")} />
+          {changes.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">
+                What changed
+              </p>
+              <ul className="space-y-0.5">
+                {changes.map((c, i) => (
+                  <li key={i} className="text-[11px] text-foreground/90 leading-snug">
+                    • {c}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
-          <KV label="Effective" value="Next scan cycle" />
+          <p className="text-[10px] text-muted-foreground pt-0.5">
+            Takes effect from the next trade scan. You can review or undo in Settings.
+          </p>
         </div>
       </div>
     );
