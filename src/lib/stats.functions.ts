@@ -27,6 +27,16 @@ export type ActivityMeta = {
   rec_kinds?: string[];
   fields?: string[];
   field_summary?: string;
+  patch?: {
+    auto_book_confidence_threshold?: number;
+    risk_per_trade_pct?: number;
+    cooldown_minutes?: number;
+    max_trades_per_day?: number;
+    allow_short?: boolean;
+    allow_long?: boolean;
+    symbol_blacklist_threshold?: number;
+    symbol_sl_cooldown_minutes?: number;
+  };
 };
 
 export type ActivityItem = {

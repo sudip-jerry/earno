@@ -59,6 +59,88 @@ const toneCls = {
   neutral: "bg-muted text-muted-foreground",
 };
 
+const TRIGGER_LABEL: Record<string, string> = {
+  "loss-streak": "Several losing trades in a row today",
+  "daily-bleed": "Today's losses were growing fast",
+  "sl-dominated": "Most trades were hitting their stop-loss",
+  "shorts-bleeding": "Short (sell) trades were losing money",
+  "longs-bleeding": "Long (buy) trades were losing money",
+  "low-pf": "Losses have been outweighing wins this week",
+  "overtrading": "Too many trades opened today",
+  "wide-net": "Bot was accepting weak signals",
+  "auto-blacklist-loose": "Bad coins weren't being skipped quickly enough",
+};
+
+function friendlyTrigger(kind: string): string {
+  return TRIGGER_LABEL[kind] ?? kind.replace(/-/g, " ");
+}
+
+function friendlyChanges(
+  patch: NonNullable<ActivityMeta["patch"]> | undefined,
+  fields: string[] | undefined,
+): string[] {
+  const out: string[] = [];
+  const p = patch ?? {};
+  const has = (k: string) =>
+    (k in p) || (fields ?? []).includes(k);
+  if (has("auto_book_confidence_threshold")) {
+    const v = p.auto_book_confidence_threshold;
+    out.push(
+      v != null
+        ? `Only take stronger setups now — confidence raised to ${v}`
+        : "Only take stronger setups now (confidence raised)",
+    );
+  }
+  if (has("risk_per_trade_pct")) {
+    const v = p.risk_per_trade_pct;
+    out.push(
+      v != null
+        ? `Risking less per trade — now ${Number(v).toFixed(2)}% of balance`
+        : "Risking less per trade",
+    );
+  }
+  if (has("cooldown_minutes")) {
+    const v = p.cooldown_minutes;
+    out.push(
+      v != null
+        ? `Waiting ${v} min between trades to cool off`
+        : "Waiting longer between trades",
+    );
+  }
+  if (has("max_trades_per_day")) {
+    const v = p.max_trades_per_day;
+    out.push(
+      v != null
+        ? `Capping today's trades at ${v}`
+        : "Capping today's trade count",
+    );
+  }
+  if (has("allow_short") && p.allow_short === false) {
+    out.push("Paused new short (sell) trades until the trend recovers");
+  }
+  if (has("allow_long") && p.allow_long === false) {
+    out.push("Paused new long (buy) trades until the trend recovers");
+  }
+  if (has("symbol_blacklist_threshold")) {
+    const v = p.symbol_blacklist_threshold;
+    out.push(
+      v != null
+        ? `A coin is auto-skipped after just ${v} losses in a day`
+        : "Auto-skip bad coins sooner",
+    );
+  }
+  if (has("symbol_sl_cooldown_minutes")) {
+    const v = p.symbol_sl_cooldown_minutes;
+    if (v != null) {
+      const hrs = v >= 60 ? `${Math.round(v / 60)} h` : `${v} min`;
+      out.push(`After a stop-loss, that coin rests for ${hrs}`);
+    } else {
+      out.push("Longer rest for coins after a stop-loss");
+    }
+  }
+  return out;
+}
+
 function KV({ label, value, tone }: { label: string; value: string; tone?: "ok" | "bad" }) {
   const cls = tone === "ok" ? "text-emerald-500" : tone === "bad" ? "text-destructive" : "text-foreground";
   return (
@@ -106,21 +188,45 @@ function StructuredEntry({ it }: { it: ActivityItem }) {
     );
   }
   if (m.kind === "auto_tune") {
-    const kinds = m.rec_kinds ?? [];
-    const fields = m.fields ?? [];
+    const triggers = (m.rec_kinds ?? []).map(friendlyTrigger);
+    const changes = friendlyChanges(m.patch, m.fields);
     return (
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-foreground">
-          Auto-tuned after critical alert
+          Earno tightened your settings to protect today's capital
         </p>
-        <div className="mt-1.5 space-y-1 rounded-lg bg-amber-500/5 border border-amber-500/20 px-2.5 py-1.5">
-          {kinds.length > 0 && (
-            <KV label="Trigger" value={kinds.join(", ")} tone="bad" />
+        <div className="mt-1.5 space-y-1.5 rounded-lg bg-amber-500/5 border border-amber-500/20 px-2.5 py-2">
+          {triggers.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">
+                Why
+              </p>
+              <ul className="space-y-0.5">
+                {triggers.map((t, i) => (
+                  <li key={i} className="text-[11px] text-foreground/90 leading-snug">
+                    • {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
-          {fields.length > 0 && (
-            <KV label="Changed" value={fields.join(", ")} />
+          {changes.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">
+                What changed
+              </p>
+              <ul className="space-y-0.5">
+                {changes.map((c, i) => (
+                  <li key={i} className="text-[11px] text-foreground/90 leading-snug">
+                    • {c}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
-          <KV label="Effective" value="Next scan cycle" />
+          <p className="text-[10px] text-muted-foreground pt-0.5">
+            Takes effect from the next trade scan. You can review or undo in Settings.
+          </p>
         </div>
       </div>
     );
