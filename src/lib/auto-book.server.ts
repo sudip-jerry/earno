@@ -485,7 +485,10 @@ export async function runAutoBookPass(
       let rejection: string | null = null;
       let final: string = "skip";
 
-      if (a.action === "AVOID" || a.side_bias === "neutral") {
+      if (blockedSymbols.has(sym.toUpperCase())) {
+        rejection = "Symbol on user blocklist";
+        final = "skip";
+      } else if (a.action === "AVOID" || a.side_bias === "neutral") {
         rejection = "Bias unclear / avoid";
         final = "avoid";
       } else if (a.side_bias === "short" && !cfg.allow_short) {
