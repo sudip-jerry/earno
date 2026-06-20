@@ -139,7 +139,51 @@ export async function fetchMarkPrices(symbols: string[]): Promise<Record<string,
     if (!sym || !wanted.has(sym)) continue;
     const p = num(v?.ls ?? v?.c);
     if (p > 0) out[sym] = p;
+}
+
+/** Coarse market regime computed from BTC 1h trend + last-candle momentum.
+ * Used to gate trade direction at open time. Returns null on fetch failure
+ * (caller treats null as "neutral"). */
+export type MarketRegime =
+  | "strong_bullish"
+  | "bullish"
+  | "neutral"
+  | "bearish"
+  | "strong_bearish";
+
+export async function fetchMarketRegime(): Promise<MarketRegime | null> {
+  try {
+    const res = await fetch(CANDLES("B-BTC_USDT", "1h", 60), {
+      headers: PUB_HEADERS,
+      signal: AbortSignal.timeout(3500),
+    });
+    if (!res.ok) return null;
+    const raw = (await res.json()) as Array<{ open: number | string; high: number | string; low: number | string; close: number | string }>;
+    if (!Array.isArray(raw) || raw.length < 22) return null;
+    const closes = raw.map((k) => num(k.close));
+    const last = closes[closes.length - 1];
+    const ema21 = ema(closes.slice(-30), 21);
+    const ema50 = ema(closes, 50);
+    if (!last || !ema21 || !ema50) return null;
+    const slope = ema21 / closes[closes.length - 7] - 1; // 6h slope
+    const distEma50Pct = (last - ema50) / ema50;
+    if (distEma50Pct > 0.04 && slope > 0.01) return "strong_bullish";
+    if (distEma50Pct < -0.04 && slope < -0.01) return "strong_bearish";
+    if (distEma50Pct > 0.012) return "bullish";
+    if (distEma50Pct < -0.012) return "bearish";
+    return "neutral";
+  } catch {
+    return null;
   }
+}
+
+function ema(values: number[], period: number): number | null {
+  if (!values || values.length < period) return null;
+  const k = 2 / (period + 1);
+  let e = values.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < values.length; i++) e = values[i] * k + e * (1 - k);
+  return e;
+}
   return out;
 }
 
