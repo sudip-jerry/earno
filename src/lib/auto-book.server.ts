@@ -480,6 +480,7 @@ export async function runAutoBookPass(
 
     for (const a of analyses) {
       const sym = a.symbol;
+      const signalId = crypto.randomUUID();
       const cooldownActive =
         (lastOpen.get(sym) != null && Date.now() - (lastOpen.get(sym) as number) < cooldownMs) ||
         (lastSlClose.get(sym) != null && Date.now() - (lastSlClose.get(sym) as number) < symbolSlCooldownMs);
