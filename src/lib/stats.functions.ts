@@ -59,6 +59,8 @@ export type DashboardStats = {
   maxDrawdown: number;
   dailyLossUsedPct: number;
   openCount: number;
+  openPnl: number;
+  openPnlPct: number;
   consecutiveLosses: number;
   realizedPnlAllTime: number;
   portfolioValue: number;
