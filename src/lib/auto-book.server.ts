@@ -339,6 +339,7 @@ export async function runAutoBookPass(
     const signalRows: Record<string, unknown>[] = [];
     const pushSignal = (
       a: SignalAnalysis,
+      signalId: string,
       final: string,
       bookedTradeId: string | null,
       rejection: string | null,
@@ -349,18 +350,28 @@ export async function runAutoBookPass(
         risk_reward: number | null;
       },
     ) => {
+      // For booked rows we coerce action to LONG/SHORT to match the executed side.
+      const finalAction =
+        bookedTradeId != null
+          ? a.side_bias === "long"
+            ? "LONG"
+            : a.side_bias === "short"
+            ? "SHORT"
+            : a.action
+          : a.action;
       signalRows.push({
+        id: signalId,
         scan_id: scanId,
         user_id: cfg.user_id,
         user_name: userName,
         symbol: a.symbol,
         price: a.price,
-        action: a.action,
+        action: finalAction,
         side_bias: a.side_bias,
         confidence_pct: a.confidence_pct,
         confidence_band: a.confidence_band,
         reason: a.reason,
-        final_decision: final,
+        final_decision: bookedTradeId != null ? "booked" : final,
         booked: bookedTradeId != null,
         booked_trade_id: bookedTradeId,
         rejection_reason: rejection,
