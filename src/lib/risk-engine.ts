@@ -25,6 +25,26 @@ export type StylePreset = {
   targetMult: number;
   /** Reject auto-book when realized R:R is below this. */
   minRR: number;
+  /** Partial-profit (TP1) % from entry — closes 50% and moves SL to breakeven. */
+  tp1Pct: number;
+  /** Trailing-stop % applied to the runner half after TP1. */
+  trailPct: number;
+  /** Peak unrealized profit (%) required before profit-fade exit can trigger. */
+  profitFadeMinPct: number;
+  /** Fraction of peak profit given back to trigger profit-fade exit (0..1). */
+  profitFadeGivebackPct: number;
+  /** If trade does not reach this unrealized % within the window, flag weak progress. */
+  weakProgressMinPct: number;
+  /** Window in minutes used to evaluate weak progress (45–60). */
+  weakProgressWindowMin: number;
+  /** Style-aware execution caps. */
+  maxTradesPerDay: number;
+  maxSameDirPerDay: number;
+  maxTradesPerSymbolPerDay: number;
+  /** Symbol cooldown after this many losses in 24h. */
+  lossesBeforeSymbolCooldown: number;
+  /** Cooldown duration (hours) once `lossesBeforeSymbolCooldown` triggers. */
+  symbolCooldownHours: number;
 };
 
 export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
@@ -38,6 +58,17 @@ export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
     maxAutoSL: 2.5,
     targetMult: 1.5,
     minRR: 1.5,
+    tp1Pct: 0.55,
+    trailPct: 0.30,
+    profitFadeMinPct: 0.6,
+    profitFadeGivebackPct: 0.4,
+    weakProgressMinPct: 0.3,
+    weakProgressWindowMin: 60,
+    maxTradesPerDay: 9,
+    maxSameDirPerDay: 5,
+    maxTradesPerSymbolPerDay: 2,
+    lossesBeforeSymbolCooldown: 2,
+    symbolCooldownHours: 6,
   },
   balanced: {
     key: "balanced",
@@ -49,6 +80,17 @@ export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
     maxAutoSL: 4,
     targetMult: 1.7,
     minRR: 1.5,
+    tp1Pct: 0.70,
+    trailPct: 0.42,
+    profitFadeMinPct: 0.6,
+    profitFadeGivebackPct: 0.4,
+    weakProgressMinPct: 0.3,
+    weakProgressWindowMin: 55,
+    maxTradesPerDay: 15,
+    maxSameDirPerDay: 8,
+    maxTradesPerSymbolPerDay: 3,
+    lossesBeforeSymbolCooldown: 2,
+    symbolCooldownHours: 5,
   },
   aggressive: {
     key: "aggressive",
@@ -60,6 +102,17 @@ export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
     maxAutoSL: 5,
     targetMult: 2,
     minRR: 1.5,
+    tp1Pct: 0.90,
+    trailPct: 0.62,
+    profitFadeMinPct: 0.6,
+    profitFadeGivebackPct: 0.4,
+    weakProgressMinPct: 0.3,
+    weakProgressWindowMin: 50,
+    maxTradesPerDay: 25,
+    maxSameDirPerDay: 12,
+    maxTradesPerSymbolPerDay: 4,
+    lossesBeforeSymbolCooldown: 3,
+    symbolCooldownHours: 3,
   },
 };
 
