@@ -407,7 +407,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
         supabaseAdmin
           .from("positions")
           .select(
-            "user_id,symbol,side,status,pnl,pnl_pct,exit_reason,opened_at,closed_at",
+            "user_id,symbol,side,status,pnl,pnl_pct,exit_reason,final_exit_reason,tp1_hit,tp1_pnl,peak_unrealized_pnl_pct,manual_saved_pnl,manual_missed_pnl,source,opened_at,closed_at",
           )
           .eq("mode", "paper")
           .order("opened_at", { ascending: false })
