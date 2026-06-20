@@ -17,6 +17,13 @@ type Pos = {
   pnl: number | null;
   pnl_pct: number | null;
   exit_reason: string | null;
+  final_exit_reason: string | null;
+  tp1_hit: boolean | null;
+  tp1_pnl: number | null;
+  peak_unrealized_pnl_pct: number | null;
+  manual_saved_pnl: number | null;
+  manual_missed_pnl: number | null;
+  source: string | null;
   opened_at: string;
   closed_at: string | null;
 };
