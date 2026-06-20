@@ -633,6 +633,11 @@ export async function runAutoBookPass(
             rejection = error?.message ?? "Insert failed";
             final = "skip";
             await logEvent(supabase, cfg.user_id, "error", `Auto-book ${a.symbol} failed: ${rejection}`);
+            // Mark the pre-inserted signal as rejected.
+            await supabase
+              .from("bot_signals")
+              .update({ final_decision: "skip", rejection_reason: rejection })
+              .eq("id", signalId);
           } else {
             bookedTradeId = inserted.id as string;
             final = "booked";
@@ -640,6 +645,18 @@ export async function runAutoBookPass(
             openSlot--;
             openSymbols.add(sym);
             lastOpen.set(sym, Date.now());
+            // Write the booking linkage back onto the signal row.
+            await supabase
+              .from("bot_signals")
+              .update({
+                booked: true,
+                booked_trade_id: bookedTradeId,
+                final_decision: "booked",
+                action: side === "long" ? "LONG" : "SHORT",
+                confidence_pct: a.confidence_pct,
+                confidence_band: a.confidence_band,
+              })
+              .eq("id", signalId);
             await logEvent(
               supabase,
               cfg.user_id,
@@ -660,18 +677,23 @@ export async function runAutoBookPass(
               },
             );
           }
+          } // close: sigErr else
         }
       } else {
         // Display-quality but not booked: count as an opportunity-skip.
         skipped++;
       }
 
-      pushSignal(a, final, bookedTradeId, rejection, {
-        cooldown_active: cooldownActive,
-        daily_loss_available: dailyLossAvailable,
-        max_position_available: maxPositionAvailable,
-        risk_reward: plan.rr || null,
-      });
+      // Only push non-booked signals into bulk insert (booked ones were
+      // already inserted above so the position FK could resolve).
+      if (bookedTradeId == null) {
+        pushSignal(a, signalId, final, bookedTradeId, rejection, {
+          cooldown_active: cooldownActive,
+          daily_loss_available: dailyLossAvailable,
+          max_position_available: maxPositionAvailable,
+          risk_reward: plan.rr || null,
+        });
+      }
     }
 
     // Bulk insert signals for this user (chunked to stay under payload limits).
