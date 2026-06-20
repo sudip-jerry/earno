@@ -555,6 +555,45 @@ export async function runAutoBookPass(
             side === "long" ? a.price * (1 - slPct / 100) : a.price * (1 + slPct / 100);
           const take_profit =
             side === "long" ? a.price * (1 + tpPct / 100) : a.price * (1 - tpPct / 100);
+          // FK requires the signal row to exist first.
+          const { error: sigErr } = await supabase.from("bot_signals").insert({
+            id: signalId,
+            scan_id: scanId,
+            user_id: cfg.user_id,
+            user_name: userName,
+            symbol: a.symbol,
+            price: a.price,
+            action: side === "long" ? "LONG" : "SHORT",
+            side_bias: a.side_bias,
+            confidence_pct: a.confidence_pct,
+            confidence_band: a.confidence_band,
+            reason: a.reason,
+            final_decision: "pending",
+            booked: false,
+            strategy: cfg.strategy ?? "default",
+            timeframe: "5m",
+            config_id: cfg.user_id,
+            trend_status: a.trend_status,
+            vwap_status: a.vwap_status,
+            ema_alignment: a.ema_alignment,
+            rsi: a.rsi,
+            volume_spike_ratio: a.volume_spike_ratio,
+            spread_pct: a.spread_pct,
+            atr_pct: a.atr_pct,
+            distance_from_vwap_pct: a.distance_from_vwap_pct,
+            distance_from_ema21_pct: a.distance_from_ema21_pct,
+            impulse_candle_pct: a.impulse_candle_pct,
+            risk_reward: plan.rr || null,
+            market_regime: a.market_regime,
+            cooldown_active: cooldownActive,
+            daily_loss_available: dailyLossAvailable,
+            max_position_available: maxPositionAvailable,
+          });
+          if (sigErr) {
+            rejection = `Signal pre-insert failed: ${sigErr.message}`;
+            final = "skip";
+            await logEvent(supabase, cfg.user_id, "error", `Auto-book ${a.symbol} failed: ${rejection}`);
+          } else {
           const { data: inserted, error } = await supabase
             .from("positions")
             .insert({
@@ -573,6 +612,20 @@ export async function runAutoBookPass(
               status: "open",
               instrument: "futures",
               exchange_order_id: cfg.mode === "paper" ? `paper-auto-${Date.now()}` : null,
+              signal_id: signalId,
+              source: "auto",
+              algo_id: ALGO_ID,
+              algo_name: ALGO_NAME,
+              algo_version: ALGO_VERSION,
+              confidence_at_entry: a.confidence_pct,
+              confidence_band_at_entry: a.confidence_band,
+              entry_reason: a.reason,
+              market_regime: a.market_regime,
+              rsi_at_entry: a.rsi,
+              volume_spike_ratio_at_entry: a.volume_spike_ratio,
+              spread_pct_at_entry: a.spread_pct,
+              distance_from_vwap_pct_at_entry: a.distance_from_vwap_pct,
+              distance_from_ema21_pct_at_entry: a.distance_from_ema21_pct,
             })
             .select("id")
             .single();
