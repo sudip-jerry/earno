@@ -341,7 +341,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       lastAnalysisAt,
       riskHealthy, riskReason,
       dailyLossCapPct: cap,
-      maxTradesPerDay: Number(cfg?.max_trades_per_day ?? 10),
+      maxTradesPerDay: Number(cfg?.max_trades_per_day ?? 50),
       maxOpenPositions: Number(cfg?.max_open_positions ?? 2),
       cooldownMinutes: Number(cfg?.cooldown_minutes ?? 30),
       topConfidenceToday,
