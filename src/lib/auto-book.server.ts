@@ -462,6 +462,10 @@ export async function runAutoBookPass(
     }
 
     const preset: StylePreset = presetFromConfig(cfg);
+    const blockedSymbols = new Set<string>(
+      (cfg.symbol_blocklist ?? []).map((s) => String(s).trim().toUpperCase()).filter(Boolean),
+    );
+
 
     for (const a of analyses) {
       const sym = a.symbol;
