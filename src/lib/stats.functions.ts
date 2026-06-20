@@ -328,6 +328,13 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       maxDrawdown: mdd,
       dailyLossUsedPct,
       openCount: openRows?.length ?? 0,
+      openPnl: (openRows ?? []).reduce((a, r) => a + Number((r as { pnl?: number | null }).pnl ?? 0), 0),
+      openPnlPct: (() => {
+        const rows = (openRows ?? []) as Array<{ pnl?: number | null; entry_price?: number | null; qty?: number | null }>;
+        const notional = rows.reduce((a, r) => a + Number(r.entry_price ?? 0) * Number(r.qty ?? 0), 0);
+        const pnl = rows.reduce((a, r) => a + Number(r.pnl ?? 0), 0);
+        return notional > 0 ? (pnl / notional) * 100 : 0;
+      })(),
       consecutiveLosses: streak,
       realizedPnlAllTime,
       portfolioValue,
