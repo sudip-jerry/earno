@@ -323,7 +323,7 @@ function buildPatchForKinds(
       case "daily-bleed":
         patch.max_trades_per_day = Math.min(
           Number(patch.max_trades_per_day ?? cur.max_trades_per_day ?? 10),
-          6,
+          50,
         );
         patch.auto_book_confidence_threshold = clamp(
           Math.max(Number(patch.auto_book_confidence_threshold ?? conf), conf + 5),
@@ -357,13 +357,13 @@ function buildPatchForKinds(
         );
         patch.max_trades_per_day = Math.min(
           Number(patch.max_trades_per_day ?? cur.max_trades_per_day ?? 10),
-          8,
+          50,
         );
         break;
       case "overtrading":
         patch.max_trades_per_day = Math.min(
           Number(patch.max_trades_per_day ?? cur.max_trades_per_day ?? 10),
-          6,
+          50,
         );
         patch.auto_book_confidence_threshold = clamp(
           Math.max(Number(patch.auto_book_confidence_threshold ?? conf), conf + 5),
