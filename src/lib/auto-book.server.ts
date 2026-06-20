@@ -597,6 +597,50 @@ export async function runAutoBookPass(
       } else if (cooldownActive) {
         rejection = "Cooldown active";
         final = "skip";
+      } else if (
+        // Rolling symbol cooldown driven by style preset.
+        (() => {
+          const losses = lossCountBySymbol.get(sym) ?? 0;
+          const wins = winCountBySymbol.get(sym) ?? 0;
+          const lastLossAt = lastLossAtBySymbol.get(sym) ?? 0;
+          if (losses >= 4 && wins === 0) return true;
+          if (losses >= preset.lossesBeforeSymbolCooldown && lastLossAt > 0) {
+            return Date.now() - lastLossAt < preset.symbolCooldownHours * 3600_000;
+          }
+          return false;
+        })()
+      ) {
+        rejection = `Rolling cooldown (${preset.lossesBeforeSymbolCooldown}+ losses in 24h, style=${preset.key})`;
+        final = "skip";
+      } else if (
+        // Market regime guard.
+        marketRegime === "strong_bullish" &&
+        a.side_bias === "short" &&
+        a.confidence_pct < 90
+      ) {
+        rejection = "Regime guard: shorts blocked in strong-bullish";
+        final = "skip";
+      } else if (
+        marketRegime === "strong_bearish" &&
+        a.side_bias === "long" &&
+        a.confidence_pct < 90
+      ) {
+        rejection = "Regime guard: longs blocked in strong-bearish";
+        final = "skip";
+      } else if (
+        marketRegime === "bullish" &&
+        a.side_bias === "short" &&
+        a.confidence_pct < autoConfThreshold + 5
+      ) {
+        rejection = "Regime: bullish — stricter short confirmation required";
+        final = "skip";
+      } else if (
+        marketRegime === "bearish" &&
+        a.side_bias === "long" &&
+        a.confidence_pct < autoConfThreshold + 5
+      ) {
+        rejection = "Regime: bearish — stricter long confirmation required";
+        final = "skip";
       } else if (a.spread_pct != null && a.spread_pct > HARD_SPREAD_BLOCK_PCT) {
         rejection = `Spread too high (${a.spread_pct.toFixed(2)}%)`;
         final = "skip";
@@ -609,6 +653,20 @@ export async function runAutoBookPass(
       } else if (remainingToday - opened <= 0) {
         rejection = "Daily auto-book limit reached";
         final = "skip";
+      } else if (opened + longTodayCount + shortTodayCount >= preset.maxTradesPerDay) {
+        rejection = `Style cap: max ${preset.maxTradesPerDay} trades/day (${preset.key})`;
+        final = "skip";
+      } else if (
+        (a.side_bias === "long" ? longTodayCount + sameDirOpenedThisPass.long : shortTodayCount + sameDirOpenedThisPass.short) >= preset.maxSameDirPerDay
+      ) {
+        rejection = `Style cap: max ${preset.maxSameDirPerDay} ${a.side_bias} trades/day`;
+        final = "skip";
+      } else if (
+        ((perSymbolTodayCount.get(sym) ?? 0) + (symbolOpenedThisPass.get(sym) ?? 0)) >=
+        preset.maxTradesPerSymbolPerDay
+      ) {
+        rejection = `Style cap: max ${preset.maxTradesPerSymbolPerDay} trades/symbol/day`;
+        final = "skip";
       } else if (openSlot <= 0) {
         rejection = "Max open positions reached";
         final = "skip";
@@ -619,6 +677,7 @@ export async function runAutoBookPass(
         rejection = `Below auto-book threshold (${a.confidence_pct} < ${autoConfThreshold})`;
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
       }
+
 
       let bookedTradeId: string | null = null;
 
