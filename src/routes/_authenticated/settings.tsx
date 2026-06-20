@@ -76,7 +76,18 @@ function CurrencyControl() {
 
 function StrictnessControl() {
   const { strictness, setStrictness } = useStrictness();
+  const updateFn = useServerFn(updateConfig);
   const keys: Strictness[] = ["less", "moderate", "strict"];
+  const handleChange = async (k: Strictness) => {
+    setStrictness(k);
+    const conf = STRICTNESS_PRESETS[k].autoConf;
+    try {
+      await updateFn({ data: { auto_book_confidence_threshold: conf } as never });
+      toast.success(`Auto-book threshold set to ${conf}%`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update threshold");
+    }
+  };
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-3 gap-1.5 rounded-lg bg-muted p-1">
@@ -87,7 +98,7 @@ function StrictnessControl() {
             <button
               key={k}
               type="button"
-              onClick={() => setStrictness(k)}
+              onClick={() => handleChange(k)}
               className={`h-9 rounded-md text-xs font-medium transition ${
                 active ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
@@ -98,7 +109,7 @@ function StrictnessControl() {
           );
         })}
       </div>
-      <p className="text-[11px] text-muted-foreground">{STRICTNESS_PRESETS[strictness].description}</p>
+      <p className="text-[11px] text-muted-foreground">{STRICTNESS_PRESETS[strictness].description} Writes auto-book threshold to your bot config.</p>
     </div>
   );
 }
