@@ -848,6 +848,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
         todayBestPair,
         todayWorstPair,
         todaySinceIso: sinceIso,
+        exitAttribution,
       },
     };
   });
