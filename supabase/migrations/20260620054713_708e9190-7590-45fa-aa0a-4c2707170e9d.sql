@@ -1,0 +1,1 @@
+UPDATE public.bot_config SET auto_book_confidence_threshold = 60, risk_per_trade_pct = GREATEST(risk_per_trade_pct, 1.0), cooldown_minutes = LEAST(cooldown_minutes, 20) WHERE user_id IN (SELECT id FROM public.profiles WHERE email IN ('sudip.gupta.87@gmail.com','yashy05@gmail.com')) AND mode='paper';
