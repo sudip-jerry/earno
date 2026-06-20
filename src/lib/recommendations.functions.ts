@@ -461,16 +461,39 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
       return { ok: true, skipped: "bot_stopped" as const, applied: [] };
     }
 
+    // Guard: require a minimum closed-trade sample (>=100) before flipping
+    // any parameter. The auto-tuner was over-reacting to single-day PnL and
+    // thrashing the config faster than a new config could produce a
+    // meaningful sample. Wait for a robust signal before re-tuning.
+    const MIN_CLOSED_TRADES = 100;
+    const { count: closedCount } = await supabase
+      .from("positions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("mode", "paper")
+      .eq("status", "closed");
+    if ((closedCount ?? 0) < MIN_CLOSED_TRADES) {
+      return {
+        ok: true,
+        skipped: "insufficient_sample" as const,
+        applied: [],
+        closedCount: closedCount ?? 0,
+        required: MIN_CLOSED_TRADES,
+      };
+    }
+
     // Dynamic dedupe: build the patch, then drop fields that already match
     // the current config. If nothing would actually change, skip silently.
-    // This lets auto-tune fire as often as conditions warrant — re-tightening
-    // when the bot drifts back — but never spams the DB with no-op writes.
     const rawPatch = buildPatchForKinds(data.kinds, cur);
     const curRec = cur as unknown as Record<string, unknown>;
     const patch: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(rawPatch)) {
       if (curRec[k] !== v) patch[k] = v;
     }
+    // Safety: never auto-flip strategy or trading_style. These are
+    // identity-level choices that should not change on a per-alert basis.
+    delete patch.strategy;
+    delete patch.trading_style;
     if (Object.keys(patch).length === 0) {
       return { ok: true, skipped: "no_change" as const, applied: [] };
     }

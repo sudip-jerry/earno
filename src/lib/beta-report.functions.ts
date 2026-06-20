@@ -818,9 +818,21 @@ const tunePatchSchema = z.object({
       risk_per_trade_pct: z.number().min(0.1).max(10).optional(),
       min_scalp_score: z.number().int().min(0).max(100).optional(),
       allow_short: z.boolean().optional(),
+      // NOTE: strategy and trading_style are deliberately NOT tuneable here.
+      // They are identity-level choices and must not be auto-flipped.
     })
+    .strict()
     .refine((p) => Object.keys(p).length > 0, "empty patch"),
 });
+
+// Derive an auto_close_minutes value that gives a TP target time to print.
+// Heuristic: typical 5m scalp ATR ~ 0.4%/candle. Time-to-TP scales with
+// (atr_multiplier * target_multiplier). 30 min per "unit" of expected
+// movement, clamped to [30, 180].
+function alignedAutoCloseMinutes(atrMult: number, targetMult: number): number {
+  const minutes = Math.round(atrMult * targetMult * 30);
+  return Math.max(30, Math.min(180, minutes));
+}
 
 export const adminApplyTune = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -828,18 +840,40 @@ export const adminApplyTune = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const patch: Record<string, unknown> = { ...data.patch };
+
+    // Auto-align auto_close_minutes whenever atr_multiplier or
+    // target_multiplier changes and the admin hasn't set auto_close
+    // explicitly in the same patch. Stops TP from being starved by a
+    // too-short time exit.
+    if (
+      (patch.atr_multiplier !== undefined || patch.target_multiplier !== undefined) &&
+      patch.auto_close_minutes === undefined
+    ) {
+      const { data: cur } = await supabaseAdmin
+        .from("bot_config")
+        .select("atr_multiplier,target_multiplier")
+        .eq("user_id", data.userId)
+        .eq("mode", "paper")
+        .maybeSingle();
+      const atrMult = Number(patch.atr_multiplier ?? cur?.atr_multiplier ?? 2);
+      const tgtMult = Number(patch.target_multiplier ?? cur?.target_multiplier ?? 2);
+      patch.auto_close_minutes = alignedAutoCloseMinutes(atrMult, tgtMult);
+    }
+
     // Only touch paper-mode config
     const { error } = await supabaseAdmin
       .from("bot_config")
-      .update(data.patch)
+      .update(patch as never)
       .eq("user_id", data.userId)
       .eq("mode", "paper");
     if (error) throw new Error(error.message);
     await supabaseAdmin.from("bot_events").insert({
       user_id: data.userId,
       level: "info",
-      message: `Admin applied tune: ${Object.keys(data.patch).join(", ")}`,
-      meta: data.patch,
+      message: `Admin applied tune: ${Object.keys(patch).join(", ")}`,
+      meta: patch as never,
     });
     return { ok: true };
   });
@@ -934,11 +968,33 @@ export const adminApplyTuningAction = createServerFn({ method: "POST" })
       .eq("mode", "paper");
     if (e1) throw new Error(e1.message);
 
+    // Min-sample guard: only tune users with >=100 closed paper trades.
+    // Prevents config thrashing from small-sample noise.
+    const MIN_CLOSED_TRADES = 100;
+    const { data: closedRows } = await supabaseAdmin
+      .from("positions")
+      .select("user_id")
+      .in("user_id", data.userIds)
+      .eq("mode", "paper")
+      .eq("status", "closed");
+    const closedByUser = new Map<string, number>();
+    for (const r of (closedRows ?? []) as { user_id: string }[]) {
+      closedByUser.set(r.user_id, (closedByUser.get(r.user_id) ?? 0) + 1);
+    }
+
     let updated = 0;
+    let insufficientSample = 0;
     const errors: string[] = [];
     for (const cfg of (cfgs ?? []) as CfgRow[]) {
+      if ((closedByUser.get(cfg.user_id) ?? 0) < MIN_CLOSED_TRADES) {
+        insufficientSample += 1;
+        continue;
+      }
       const patch = buildPatch(data.kind, cfg);
       if (!patch || Object.keys(patch).length === 0) continue;
+      // Safety: never auto-flip strategy or trading_style.
+      delete (patch as Record<string, unknown>).strategy;
+      delete (patch as Record<string, unknown>).trading_style;
       const { error: e2 } = await supabaseAdmin
         .from("bot_config")
         .update(patch as never)
@@ -956,7 +1012,14 @@ export const adminApplyTuningAction = createServerFn({ method: "POST" })
         meta: { kind: data.kind, patch: patch as Record<string, string | number | boolean | null> },
       });
     }
-    return { ok: true, updated, skipped: (cfgs?.length ?? 0) - updated, errors };
+    return {
+      ok: true,
+      updated,
+      skipped: (cfgs?.length ?? 0) - updated - insufficientSample,
+      insufficientSample,
+      minClosedTrades: MIN_CLOSED_TRADES,
+      errors,
+    };
   });
 
 // ---------- CSV exports (admin) ----------
