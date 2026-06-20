@@ -510,24 +510,54 @@ export async function runAutoBookPass(
     const lastOpen = new Map<string, number>();
     const lastSlClose = new Map<string, number>();
     const lossCountBySymbol = new Map<string, number>();
+    const lastLossAtBySymbol = new Map<string, number>();
+    const winCountBySymbol = new Map<string, number>();
     for (const r of recent ?? []) {
       const sym = r.symbol as string;
       const t = new Date(r.opened_at as string).getTime();
       const prev = lastOpen.get(sym) ?? 0;
       if (t > prev) lastOpen.set(sym, t);
       const pnl = Number(r.pnl ?? 0);
+      const closedTs = r.closed_at ? new Date(r.closed_at as string).getTime() : 0;
       if (r.exit_reason === "stop_loss" && r.closed_at) {
-        const ct = new Date(r.closed_at as string).getTime();
         const prevC = lastSlClose.get(sym) ?? 0;
-        if (ct > prevC) lastSlClose.set(sym, ct);
+        if (closedTs > prevC) lastSlClose.set(sym, closedTs);
       }
-      if (pnl < 0) lossCountBySymbol.set(sym, (lossCountBySymbol.get(sym) ?? 0) + 1);
+      if (pnl < 0) {
+        lossCountBySymbol.set(sym, (lossCountBySymbol.get(sym) ?? 0) + 1);
+        const prevL = lastLossAtBySymbol.get(sym) ?? 0;
+        if (closedTs > prevL) lastLossAtBySymbol.set(sym, closedTs);
+      } else if (pnl > 0) {
+        winCountBySymbol.set(sym, (winCountBySymbol.get(sym) ?? 0) + 1);
+      }
     }
 
-    const preset: StylePreset = presetFromConfig(cfg);
+    // Style-aware execution caps (style + strictness from min_scalp_score).
+    const strictness = strictnessFromMinScore(cfg.min_scalp_score);
+    const presetRaw: StylePreset = presetFromConfig(cfg);
+    const preset: StylePreset = applyStrictnessToPreset(presetRaw, strictness);
     const blockedSymbols = new Set<string>(
       (cfg.symbol_blocklist ?? []).map((s) => String(s).trim().toUpperCase()).filter(Boolean),
     );
+
+    // Today's auto/paper trades for style caps (count opened today regardless of status).
+    const openedToday = (todayPos ?? []) as Array<{ pnl: number | null; status: string; opened_at: string; exchange_order_id: string | null }>;
+    const todayAutoRecent = (await supabase
+      .from("positions")
+      .select("symbol,side")
+      .eq("user_id", cfg.user_id)
+      .gte("opened_at", startOfDay.toISOString())).data ?? [];
+    const longTodayCount = todayAutoRecent.filter((r) => r.side === "long").length;
+    const shortTodayCount = todayAutoRecent.filter((r) => r.side === "short").length;
+    const perSymbolTodayCount = new Map<string, number>();
+    for (const r of todayAutoRecent) {
+      perSymbolTodayCount.set(r.symbol as string, (perSymbolTodayCount.get(r.symbol as string) ?? 0) + 1);
+    }
+    // Track in-pass increments so caps account for trades booked earlier in this loop.
+    const sameDirOpenedThisPass = { long: 0, short: 0 };
+    const symbolOpenedThisPass = new Map<string, number>();
+    void openedToday;
+
 
 
     for (const a of analyses) {
