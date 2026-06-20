@@ -503,6 +503,45 @@ export const getBetaReport = createServerFn({ method: "GET" })
     const longPnlAll = longsAll.reduce((s, t) => s + Number(t.pnl ?? 0), 0);
     const shortPnlAll = shortsAll.reduce((s, t) => s + Number(t.pnl ?? 0), 0);
 
+    // ----- Exit attribution: manual vs bot, by exit reason -----
+    const exitAttribution = (() => {
+      const sum = (rows: Pos[]) => rows.reduce((s, t) => s + Number(t.pnl ?? 0), 0);
+      const isManual = (t: Pos) =>
+        t.final_exit_reason === "manual" ||
+        (t.exit_reason ?? "").startsWith("manual") ||
+        t.source === "manual";
+      const manualTrades = closedAll.filter(isManual);
+      const botTrades = closedAll.filter((t) => !isManual(t));
+      const byReason = (reason: string) =>
+        botTrades.filter((t) => (t.final_exit_reason ?? t.exit_reason) === reason);
+      const tp1Hits = closedAll.filter((t) => t.tp1_hit === true).length;
+      const finalTpHits = closedAll.filter((t) => (t.final_exit_reason ?? t.exit_reason) === "take_profit").length;
+      const slAfterPositive = closedAll.filter(
+        (t) =>
+          Number(t.pnl ?? 0) < 0 &&
+          Number(t.peak_unrealized_pnl_pct ?? 0) > 0.3,
+      ).length;
+      return {
+        total_pnl: sum(closedAll),
+        bot_exit_pnl: sum(botTrades),
+        manual_exit_pnl: sum(manualTrades),
+        manual_saved_pnl: closedAll.reduce((s, t) => s + Number(t.manual_saved_pnl ?? 0), 0),
+        manual_missed_pnl: closedAll.reduce((s, t) => s + Number(t.manual_missed_pnl ?? 0), 0),
+        take_profit_pnl: sum(byReason("take_profit")),
+        tp1_pnl: closedAll.reduce((s, t) => s + Number(t.tp1_pnl ?? 0), 0),
+        stop_loss_pnl: sum(byReason("stop_loss")),
+        time_exit_pnl: sum(byReason("time_exit")),
+        trailing_exit_pnl: sum(byReason("trailing_exit")),
+        profit_fade_exit_pnl: sum(byReason("profit_fade_exit")),
+        breakeven_exit_pnl: sum(byReason("breakeven_exit")),
+        manual_exit_count: manualTrades.length,
+        bot_exit_count: botTrades.length,
+        tp1_hit_rate: closedAll.length ? (tp1Hits / closedAll.length) * 100 : 0,
+        final_tp_hit_rate: closedAll.length ? (finalTpHits / closedAll.length) * 100 : 0,
+        sl_after_positive_count: slAfterPositive,
+      };
+    })();
+
     const bySymbol = new Map<string, number>();
     for (const t of closedAll) {
       bySymbol.set(t.symbol, (bySymbol.get(t.symbol) ?? 0) + Number(t.pnl ?? 0));
