@@ -77,17 +77,43 @@ function CurrencyControl() {
 function StrictnessControl() {
   const { strictness, setStrictness } = useStrictness();
   const updateFn = useServerFn(updateConfig);
+  const qc = useQueryClient();
   const keys: Strictness[] = ["less", "moderate", "strict"];
+
+  const presetPatch = (k: Strictness) => {
+    const p = STRICTNESS_PRESETS[k];
+    // Reset auto-tunable fields back to sane defaults for the chosen strictness.
+    return {
+      auto_book_confidence_threshold: p.autoConf,
+      max_trades_per_day: 50,
+      cooldown_minutes: k === "strict" ? 30 : k === "moderate" ? 20 : 15,
+      risk_per_trade_pct: k === "strict" ? 0.75 : 1,
+      symbol_blacklist_threshold: 3,
+      symbol_sl_cooldown_minutes: 180,
+    } as Record<string, unknown>;
+  };
+
   const handleChange = async (k: Strictness) => {
     setStrictness(k);
-    const conf = STRICTNESS_PRESETS[k].autoConf;
     try {
-      await updateFn({ data: { auto_book_confidence_threshold: conf } as never });
-      toast.success(`Auto-book threshold set to ${conf}%`);
+      await updateFn({ data: { auto_book_confidence_threshold: STRICTNESS_PRESETS[k].autoConf } as never });
+      toast.success(`Auto-book threshold set to ${STRICTNESS_PRESETS[k].autoConf}%`);
+      qc.invalidateQueries();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to update threshold");
     }
   };
+
+  const handleReset = async () => {
+    try {
+      await updateFn({ data: presetPatch(strictness) as never });
+      toast.success(`Reset auto-tuned values to "${STRICTNESS_PRESETS[strictness].label}"`);
+      qc.invalidateQueries();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Reset failed");
+    }
+  };
+
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-3 gap-1.5 rounded-lg bg-muted p-1">
@@ -109,7 +135,24 @@ function StrictnessControl() {
           );
         })}
       </div>
-      <p className="text-[11px] text-muted-foreground">{STRICTNESS_PRESETS[strictness].description} Writes auto-book threshold to your bot config.</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] text-muted-foreground flex-1">
+          {STRICTNESS_PRESETS[strictness].description}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleReset}
+          className="h-7 px-2 text-[11px] gap-1 shrink-0"
+        >
+          <RotateCcw className="w-3 h-3" />
+          Reset auto-tuned
+        </Button>
+      </div>
+      <p className="text-[10px] text-muted-foreground/70">
+        Resets threshold, trades/day, cooldown, risk %, and blacklist back to "{STRICTNESS_PRESETS[strictness].label}" defaults — undoes any tightening from Earno's auto-tune.
+      </p>
     </div>
   );
 }
