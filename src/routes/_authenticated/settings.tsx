@@ -825,6 +825,24 @@ function SettingsPage() {
 
       <section className="px-5 mt-6">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+          Symbol blocklist
+        </h2>
+        <div className="rounded-2xl border bg-card p-4">
+          <BlocklistEditor
+            value={get("symbol_blocklist") ?? []}
+            onSave={(list) => updCfg.mutate({ symbol_blocklist: list })}
+            saving={updCfg.isPending}
+          />
+          <p className="text-[11px] text-muted-foreground mt-2">
+            The bot will never auto-book any symbol on this list. Use full
+            CoinDCX names like <code>B-PHB_USDT</code>.
+          </p>
+        </div>
+      </section>
+
+
+      <section className="px-5 mt-6">
+        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
           Display currency
         </h2>
         <div className="rounded-2xl border bg-card p-4">
