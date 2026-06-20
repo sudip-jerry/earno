@@ -490,15 +490,75 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
     for (const [k, v] of Object.entries(rawPatch)) {
       if (curRec[k] !== v) patch[k] = v;
     }
-    // Safety: never auto-flip strategy or trading_style. These are
-    // identity-level choices that should not change on a per-alert basis.
-    delete patch.strategy;
-    delete patch.trading_style;
+    // Safety: never auto-flip identity-level or core-strategy fields.
+    // Allowed automated fields: cooldown_minutes, symbol_blacklist_threshold,
+    // symbol_sl_cooldown_minutes, max_open_positions, max_trades_per_day,
+    // risk_per_trade_pct, auto_book_confidence_threshold, allow_short, allow_long.
+    const ALLOWED = new Set<string>([
+      "cooldown_minutes",
+      "symbol_blacklist_threshold",
+      "symbol_sl_cooldown_minutes",
+      "max_open_positions",
+      "max_trades_per_day",
+      "risk_per_trade_pct",
+      "auto_book_confidence_threshold",
+      "allow_short",
+      "allow_long",
+    ]);
+    for (const k of Object.keys(patch)) if (!ALLOWED.has(k)) delete patch[k];
+
+    // Compute realized PnL over the last 24h for thrash guards.
+    const since24h = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const { data: recent24 } = await supabase
+      .from("positions")
+      .select("pnl,closed_at")
+      .eq("user_id", userId)
+      .eq("status", "closed")
+      .gte("closed_at", since24h);
+    const recent24Rows = (recent24 ?? []) as Array<{ pnl: number | null }>;
+    const pnl24h = recent24Rows.reduce((s, r) => s + Number(r.pnl ?? 0), 0);
+    const wins24h = recent24Rows.filter((r) => Number(r.pnl ?? 0) > 0).reduce((s, r) => s + Number(r.pnl ?? 0), 0);
+    const loss24h = recent24Rows
+      .filter((r) => Number(r.pnl ?? 0) < 0)
+      .reduce((s, r) => s + Math.abs(Number(r.pnl ?? 0)), 0);
+    const pf24h = loss24h > 0 ? wins24h / loss24h : (wins24h > 0 ? Infinity : 0);
+    const losingDay = pnl24h < 0;
+
+    const skipped: Array<{ field: string; reason: string }> = [];
+    const drop = (field: string, reason: string) => {
+      if (field in patch) {
+        delete patch[field];
+        skipped.push({ field, reason });
+      }
+    };
+
+    if (losingDay) {
+      // Cap-up / risk-up / cooldown-down all forbidden on losing day.
+      if (typeof patch.risk_per_trade_pct === "number" && patch.risk_per_trade_pct > Number(cur.risk_per_trade_pct ?? 0)) {
+        drop("risk_per_trade_pct", "anti-thrash: losing day, cannot increase risk");
+      }
+      if (typeof patch.max_trades_per_day === "number" && patch.max_trades_per_day > Number(cur.max_trades_per_day ?? 0)) {
+        drop("max_trades_per_day", "anti-thrash: losing day, cannot increase trades/day");
+      }
+      if (typeof patch.cooldown_minutes === "number" && patch.cooldown_minutes < Number(cur.cooldown_minutes ?? 0)) {
+        drop("cooldown_minutes", "anti-thrash: losing day, cannot reduce cooldown");
+      }
+      if (typeof patch.symbol_sl_cooldown_minutes === "number" && patch.symbol_sl_cooldown_minutes < Number(cur.symbol_sl_cooldown_minutes ?? 0)) {
+        drop("symbol_sl_cooldown_minutes", "anti-thrash: losing day, cannot reduce symbol cooldown");
+      }
+      if (typeof patch.auto_book_confidence_threshold === "number" && patch.auto_book_confidence_threshold < Number(cur.auto_book_confidence_threshold ?? 0)) {
+        drop("auto_book_confidence_threshold", "anti-thrash: losing day, cannot lower confidence");
+      }
+    }
+    // Risk-up requires PF > 1.2 and sample >= 20 even on a positive day.
+    if (typeof patch.risk_per_trade_pct === "number" && patch.risk_per_trade_pct > Number(cur.risk_per_trade_pct ?? 0)) {
+      if (!(pf24h > 1.2 && recent24Rows.length >= 20)) {
+        drop("risk_per_trade_pct", `anti-thrash: risk-up needs 24h PF>1.2 (was ${pf24h.toFixed(2)}) and trades>=20 (was ${recent24Rows.length})`);
+      }
+    }
 
     // 24h per-field anti-thrash cooldown. If the tuner (or anyone else)
-    // already changed a field in the last 24h, skip it this pass. Keeps
-    // a single parameter from being flipped repeatedly within a day before
-    // a meaningful new sample exists.
+    // already changed a field in the last 24h, skip it this pass.
     const cooldownSince = new Date(Date.now() - 24 * 3600_000).toISOString();
     const { data: recentChanges } = await supabase
       .from("bot_config_audit")
@@ -507,10 +567,18 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
       .gte("changed_at", cooldownSince);
     const recentFields = new Set(((recentChanges ?? []) as Array<{ field: string }>).map((r) => r.field));
     for (const f of Object.keys(patch)) {
-      if (recentFields.has(f)) delete patch[f];
+      if (recentFields.has(f)) drop(f, "anti-thrash: field changed in last 24h");
     }
 
     if (Object.keys(patch).length === 0) {
+      if (skipped.length) {
+        await supabase.from("bot_events").insert({
+          user_id: userId,
+          level: "info",
+          message: `Auto-tune skipped (all fields blocked by anti-thrash)`,
+          meta: { kind: "auto_tune_skipped", skipped } as never,
+        });
+      }
       return { ok: true, skipped: "no_change" as const, applied: [] };
     }
 
@@ -533,8 +601,9 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
         fields: Object.keys(patch),
         patch,
         field_summary: fieldList,
+        skipped,
       } as never,
     });
 
-    return { ok: true, applied: data.kinds, fields: Object.keys(patch) };
+    return { ok: true, applied: data.kinds, fields: Object.keys(patch), skipped };
   });
