@@ -211,6 +211,7 @@ type Cfg = {
   live_allocation_mode: "full" | "amount" | "percent";
   live_allocation_amount: number;
   live_allocation_pct: number;
+  symbol_blocklist: string[];
 };
 
 const DEFAULTS: Cfg = {
