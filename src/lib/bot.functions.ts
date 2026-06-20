@@ -158,6 +158,8 @@ const configSchema = z.object({
   live_allocation_mode: z.enum(["full", "amount", "percent"]).optional(),
   live_allocation_amount: z.number().min(0).max(10_000_000).optional(),
   live_allocation_pct: z.number().min(1).max(100).optional(),
+  // Per-user symbol blocklist (full CoinDCX symbols like B-PHB_USDT)
+  symbol_blocklist: z.array(z.string().min(1).max(40)).max(200).optional(),
 });
 
 export const updateConfig = createServerFn({ method: "POST" })

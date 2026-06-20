@@ -171,6 +171,77 @@ function ThemeSelect() {
   );
 }
 
+function BlocklistEditor({
+  value,
+  onSave,
+  saving,
+}: {
+  value: string[];
+  onSave: (next: string[]) => void;
+  saving: boolean;
+}) {
+  const [draft, setDraft] = useState("");
+  const list = Array.isArray(value) ? value : [];
+  const normalize = (s: string) => s.trim().toUpperCase();
+  const add = () => {
+    const v = normalize(draft);
+    if (!v) return;
+    if (list.includes(v)) {
+      setDraft("");
+      return;
+    }
+    onSave([...list, v]);
+    setDraft("");
+  };
+  const remove = (s: string) => onSave(list.filter((x) => x !== s));
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+        {list.length === 0 ? (
+          <span className="text-xs text-muted-foreground">No symbols blocked.</span>
+        ) : (
+          list.map((s) => (
+            <span
+              key={s}
+              className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium"
+            >
+              {s}
+              <button
+                type="button"
+                aria-label={`Remove ${s}`}
+                onClick={() => remove(s)}
+                disabled={saving}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ×
+              </button>
+            </span>
+          ))
+        )}
+      </div>
+      <div className="flex gap-2">
+        <Input
+          placeholder="B-PHB_USDT"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add();
+            }
+          }}
+          className="h-9"
+        />
+        <Button type="button" onClick={add} disabled={saving || !draft.trim()} size="sm">
+          Add
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+
+
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
@@ -211,6 +282,7 @@ type Cfg = {
   live_allocation_mode: "full" | "amount" | "percent";
   live_allocation_amount: number;
   live_allocation_pct: number;
+  symbol_blocklist: string[];
 };
 
 const DEFAULTS: Cfg = {
@@ -243,6 +315,7 @@ const DEFAULTS: Cfg = {
   live_allocation_mode: "amount",
   live_allocation_amount: 0,
   live_allocation_pct: 100,
+  symbol_blocklist: [],
 };
 
 
@@ -294,7 +367,7 @@ function SettingsPage() {
       const { data, error } = await supabase
         .from("bot_config")
         .select(
-          "mode,ema_fast,ema_slow,timeframe,leverage,take_profit_pct,stop_loss_pct,trailing_enabled,risk_per_trade_pct,max_open_positions,daily_loss_cap_pct,allow_short,auto_book,strategy,cooldown_minutes,max_trades_per_day,auto_close_minutes,move_to_breakeven,min_scalp_score,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct",
+          "mode,ema_fast,ema_slow,timeframe,leverage,take_profit_pct,stop_loss_pct,trailing_enabled,risk_per_trade_pct,max_open_positions,daily_loss_cap_pct,allow_short,auto_book,strategy,cooldown_minutes,max_trades_per_day,auto_close_minutes,move_to_breakeven,min_scalp_score,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,symbol_blocklist",
         )
         .maybeSingle();
       if (error) throw error;
@@ -820,6 +893,24 @@ function SettingsPage() {
           <StrictnessControl />
         </div>
       </section>
+
+      <section className="px-5 mt-6">
+        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+          Symbol blocklist
+        </h2>
+        <div className="rounded-2xl border bg-card p-4">
+          <BlocklistEditor
+            value={get("symbol_blocklist") ?? []}
+            onSave={(list) => updCfg.mutate({ symbol_blocklist: list })}
+            saving={updCfg.isPending}
+          />
+          <p className="text-[11px] text-muted-foreground mt-2">
+            The bot will never auto-book any symbol on this list. Use full
+            CoinDCX names like <code>B-PHB_USDT</code>.
+          </p>
+        </div>
+      </section>
+
 
       <section className="px-5 mt-6">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">

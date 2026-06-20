@@ -168,6 +168,7 @@ type BotConfig = {
   regime_filter_enabled: boolean | null;
   auto_book_confidence_threshold: number | null;
   display_confidence_threshold: number | null;
+  symbol_blocklist: string[] | null;
   live_wallet_source?: string | null;
   live_allocation_mode?: string | null;
   live_allocation_amount?: number | null;
@@ -281,7 +282,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -461,6 +462,10 @@ export async function runAutoBookPass(
     }
 
     const preset: StylePreset = presetFromConfig(cfg);
+    const blockedSymbols = new Set<string>(
+      (cfg.symbol_blocklist ?? []).map((s) => String(s).trim().toUpperCase()).filter(Boolean),
+    );
+
 
     for (const a of analyses) {
       const sym = a.symbol;
@@ -480,7 +485,10 @@ export async function runAutoBookPass(
       let rejection: string | null = null;
       let final: string = "skip";
 
-      if (a.action === "AVOID" || a.side_bias === "neutral") {
+      if (blockedSymbols.has(sym.toUpperCase())) {
+        rejection = "Symbol on user blocklist";
+        final = "skip";
+      } else if (a.action === "AVOID" || a.side_bias === "neutral") {
         rejection = "Bias unclear / avoid";
         final = "avoid";
       } else if (a.side_bias === "short" && !cfg.allow_short) {
