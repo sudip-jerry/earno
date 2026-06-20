@@ -59,6 +59,8 @@ export type DashboardStats = {
   maxDrawdown: number;
   dailyLossUsedPct: number;
   openCount: number;
+  openPnl: number;
+  openPnlPct: number;
   consecutiveLosses: number;
   realizedPnlAllTime: number;
   portfolioValue: number;
@@ -150,7 +152,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
         .eq("status", "closed")
         .eq("mode", mode)
         .order("closed_at", { ascending: true }),
-      supabase.from("positions").select("id").eq("status", "open").eq("mode", mode),
+      supabase.from("positions").select("id,pnl,entry_price,qty").eq("status", "open").eq("mode", mode),
       supabase
         .from("bot_events")
         .select("id,created_at,level,message,meta")
@@ -326,6 +328,13 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       maxDrawdown: mdd,
       dailyLossUsedPct,
       openCount: openRows?.length ?? 0,
+      openPnl: (openRows ?? []).reduce((a, r) => a + Number((r as { pnl?: number | null }).pnl ?? 0), 0),
+      openPnlPct: (() => {
+        const rows = (openRows ?? []) as Array<{ pnl?: number | null; entry_price?: number | null; qty?: number | null }>;
+        const notional = rows.reduce((a, r) => a + Number(r.entry_price ?? 0) * Number(r.qty ?? 0), 0);
+        const pnl = rows.reduce((a, r) => a + Number(r.pnl ?? 0), 0);
+        return notional > 0 ? (pnl / notional) * 100 : 0;
+      })(),
       consecutiveLosses: streak,
       realizedPnlAllTime,
       portfolioValue,

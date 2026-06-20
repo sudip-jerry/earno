@@ -325,6 +325,45 @@ function Home() {
         </button>
       </div>
 
+      {/* ===== Open positions banner — unrealized PnL + count ===== */}
+      {openCount > 0 && (
+        <div className="px-5 mt-3">
+          <Link
+            to="/positions"
+            className="w-full flex items-center gap-3 rounded-xl border bg-card px-4 py-2.5 hover:bg-muted/40 transition"
+          >
+            <span
+              className={`inline-flex items-center justify-center size-8 rounded-full shrink-0 ${
+                (s?.openPnl ?? 0) >= 0
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+              }`}
+            >
+              <Briefcase className="size-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] text-muted-foreground leading-tight">
+                {openCount} open position{openCount === 1 ? "" : "s"} · unrealized
+              </p>
+              <p
+                className={`text-[14px] font-semibold leading-tight tabular-nums mt-0.5 ${
+                  (s?.openPnl ?? 0) >= 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-rose-600 dark:text-rose-400"
+                }`}
+              >
+                {(s?.openPnl ?? 0) >= 0 ? "+" : "−"}${Math.abs(s?.openPnl ?? 0).toFixed(2)}
+                <span className="ml-1.5 text-[11px] font-medium opacity-80">
+                  ({(s?.openPnlPct ?? 0) >= 0 ? "+" : ""}
+                  {(s?.openPnlPct ?? 0).toFixed(2)}%)
+                </span>
+              </p>
+            </div>
+            <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+          </Link>
+        </div>
+      )}
+
       {tier === "free" && (
         <Link
           to="/upgrade"
