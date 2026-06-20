@@ -865,7 +865,7 @@ export const adminApplyTune = createServerFn({ method: "POST" })
     // Only touch paper-mode config
     const { error } = await supabaseAdmin
       .from("bot_config")
-      .update(patch)
+      .update(patch as never)
       .eq("user_id", data.userId)
       .eq("mode", "paper");
     if (error) throw new Error(error.message);
@@ -873,9 +873,9 @@ export const adminApplyTune = createServerFn({ method: "POST" })
       user_id: data.userId,
       level: "info",
       message: `Admin applied tune: ${Object.keys(patch).join(", ")}`,
-      meta: patch,
+      meta: patch as never,
     });
-    return { ok: true, patch };
+    return { ok: true };
   });
 
 // ---------- Apply Tuning Action (bulk per-user) ----------
