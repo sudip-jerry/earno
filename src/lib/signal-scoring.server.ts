@@ -23,6 +23,12 @@ type Candle = { open: number; high: number; low: number; close: number; volume: 
  *  like B-PHB_USDT keep returning a frozen ticker price + stale 24h % change). */
 export const STALE_CANDLE_MAX_AGE_MS = 30 * 60_000;
 
+/** Algorithm identity stamped onto every signal-derived position so we can
+ *  trace which version of the scorer produced a booking. */
+export const ALGO_ID = "scalper-confidence";
+export const ALGO_NAME = "Scalper Confidence Scorer";
+export const ALGO_VERSION = "1.0.0";
+
 function num(x: unknown): number {
   const n = typeof x === "string" ? parseFloat(x) : typeof x === "number" ? x : NaN;
   return Number.isFinite(n) ? n : 0;

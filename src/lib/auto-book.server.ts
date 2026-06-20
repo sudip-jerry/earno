@@ -10,7 +10,7 @@ import {
   presetFromConfig,
   type StylePreset,
 } from "@/lib/risk-engine";
-import { analyzeSymbol, HARD_SPREAD_BLOCK_PCT, type SignalAnalysis } from "@/lib/signal-scoring.server";
+import { analyzeSymbol, HARD_SPREAD_BLOCK_PCT, ALGO_ID, ALGO_NAME, ALGO_VERSION, type SignalAnalysis } from "@/lib/signal-scoring.server";
 
 
 const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
@@ -339,6 +339,7 @@ export async function runAutoBookPass(
     const signalRows: Record<string, unknown>[] = [];
     const pushSignal = (
       a: SignalAnalysis,
+      signalId: string,
       final: string,
       bookedTradeId: string | null,
       rejection: string | null,
@@ -349,18 +350,28 @@ export async function runAutoBookPass(
         risk_reward: number | null;
       },
     ) => {
+      // For booked rows we coerce action to LONG/SHORT to match the executed side.
+      const finalAction =
+        bookedTradeId != null
+          ? a.side_bias === "long"
+            ? "LONG"
+            : a.side_bias === "short"
+            ? "SHORT"
+            : a.action
+          : a.action;
       signalRows.push({
+        id: signalId,
         scan_id: scanId,
         user_id: cfg.user_id,
         user_name: userName,
         symbol: a.symbol,
         price: a.price,
-        action: a.action,
+        action: finalAction,
         side_bias: a.side_bias,
         confidence_pct: a.confidence_pct,
         confidence_band: a.confidence_band,
         reason: a.reason,
-        final_decision: final,
+        final_decision: bookedTradeId != null ? "booked" : final,
         booked: bookedTradeId != null,
         booked_trade_id: bookedTradeId,
         rejection_reason: rejection,
@@ -469,6 +480,7 @@ export async function runAutoBookPass(
 
     for (const a of analyses) {
       const sym = a.symbol;
+      const signalId = crypto.randomUUID();
       const cooldownActive =
         (lastOpen.get(sym) != null && Date.now() - (lastOpen.get(sym) as number) < cooldownMs) ||
         (lastSlClose.get(sym) != null && Date.now() - (lastSlClose.get(sym) as number) < symbolSlCooldownMs);
@@ -543,6 +555,45 @@ export async function runAutoBookPass(
             side === "long" ? a.price * (1 - slPct / 100) : a.price * (1 + slPct / 100);
           const take_profit =
             side === "long" ? a.price * (1 + tpPct / 100) : a.price * (1 - tpPct / 100);
+          // FK requires the signal row to exist first.
+          const { error: sigErr } = await supabase.from("bot_signals").insert({
+            id: signalId,
+            scan_id: scanId,
+            user_id: cfg.user_id,
+            user_name: userName,
+            symbol: a.symbol,
+            price: a.price,
+            action: side === "long" ? "LONG" : "SHORT",
+            side_bias: a.side_bias,
+            confidence_pct: a.confidence_pct,
+            confidence_band: a.confidence_band,
+            reason: a.reason,
+            final_decision: "pending",
+            booked: false,
+            strategy: cfg.strategy ?? "default",
+            timeframe: "5m",
+            config_id: cfg.user_id,
+            trend_status: a.trend_status,
+            vwap_status: a.vwap_status,
+            ema_alignment: a.ema_alignment,
+            rsi: a.rsi,
+            volume_spike_ratio: a.volume_spike_ratio,
+            spread_pct: a.spread_pct,
+            atr_pct: a.atr_pct,
+            distance_from_vwap_pct: a.distance_from_vwap_pct,
+            distance_from_ema21_pct: a.distance_from_ema21_pct,
+            impulse_candle_pct: a.impulse_candle_pct,
+            risk_reward: plan.rr || null,
+            market_regime: a.market_regime,
+            cooldown_active: cooldownActive,
+            daily_loss_available: dailyLossAvailable,
+            max_position_available: maxPositionAvailable,
+          });
+          if (sigErr) {
+            rejection = `Signal pre-insert failed: ${sigErr.message}`;
+            final = "skip";
+            await logEvent(supabase, cfg.user_id, "error", `Auto-book ${a.symbol} failed: ${rejection}`);
+          } else {
           const { data: inserted, error } = await supabase
             .from("positions")
             .insert({
@@ -561,6 +612,20 @@ export async function runAutoBookPass(
               status: "open",
               instrument: "futures",
               exchange_order_id: cfg.mode === "paper" ? `paper-auto-${Date.now()}` : null,
+              signal_id: signalId,
+              source: "auto",
+              algo_id: ALGO_ID,
+              algo_name: ALGO_NAME,
+              algo_version: ALGO_VERSION,
+              confidence_at_entry: a.confidence_pct,
+              confidence_band_at_entry: a.confidence_band,
+              entry_reason: a.reason,
+              market_regime: a.market_regime,
+              rsi_at_entry: a.rsi,
+              volume_spike_ratio_at_entry: a.volume_spike_ratio,
+              spread_pct_at_entry: a.spread_pct,
+              distance_from_vwap_pct_at_entry: a.distance_from_vwap_pct,
+              distance_from_ema21_pct_at_entry: a.distance_from_ema21_pct,
             })
             .select("id")
             .single();
@@ -568,6 +633,11 @@ export async function runAutoBookPass(
             rejection = error?.message ?? "Insert failed";
             final = "skip";
             await logEvent(supabase, cfg.user_id, "error", `Auto-book ${a.symbol} failed: ${rejection}`);
+            // Mark the pre-inserted signal as rejected.
+            await supabase
+              .from("bot_signals")
+              .update({ final_decision: "skip", rejection_reason: rejection })
+              .eq("id", signalId);
           } else {
             bookedTradeId = inserted.id as string;
             final = "booked";
@@ -575,6 +645,18 @@ export async function runAutoBookPass(
             openSlot--;
             openSymbols.add(sym);
             lastOpen.set(sym, Date.now());
+            // Write the booking linkage back onto the signal row.
+            await supabase
+              .from("bot_signals")
+              .update({
+                booked: true,
+                booked_trade_id: bookedTradeId,
+                final_decision: "booked",
+                action: side === "long" ? "LONG" : "SHORT",
+                confidence_pct: a.confidence_pct,
+                confidence_band: a.confidence_band,
+              })
+              .eq("id", signalId);
             await logEvent(
               supabase,
               cfg.user_id,
@@ -595,18 +677,23 @@ export async function runAutoBookPass(
               },
             );
           }
+          } // close: sigErr else
         }
       } else {
         // Display-quality but not booked: count as an opportunity-skip.
         skipped++;
       }
 
-      pushSignal(a, final, bookedTradeId, rejection, {
-        cooldown_active: cooldownActive,
-        daily_loss_available: dailyLossAvailable,
-        max_position_available: maxPositionAvailable,
-        risk_reward: plan.rr || null,
-      });
+      // Only push non-booked signals into bulk insert (booked ones were
+      // already inserted above so the position FK could resolve).
+      if (bookedTradeId == null) {
+        pushSignal(a, signalId, final, bookedTradeId, rejection, {
+          cooldown_active: cooldownActive,
+          daily_loss_available: dailyLossAvailable,
+          max_position_available: maxPositionAvailable,
+          risk_reward: plan.rr || null,
+        });
+      }
     }
 
     // Bulk insert signals for this user (chunked to stay under payload limits).

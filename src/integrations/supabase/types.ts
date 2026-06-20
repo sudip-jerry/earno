@@ -480,8 +480,16 @@ export type Database = {
       }
       positions: {
         Row: {
+          algo_id: string | null
+          algo_name: string | null
+          algo_version: string | null
           closed_at: string | null
+          confidence_at_entry: number | null
+          confidence_band_at_entry: string | null
+          distance_from_ema21_pct_at_entry: number | null
+          distance_from_vwap_pct_at_entry: number | null
           entry_price: number
+          entry_reason: string | null
           exchange_order_id: string | null
           exit_price: number | null
           exit_reason: string | null
@@ -489,22 +497,36 @@ export type Database = {
           instrument: string | null
           leverage: number
           mark_price: number | null
+          market_regime: string | null
           mode: string
           opened_at: string
           pnl: number | null
           pnl_pct: number | null
           qty: number
+          rsi_at_entry: number | null
           side: string
+          signal_id: string | null
+          source: string
+          spread_pct_at_entry: number | null
           status: string
           stop_loss: number | null
           symbol: string
           take_profit: number | null
           updated_at: string
           user_id: string
+          volume_spike_ratio_at_entry: number | null
         }
         Insert: {
+          algo_id?: string | null
+          algo_name?: string | null
+          algo_version?: string | null
           closed_at?: string | null
+          confidence_at_entry?: number | null
+          confidence_band_at_entry?: string | null
+          distance_from_ema21_pct_at_entry?: number | null
+          distance_from_vwap_pct_at_entry?: number | null
           entry_price: number
+          entry_reason?: string | null
           exchange_order_id?: string | null
           exit_price?: number | null
           exit_reason?: string | null
@@ -512,22 +534,36 @@ export type Database = {
           instrument?: string | null
           leverage: number
           mark_price?: number | null
+          market_regime?: string | null
           mode: string
           opened_at?: string
           pnl?: number | null
           pnl_pct?: number | null
           qty: number
+          rsi_at_entry?: number | null
           side: string
+          signal_id?: string | null
+          source?: string
+          spread_pct_at_entry?: number | null
           status?: string
           stop_loss?: number | null
           symbol: string
           take_profit?: number | null
           updated_at?: string
           user_id: string
+          volume_spike_ratio_at_entry?: number | null
         }
         Update: {
+          algo_id?: string | null
+          algo_name?: string | null
+          algo_version?: string | null
           closed_at?: string | null
+          confidence_at_entry?: number | null
+          confidence_band_at_entry?: string | null
+          distance_from_ema21_pct_at_entry?: number | null
+          distance_from_vwap_pct_at_entry?: number | null
           entry_price?: number
+          entry_reason?: string | null
           exchange_order_id?: string | null
           exit_price?: number | null
           exit_reason?: string | null
@@ -535,20 +571,34 @@ export type Database = {
           instrument?: string | null
           leverage?: number
           mark_price?: number | null
+          market_regime?: string | null
           mode?: string
           opened_at?: string
           pnl?: number | null
           pnl_pct?: number | null
           qty?: number
+          rsi_at_entry?: number | null
           side?: string
+          signal_id?: string | null
+          source?: string
+          spread_pct_at_entry?: number | null
           status?: string
           stop_loss?: number | null
           symbol?: string
           take_profit?: number | null
           updated_at?: string
           user_id?: string
+          volume_spike_ratio_at_entry?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "positions_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "bot_signals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

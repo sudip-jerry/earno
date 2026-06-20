@@ -786,6 +786,7 @@ export const bookManualTrade = createServerFn({ method: "POST" })
       status: "open",
       instrument,
       exchange_order_id: cfg.mode === "paper" ? `paper-manual-${Date.now()}` : null,
+      source: "manual",
     });
     if (error) throw new Error(error.message);
 
