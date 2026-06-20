@@ -244,6 +244,7 @@ const DEFAULTS: Cfg = {
   live_allocation_mode: "amount",
   live_allocation_amount: 0,
   live_allocation_pct: 100,
+  symbol_blocklist: [],
 };
 
 
