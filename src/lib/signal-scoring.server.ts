@@ -163,7 +163,12 @@ export async function analyzeSymbol(
   price: number,
   change24h: number,
 ): Promise<SignalAnalysis | null> {
-  const candles = await fetchCandles(symbol, "5m", 60);
+  const candlesRaw = await fetchCandles(symbol, "5m", 60);
+  // CoinDCX returns candles newest-first; sort ascending so [length-1] is the latest
+  // and all downstream indicator math (EMA/RSI/VWAP/impulse) sees chronological order.
+  const candles = candlesRaw
+    ? [...candlesRaw].sort((a, b) => a.time - b.time)
+    : null;
   const latestCandleTime = candles && candles.length ? candles[candles.length - 1].time : 0;
   const stale =
     !!candles &&
