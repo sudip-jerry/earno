@@ -696,6 +696,10 @@ export async function runAutoBookPass(
             side === "long" ? a.price * (1 - slPct / 100) : a.price * (1 + slPct / 100);
           const take_profit =
             side === "long" ? a.price * (1 + tpPct / 100) : a.price * (1 - tpPct / 100);
+          // TP1 (partial-profit) from preset; clamp to final TP - never exceed it.
+          const tp1PctRaw = Math.min(preset.tp1Pct, Math.max(0.1, tpPct * 0.6));
+          const tp1_price = tp1PriceFor(a.price, tp1PctRaw, side);
+
           // FK requires the signal row to exist first.
           const { error: sigErr } = await supabase.from("bot_signals").insert({
             id: signalId,
