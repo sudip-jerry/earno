@@ -8,6 +8,9 @@ import {
   atrPctFromCandles,
   computeRiskPlan,
   presetFromConfig,
+  applyStrictnessToPreset,
+  strictnessFromMinScore,
+  tp1PriceFor,
   type StylePreset,
 } from "@/lib/risk-engine";
 import { analyzeSymbol, HARD_SPREAD_BLOCK_PCT, ALGO_ID, ALGO_NAME, ALGO_VERSION, type SignalAnalysis } from "@/lib/signal-scoring.server";
