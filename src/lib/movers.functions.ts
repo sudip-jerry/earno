@@ -826,7 +826,7 @@ export const closeManualTrade = createServerFn({ method: "POST" })
 
     const { data: pos, error: posErr } = await supabaseAdmin
       .from("positions")
-      .select("id,user_id,symbol,side,leverage,qty,entry_price,mark_price,status")
+      .select("*")
       .eq("id", data.positionId)
       .eq("user_id", context.userId)
       .maybeSingle();
@@ -841,16 +841,33 @@ export const closeManualTrade = createServerFn({ method: "POST" })
     const pnl = (exit - entry) * qty * sideMul;
     const pnlPct = ((exit - entry) / entry) * 100 * sideMul * lev;
 
+    // Snapshot MFE/MAE/peak at manual close so the dashboard can attribute
+    // manual_saved_pnl / manual_missed_pnl after shadow tracking runs.
+    const prevPeak = Number((pos as Record<string, unknown>).peak_unrealized_pnl_pct ?? 0);
+    const peakAtClose = Math.max(prevPeak, pnlPct);
+    const mfeAtClose = Math.max(
+      Number((pos as Record<string, unknown>).max_favourable_excursion_pct ?? 0),
+      pnlPct,
+    );
+    const maeAtClose = Math.min(
+      Number((pos as Record<string, unknown>).max_adverse_excursion_pct ?? 0),
+      pnlPct,
+    );
+
     const { error } = await supabaseAdmin
       .from("positions")
       .update({
         status: "closed",
         exit_price: exit,
         exit_reason: "manual_limit",
+        final_exit_reason: "manual",
         pnl,
         pnl_pct: pnlPct,
         closed_at: new Date().toISOString(),
-      })
+        peak_unrealized_pnl_pct: peakAtClose,
+        max_favourable_excursion_pct: mfeAtClose,
+        max_adverse_excursion_pct: maeAtClose,
+      } as never)
       .eq("id", pos.id);
     if (error) throw new Error(error.message);
 
