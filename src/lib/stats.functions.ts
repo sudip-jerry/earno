@@ -152,7 +152,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
         .eq("status", "closed")
         .eq("mode", mode)
         .order("closed_at", { ascending: true }),
-      supabase.from("positions").select("id").eq("status", "open").eq("mode", mode),
+      supabase.from("positions").select("id,pnl,entry_price,qty").eq("status", "open").eq("mode", mode),
       supabase
         .from("bot_events")
         .select("id,created_at,level,message,meta")
