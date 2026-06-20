@@ -765,15 +765,30 @@ export async function runAutoBookPass(
               confidence_at_entry: a.confidence_pct,
               confidence_band_at_entry: a.confidence_band,
               entry_reason: a.reason,
-              market_regime: a.market_regime,
+              market_regime: marketRegime ?? a.market_regime,
               rsi_at_entry: a.rsi,
               volume_spike_ratio_at_entry: a.volume_spike_ratio,
               spread_pct_at_entry: a.spread_pct,
               distance_from_vwap_pct_at_entry: a.distance_from_vwap_pct,
               distance_from_ema21_pct_at_entry: a.distance_from_ema21_pct,
-            })
+              // New exit-management fields:
+              tp1_price,
+              tp1_pct: tp1PctRaw,
+              tp1_hit: false,
+              remaining_qty: qty,
+              tp1_qty_closed: 0,
+              trail_pct: preset.trailPct,
+              breakeven_moved: false,
+              final_tp_hit: false,
+              peak_unrealized_pnl_pct: 0,
+              max_favourable_excursion_pct: 0,
+              max_adverse_excursion_pct: 0,
+              highest_unrealized_pnl: 0,
+              lowest_unrealized_pnl: 0,
+            } as never)
             .select("id")
             .single();
+
           if (error || !inserted) {
             rejection = error?.message ?? "Insert failed";
             final = "skip";
