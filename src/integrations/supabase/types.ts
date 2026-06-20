@@ -101,6 +101,7 @@ export type Database = {
           stop_loss_pct: number
           strategy: string
           symbol_blacklist_threshold: number
+          symbol_blocklist: string[]
           symbol_sl_cooldown_minutes: number
           take_profit_pct: number
           target_multiplier: number
@@ -145,6 +146,7 @@ export type Database = {
           stop_loss_pct?: number
           strategy?: string
           symbol_blacklist_threshold?: number
+          symbol_blocklist?: string[]
           symbol_sl_cooldown_minutes?: number
           take_profit_pct?: number
           target_multiplier?: number
@@ -189,6 +191,7 @@ export type Database = {
           stop_loss_pct?: number
           strategy?: string
           symbol_blacklist_threshold?: number
+          symbol_blocklist?: string[]
           symbol_sl_cooldown_minutes?: number
           take_profit_pct?: number
           target_multiplier?: number
