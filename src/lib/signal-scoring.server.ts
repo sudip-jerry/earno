@@ -171,7 +171,7 @@ export async function analyzeSymbol(
       side_bias: "neutral",
       confidence_pct: 0,
       confidence_band: "AVOID",
-      reason: "Insufficient candle data",
+      reason: stale ? "Market halted / no recent candles" : "Insufficient candle data",
       trend_status: "Unknown",
       vwap_status: "Unknown",
       ema_alignment: "Unknown",
