@@ -805,6 +805,8 @@ export async function runAutoBookPass(
             openSlot--;
             openSymbols.add(sym);
             lastOpen.set(sym, Date.now());
+            sameDirOpenedThisPass[side]++;
+            symbolOpenedThisPass.set(sym, (symbolOpenedThisPass.get(sym) ?? 0) + 1);
             // Write the booking linkage back onto the signal row.
             await supabase
               .from("bot_signals")
