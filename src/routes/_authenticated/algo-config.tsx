@@ -254,3 +254,138 @@ function Kv({ k, v }: { k: string; v: string }) {
     </div>
   );
 }
+
+type AuditRow = {
+  id: string;
+  changed_at: string;
+  user_id: string;
+  user_email: string | null;
+  source: string;
+  field: string;
+  old_value: string | null;
+  new_value: string | null;
+};
+
+function PatternsPanel({ rows }: { rows: AuditRow[] }) {
+  const stats = useMemo(() => {
+    const byField = new Map<string, number>();
+    const byUser = new Map<string, number>();
+    const bySource = new Map<string, number>();
+    const byDay = new Map<string, number>();
+    const fieldDirections = new Map<string, { up: number; down: number }>();
+
+    for (const r of rows) {
+      byField.set(r.field, (byField.get(r.field) ?? 0) + 1);
+      const u = r.user_email ?? r.user_id.slice(0, 8);
+      byUser.set(u, (byUser.get(u) ?? 0) + 1);
+      bySource.set(r.source, (bySource.get(r.source) ?? 0) + 1);
+      const day = r.changed_at.slice(0, 10);
+      byDay.set(day, (byDay.get(day) ?? 0) + 1);
+
+      const ov = Number(r.old_value);
+      const nv = Number(r.new_value);
+      if (Number.isFinite(ov) && Number.isFinite(nv) && ov !== nv) {
+        const d = fieldDirections.get(r.field) ?? { up: 0, down: 0 };
+        if (nv > ov) d.up++;
+        else d.down++;
+        fieldDirections.set(r.field, d);
+      }
+    }
+    const sortDesc = (m: Map<string, number>) =>
+      [...m.entries()].sort((a, b) => b[1] - a[1]);
+    return {
+      topFields: sortDesc(byField).slice(0, 8),
+      topUsers: sortDesc(byUser).slice(0, 6),
+      bySource: sortDesc(bySource),
+      byDay: [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])),
+      directions: fieldDirections,
+      total: rows.length,
+    };
+  }, [rows]);
+
+  if (stats.total === 0) return null;
+
+  return (
+    <section className="px-5 mb-4">
+      <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+        Tuning patterns ({stats.total} changes)
+      </h2>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-xl border bg-card p-2.5">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
+            Most-tuned fields
+          </p>
+          <ul className="space-y-1 text-[11px]">
+            {stats.topFields.map(([f, n]) => {
+              const d = stats.directions.get(f);
+              return (
+                <li key={f} className="flex justify-between gap-2">
+                  <span className="font-mono truncate">{f}</span>
+                  <span className="tabular-nums text-muted-foreground shrink-0">
+                    {n}
+                    {d && (d.up || d.down) ? (
+                      <span className="ml-1 text-[10px]">
+                        <span className="text-emerald-500">↑{d.up}</span>
+                        {" "}
+                        <span className="text-rose-500">↓{d.down}</span>
+                      </span>
+                    ) : null}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        <div className="rounded-xl border bg-card p-2.5">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
+            Most-active tuners
+          </p>
+          <ul className="space-y-1 text-[11px]">
+            {stats.topUsers.map(([u, n]) => (
+              <li key={u} className="flex justify-between gap-2">
+                <span className="truncate">{u}</span>
+                <span className="tabular-nums text-muted-foreground shrink-0">
+                  {n}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="rounded-xl border bg-card p-2.5">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
+            By source
+          </p>
+          <ul className="space-y-1 text-[11px]">
+            {stats.bySource.map(([s, n]) => (
+              <li key={s} className="flex justify-between gap-2">
+                <span className="capitalize">{s}</span>
+                <span className="tabular-nums text-muted-foreground">{n}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="rounded-xl border bg-card p-2.5">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
+            Changes per day
+          </p>
+          <ul className="space-y-1 text-[11px]">
+            {stats.byDay.slice(-6).map(([d, n]) => (
+              <li key={d} className="flex justify-between gap-2">
+                <span className="tabular-nums">{d.slice(5)}</span>
+                <span className="tabular-nums text-muted-foreground">{n}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <p className="text-[10px] text-muted-foreground mt-2">
+        Up/down arrows show how often a numeric field is raised vs. lowered —
+        useful for spotting where defaults should move.
+      </p>
+    </section>
+  );
+}
+
