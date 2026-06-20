@@ -576,7 +576,7 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
           user_id: userId,
           level: "info",
           message: `Auto-tune skipped (all fields blocked by anti-thrash)`,
-          meta: { kind: "auto_tune_skipped", skippedFieldsFields } as never,
+          meta: { kind: "auto_tune_skipped", skippedFields } as never,
         });
       }
       return { ok: true, skipped: "no_change" as const, applied: [] };
