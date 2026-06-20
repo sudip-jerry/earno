@@ -120,9 +120,12 @@ function AlgoConfigPage() {
       </header>
 
       <p className="px-5 text-[11px] text-muted-foreground -mt-2 mb-3">
-        Current bot settings per user across modes. No change-history is
-        recorded yet — CSV captures the live snapshot.
+        Current bot settings per user across modes. Every edit is logged in
+        the audit history below — used for tuning pattern analysis.
       </p>
+
+      <PatternsPanel rows={audit.data ?? []} />
+
 
       <section className="px-5 mb-3">
         <Input
