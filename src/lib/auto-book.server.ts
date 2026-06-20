@@ -736,7 +736,7 @@ export async function runMarkPass(
     .select("user_id,auto_close_minutes")
     .in("user_id", userIds);
   const autoCloseByUser = new Map(
-    (cfgRows ?? []).map((c) => [c.user_id as string, Number(c.auto_close_minutes ?? 30)]),
+    (cfgRows ?? []).map((c) => [c.user_id as string, Number(c.auto_close_minutes ?? 120)]),
   );
 
   const symbols = Array.from(new Set(positions.map((p) => p.symbol as string)));
@@ -755,7 +755,7 @@ export async function runMarkPass(
     const pnlPct = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul * lev : 0;
     const tp = p.take_profit != null ? Number(p.take_profit) : null;
     const sl = p.stop_loss != null ? Number(p.stop_loss) : null;
-    const autoCloseMinutes = autoCloseByUser.get(p.user_id as string) ?? 30;
+    const autoCloseMinutes = autoCloseByUser.get(p.user_id as string) ?? 120;
     const openedAt = new Date(p.opened_at as string).getTime();
     const hitTimeExit =
       autoCloseMinutes > 0 && Number.isFinite(openedAt) && Date.now() - openedAt >= autoCloseMinutes * 60_000;

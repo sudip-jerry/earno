@@ -494,9 +494,26 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
     // identity-level choices that should not change on a per-alert basis.
     delete patch.strategy;
     delete patch.trading_style;
+
+    // 24h per-field anti-thrash cooldown. If the tuner (or anyone else)
+    // already changed a field in the last 24h, skip it this pass. Keeps
+    // a single parameter from being flipped repeatedly within a day before
+    // a meaningful new sample exists.
+    const cooldownSince = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const { data: recentChanges } = await supabase
+      .from("bot_config_audit")
+      .select("field")
+      .eq("user_id", userId)
+      .gte("changed_at", cooldownSince);
+    const recentFields = new Set(((recentChanges ?? []) as Array<{ field: string }>).map((r) => r.field));
+    for (const f of Object.keys(patch)) {
+      if (recentFields.has(f)) delete patch[f];
+    }
+
     if (Object.keys(patch).length === 0) {
       return { ok: true, skipped: "no_change" as const, applied: [] };
     }
+
 
     const { error: upErr } = await supabase
       .from("bot_config")
