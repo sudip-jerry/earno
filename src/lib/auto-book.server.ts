@@ -896,15 +896,13 @@ export async function runMarkPass(
   // Also pick manually-closed trades from the last 24h that have no shadow result yet.
   let shadowQ = supabase
     .from("positions")
-    .select(
-      "id,user_id,symbol,side,leverage,qty,entry_price,take_profit,stop_loss,opened_at," +
-        "tp1_price,tp1_pct,trail_pct,pnl,pnl_pct,closed_at",
-    )
+    .select("*")
     .eq("exit_reason", "manual_limit")
     .is("shadow_exit_reason", null)
     .gte("closed_at", new Date(Date.now() - 24 * 3600_000).toISOString());
   if (opts.userId) shadowQ = shadowQ.eq("user_id", opts.userId);
-  const { data: shadowRows } = await shadowQ;
+  const { data: shadowRowsRaw } = await shadowQ;
+  const shadowRows = (shadowRowsRaw ?? []) as Array<Record<string, unknown>>;
 
   if (!positions.length && !(shadowRows ?? []).length) return { updated: 0, closed: 0 };
 
