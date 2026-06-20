@@ -171,6 +171,77 @@ function ThemeSelect() {
   );
 }
 
+function BlocklistEditor({
+  value,
+  onSave,
+  saving,
+}: {
+  value: string[];
+  onSave: (next: string[]) => void;
+  saving: boolean;
+}) {
+  const [draft, setDraft] = useState("");
+  const list = Array.isArray(value) ? value : [];
+  const normalize = (s: string) => s.trim().toUpperCase();
+  const add = () => {
+    const v = normalize(draft);
+    if (!v) return;
+    if (list.includes(v)) {
+      setDraft("");
+      return;
+    }
+    onSave([...list, v]);
+    setDraft("");
+  };
+  const remove = (s: string) => onSave(list.filter((x) => x !== s));
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+        {list.length === 0 ? (
+          <span className="text-xs text-muted-foreground">No symbols blocked.</span>
+        ) : (
+          list.map((s) => (
+            <span
+              key={s}
+              className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium"
+            >
+              {s}
+              <button
+                type="button"
+                aria-label={`Remove ${s}`}
+                onClick={() => remove(s)}
+                disabled={saving}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ×
+              </button>
+            </span>
+          ))
+        )}
+      </div>
+      <div className="flex gap-2">
+        <Input
+          placeholder="B-PHB_USDT"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add();
+            }
+          }}
+          className="h-9"
+        />
+        <Button type="button" onClick={add} disabled={saving || !draft.trim()} size="sm">
+          Add
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+
+
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
