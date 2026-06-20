@@ -139,6 +139,8 @@ export async function fetchMarkPrices(symbols: string[]): Promise<Record<string,
     if (!sym || !wanted.has(sym)) continue;
     const p = num(v?.ls ?? v?.c);
     if (p > 0) out[sym] = p;
+  }
+  return out;
 }
 
 /** Coarse market regime computed from BTC 1h trend + last-candle momentum.
@@ -150,6 +152,14 @@ export type MarketRegime =
   | "neutral"
   | "bearish"
   | "strong_bearish";
+
+function ema(values: number[], period: number): number | null {
+  if (!values || values.length < period) return null;
+  const k = 2 / (period + 1);
+  let e = values.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < values.length; i++) e = values[i] * k + e * (1 - k);
+  return e;
+}
 
 export async function fetchMarketRegime(): Promise<MarketRegime | null> {
   try {
@@ -177,15 +187,6 @@ export async function fetchMarketRegime(): Promise<MarketRegime | null> {
   }
 }
 
-function ema(values: number[], period: number): number | null {
-  if (!values || values.length < period) return null;
-  const k = 2 / (period + 1);
-  let e = values.slice(0, period).reduce((a, b) => a + b, 0) / period;
-  for (let i = period; i < values.length; i++) e = values[i] * k + e * (1 - k);
-  return e;
-}
-  return out;
-}
 
 type BotConfig = {
   user_id: string;
