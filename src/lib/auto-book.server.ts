@@ -377,6 +377,10 @@ export async function runAutoBookPass(
   analyses.sort((a, b) => b.confidence_pct - a.confidence_pct);
   const topConfidenceOverall = analyses[0]?.confidence_pct ?? 0;
 
+  // Compute market regime once for the whole pass.
+  const marketRegime = await fetchMarketRegime();
+
+
   for (const cfg of users) {
     let opened = 0;
     let skipped = 0;
