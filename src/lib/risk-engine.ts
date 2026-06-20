@@ -242,3 +242,33 @@ export function atrPctFromCandles(
   if (!last) return null;
   return (atr / last) * 100;
 }
+
+/** Recommendation Strictness applied on top of the style preset's caps. */
+export type Strictness = "less" | "moderate" | "strict";
+
+export function applyStrictnessToPreset(preset: StylePreset, strictness: Strictness): StylePreset {
+  if (strictness === "moderate") return preset;
+  const f = strictness === "less" ? 1.25 : 0.75;
+  return {
+    ...preset,
+    maxTradesPerDay: Math.max(1, Math.round(preset.maxTradesPerDay * f)),
+    maxSameDirPerDay: Math.max(1, Math.round(preset.maxSameDirPerDay * f)),
+    maxTradesPerSymbolPerDay: Math.max(1, Math.round(preset.maxTradesPerSymbolPerDay * f)),
+  };
+}
+
+/** Map persisted min_scalp_score to strictness (no schema change). */
+export function strictnessFromMinScore(minScore: number | null | undefined): Strictness {
+  const n = typeof minScore === "number" ? minScore : Number(minScore ?? 0);
+  if (!Number.isFinite(n)) return "moderate";
+  if (n >= 75) return "strict";
+  if (n <= 55) return "less";
+  return "moderate";
+}
+
+/** Compute TP1/SL prices for a side given entry and percentages. */
+export function tp1PriceFor(entry: number, tp1Pct: number, side: "long" | "short"): number {
+  const sign = side === "long" ? 1 : -1;
+  return entry * (1 + (sign * tp1Pct) / 100);
+}
+
