@@ -168,6 +168,7 @@ type BotConfig = {
   regime_filter_enabled: boolean | null;
   auto_book_confidence_threshold: number | null;
   display_confidence_threshold: number | null;
+  symbol_blocklist: string[] | null;
   live_wallet_source?: string | null;
   live_allocation_mode?: string | null;
   live_allocation_amount?: number | null;
