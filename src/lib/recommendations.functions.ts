@@ -524,11 +524,11 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
     const pf24h = loss24h > 0 ? wins24h / loss24h : (wins24h > 0 ? Infinity : 0);
     const losingDay = pnl24h < 0;
 
-    const skipped: Array<{ field: string; reason: string }> = [];
+    const skippedFields: Array<{ field: string; reason: string }> = [];
     const drop = (field: string, reason: string) => {
       if (field in patch) {
         delete patch[field];
-        skipped.push({ field, reason });
+        skippedFields.push({ field, reason });
       }
     };
 
@@ -571,12 +571,12 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
     }
 
     if (Object.keys(patch).length === 0) {
-      if (skipped.length) {
+      if (skippedFields.length) {
         await supabase.from("bot_events").insert({
           user_id: userId,
           level: "info",
           message: `Auto-tune skipped (all fields blocked by anti-thrash)`,
-          meta: { kind: "auto_tune_skipped", skipped } as never,
+          meta: { kind: "auto_tune_skipped", skippedFieldsFields } as never,
         });
       }
       return { ok: true, skipped: "no_change" as const, applied: [] };
@@ -601,9 +601,9 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
         fields: Object.keys(patch),
         patch,
         field_summary: fieldList,
-        skipped,
+        skippedFields,
       } as never,
     });
 
-    return { ok: true, applied: data.kinds, fields: Object.keys(patch), skipped };
+    return { ok: true, applied: data.kinds, fields: Object.keys(patch), skippedFields };
   });
