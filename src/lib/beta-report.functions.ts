@@ -984,7 +984,21 @@ export const adminApplyTuningAction = createServerFn({ method: "POST" })
 
     let updated = 0;
     let insufficientSample = 0;
+    let thrashSkipped = 0;
     const errors: string[] = [];
+    // 24h per-field anti-thrash: load recent audit rows for the cohort once.
+    const cooldownSince = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const { data: recentAudit } = await supabaseAdmin
+      .from("bot_config_audit")
+      .select("user_id, field")
+      .in("user_id", data.userIds)
+      .gte("changed_at", cooldownSince);
+    const recentByUser = new Map<string, Set<string>>();
+    for (const r of (recentAudit ?? []) as Array<{ user_id: string; field: string }>) {
+      const s = recentByUser.get(r.user_id) ?? new Set<string>();
+      s.add(r.field);
+      recentByUser.set(r.user_id, s);
+    }
     for (const cfg of (cfgs ?? []) as CfgRow[]) {
       if ((closedByUser.get(cfg.user_id) ?? 0) < MIN_CLOSED_TRADES) {
         insufficientSample += 1;
@@ -995,6 +1009,17 @@ export const adminApplyTuningAction = createServerFn({ method: "POST" })
       // Safety: never auto-flip strategy or trading_style.
       delete (patch as Record<string, unknown>).strategy;
       delete (patch as Record<string, unknown>).trading_style;
+      // Drop fields touched by any actor in the last 24h.
+      const recent = recentByUser.get(cfg.user_id);
+      if (recent) {
+        for (const f of Object.keys(patch)) {
+          if (recent.has(f)) delete (patch as Record<string, unknown>)[f];
+        }
+      }
+      if (Object.keys(patch).length === 0) {
+        thrashSkipped += 1;
+        continue;
+      }
       const { error: e2 } = await supabaseAdmin
         .from("bot_config")
         .update(patch as never)
@@ -1015,8 +1040,9 @@ export const adminApplyTuningAction = createServerFn({ method: "POST" })
     return {
       ok: true,
       updated,
-      skipped: (cfgs?.length ?? 0) - updated - insufficientSample,
+      skipped: (cfgs?.length ?? 0) - updated - insufficientSample - thrashSkipped,
       insufficientSample,
+      thrashSkipped,
       minClosedTrades: MIN_CLOSED_TRADES,
       errors,
     };
