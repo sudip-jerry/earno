@@ -887,12 +887,7 @@ export async function runMarkPass(
 }> {
   let q = supabase
     .from("positions")
-    .select(
-      "id,user_id,symbol,side,leverage,qty,entry_price,take_profit,stop_loss,opened_at," +
-        "tp1_price,tp1_pct,tp1_hit,tp1_pnl,tp1_qty_closed,remaining_qty,breakeven_moved," +
-        "trail_pct,trail_anchor_price,peak_unrealized_pnl_pct,max_favourable_excursion_pct," +
-        "max_adverse_excursion_pct,highest_unrealized_pnl,lowest_unrealized_pnl,weak_progress",
-    )
+    .select("*")
     .eq("status", "open");
   if (opts.userId) q = q.eq("user_id", opts.userId);
   const { data: open } = await q;
