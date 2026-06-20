@@ -705,9 +705,23 @@ export const getTopMovers = createServerFn({ method: "GET" })
       if (Array.isArray(dict)) dict.forEach((r) => consume(undefined, r));
       else if (dict && typeof dict === "object") Object.entries(dict).forEach(([k, v]) => v && typeof v === "object" && consume(k, v as TickerRow));
 
-      // Rank by 24h quote volume so the scanner sees the deepest 30-50 USDT pairs.
-      rows.sort((a, b) => b.volume24h - a.volume24h);
-      const top = rows.slice(0, 40).map((r, i) => ({ ...r, rank24h: i + 1 }));
+      // Hybrid universe: deepest pairs by volume PLUS biggest 24h movers
+      // (abs change %) with a minimum 50M quote-volume liquidity gate so
+      // small/mid-cap rockets aren't excluded by a pure volume ranking.
+      const MIN_MOVER_VOLUME = 50_000_000;
+      const byVolume = [...rows].sort((a, b) => b.volume24h - a.volume24h).slice(0, 30);
+      const byChange = [...rows]
+        .filter((r) => r.volume24h >= MIN_MOVER_VOLUME)
+        .sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h))
+        .slice(0, 20);
+      const seen = new Set<string>();
+      const merged: typeof rows = [];
+      for (const r of [...byVolume, ...byChange]) {
+        if (seen.has(r.symbol)) continue;
+        seen.add(r.symbol);
+        merged.push(r);
+      }
+      const top = merged.map((r, i) => ({ ...r, rank24h: i + 1 }));
       const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 30, tpPct, slPct, preset)));
       // Sort enriched output by confidence so highest setups surface first.
       enriched.sort((a, b) => b.confidence - a.confidence);
