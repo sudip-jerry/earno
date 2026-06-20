@@ -158,7 +158,12 @@ export async function analyzeSymbol(
   change24h: number,
 ): Promise<SignalAnalysis | null> {
   const candles = await fetchCandles(symbol, "5m", 60);
-  if (!candles || candles.length < 22) {
+  const latestCandleTime = candles && candles.length ? candles[candles.length - 1].time : 0;
+  const stale =
+    !!candles &&
+    latestCandleTime > 0 &&
+    Date.now() - latestCandleTime > STALE_CANDLE_MAX_AGE_MS;
+  if (!candles || candles.length < 22 || stale) {
     return {
       symbol,
       price,
