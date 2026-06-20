@@ -242,6 +242,30 @@ function BetaReportPage() {
             </Card>
           </section>
 
+          {s.exitAttribution && (
+            <section className="px-5 mt-6">
+              <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                Exit attribution
+              </h2>
+              <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                <Card label="Total PnL"><p className="tabular-nums font-medium">{money(s.exitAttribution.total_pnl)}</p></Card>
+                <Card label="Bot exits"><p className="tabular-nums">{money(s.exitAttribution.bot_exit_pnl)} <span className="text-muted-foreground">· {s.exitAttribution.bot_exit_count}</span></p></Card>
+                <Card label="Manual exits"><p className="tabular-nums">{money(s.exitAttribution.manual_exit_pnl)} <span className="text-muted-foreground">· {s.exitAttribution.manual_exit_count}</span></p></Card>
+                <Card label="Manual saved / missed"><p className="tabular-nums text-emerald-500">{money(s.exitAttribution.manual_saved_pnl)}</p><p className="tabular-nums text-destructive">{money(s.exitAttribution.manual_missed_pnl)}</p></Card>
+                <Card label="Final TP"><p className="tabular-nums">{money(s.exitAttribution.take_profit_pnl)}</p></Card>
+                <Card label="TP1"><p className="tabular-nums">{money(s.exitAttribution.tp1_pnl)}</p></Card>
+                <Card label="Stop loss"><p className="tabular-nums">{money(s.exitAttribution.stop_loss_pnl)}</p></Card>
+                <Card label="Trailing"><p className="tabular-nums">{money(s.exitAttribution.trailing_exit_pnl)}</p></Card>
+                <Card label="Profit fade"><p className="tabular-nums">{money(s.exitAttribution.profit_fade_exit_pnl)}</p></Card>
+                <Card label="Breakeven"><p className="tabular-nums">{money(s.exitAttribution.breakeven_exit_pnl)}</p></Card>
+                <Card label="Time exit"><p className="tabular-nums">{money(s.exitAttribution.time_exit_pnl)}</p></Card>
+                <Card label="TP1 hit-rate"><p className="tabular-nums">{s.exitAttribution.tp1_hit_rate.toFixed(1)}%</p></Card>
+                <Card label="Final TP hit-rate"><p className="tabular-nums">{s.exitAttribution.final_tp_hit_rate.toFixed(1)}%</p></Card>
+                <Card label="SL after positive"><p className="tabular-nums">{s.exitAttribution.sl_after_positive_count}</p></Card>
+              </div>
+            </section>
+          )}
+
           <section className="px-5 mt-6">
             <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
               Testers ({testers.length})

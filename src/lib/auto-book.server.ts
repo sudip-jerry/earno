@@ -8,6 +8,9 @@ import {
   atrPctFromCandles,
   computeRiskPlan,
   presetFromConfig,
+  applyStrictnessToPreset,
+  strictnessFromMinScore,
+  tp1PriceFor,
   type StylePreset,
 } from "@/lib/risk-engine";
 import { analyzeSymbol, HARD_SPREAD_BLOCK_PCT, ALGO_ID, ALGO_NAME, ALGO_VERSION, type SignalAnalysis } from "@/lib/signal-scoring.server";
@@ -139,6 +142,51 @@ export async function fetchMarkPrices(symbols: string[]): Promise<Record<string,
   }
   return out;
 }
+
+/** Coarse market regime computed from BTC 1h trend + last-candle momentum.
+ * Used to gate trade direction at open time. Returns null on fetch failure
+ * (caller treats null as "neutral"). */
+export type MarketRegime =
+  | "strong_bullish"
+  | "bullish"
+  | "neutral"
+  | "bearish"
+  | "strong_bearish";
+
+function ema(values: number[], period: number): number | null {
+  if (!values || values.length < period) return null;
+  const k = 2 / (period + 1);
+  let e = values.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < values.length; i++) e = values[i] * k + e * (1 - k);
+  return e;
+}
+
+export async function fetchMarketRegime(): Promise<MarketRegime | null> {
+  try {
+    const res = await fetch(CANDLES("B-BTC_USDT", "1h", 60), {
+      headers: PUB_HEADERS,
+      signal: AbortSignal.timeout(3500),
+    });
+    if (!res.ok) return null;
+    const raw = (await res.json()) as Array<{ open: number | string; high: number | string; low: number | string; close: number | string }>;
+    if (!Array.isArray(raw) || raw.length < 22) return null;
+    const closes = raw.map((k) => num(k.close));
+    const last = closes[closes.length - 1];
+    const ema21 = ema(closes.slice(-30), 21);
+    const ema50 = ema(closes, 50);
+    if (!last || !ema21 || !ema50) return null;
+    const slope = ema21 / closes[closes.length - 7] - 1; // 6h slope
+    const distEma50Pct = (last - ema50) / ema50;
+    if (distEma50Pct > 0.04 && slope > 0.01) return "strong_bullish";
+    if (distEma50Pct < -0.04 && slope < -0.01) return "strong_bearish";
+    if (distEma50Pct > 0.012) return "bullish";
+    if (distEma50Pct < -0.012) return "bearish";
+    return "neutral";
+  } catch {
+    return null;
+  }
+}
+
 
 type BotConfig = {
   user_id: string;
@@ -329,6 +377,10 @@ export async function runAutoBookPass(
   analyses.sort((a, b) => b.confidence_pct - a.confidence_pct);
   const topConfidenceOverall = analyses[0]?.confidence_pct ?? 0;
 
+  // Compute market regime once for the whole pass.
+  const marketRegime = await fetchMarketRegime();
+
+
   for (const cfg of users) {
     let opened = 0;
     let skipped = 0;
@@ -458,24 +510,54 @@ export async function runAutoBookPass(
     const lastOpen = new Map<string, number>();
     const lastSlClose = new Map<string, number>();
     const lossCountBySymbol = new Map<string, number>();
+    const lastLossAtBySymbol = new Map<string, number>();
+    const winCountBySymbol = new Map<string, number>();
     for (const r of recent ?? []) {
       const sym = r.symbol as string;
       const t = new Date(r.opened_at as string).getTime();
       const prev = lastOpen.get(sym) ?? 0;
       if (t > prev) lastOpen.set(sym, t);
       const pnl = Number(r.pnl ?? 0);
+      const closedTs = r.closed_at ? new Date(r.closed_at as string).getTime() : 0;
       if (r.exit_reason === "stop_loss" && r.closed_at) {
-        const ct = new Date(r.closed_at as string).getTime();
         const prevC = lastSlClose.get(sym) ?? 0;
-        if (ct > prevC) lastSlClose.set(sym, ct);
+        if (closedTs > prevC) lastSlClose.set(sym, closedTs);
       }
-      if (pnl < 0) lossCountBySymbol.set(sym, (lossCountBySymbol.get(sym) ?? 0) + 1);
+      if (pnl < 0) {
+        lossCountBySymbol.set(sym, (lossCountBySymbol.get(sym) ?? 0) + 1);
+        const prevL = lastLossAtBySymbol.get(sym) ?? 0;
+        if (closedTs > prevL) lastLossAtBySymbol.set(sym, closedTs);
+      } else if (pnl > 0) {
+        winCountBySymbol.set(sym, (winCountBySymbol.get(sym) ?? 0) + 1);
+      }
     }
 
-    const preset: StylePreset = presetFromConfig(cfg);
+    // Style-aware execution caps (style + strictness from min_scalp_score).
+    const strictness = strictnessFromMinScore(cfg.min_scalp_score);
+    const presetRaw: StylePreset = presetFromConfig(cfg);
+    const preset: StylePreset = applyStrictnessToPreset(presetRaw, strictness);
     const blockedSymbols = new Set<string>(
       (cfg.symbol_blocklist ?? []).map((s) => String(s).trim().toUpperCase()).filter(Boolean),
     );
+
+    // Today's auto/paper trades for style caps (count opened today regardless of status).
+    const openedToday = (todayPos ?? []) as Array<{ pnl: number | null; status: string; opened_at: string; exchange_order_id: string | null }>;
+    const todayAutoRecent = (await supabase
+      .from("positions")
+      .select("symbol,side")
+      .eq("user_id", cfg.user_id)
+      .gte("opened_at", startOfDay.toISOString())).data ?? [];
+    const longTodayCount = todayAutoRecent.filter((r) => r.side === "long").length;
+    const shortTodayCount = todayAutoRecent.filter((r) => r.side === "short").length;
+    const perSymbolTodayCount = new Map<string, number>();
+    for (const r of todayAutoRecent) {
+      perSymbolTodayCount.set(r.symbol as string, (perSymbolTodayCount.get(r.symbol as string) ?? 0) + 1);
+    }
+    // Track in-pass increments so caps account for trades booked earlier in this loop.
+    const sameDirOpenedThisPass = { long: 0, short: 0 };
+    const symbolOpenedThisPass = new Map<string, number>();
+    void openedToday;
+
 
 
     for (const a of analyses) {
@@ -515,6 +597,50 @@ export async function runAutoBookPass(
       } else if (cooldownActive) {
         rejection = "Cooldown active";
         final = "skip";
+      } else if (
+        // Rolling symbol cooldown driven by style preset.
+        (() => {
+          const losses = lossCountBySymbol.get(sym) ?? 0;
+          const wins = winCountBySymbol.get(sym) ?? 0;
+          const lastLossAt = lastLossAtBySymbol.get(sym) ?? 0;
+          if (losses >= 4 && wins === 0) return true;
+          if (losses >= preset.lossesBeforeSymbolCooldown && lastLossAt > 0) {
+            return Date.now() - lastLossAt < preset.symbolCooldownHours * 3600_000;
+          }
+          return false;
+        })()
+      ) {
+        rejection = `Rolling cooldown (${preset.lossesBeforeSymbolCooldown}+ losses in 24h, style=${preset.key})`;
+        final = "skip";
+      } else if (
+        // Market regime guard.
+        marketRegime === "strong_bullish" &&
+        a.side_bias === "short" &&
+        a.confidence_pct < 90
+      ) {
+        rejection = "Regime guard: shorts blocked in strong-bullish";
+        final = "skip";
+      } else if (
+        marketRegime === "strong_bearish" &&
+        a.side_bias === "long" &&
+        a.confidence_pct < 90
+      ) {
+        rejection = "Regime guard: longs blocked in strong-bearish";
+        final = "skip";
+      } else if (
+        marketRegime === "bullish" &&
+        a.side_bias === "short" &&
+        a.confidence_pct < autoConfThreshold + 5
+      ) {
+        rejection = "Regime: bullish — stricter short confirmation required";
+        final = "skip";
+      } else if (
+        marketRegime === "bearish" &&
+        a.side_bias === "long" &&
+        a.confidence_pct < autoConfThreshold + 5
+      ) {
+        rejection = "Regime: bearish — stricter long confirmation required";
+        final = "skip";
       } else if (a.spread_pct != null && a.spread_pct > HARD_SPREAD_BLOCK_PCT) {
         rejection = `Spread too high (${a.spread_pct.toFixed(2)}%)`;
         final = "skip";
@@ -527,6 +653,20 @@ export async function runAutoBookPass(
       } else if (remainingToday - opened <= 0) {
         rejection = "Daily auto-book limit reached";
         final = "skip";
+      } else if (opened + longTodayCount + shortTodayCount >= preset.maxTradesPerDay) {
+        rejection = `Style cap: max ${preset.maxTradesPerDay} trades/day (${preset.key})`;
+        final = "skip";
+      } else if (
+        (a.side_bias === "long" ? longTodayCount + sameDirOpenedThisPass.long : shortTodayCount + sameDirOpenedThisPass.short) >= preset.maxSameDirPerDay
+      ) {
+        rejection = `Style cap: max ${preset.maxSameDirPerDay} ${a.side_bias} trades/day`;
+        final = "skip";
+      } else if (
+        ((perSymbolTodayCount.get(sym) ?? 0) + (symbolOpenedThisPass.get(sym) ?? 0)) >=
+        preset.maxTradesPerSymbolPerDay
+      ) {
+        rejection = `Style cap: max ${preset.maxTradesPerSymbolPerDay} trades/symbol/day`;
+        final = "skip";
       } else if (openSlot <= 0) {
         rejection = "Max open positions reached";
         final = "skip";
@@ -537,6 +677,7 @@ export async function runAutoBookPass(
         rejection = `Below auto-book threshold (${a.confidence_pct} < ${autoConfThreshold})`;
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
       }
+
 
       let bookedTradeId: string | null = null;
 
@@ -555,6 +696,10 @@ export async function runAutoBookPass(
             side === "long" ? a.price * (1 - slPct / 100) : a.price * (1 + slPct / 100);
           const take_profit =
             side === "long" ? a.price * (1 + tpPct / 100) : a.price * (1 - tpPct / 100);
+          // TP1 (partial-profit) from preset; clamp to final TP - never exceed it.
+          const tp1PctRaw = Math.min(preset.tp1Pct, Math.max(0.1, tpPct * 0.6));
+          const tp1_price = tp1PriceFor(a.price, tp1PctRaw, side);
+
           // FK requires the signal row to exist first.
           const { error: sigErr } = await supabase.from("bot_signals").insert({
             id: signalId,
@@ -620,15 +765,30 @@ export async function runAutoBookPass(
               confidence_at_entry: a.confidence_pct,
               confidence_band_at_entry: a.confidence_band,
               entry_reason: a.reason,
-              market_regime: a.market_regime,
+              market_regime: marketRegime ?? a.market_regime,
               rsi_at_entry: a.rsi,
               volume_spike_ratio_at_entry: a.volume_spike_ratio,
               spread_pct_at_entry: a.spread_pct,
               distance_from_vwap_pct_at_entry: a.distance_from_vwap_pct,
               distance_from_ema21_pct_at_entry: a.distance_from_ema21_pct,
-            })
+              // New exit-management fields:
+              tp1_price,
+              tp1_pct: tp1PctRaw,
+              tp1_hit: false,
+              remaining_qty: qty,
+              tp1_qty_closed: 0,
+              trail_pct: preset.trailPct,
+              breakeven_moved: false,
+              final_tp_hit: false,
+              peak_unrealized_pnl_pct: 0,
+              max_favourable_excursion_pct: 0,
+              max_adverse_excursion_pct: 0,
+              highest_unrealized_pnl: 0,
+              lowest_unrealized_pnl: 0,
+            } as never)
             .select("id")
             .single();
+
           if (error || !inserted) {
             rejection = error?.message ?? "Insert failed";
             final = "skip";
@@ -645,6 +805,8 @@ export async function runAutoBookPass(
             openSlot--;
             openSymbols.add(sym);
             lastOpen.set(sym, Date.now());
+            sameDirOpenedThisPass[side]++;
+            symbolOpenedThisPass.set(sym, (symbolOpenedThisPass.get(sym) ?? 0) + 1);
             // Write the booking linkage back onto the signal row.
             await supabase
               .from("bot_signals")
@@ -713,7 +875,9 @@ export async function runAutoBookPass(
   return result;
 }
 
-/** Update mark_price + pnl for open positions; auto-close TP/SL. Scope to a user when given. */
+/** Update mark_price + pnl for open positions; auto-close TP/SL/trailing/profit-fade.
+ *  Also runs shadow-tracking for manually-closed trades so the dashboard can
+ *  attribute manual_saved_pnl / manual_missed_pnl. */
 export async function runMarkPass(
   supabase: SupabaseClient,
   opts: { userId?: string } = {},
@@ -723,76 +887,259 @@ export async function runMarkPass(
 }> {
   let q = supabase
     .from("positions")
-    .select("id,user_id,symbol,side,leverage,qty,entry_price,take_profit,stop_loss,opened_at")
+    .select("*")
     .eq("status", "open");
   if (opts.userId) q = q.eq("user_id", opts.userId);
   const { data: open } = await q;
-  const positions = open ?? [];
-  if (!positions.length) return { updated: 0, closed: 0 };
+  const positions = (open ?? []) as Array<Record<string, unknown>>;
 
-  const userIds = Array.from(new Set(positions.map((p) => p.user_id as string)));
+  // Also pick manually-closed trades from the last 24h that have no shadow result yet.
+  let shadowQ = supabase
+    .from("positions")
+    .select("*")
+    .eq("exit_reason", "manual_limit")
+    .is("shadow_exit_reason", null)
+    .gte("closed_at", new Date(Date.now() - 24 * 3600_000).toISOString());
+  if (opts.userId) shadowQ = shadowQ.eq("user_id", opts.userId);
+  const { data: shadowRowsRaw } = await shadowQ;
+  const shadowRows = (shadowRowsRaw ?? []) as Array<Record<string, unknown>>;
+
+  if (!positions.length && !(shadowRows ?? []).length) return { updated: 0, closed: 0 };
+
+  const userIds = Array.from(
+    new Set([...positions.map((p) => p.user_id as string), ...((shadowRows ?? []).map((p) => p.user_id as string))]),
+  );
   const { data: cfgRows } = await supabase
     .from("bot_config")
-    .select("user_id,auto_close_minutes")
+    .select("user_id,auto_close_minutes,trading_style,min_scalp_score")
     .in("user_id", userIds);
-  const autoCloseByUser = new Map(
-    (cfgRows ?? []).map((c) => [c.user_id as string, Number(c.auto_close_minutes ?? 120)]),
-  );
+  const cfgByUser = new Map((cfgRows ?? []).map((c) => [c.user_id as string, c]));
 
-  const symbols = Array.from(new Set(positions.map((p) => p.symbol as string)));
-  const marks = await fetchMarkPrices(symbols);
+  const allSymbols = Array.from(
+    new Set([
+      ...positions.map((p) => p.symbol as string),
+      ...((shadowRows ?? []).map((p) => p.symbol as string)),
+    ]),
+  );
+  const marks = await fetchMarkPrices(allSymbols);
 
   let updated = 0;
   let closed = 0;
+
   for (const p of positions) {
     const mark = marks[p.symbol as string];
     if (!mark) continue;
     const entry = Number(p.entry_price);
     const qty = Number(p.qty);
     const lev = Number(p.leverage);
-    const sideMul = p.side === "long" ? 1 : -1;
+    const side = p.side as "long" | "short";
+    const sideMul = side === "long" ? 1 : -1;
     const pnl = (mark - entry) * qty * sideMul;
     const pnlPct = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul * lev : 0;
     const tp = p.take_profit != null ? Number(p.take_profit) : null;
     const sl = p.stop_loss != null ? Number(p.stop_loss) : null;
-    const autoCloseMinutes = autoCloseByUser.get(p.user_id as string) ?? 120;
+    const tp1 = p.tp1_price != null ? Number(p.tp1_price) : null;
+    const tp1Hit = Boolean(p.tp1_hit);
+    const tp1Pnl = Number(p.tp1_pnl ?? 0);
+    const remainingQty = Number(p.remaining_qty ?? qty);
+    const trailPct = p.trail_pct != null ? Number(p.trail_pct) : null;
+    let trailAnchor = p.trail_anchor_price != null ? Number(p.trail_anchor_price) : null;
+    const breakevenMoved = Boolean(p.breakeven_moved);
+
+    const cfgRow = cfgByUser.get(p.user_id as string) as
+      | { auto_close_minutes: number; trading_style?: string; min_scalp_score?: number }
+      | undefined;
+    const autoCloseMinutes = Number(cfgRow?.auto_close_minutes ?? 120);
+    const presetRaw = presetFromConfig({
+      trading_style: cfgRow?.trading_style ?? "balanced",
+      min_sl_pct: null, atr_multiplier: null, max_auto_sl_pct: null,
+      target_multiplier: null, min_rr: null, risk_per_trade_pct: null,
+    });
+    const preset = applyStrictnessToPreset(presetRaw, strictnessFromMinScore(cfgRow?.min_scalp_score));
     const openedAt = new Date(p.opened_at as string).getTime();
+    const ageMin = (Date.now() - openedAt) / 60_000;
+
+    // MFE / MAE on the open leg (uses live pnlPct).
+    const prevPeak = Number(p.peak_unrealized_pnl_pct ?? 0);
+    const peak = Math.max(prevPeak, pnlPct);
+    const mfePct = Math.max(Number(p.max_favourable_excursion_pct ?? 0), pnlPct);
+    const maePct = Math.min(Number(p.max_adverse_excursion_pct ?? 0), pnlPct);
+    const highPnl = Math.max(Number(p.highest_unrealized_pnl ?? 0), pnl);
+    const lowPnl = Math.min(Number(p.lowest_unrealized_pnl ?? 0), pnl);
+    const giveback = peak >= preset.profitFadeMinPct ? Math.max(0, peak - pnlPct) : 0;
+
+    // ----- Resolve exit decision (priority order) -----
+    let finalExitReason: string | null = null;
+    let tp1JustHit = false;
+    let newSl = sl;
+    let newBreakeven = breakevenMoved;
+
+    // 1) TP1 (partial close: simulated 50%).
+    if (!tp1Hit && tp1 != null) {
+      const crossed = side === "long" ? mark >= tp1 : mark <= tp1;
+      if (crossed) {
+        tp1JustHit = true;
+        newSl = entry; // move stop to breakeven on remaining
+        newBreakeven = true;
+        trailAnchor = mark;
+      }
+    }
+
+    // 2) Final TP (closes full remaining).
+    const hitTp = tp != null && (side === "long" ? mark >= tp : mark <= tp);
+    // 3) SL (could be at breakeven).
+    const hitSl =
+      (tp1Hit || tp1JustHit ? entry : (sl ?? null)) != null &&
+      (side === "long"
+        ? mark <= (tp1Hit || tp1JustHit ? entry : (sl as number))
+        : mark >= (tp1Hit || tp1JustHit ? entry : (sl as number)));
+
+    // 4) Trailing exit (only after TP1 hit, on the runner).
+    let hitTrail = false;
+    if (tp1Hit && trailPct != null && trailAnchor != null) {
+      // Update anchor to best favourable price.
+      trailAnchor = side === "long" ? Math.max(trailAnchor, mark) : Math.min(trailAnchor, mark);
+      const retrace =
+        side === "long"
+          ? ((trailAnchor - mark) / trailAnchor) * 100
+          : ((mark - trailAnchor) / trailAnchor) * 100;
+      const effTrail = (p.weak_progress ? trailPct / 2 : trailPct);
+      if (retrace >= effTrail) hitTrail = true;
+    }
+
+    // 5) Profit-fade.
+    const hitProfitFade =
+      peak >= preset.profitFadeMinPct &&
+      peak > 0 &&
+      giveback / peak >= preset.profitFadeGivebackPct;
+
+    // 6) Weak progress detection (flag only — does NOT force SL).
+    let newWeakProgress: { weak_progress: boolean; weak_progress_marked_at: string } | null = null;
+    if (!p.weak_progress && ageMin >= 45 && ageMin <= preset.weakProgressWindowMin + 5 && peak < preset.weakProgressMinPct) {
+      newWeakProgress = { weak_progress: true, weak_progress_marked_at: new Date().toISOString() };
+    }
+
+    // 7) Weak-progress time exit when momentum turns negative post-flag.
+    const weakNegative = p.weak_progress && (side === "long" ? mark < entry : mark > entry);
     const hitTimeExit =
       autoCloseMinutes > 0 && Number.isFinite(openedAt) && Date.now() - openedAt >= autoCloseMinutes * 60_000;
 
-    const hitTp = tp != null && (p.side === "long" ? mark >= tp : mark <= tp);
-    const hitSl = sl != null && (p.side === "long" ? mark <= sl : mark >= sl);
+    if (hitTp) finalExitReason = "take_profit";
+    else if (hitSl) finalExitReason = newBreakeven ? "breakeven_exit" : "stop_loss";
+    else if (hitTrail) finalExitReason = "trailing_exit";
+    else if (hitProfitFade) finalExitReason = "profit_fade_exit";
+    else if (weakNegative) finalExitReason = "weak_progress_time_exit";
+    else if (hitTimeExit) finalExitReason = "time_exit";
 
-    if (hitTp || hitSl || hitTimeExit) {
-      const reason = hitTp ? "take_profit" : hitSl ? "stop_loss" : "time_exit";
-      const { error } = await supabase
-        .from("positions")
-        .update({
-          mark_price: mark,
-          pnl,
-          pnl_pct: pnlPct,
-          status: "closed",
-          exit_price: mark,
-          exit_reason: reason,
-          closed_at: new Date().toISOString(),
-        })
-        .eq("id", p.id);
+    // ----- Apply update -----
+    const baseUpdate: Record<string, unknown> = {
+      mark_price: mark,
+      pnl,
+      pnl_pct: pnlPct,
+      peak_unrealized_pnl_pct: peak,
+      giveback_pct: giveback,
+      max_favourable_excursion_pct: mfePct,
+      max_adverse_excursion_pct: maePct,
+      highest_unrealized_pnl: highPnl,
+      lowest_unrealized_pnl: lowPnl,
+    };
+    if (tp1JustHit) {
+      baseUpdate.tp1_hit = true;
+      baseUpdate.tp1_hit_at = new Date().toISOString();
+      // Simulated 50% close: bank half the pnl_pct at TP1 price, leverage-adjusted.
+      const tp1PctRealized = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul * lev : 0;
+      baseUpdate.tp1_pnl = tp1PctRealized * 0.5;
+      baseUpdate.tp1_qty_closed = qty / 2;
+      baseUpdate.remaining_qty = qty / 2;
+      baseUpdate.stop_loss = entry;
+      baseUpdate.breakeven_moved = true;
+      baseUpdate.trail_anchor_price = mark;
+    } else if (tp1Hit) {
+      baseUpdate.trail_anchor_price = trailAnchor;
+    }
+    if (newWeakProgress) Object.assign(baseUpdate, newWeakProgress);
+
+    if (finalExitReason != null) {
+      // Final pnl combines TP1 leg (50%) + remaining leg pnl based on qty share.
+      const remainingShare = (tp1Hit || tp1JustHit) ? (remainingQty / qty) : 1;
+      const tp1Leg = tp1JustHit ? Number(baseUpdate.tp1_pnl ?? 0) : tp1Pnl;
+      const combinedPnlPct = tp1Leg + pnlPct * remainingShare;
+      const combinedPnl =
+        (tp1JustHit ? (mark - entry) * (qty / 2) * sideMul : 0) +
+        (mark - entry) * (remainingShare === 1 ? qty : qty / 2) * sideMul;
+
+      Object.assign(baseUpdate, {
+        status: "closed",
+        exit_price: mark,
+        exit_reason: finalExitReason,
+        final_exit_reason: finalExitReason,
+        final_tp_hit: finalExitReason === "take_profit",
+        pnl: combinedPnl,
+        pnl_pct: combinedPnlPct,
+        closed_at: new Date().toISOString(),
+      });
+      const { error } = await supabase.from("positions").update(baseUpdate as never).eq("id", p.id as string);
       if (!error) {
         closed++;
         await logEvent(
           supabase,
           p.user_id as string,
           "info",
-          `Auto-closed ${p.side === "long" ? "LONG" : "SHORT"} ${p.symbol} at ${mark} (${reason})`,
+          `Auto-closed ${side.toUpperCase()} ${p.symbol} at ${mark} (${finalExitReason})`,
         );
       }
     } else {
-      const { error } = await supabase
-        .from("positions")
-        .update({ mark_price: mark, pnl, pnl_pct: pnlPct })
-        .eq("id", p.id);
+      const { error } = await supabase.from("positions").update(baseUpdate as never).eq("id", p.id as string);
       if (!error) updated++;
     }
   }
+
+  // ----- Shadow tracking for manually-closed trades -----
+  for (const p of shadowRows ?? []) {
+    const mark = marks[p.symbol as string];
+    if (!mark) continue;
+    const entry = Number(p.entry_price);
+    const lev = Number(p.leverage);
+    const side = p.side as "long" | "short";
+    const sideMul = side === "long" ? 1 : -1;
+    const tp = p.take_profit != null ? Number(p.take_profit) : null;
+    const sl = p.stop_loss != null ? Number(p.stop_loss) : null;
+    const tp1 = p.tp1_price != null ? Number(p.tp1_price) : null;
+    const trail = p.trail_pct != null ? Number(p.trail_pct) : null;
+
+    const manualPnl = Number(p.pnl ?? 0);
+
+    // Shadow logic: pretend trade was still open; check whether mark has hit
+    // any target since manual close. Limited heuristic — no candle replay.
+    let shadowReason: string | null = null;
+    if (tp != null && (side === "long" ? mark >= tp : mark <= tp)) shadowReason = "take_profit";
+    else if (sl != null && (side === "long" ? mark <= sl : mark >= sl)) shadowReason = "stop_loss";
+    else if (tp1 != null && (side === "long" ? mark >= tp1 : mark <= tp1)) shadowReason = "tp1_only";
+
+    if (shadowReason) {
+      const shadowExitPrice =
+        shadowReason === "take_profit" ? (tp as number)
+        : shadowReason === "stop_loss" ? (sl as number)
+        : (tp1 as number);
+      const shadowPnlPct = entry > 0 ? ((shadowExitPrice - entry) / entry) * 100 * sideMul * lev : 0;
+      const shadowPnl = (shadowExitPrice - entry) * Number(p.qty) * sideMul;
+      const saved = manualPnl > shadowPnl ? manualPnl - shadowPnl : 0;
+      const missed = shadowPnl > manualPnl ? shadowPnl - manualPnl : 0;
+      void trail;
+      await supabase
+        .from("positions")
+        .update({
+          shadow_exit_reason: shadowReason,
+          shadow_exit_pnl: shadowPnl,
+          shadow_closed_at: new Date().toISOString(),
+          manual_saved_pnl: saved,
+          manual_missed_pnl: missed,
+        } as never)
+        .eq("id", p.id as string);
+      void shadowPnlPct;
+    }
+  }
+
   return { updated, closed };
 }
+

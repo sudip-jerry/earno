@@ -483,6 +483,7 @@ export type Database = {
           algo_id: string | null
           algo_name: string | null
           algo_version: string | null
+          breakeven_moved: boolean
           closed_at: string | null
           confidence_at_entry: number | null
           confidence_band_at_entry: string | null
@@ -493,17 +494,31 @@ export type Database = {
           exchange_order_id: string | null
           exit_price: number | null
           exit_reason: string | null
+          final_exit_reason: string | null
+          final_tp_hit: boolean
+          giveback_pct: number | null
+          highest_unrealized_pnl: number | null
           id: string
           instrument: string | null
           leverage: number
+          lowest_unrealized_pnl: number | null
+          manual_missed_pnl: number | null
+          manual_saved_pnl: number | null
           mark_price: number | null
           market_regime: string | null
+          max_adverse_excursion_pct: number | null
+          max_favourable_excursion_pct: number | null
           mode: string
           opened_at: string
+          peak_unrealized_pnl_pct: number | null
           pnl: number | null
           pnl_pct: number | null
           qty: number
+          remaining_qty: number | null
           rsi_at_entry: number | null
+          shadow_closed_at: string | null
+          shadow_exit_pnl: number | null
+          shadow_exit_reason: string | null
           side: string
           signal_id: string | null
           source: string
@@ -512,14 +527,25 @@ export type Database = {
           stop_loss: number | null
           symbol: string
           take_profit: number | null
+          tp1_hit: boolean
+          tp1_hit_at: string | null
+          tp1_pct: number | null
+          tp1_pnl: number | null
+          tp1_price: number | null
+          tp1_qty_closed: number | null
+          trail_anchor_price: number | null
+          trail_pct: number | null
           updated_at: string
           user_id: string
           volume_spike_ratio_at_entry: number | null
+          weak_progress: boolean
+          weak_progress_marked_at: string | null
         }
         Insert: {
           algo_id?: string | null
           algo_name?: string | null
           algo_version?: string | null
+          breakeven_moved?: boolean
           closed_at?: string | null
           confidence_at_entry?: number | null
           confidence_band_at_entry?: string | null
@@ -530,17 +556,31 @@ export type Database = {
           exchange_order_id?: string | null
           exit_price?: number | null
           exit_reason?: string | null
+          final_exit_reason?: string | null
+          final_tp_hit?: boolean
+          giveback_pct?: number | null
+          highest_unrealized_pnl?: number | null
           id?: string
           instrument?: string | null
           leverage: number
+          lowest_unrealized_pnl?: number | null
+          manual_missed_pnl?: number | null
+          manual_saved_pnl?: number | null
           mark_price?: number | null
           market_regime?: string | null
+          max_adverse_excursion_pct?: number | null
+          max_favourable_excursion_pct?: number | null
           mode: string
           opened_at?: string
+          peak_unrealized_pnl_pct?: number | null
           pnl?: number | null
           pnl_pct?: number | null
           qty: number
+          remaining_qty?: number | null
           rsi_at_entry?: number | null
+          shadow_closed_at?: string | null
+          shadow_exit_pnl?: number | null
+          shadow_exit_reason?: string | null
           side: string
           signal_id?: string | null
           source?: string
@@ -549,14 +589,25 @@ export type Database = {
           stop_loss?: number | null
           symbol: string
           take_profit?: number | null
+          tp1_hit?: boolean
+          tp1_hit_at?: string | null
+          tp1_pct?: number | null
+          tp1_pnl?: number | null
+          tp1_price?: number | null
+          tp1_qty_closed?: number | null
+          trail_anchor_price?: number | null
+          trail_pct?: number | null
           updated_at?: string
           user_id: string
           volume_spike_ratio_at_entry?: number | null
+          weak_progress?: boolean
+          weak_progress_marked_at?: string | null
         }
         Update: {
           algo_id?: string | null
           algo_name?: string | null
           algo_version?: string | null
+          breakeven_moved?: boolean
           closed_at?: string | null
           confidence_at_entry?: number | null
           confidence_band_at_entry?: string | null
@@ -567,17 +618,31 @@ export type Database = {
           exchange_order_id?: string | null
           exit_price?: number | null
           exit_reason?: string | null
+          final_exit_reason?: string | null
+          final_tp_hit?: boolean
+          giveback_pct?: number | null
+          highest_unrealized_pnl?: number | null
           id?: string
           instrument?: string | null
           leverage?: number
+          lowest_unrealized_pnl?: number | null
+          manual_missed_pnl?: number | null
+          manual_saved_pnl?: number | null
           mark_price?: number | null
           market_regime?: string | null
+          max_adverse_excursion_pct?: number | null
+          max_favourable_excursion_pct?: number | null
           mode?: string
           opened_at?: string
+          peak_unrealized_pnl_pct?: number | null
           pnl?: number | null
           pnl_pct?: number | null
           qty?: number
+          remaining_qty?: number | null
           rsi_at_entry?: number | null
+          shadow_closed_at?: string | null
+          shadow_exit_pnl?: number | null
+          shadow_exit_reason?: string | null
           side?: string
           signal_id?: string | null
           source?: string
@@ -586,9 +651,19 @@ export type Database = {
           stop_loss?: number | null
           symbol?: string
           take_profit?: number | null
+          tp1_hit?: boolean
+          tp1_hit_at?: string | null
+          tp1_pct?: number | null
+          tp1_pnl?: number | null
+          tp1_price?: number | null
+          tp1_qty_closed?: number | null
+          trail_anchor_price?: number | null
+          trail_pct?: number | null
           updated_at?: string
           user_id?: string
           volume_spike_ratio_at_entry?: number | null
+          weak_progress?: boolean
+          weak_progress_marked_at?: string | null
         }
         Relationships: [
           {
