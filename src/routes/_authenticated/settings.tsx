@@ -175,7 +175,7 @@ const DEFAULTS: Cfg = {
   auto_book: false,
   strategy: "vwap_pullback",
   cooldown_minutes: 15,
-  max_trades_per_day: 10,
+  max_trades_per_day: 50,
   auto_close_minutes: 30,
   move_to_breakeven: true,
   min_scalp_score: 50,

@@ -901,17 +901,17 @@ function buildPatch(kind: typeof tuningKinds[number], cur: CfgRow): Record<strin
       return {
         risk_per_trade_pct: clamp(Number(cur.risk_per_trade_pct ?? 1) * 0.5, 0.25, 10),
         auto_book_confidence_threshold: clamp(conf + 10, 50, 95),
-        max_trades_per_day: Math.min(cur.max_trades_per_day ?? 10, 8),
+        max_trades_per_day: Math.min(cur.max_trades_per_day ?? 10, 50),
       };
     case "loss-cap-hit":
       return {
         cooldown_minutes: Math.max(cur.cooldown_minutes ?? 0, 30),
-        max_trades_per_day: Math.min(cur.max_trades_per_day ?? 10, 6),
+        max_trades_per_day: Math.min(cur.max_trades_per_day ?? 10, 50),
       };
     case "overtrading":
       return {
         auto_book_confidence_threshold: clamp(conf + 5, 50, 95),
-        max_trades_per_day: Math.min(cur.max_trades_per_day ?? 10, 6),
+        max_trades_per_day: Math.min(cur.max_trades_per_day ?? 10, 50),
       };
     default:
       return null;
