@@ -17,7 +17,11 @@ const PUB_HEADERS = {
   "user-agent": "Mozilla/5.0 (compatible; Earn'O/1.0; +https://earno.lovable.app)",
 };
 
-type Candle = { open: number; high: number; low: number; close: number; volume: number };
+type Candle = { open: number; high: number; low: number; close: number; volume: number; time: number };
+
+/** Reject markets whose latest 5m candle is older than this (delisted/halted symbols
+ *  like B-PHB_USDT keep returning a frozen ticker price + stale 24h % change). */
+export const STALE_CANDLE_MAX_AGE_MS = 30 * 60_000;
 
 function num(x: unknown): number {
   const n = typeof x === "string" ? parseFloat(x) : typeof x === "number" ? x : NaN;
@@ -39,6 +43,7 @@ async function fetchCandles(pair: string, interval: string, limit: number): Prom
       low: num(k.low),
       close: num(k.close),
       volume: num(k.volume),
+      time: num(k.time),
     }));
   } catch {
     return null;
@@ -153,7 +158,12 @@ export async function analyzeSymbol(
   change24h: number,
 ): Promise<SignalAnalysis | null> {
   const candles = await fetchCandles(symbol, "5m", 60);
-  if (!candles || candles.length < 22) {
+  const latestCandleTime = candles && candles.length ? candles[candles.length - 1].time : 0;
+  const stale =
+    !!candles &&
+    latestCandleTime > 0 &&
+    Date.now() - latestCandleTime > STALE_CANDLE_MAX_AGE_MS;
+  if (!candles || candles.length < 22 || stale) {
     return {
       symbol,
       price,
@@ -161,7 +171,7 @@ export async function analyzeSymbol(
       side_bias: "neutral",
       confidence_pct: 0,
       confidence_band: "AVOID",
-      reason: "Insufficient candle data",
+      reason: stale ? "Market halted / no recent candles" : "Insufficient candle data",
       trend_status: "Unknown",
       vwap_status: "Unknown",
       ema_alignment: "Unknown",
