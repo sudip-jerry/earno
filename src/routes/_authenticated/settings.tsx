@@ -265,6 +265,7 @@ type Cfg = {
   max_open_positions: number;
   daily_loss_cap_pct: number;
   allow_short: boolean;
+  allow_long: boolean;
   auto_book: boolean;
   strategy: "vwap_pullback" | "momentum_breakout";
   cooldown_minutes: number;
@@ -298,6 +299,7 @@ const DEFAULTS: Cfg = {
   max_open_positions: 2,
   daily_loss_cap_pct: 3,
   allow_short: true,
+  allow_long: true,
   auto_book: false,
   strategy: "vwap_pullback",
   cooldown_minutes: 15,
@@ -367,7 +369,7 @@ function SettingsPage() {
       const { data, error } = await supabase
         .from("bot_config")
         .select(
-          "mode,ema_fast,ema_slow,timeframe,leverage,take_profit_pct,stop_loss_pct,trailing_enabled,risk_per_trade_pct,max_open_positions,daily_loss_cap_pct,allow_short,auto_book,strategy,cooldown_minutes,max_trades_per_day,auto_close_minutes,move_to_breakeven,min_scalp_score,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,symbol_blocklist",
+          "mode,ema_fast,ema_slow,timeframe,leverage,take_profit_pct,stop_loss_pct,trailing_enabled,risk_per_trade_pct,max_open_positions,daily_loss_cap_pct,allow_short,allow_long,auto_book,strategy,cooldown_minutes,max_trades_per_day,auto_close_minutes,move_to_breakeven,min_scalp_score,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,symbol_blocklist",
         )
         .maybeSingle();
       if (error) throw error;
@@ -638,6 +640,12 @@ function SettingsPage() {
                 <SelectItem value="15m">15m</SelectItem>
               </SelectContent>
             </Select>
+          </Row>
+          <Row label="Allow longs">
+            <Switch
+              checked={get("allow_long")}
+              onCheckedChange={(v) => set("allow_long", v)}
+            />
           </Row>
           <Row label="Allow shorts">
             <Switch
