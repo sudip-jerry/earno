@@ -54,6 +54,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMarketMode, type MarketMode } from "@/hooks/use-market-mode";
+import { CoinPortfolioCard, CoinHoldingsCard, CoinSignalsList } from "@/components/coin-bot/coin-panels";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
 
 export const Route = createFileRoute("/_authenticated/")({
