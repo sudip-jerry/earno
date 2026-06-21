@@ -934,7 +934,16 @@ export async function runMarkPass(
     const breakevenMoved = Boolean(p.breakeven_moved);
 
     const cfgRow = cfgByUser.get(p.user_id as string) as
-      | { auto_close_minutes: number; trading_style?: string; min_scalp_score?: number }
+      | {
+          auto_close_minutes: number;
+          trading_style?: string;
+          min_scalp_score?: number;
+          fee_aware_exits_enabled?: boolean | null;
+          minimum_net_profit_to_exit_pct?: number | null;
+          slippage_buffer_pct?: number | null;
+          minimum_gross_profit_before_profit_fade_exit_pct?: number | null;
+          minimum_gross_profit_before_weak_progress_exit_pct?: number | null;
+        }
       | undefined;
     const autoCloseMinutes = Number(cfgRow?.auto_close_minutes ?? 120);
     const presetRaw = presetFromConfig({
