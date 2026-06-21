@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { netPnl, tradeFee } from "@/lib/fees";
+import { netPnl, tradeFee, computeFees } from "@/lib/fees";
 
 type AnySupa = { rpc: (...a: unknown[]) => Promise<{ data: unknown }> };
 
@@ -1190,8 +1190,38 @@ export const exportAllTradesCsv = createServerFn({ method: "GET" })
         exit_reason: t.exit_reason ?? "",
         pnl: t.pnl ?? "",
         pnl_pct: t.pnl_pct ?? "",
-        fee_paid: t.status === "closed" ? Number(tradeFee(t).toFixed(6)) : "",
-        net_pnl: t.status === "closed" ? Number(netPnl(t).toFixed(6)) : "",
+        ...(() => {
+          if (t.status !== "closed") {
+            return {
+              fee_model: "",
+              entry_fee_pct: "",
+              exit_fee_pct: "",
+              gst_pct: "",
+              entry_fee: "",
+              exit_fee: "",
+              gst_fee: "",
+              total_fee: "",
+              fee_paid: "",
+              gross_pnl: "",
+              net_pnl: "",
+            };
+          }
+          const f = computeFees(t);
+          const r = (n: number) => Number(n.toFixed(6));
+          return {
+            fee_model: f.fee_model,
+            entry_fee_pct: f.entry_fee_pct,
+            exit_fee_pct: f.exit_fee_pct,
+            gst_pct: f.gst_pct,
+            entry_fee: r(f.entry_fee),
+            exit_fee: r(f.exit_fee),
+            gst_fee: r(f.gst_fee),
+            total_fee: r(f.total_fee),
+            fee_paid: r(f.total_fee),
+            gross_pnl: r(f.gross_pnl),
+            net_pnl: r(f.net_pnl),
+          };
+        })(),
         exchange_order_id: t.exchange_order_id ?? "",
         opened_at: t.opened_at,
         closed_at: t.closed_at ?? "",

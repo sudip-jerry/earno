@@ -1,16 +1,36 @@
-// CoinDCX futures fees applied to realized PnL.
-// Taker (market / SL / TP hits / time exits / auto-close): 0.05%
-// Maker (limit closes): 0.02%
-// Opens are always taker — the bot books with market orders.
-export const FEE_TAKER = 0.0005;
-export const FEE_MAKER = 0.0002;
-export const FEE_OPEN = FEE_TAKER;
+// CoinDCX Global / USDT Futures fee model.
+// Configurable: maker 0.044%, taker 0.050%, GST 18% on fees.
+// Default for paper simulation: maker_taker_with_gst (entry maker, exit taker).
+// Strategy logic is unchanged — this only affects realized PnL accounting.
 
-export function closeFeeRate(exitReason: string | null | undefined): number {
-  const r = (exitReason ?? "").toLowerCase();
-  // Anything explicitly limit-based is maker; everything else (sl/tp/auto/time/manual market) is taker.
-  if (r === "manual_limit" || r.includes("limit")) return FEE_MAKER;
-  return FEE_TAKER;
+export const MAKER_FEE_PCT = 0.044;
+export const TAKER_FEE_PCT = 0.05;
+export const GST_PCT = 18;
+
+export type FeeModel =
+  | "maker_maker_with_gst"
+  | "maker_taker_with_gst"
+  | "taker_taker_with_gst"
+  | "taker_taker_without_gst";
+
+export const DEFAULT_FEE_MODEL: FeeModel = "maker_taker_with_gst";
+
+export function feeModelRates(model: FeeModel = DEFAULT_FEE_MODEL): {
+  entry_fee_pct: number;
+  exit_fee_pct: number;
+  gst_pct: number;
+} {
+  switch (model) {
+    case "maker_maker_with_gst":
+      return { entry_fee_pct: MAKER_FEE_PCT, exit_fee_pct: MAKER_FEE_PCT, gst_pct: GST_PCT };
+    case "taker_taker_with_gst":
+      return { entry_fee_pct: TAKER_FEE_PCT, exit_fee_pct: TAKER_FEE_PCT, gst_pct: GST_PCT };
+    case "taker_taker_without_gst":
+      return { entry_fee_pct: TAKER_FEE_PCT, exit_fee_pct: TAKER_FEE_PCT, gst_pct: 0 };
+    case "maker_taker_with_gst":
+    default:
+      return { entry_fee_pct: MAKER_FEE_PCT, exit_fee_pct: TAKER_FEE_PCT, gst_pct: GST_PCT };
+  }
 }
 
 export type FeeInputs = {
@@ -21,17 +41,60 @@ export type FeeInputs = {
   exit_reason?: string | null;
 };
 
-export function tradeFee(t: FeeInputs): number {
+export type FeeBreakdown = {
+  fee_model: FeeModel;
+  entry_fee_pct: number;
+  exit_fee_pct: number;
+  gst_pct: number;
+  entry_notional: number;
+  exit_notional: number;
+  entry_fee: number;
+  exit_fee: number;
+  gst_fee: number;
+  total_fee: number;
+  gross_pnl: number;
+  net_pnl: number;
+};
+
+export function computeFees(
+  t: FeeInputs,
+  model: FeeModel = DEFAULT_FEE_MODEL,
+): FeeBreakdown {
+  const { entry_fee_pct, exit_fee_pct, gst_pct } = feeModelRates(model);
   const entry = Number(t.entry_price ?? 0);
   const exit = Number(t.exit_price ?? 0);
   const qty = Number(t.qty ?? 0);
-  if (!qty || !entry) return 0;
-  const openFee = entry * qty * FEE_OPEN;
-  const closeFee = exit > 0 ? exit * qty * closeFeeRate(t.exit_reason) : 0;
-  return openFee + closeFee;
+  const gross_pnl = Number(t.pnl ?? 0);
+
+  const entry_notional = qty > 0 && entry > 0 ? qty * entry : 0;
+  const exit_notional = qty > 0 && exit > 0 ? qty * exit : 0;
+  const entry_fee = (entry_notional * entry_fee_pct) / 100;
+  const exit_fee = (exit_notional * exit_fee_pct) / 100;
+  const gst_fee = ((entry_fee + exit_fee) * gst_pct) / 100;
+  const total_fee = entry_fee + exit_fee + gst_fee;
+  const net_pnl = gross_pnl - total_fee;
+
+  return {
+    fee_model: model,
+    entry_fee_pct,
+    exit_fee_pct,
+    gst_pct,
+    entry_notional,
+    exit_notional,
+    entry_fee,
+    exit_fee,
+    gst_fee,
+    total_fee,
+    gross_pnl,
+    net_pnl,
+  };
 }
 
-// Net realized pnl, fees deducted. For still-open trades (no exit_price), only entry fee is deducted.
-export function netPnl(t: FeeInputs): number {
-  return Number(t.pnl ?? 0) - tradeFee(t);
+export function tradeFee(t: FeeInputs, model: FeeModel = DEFAULT_FEE_MODEL): number {
+  return computeFees(t, model).total_fee;
+}
+
+// Net realized pnl, fees deducted. For still-open trades (no exit_price), only entry-side fee is deducted.
+export function netPnl(t: FeeInputs, model: FeeModel = DEFAULT_FEE_MODEL): number {
+  return computeFees(t, model).net_pnl;
 }
