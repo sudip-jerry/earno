@@ -812,7 +812,7 @@ function CoinPositionsSection() {
   );
 }
 
-function MarketAwarePositionsBody({ children }: { children: React.ReactNode }) {
+function MarketAwarePositionsBody({ children }: { children: ReactNode }) {
   const { market } = useMarketMode();
   if (market === "spot") return null;
   return <>{children}</>;
