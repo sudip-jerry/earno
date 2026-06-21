@@ -152,17 +152,17 @@ function computeDayStats(positions: Pos[], sinceIso: string): DayStats {
   );
   const openedToday = positions.filter((t) => new Date(t.opened_at).getTime() >= since);
   if (closedToday.length === 0 && openedToday.length === 0) return emptyDay();
-  const wins = closedToday.filter((t) => Number(t.pnl ?? 0) > 0).length;
-  const losses = closedToday.filter((t) => Number(t.pnl ?? 0) < 0).length;
-  const pnl = closedToday.reduce((s, t) => s + Number(t.pnl ?? 0), 0);
+  const wins = closedToday.filter((t) => netPnl(t) > 0).length;
+  const losses = closedToday.filter((t) => netPnl(t) < 0).length;
+  const pnl = closedToday.reduce((s, t) => s + netPnl(t), 0);
   const avgPnlPct = closedToday.length
     ? closedToday.reduce((s, t) => s + Number(t.pnl_pct ?? 0), 0) / closedToday.length
     : 0;
   const longs = closedToday.filter((t) => t.side === "long");
   const shorts = closedToday.filter((t) => t.side === "short");
-  const longWins = longs.filter((t) => Number(t.pnl ?? 0) > 0).length;
-  const shortWins = shorts.filter((t) => Number(t.pnl ?? 0) > 0).length;
-  const pnls = closedToday.map((t) => Number(t.pnl ?? 0));
+  const longWins = longs.filter((t) => netPnl(t) > 0).length;
+  const shortWins = shorts.filter((t) => netPnl(t) > 0).length;
+  const pnls = closedToday.map((t) => netPnl(t));
   return {
     closed: closedToday.length,
     open: openedToday.filter((t) => t.status === "open").length,
@@ -172,10 +172,10 @@ function computeDayStats(positions: Pos[], sinceIso: string): DayStats {
     bestTrade: pnls.length ? Math.max(...pnls) : 0,
     worstTrade: pnls.length ? Math.min(...pnls) : 0,
     longTrades: longs.length, longWins,
-    longPnl: longs.reduce((s, t) => s + Number(t.pnl ?? 0), 0),
+    longPnl: longs.reduce((s, t) => s + netPnl(t), 0),
     longWinRate: longs.length ? (longWins / longs.length) * 100 : 0,
     shortTrades: shorts.length, shortWins,
-    shortPnl: shorts.reduce((s, t) => s + Number(t.pnl ?? 0), 0),
+    shortPnl: shorts.reduce((s, t) => s + netPnl(t), 0),
     shortWinRate: shorts.length ? (shortWins / shorts.length) * 100 : 0,
     topCloseReason: topMode(closedToday.map((t) => t.exit_reason)),
   };
@@ -185,7 +185,7 @@ function profitFactor(closed: Pos[]): number {
   let gain = 0,
     loss = 0;
   for (const t of closed) {
-    const p = Number(t.pnl ?? 0);
+    const p = netPnl(t);
     if (p >= 0) gain += p;
     else loss += -p;
   }
@@ -202,7 +202,7 @@ function maxDrawdown(closed: Pos[]): number {
     cum = 0,
     dd = 0;
   for (const t of sorted) {
-    cum += Number(t.pnl ?? 0);
+    cum += netPnl(t);
     if (cum > peak) peak = cum;
     const draw = peak - cum;
     if (draw > dd) dd = draw;
@@ -228,7 +228,7 @@ function maxConsecLosses(closed: Pos[]): number {
   );
   let cur = 0, best = 0;
   for (const t of sorted) {
-    if (Number(t.pnl ?? 0) < 0) { cur++; if (cur > best) best = cur; }
+    if (netPnl(t) < 0) { cur++; if (cur > best) best = cur; }
     else cur = 0;
   }
   return best;
@@ -445,19 +445,19 @@ export const getBetaReport = createServerFn({ method: "GET" })
       const trades = byUser.get(p.id) ?? [];
       if (trades.length === 0 && !cfgMap.get(p.id)?.is_running) continue;
       const closed = trades.filter((t) => t.status === "closed");
-      const wins = closed.filter((t) => Number(t.pnl ?? 0) > 0).length;
-      const losses = closed.filter((t) => Number(t.pnl ?? 0) < 0).length;
-      const realizedPnl = closed.reduce((s, t) => s + Number(t.pnl ?? 0), 0);
+      const wins = closed.filter((t) => netPnl(t) > 0).length;
+      const losses = closed.filter((t) => netPnl(t) < 0).length;
+      const realizedPnl = closed.reduce((s, t) => s + netPnl(t), 0);
       const avgPnlPct =
         closed.length === 0
           ? 0
           : closed.reduce((s, t) => s + Number(t.pnl_pct ?? 0), 0) / closed.length;
       const longs = closed.filter((t) => t.side === "long");
       const shorts = closed.filter((t) => t.side === "short");
-      const longPnl = longs.reduce((s, t) => s + Number(t.pnl ?? 0), 0);
-      const shortPnl = shorts.reduce((s, t) => s + Number(t.pnl ?? 0), 0);
-      const longWins = longs.filter((t) => Number(t.pnl ?? 0) > 0).length;
-      const shortWins = shorts.filter((t) => Number(t.pnl ?? 0) > 0).length;
+      const longPnl = longs.reduce((s, t) => s + netPnl(t), 0);
+      const shortPnl = shorts.reduce((s, t) => s + netPnl(t), 0);
+      const longWins = longs.filter((t) => netPnl(t) > 0).length;
+      const shortWins = shorts.filter((t) => netPnl(t) > 0).length;
       const avgHoldMs =
         closed.length === 0
           ? 0
@@ -501,15 +501,15 @@ export const getBetaReport = createServerFn({ method: "GET" })
 
     // Global aggregates
     const closedAll = allPos.filter((t) => t.status === "closed");
-    const totalRealized = closedAll.reduce((s, t) => s + Number(t.pnl ?? 0), 0);
+    const totalRealized = closedAll.reduce((s, t) => s + netPnl(t), 0);
     const longsAll = closedAll.filter((t) => t.side === "long");
     const shortsAll = closedAll.filter((t) => t.side === "short");
-    const longPnlAll = longsAll.reduce((s, t) => s + Number(t.pnl ?? 0), 0);
-    const shortPnlAll = shortsAll.reduce((s, t) => s + Number(t.pnl ?? 0), 0);
+    const longPnlAll = longsAll.reduce((s, t) => s + netPnl(t), 0);
+    const shortPnlAll = shortsAll.reduce((s, t) => s + netPnl(t), 0);
 
     // ----- Exit attribution: manual vs bot, by exit reason -----
     const exitAttribution = (() => {
-      const sum = (rows: Pos[]) => rows.reduce((s, t) => s + Number(t.pnl ?? 0), 0);
+      const sum = (rows: Pos[]) => rows.reduce((s, t) => s + netPnl(t), 0);
       const isManual = (t: Pos) =>
         t.final_exit_reason === "manual" ||
         (t.exit_reason ?? "").startsWith("manual") ||
@@ -522,7 +522,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
       const finalTpHits = closedAll.filter((t) => (t.final_exit_reason ?? t.exit_reason) === "take_profit").length;
       const slAfterPositive = closedAll.filter(
         (t) =>
-          Number(t.pnl ?? 0) < 0 &&
+          netPnl(t) < 0 &&
           Number(t.peak_unrealized_pnl_pct ?? 0) > 0.3,
       ).length;
       return {
@@ -548,7 +548,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
 
     const bySymbol = new Map<string, number>();
     for (const t of closedAll) {
-      bySymbol.set(t.symbol, (bySymbol.get(t.symbol) ?? 0) + Number(t.pnl ?? 0));
+      bySymbol.set(t.symbol, (bySymbol.get(t.symbol) ?? 0) + netPnl(t));
     }
     let bestPair: string | null = null,
       worstPair: string | null = null,
@@ -574,7 +574,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
       (t) => t.status === "closed" && t.closed_at && new Date(t.closed_at).getTime() >= new Date(sinceIso).getTime(),
     );
     for (const t of todayClosed) {
-      todayBySymbol.set(t.symbol, (todayBySymbol.get(t.symbol) ?? 0) + Number(t.pnl ?? 0));
+      todayBySymbol.set(t.symbol, (todayBySymbol.get(t.symbol) ?? 0) + netPnl(t));
     }
     let todayBestPair: string | null = null,
       todayWorstPair: string | null = null,
@@ -675,7 +675,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
     for (const t of closedAll) {
       const cur = symbolAgg.get(t.symbol) ?? { trades: 0, pnl: 0 };
       cur.trades += 1;
-      cur.pnl += Number(t.pnl ?? 0);
+      cur.pnl += netPnl(t);
       symbolAgg.set(t.symbol, cur);
     }
     const losingSymbols = [...symbolAgg.entries()]
