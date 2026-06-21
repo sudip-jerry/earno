@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { netPnl } from "@/lib/fees";
 
 export type EquityPoint = { t: string; equity: number };
 
