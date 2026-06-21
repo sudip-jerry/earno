@@ -8,6 +8,7 @@ import { PositionsStrip } from "@/components/positions-strip";
 import { OpportunityCard } from "@/components/opportunity-card";
 import { useStrictness } from "@/hooks/use-strictness";
 import { useMarketMode } from "@/hooks/use-market-mode";
+import { CoinSignalsList, CoinPortfolioCard } from "@/components/coin-bot/coin-panels";
 import { toast } from "sonner";
 import { Radar, RefreshCw, HelpCircle, Filter } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -79,6 +80,31 @@ function ScannerPage() {
 
   const errorMsg = q.data && !q.data.ok ? q.data.error : null;
 
+
+  if (market === "spot") {
+    return (
+      <div className="min-h-svh bg-background pb-28">
+        <PositionsStrip />
+        <header className="px-5 pt-6 pb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Radar className="size-5 text-primary" />
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">Coin Scanner</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Live CoinDCX coins · paper buy/sell</p>
+            </div>
+          </div>
+          <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
+            <HelpCircle className="size-5 text-muted-foreground" />
+          </Link>
+        </header>
+        <div className="px-5 space-y-4">
+          <CoinPortfolioCard />
+          <CoinSignalsList />
+        </div>
+        <TabBar />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-svh bg-background pb-28">
