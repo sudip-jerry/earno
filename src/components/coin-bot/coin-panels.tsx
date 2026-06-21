@@ -130,11 +130,19 @@ export function CoinHoldingsCard() {
   );
 }
 
-export function CoinSignalsList({ headerRight }: { headerRight?: React.ReactNode } = {}) {
+export function CoinSignalsList({
+  headerRight, filterAction, query, limit, hideHeader, hideScan,
+}: {
+  headerRight?: React.ReactNode;
+  filterAction?: "all" | "buy" | "hold" | "wait" | "avoid" | "sell";
+  query?: string;
+  limit?: number;
+  hideHeader?: boolean;
+  hideScan?: boolean;
+} = {}) {
   const qc = useQueryClient();
   const { signals } = useCoinQueries();
   const buyFn = useServerFn(paperBuyCoin);
-  const sellFn = useServerFn(paperSellCoin);
   const scanFn = useServerFn(runCoinScan);
   const [whyOpen, setWhyOpen] = useState<string | null>(null);
 
