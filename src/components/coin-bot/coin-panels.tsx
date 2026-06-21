@@ -100,8 +100,8 @@ export function CoinHoldingsCard() {
           <tr>
             <th className="text-left px-3 py-2">Coin</th>
             <th className="text-right px-2 py-2">Qty</th>
-            <th className="text-right px-2 py-2">Avg</th>
-            <th className="text-right px-2 py-2">Now</th>
+            <th className="text-right px-2 py-2">Avg (USDT)</th>
+            <th className="text-right px-2 py-2">Now (USDT)</th>
             <th className="text-right px-2 py-2">PnL</th>
             <th className="px-2 py-2"></th>
           </tr>
