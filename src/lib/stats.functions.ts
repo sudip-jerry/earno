@@ -245,7 +245,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       const firstT = new Date(allRows[0].closed_at as string).getTime() - 1;
       points.push({ t: new Date(firstT).toISOString(), equity: running });
       for (const r of allRows) {
-        running += Number(r.pnl ?? 0);
+        running += netPnl(r);
         points.push({ t: String(r.closed_at), equity: running });
       }
       const target = 24;
