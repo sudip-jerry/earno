@@ -658,16 +658,18 @@ function UnitToggle({
 
 function ClosedSummary({ rows }: { rows: ClosedRow[] }) {
   const { fmt } = useCurrency();
-  const total = rows.reduce((a, r) => a + Number(r.pnl ?? 0), 0);
-  const wins = rows.filter((r) => Number(r.pnl ?? 0) > 0).length;
+  const total = rows.reduce((a, r) => a + netPnl(r), 0);
+  const fees = rows.reduce((a, r) => a + tradeFee(r), 0);
+  const wins = rows.filter((r) => netPnl(r) > 0).length;
   const winRate = rows.length ? (wins / rows.length) * 100 : 0;
   return (
     <div className="rounded-2xl border bg-card p-4 grid grid-cols-3 gap-3">
       <div>
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total PNL</p>
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Net PNL</p>
         <p className={`text-xl font-semibold tabular-nums mt-0.5 ${total >= 0 ? "text-emerald-500" : "text-destructive"}`}>
           {fmt(total, { signed: true })}
         </p>
+        <p className="text-[10px] text-muted-foreground mt-0.5">Fees {fmt(fees)}</p>
       </div>
       <div>
         <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Trades</p>
