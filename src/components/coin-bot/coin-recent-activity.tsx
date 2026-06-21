@@ -1,8 +1,9 @@
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { getCoinHoldings } from "@/lib/coin-bot/coin-bot.functions";
+import { useCurrency } from "@/hooks/use-currency";
 
-function fmt(n: number | null | undefined, d = 2) {
+function fmtPrice(n: number | null | undefined, d = 6) {
   if (n == null || !Number.isFinite(Number(n))) return "—";
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: d });
 }
@@ -18,6 +19,7 @@ function ago(iso: string | null): string {
 }
 
 export function CoinRecentActivity({ limit = 8 }: { limit?: number }) {
+  const { fmt } = useCurrency();
   const fn = useServerFn(getCoinHoldings);
   const q = useQuery({ queryKey: ["coin_holdings"], queryFn: () => fn(), refetchInterval: 20_000 });
   const closed = (q.data?.closed ?? []).slice(0, limit);
@@ -40,9 +42,9 @@ export function CoinRecentActivity({ limit = 8 }: { limit?: number }) {
                 </div>
                 <div className="text-right tabular-nums">
                   <div className={`text-sm font-semibold ${pos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                    {pos ? "+" : "−"}${fmt(Math.abs(pnl))}
+                    {fmt(pnl, { signed: true })}
                   </div>
-                  <div className="text-[10px] text-muted-foreground">@ {fmt(c.exit_price, 6)}</div>
+                  <div className="text-[10px] text-muted-foreground">@ {fmtPrice(c.exit_price)} USDT</div>
                 </div>
               </li>
             );
