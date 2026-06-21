@@ -14,6 +14,7 @@ import {
   type StylePreset,
 } from "@/lib/risk-engine";
 import { analyzeSymbol, HARD_SPREAD_BLOCK_PCT, ALGO_ID, ALGO_NAME, ALGO_VERSION, type SignalAnalysis } from "@/lib/signal-scoring.server";
+import { feeModelRates, DEFAULT_FEE_MODEL } from "@/lib/fees";
 
 
 const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
@@ -897,7 +898,7 @@ export async function runMarkPass(
   );
   const { data: cfgRows } = await supabase
     .from("bot_config")
-    .select("user_id,auto_close_minutes,trading_style,min_scalp_score")
+    .select("user_id,auto_close_minutes,trading_style,min_scalp_score,fee_aware_exits_enabled,minimum_net_profit_to_exit_pct,slippage_buffer_pct,minimum_gross_profit_before_profit_fade_exit_pct,minimum_gross_profit_before_weak_progress_exit_pct")
     .in("user_id", userIds);
   const cfgByUser = new Map((cfgRows ?? []).map((c) => [c.user_id as string, c]));
 
@@ -933,7 +934,16 @@ export async function runMarkPass(
     const breakevenMoved = Boolean(p.breakeven_moved);
 
     const cfgRow = cfgByUser.get(p.user_id as string) as
-      | { auto_close_minutes: number; trading_style?: string; min_scalp_score?: number }
+      | {
+          auto_close_minutes: number;
+          trading_style?: string;
+          min_scalp_score?: number;
+          fee_aware_exits_enabled?: boolean | null;
+          minimum_net_profit_to_exit_pct?: number | null;
+          slippage_buffer_pct?: number | null;
+          minimum_gross_profit_before_profit_fade_exit_pct?: number | null;
+          minimum_gross_profit_before_weak_progress_exit_pct?: number | null;
+        }
       | undefined;
     const autoCloseMinutes = Number(cfgRow?.auto_close_minutes ?? 120);
     const presetRaw = presetFromConfig({
@@ -1010,12 +1020,58 @@ export async function runMarkPass(
     const hitTimeExit =
       autoCloseMinutes > 0 && Number.isFinite(openedAt) && Date.now() - openedAt >= autoCloseMinutes * 60_000;
 
-    if (hitTp) finalExitReason = "take_profit";
-    else if (hitSl) finalExitReason = newBreakeven ? "breakeven_exit" : "stop_loss";
-    else if (hitTrail) finalExitReason = "trailing_exit";
-    else if (hitProfitFade) finalExitReason = "profit_fade_exit";
-    else if (weakNegative) finalExitReason = "weak_progress_time_exit";
-    else if (hitTimeExit) finalExitReason = "time_exit";
+    // Fee-aware exit evaluation (CoinDCX USDT futures: maker/taker + GST).
+    // grossPctPrice/netPctPrice are price-move %, not leveraged — thresholds in bot_config are in price terms.
+    const grossPctPrice = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul : 0;
+    const feeRates = feeModelRates(DEFAULT_FEE_MODEL);
+    const roundTripFeePct =
+      (feeRates.entry_fee_pct + feeRates.exit_fee_pct) * (1 + feeRates.gst_pct / 100);
+    const slippageBufferPct = Number(cfgRow?.slippage_buffer_pct ?? 0.05);
+    const fundingEstimatePct = 0; // CoinDCX 8h funding negligible per scan; reserved for future.
+    const netPctPrice = grossPctPrice - roundTripFeePct - slippageBufferPct - fundingEstimatePct;
+    const feeAwareEnabled = cfgRow?.fee_aware_exits_enabled !== false;
+    const minNetExitPct = Number(cfgRow?.minimum_net_profit_to_exit_pct ?? 0.18);
+    const minGrossFadePct = Number(cfgRow?.minimum_gross_profit_before_profit_fade_exit_pct ?? 0.30);
+    const minGrossWeakPct = Number(cfgRow?.minimum_gross_profit_before_weak_progress_exit_pct ?? 0.25);
+
+    // Notional-based fee/slippage estimates in USDT for storage.
+    const notionalEntry = qty * entry;
+    const notionalExit = qty * mark;
+    const estimatedTotalFee =
+      ((notionalEntry * feeRates.entry_fee_pct) / 100 +
+        (notionalExit * feeRates.exit_fee_pct) / 100) *
+      (1 + feeRates.gst_pct / 100);
+    const estimatedSlippage = (notionalExit * slippageBufferPct) / 100;
+    const estimatedNetPnl = pnl - estimatedTotalFee - estimatedSlippage;
+
+    let exitBlockedReason: string | null = null;
+    let originalExitReason: string | null = null;
+
+    if (hitTp) {
+      finalExitReason = "take_profit";
+    } else if (hitSl) {
+      finalExitReason = newBreakeven ? "breakeven_exit" : "stop_loss";
+    } else if (hitTrail) {
+      finalExitReason = "trailing_exit";
+    } else if (hitProfitFade) {
+      if (feeAwareEnabled && (grossPctPrice < minGrossFadePct || netPctPrice < minNetExitPct)) {
+        originalExitReason = "profit_fade_exit";
+        exitBlockedReason = "fee_blocked_profit_fade";
+      } else {
+        finalExitReason = "profit_fade_exit";
+      }
+    } else if (weakNegative) {
+      // Weak-progress: require net profit OR trend invalidation (mark beyond stop is already SL).
+      // Without an external trend-invalidation signal here, we only exit when net PnL clears the bar.
+      if (feeAwareEnabled && (grossPctPrice < minGrossWeakPct || netPctPrice < minNetExitPct)) {
+        originalExitReason = "weak_progress_time_exit";
+        exitBlockedReason = "fee_blocked_weak_progress";
+      } else {
+        finalExitReason = "weak_progress_time_exit";
+      }
+    } else if (hitTimeExit) {
+      finalExitReason = "time_exit";
+    }
 
     // ----- Apply update -----
     const baseUpdate: Record<string, unknown> = {
@@ -1059,9 +1115,16 @@ export async function runMarkPass(
         exit_price: mark,
         exit_reason: finalExitReason,
         final_exit_reason: finalExitReason,
+        original_exit_reason: finalExitReason,
         final_tp_hit: finalExitReason === "take_profit",
         pnl: combinedPnl,
         pnl_pct: combinedPnlPct,
+        gross_pnl: combinedPnl,
+        estimated_total_fee: estimatedTotalFee,
+        estimated_slippage: estimatedSlippage,
+        estimated_net_pnl: combinedPnl - estimatedTotalFee - estimatedSlippage,
+        exit_fee_aware: feeAwareEnabled,
+        exit_blocked_reason: null,
         closed_at: new Date().toISOString(),
       });
       const { error } = await supabase.from("positions").update(baseUpdate as never).eq("id", p.id as string);
@@ -1071,10 +1134,28 @@ export async function runMarkPass(
           supabase,
           p.user_id as string,
           "info",
-          `Auto-closed ${side.toUpperCase()} ${p.symbol} at ${mark} (${finalExitReason})`,
+          `Auto-closed ${side.toUpperCase()} ${p.symbol} at ${mark} (${finalExitReason}) net=${(combinedPnl - estimatedTotalFee - estimatedSlippage).toFixed(4)} fee=${estimatedTotalFee.toFixed(4)}`,
         );
       }
     } else {
+      Object.assign(baseUpdate, {
+        gross_pnl: pnl,
+        estimated_total_fee: estimatedTotalFee,
+        estimated_slippage: estimatedSlippage,
+        estimated_net_pnl: estimatedNetPnl,
+      });
+      if (exitBlockedReason) {
+        Object.assign(baseUpdate, {
+          exit_blocked_reason: exitBlockedReason,
+          original_exit_reason: originalExitReason,
+        });
+        await logEvent(
+          supabase,
+          p.user_id as string,
+          "info",
+          `Exit blocked (${exitBlockedReason}) ${side.toUpperCase()} ${p.symbol}: gross=${grossPctPrice.toFixed(3)}% net=${netPctPrice.toFixed(3)}% min=${minNetExitPct}%`,
+        );
+      }
       const { error } = await supabase.from("positions").update(baseUpdate as never).eq("id", p.id as string);
       if (!error) updated++;
     }
