@@ -746,9 +746,12 @@ function ClosedList({
                   {reasonLabel}
                 </span>
               </div>
-              <p className={`text-lg font-semibold tabular-nums ${up ? "text-emerald-500" : "text-destructive"}`}>
-                {fmt(pnl, { signed: true })}
-              </p>
+              <div className="text-right">
+                <p className={`text-lg font-semibold tabular-nums ${up ? "text-emerald-500" : "text-destructive"}`}>
+                  {fmt(pnl, { signed: true })}
+                </p>
+                <p className="text-[10px] text-muted-foreground">Fee {fmt(fee)}</p>
+              </div>
             </div>
             <div className="mt-2 grid grid-cols-4 gap-2 text-[11px]">
               <div>
