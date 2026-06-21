@@ -811,3 +811,9 @@ function CoinPositionsSection() {
     </div>
   );
 }
+
+function MarketAwarePositionsBody({ children }: { children: React.ReactNode }) {
+  const { market } = useMarketMode();
+  if (market === "spot") return null;
+  return <>{children}</>;
+}
