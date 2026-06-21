@@ -49,7 +49,32 @@ type Cfg = {
   allow_short: boolean;
   leverage: number;
   trading_style: string;
+  strategy: string | null;
 };
+
+export type BucketStats = {
+  bucket: "top_10" | "top_30" | "all_50";
+  trades: number;
+  grossPnl: number;
+  estimatedFees: number;
+  netPnl: number;
+  winRate: number;
+  profitFactor: number;
+  slCount: number;
+  tpCount: number;
+  avgHoldMinutes: number;
+  avgConfidence: number;
+};
+
+export type BucketComparison = {
+  strategy: string | null;
+  source: "auto" | "all"; // analysis cohort actually used
+  totalAutoBooked: number; // raw count of qualifying auto trades today (capped at 50)
+  top10: BucketStats;
+  top30: BucketStats;
+  all50: BucketStats;
+};
+
 
 export type TuneSuggestion = {
   key: string;
