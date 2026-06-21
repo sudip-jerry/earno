@@ -147,7 +147,7 @@ function PositionsPage() {
   return (
     <div className="min-h-svh bg-background pb-28">
       <PositionsStrip showMarketToggle={false} />
-      <CoinPositionsSection />
+      <MarketAwarePositionsBody>
       <header className="px-5 pt-6 pb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Briefcase className="size-5 text-primary" />
