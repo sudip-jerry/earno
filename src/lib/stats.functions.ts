@@ -166,19 +166,19 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     const allRows = closedAll ?? [];
     const allEvents = events ?? [];
 
-    const todayPnl = todayRows.reduce((a, r) => a + Number(r.pnl ?? 0), 0);
+    const todayPnl = todayRows.reduce((a, r) => a + netPnl(r), 0);
     const baselineEquity =
       mode === "live" ? Number(cfg?.live_allocation_amount ?? 0) : Number(cfg?.paper_equity ?? 1000);
     const equity = baselineEquity;
     const todayPnlPct = equity > 0 ? (todayPnl / equity) * 100 : 0;
     const tradesToday = todayRows.length;
 
-    const wins = allRows.filter((r) => Number(r.pnl ?? 0) > 0).length;
+    const wins = allRows.filter((r) => netPnl(r) > 0).length;
     const winRate = allRows.length ? wins / allRows.length : 0;
 
     let peak = 0, cum = 0, mdd = 0;
     for (const r of allRows) {
-      cum += Number(r.pnl ?? 0);
+      cum += netPnl(r);
       if (cum > peak) peak = cum;
       const dd = peak - cum;
       if (dd > mdd) mdd = dd;
@@ -189,11 +189,11 @@ export const getDashboardStats = createServerFn({ method: "GET" })
 
     let streak = 0;
     for (let i = allRows.length - 1; i >= 0; i--) {
-      if (Number(allRows[i].pnl ?? 0) < 0) streak++;
+      if (netPnl(allRows[i]) < 0) streak++;
       else break;
     }
 
-    const realizedPnlAllTime = allRows.reduce((a, r) => a + Number(r.pnl ?? 0), 0);
+    const realizedPnlAllTime = allRows.reduce((a, r) => a + netPnl(r), 0);
     const portfolioValue = equity + realizedPnlAllTime;
 
     const now = Date.now();
@@ -204,14 +204,14 @@ export const getDashboardStats = createServerFn({ method: "GET" })
 
     const monthlyGrowthAbs = allRows
       .filter((r) => r.closed_at && new Date(r.closed_at).getTime() >= cutoff30)
-      .reduce((a, r) => a + Number(r.pnl ?? 0), 0);
+      .reduce((a, r) => a + netPnl(r), 0);
     const realizedBefore30 = realizedPnlAllTime - monthlyGrowthAbs;
     const equity30 = equity + realizedBefore30;
     const monthlyGrowthPct = equity30 > 0 ? (monthlyGrowthAbs / equity30) * 100 : 0;
 
     const weekChangeAbs = allRows
       .filter((r) => r.closed_at && new Date(r.closed_at).getTime() >= cutoff7)
-      .reduce((a, r) => a + Number(r.pnl ?? 0), 0);
+      .reduce((a, r) => a + netPnl(r), 0);
     const realizedBefore7 = realizedPnlAllTime - weekChangeAbs;
     const equity7 = equity + realizedBefore7;
     const weekChangePct = equity7 > 0 ? (weekChangeAbs / equity7) * 100 : 0;
@@ -222,7 +222,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       const t = new Date(r.closed_at).getTime();
       if (t < cutoff30) continue;
       const key = new Date(t).toISOString().slice(0, 10);
-      dayMap.set(key, (dayMap.get(key) ?? 0) + Number(r.pnl ?? 0));
+      dayMap.set(key, (dayMap.get(key) ?? 0) + netPnl(r));
     }
     const tradingDays30d = dayMap.size;
     const winDays = [...dayMap.values()].filter((v) => v > 0).length;
