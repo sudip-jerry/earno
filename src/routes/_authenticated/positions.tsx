@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { closeManualTrade, updatePositionTpSl } from "@/lib/movers.functions";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import { useCurrency } from "@/hooks/use-currency";
 import { netPnl, tradeFee } from "@/lib/fees";
 import { toast } from "sonner";
 import { Briefcase, RefreshCw, HelpCircle, Pencil, Target, Shield, LineChart } from "lucide-react";
+import { useMarketMode } from "@/hooks/use-market-mode";
+import { CoinPortfolioCard, CoinHoldingsCard, CoinSignalsList } from "@/components/coin-bot/coin-panels";
 import { lazy, Suspense } from "react";
 const PositionChartSheet = lazy(() =>
   import("@/components/position-chart-sheet").then((m) => ({ default: m.PositionChartSheet })),
@@ -145,6 +147,7 @@ function PositionsPage() {
   return (
     <div className="min-h-svh bg-background pb-28">
       <PositionsStrip showMarketToggle={false} />
+      <MarketAwarePositionsBody>
       <header className="px-5 pt-6 pb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Briefcase className="size-5 text-primary" />
@@ -365,7 +368,8 @@ function PositionsPage() {
         />
       )}
 
-
+      </MarketAwarePositionsBody>
+      <CoinPositionsSection />
       <TabBar />
 
       {chartOpen ? (
@@ -792,3 +796,24 @@ function ClosedList({
   );
 }
 
+
+function CoinPositionsSection() {
+  const { market } = useMarketMode();
+  if (market !== "spot") return null;
+  return (
+    <div className="px-5 pt-4 space-y-4">
+      <CoinPortfolioCard />
+      <div>
+        <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">Coin holdings</div>
+        <CoinHoldingsCard />
+      </div>
+      <CoinSignalsList />
+    </div>
+  );
+}
+
+function MarketAwarePositionsBody({ children }: { children: ReactNode }) {
+  const { market } = useMarketMode();
+  if (market === "spot") return null;
+  return <>{children}</>;
+}
