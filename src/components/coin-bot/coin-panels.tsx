@@ -172,24 +172,34 @@ export function CoinSignalsList({
     },
   });
 
-  const sigs = (signals.data ?? []) as any[];
+  let sigs = (signals.data ?? []) as any[];
+  if (filterAction && filterAction !== "all") sigs = sigs.filter((s) => s.action === filterAction);
+  if (query && query.trim()) {
+    const q = query.trim().toLowerCase();
+    sigs = sigs.filter((s) => String(s.display ?? "").toLowerCase().includes(q) || String(s.symbol ?? "").toLowerCase().includes(q));
+  }
+  if (limit) sigs = sigs.slice(0, limit);
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between px-1">
-        <div className="text-xs uppercase tracking-wide text-muted-foreground">Live coin signals</div>
-        <div className="flex items-center gap-2">
-          {headerRight}
-          <Button size="sm" variant="outline" onClick={() => scan.mutate()} disabled={scan.isPending}>
-            <RefreshCw className={`size-3 mr-1 ${scan.isPending ? "animate-spin" : ""}`} />
-            Scan
-          </Button>
+      {!hideHeader && (
+        <div className="flex items-center justify-between px-1">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Live coin signals</div>
+          <div className="flex items-center gap-2">
+            {headerRight}
+            {!hideScan && (
+              <Button size="sm" variant="outline" onClick={() => scan.mutate()} disabled={scan.isPending}>
+                <RefreshCw className={`size-3 mr-1 ${scan.isPending ? "animate-spin" : ""}`} />
+                Scan
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {sigs.length === 0 ? (
         <div className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
-          No coin signals yet. Tap Scan to run on live CoinDCX data.
+          No coin signals match. Tap Scan to run on live CoinDCX data.
         </div>
       ) : (
         <ul className="space-y-2">
