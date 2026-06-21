@@ -610,7 +610,9 @@ export const getBetaReport = createServerFn({ method: "GET" })
         maxConsecutiveLosses: maxConsecLosses(closed),
         settings: cfgMap.get(p.id) ?? null,
         today: computeDayStats(trades, sinceIso),
+        buckets: computeBuckets(trades, sinceIso, cfgMap.get(p.id)?.strategy ?? null),
       };
+
       const stage: TesterReport["diagnosisStage"] =
         closed.length < 30 ? "none" : closed.length <= 50 ? "early" : "ready";
       const { diagnosis, suggestions } =
