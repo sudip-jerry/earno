@@ -196,6 +196,35 @@ function Home() {
     return s?.noTradeReason?.trim() || "Scanning markets calmly.";
   }, [isRunning, s, openCount]);
 
+  const { market } = useMarketMode();
+
+  if (market === "spot") {
+    return (
+      <div className="min-h-svh bg-background pb-28">
+        <header className="px-5 pt-5">
+          <div className="flex items-center gap-3">
+            <img src={earnoStacked.url} alt="earn'O" className="h-11 w-auto select-none" draggable={false} />
+            <div className="ml-auto flex items-center gap-1">
+              <MarketTogglePill />
+              <IconBtn ariaLabel="Settings" onClick={() => navigate({ to: "/settings" })}>
+                <Cog className="size-4" />
+              </IconBtn>
+            </div>
+          </div>
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            Coin paper bot · live CoinDCX market data · no real orders
+          </p>
+        </header>
+        <div className="px-5 mt-4 space-y-3">
+          <CoinPortfolioCard />
+          <CoinHoldingsCard />
+          <CoinSignalsList />
+        </div>
+        <TabBar />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-svh bg-background pb-28">
       {/* ===== TOP BAR — brand + ops controls ===== */}
