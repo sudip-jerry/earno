@@ -281,3 +281,90 @@ export const adminListEvents = createServerFn({ method: "GET" })
     return (rows ?? []).map((r) => ({ ...r, email: emailMap.get(r.user_id) ?? null }));
   });
 
+
+const editableCfgSchema = z.object({
+  is_running: z.boolean().optional(),
+  auto_book: z.boolean().optional(),
+  mode: z.enum(["paper", "live"]).optional(),
+  trading_style: z.enum(["conservative", "balanced", "aggressive"]).optional(),
+  allow_long: z.boolean().optional(),
+  allow_short: z.boolean().optional(),
+  leverage: z.number().int().min(1).max(50).optional(),
+  risk_per_trade_pct: z.number().min(0).max(100).optional(),
+  max_open_positions: z.number().int().min(0).max(50).optional(),
+  max_trades_per_day: z.number().int().min(0).max(1000).optional(),
+  cooldown_minutes: z.number().int().min(0).max(1440).optional(),
+  auto_close_minutes: z.number().int().min(0).max(1440).optional(),
+  daily_loss_cap_pct: z.number().min(0).max(100).optional(),
+  min_scalp_score: z.number().min(0).max(100).optional(),
+  auto_book_confidence_threshold: z.number().min(0).max(100).optional(),
+  display_confidence_threshold: z.number().min(0).max(100).optional(),
+  atr_multiplier: z.number().min(0).max(10).optional(),
+  target_multiplier: z.number().min(0).max(20).optional(),
+  min_rr: z.number().min(0).max(20).optional(),
+  min_sl_pct: z.number().min(0).max(50).optional(),
+  max_auto_sl_pct: z.number().min(0).max(50).optional(),
+  stop_loss_pct: z.number().min(0).max(50).optional(),
+  take_profit_pct: z.number().min(0).max(100).optional(),
+  move_to_breakeven: z.boolean().optional(),
+  trailing_enabled: z.boolean().optional(),
+  regime_filter_enabled: z.boolean().optional(),
+  symbol_blacklist_threshold: z.number().int().min(0).max(20).optional(),
+  symbol_sl_cooldown_minutes: z.number().int().min(0).max(10080).optional(),
+});
+
+export const adminGetUserConfig = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ userId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row, error } = await supabaseAdmin
+      .from("bot_config")
+      .select("*")
+      .eq("user_id", data.userId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
+export const adminUpdateUserConfig = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({ userId: z.string().uuid(), patch: editableCfgSchema }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    if (Object.keys(data.patch).length === 0) return { ok: true };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("bot_config")
+      .update({ ...data.patch, updated_at: new Date().toISOString() })
+      .eq("user_id", data.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminCopyUserConfig = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({ fromUserId: z.string().uuid(), toUserId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: src, error: e1 } = await supabaseAdmin
+      .from("bot_config")
+      .select("*")
+      .eq("user_id", data.fromUserId)
+      .maybeSingle();
+    if (e1) throw new Error(e1.message);
+    if (!src) throw new Error("Source user has no config");
+    const { user_id: _u, created_at: _c, updated_at: _up, ...patch } = src as Record<string, unknown>;
+    const { error: e2 } = await supabaseAdmin
+      .from("bot_config")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("user_id", data.toUserId);
+    if (e2) throw new Error(e2.message);
+    return { ok: true };
+  });
