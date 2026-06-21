@@ -1115,9 +1115,16 @@ export async function runMarkPass(
         exit_price: mark,
         exit_reason: finalExitReason,
         final_exit_reason: finalExitReason,
+        original_exit_reason: finalExitReason,
         final_tp_hit: finalExitReason === "take_profit",
         pnl: combinedPnl,
         pnl_pct: combinedPnlPct,
+        gross_pnl: combinedPnl,
+        estimated_total_fee: estimatedTotalFee,
+        estimated_slippage: estimatedSlippage,
+        estimated_net_pnl: combinedPnl - estimatedTotalFee - estimatedSlippage,
+        exit_fee_aware: feeAwareEnabled,
+        exit_blocked_reason: null,
         closed_at: new Date().toISOString(),
       });
       const { error } = await supabase.from("positions").update(baseUpdate as never).eq("id", p.id as string);
@@ -1127,10 +1134,28 @@ export async function runMarkPass(
           supabase,
           p.user_id as string,
           "info",
-          `Auto-closed ${side.toUpperCase()} ${p.symbol} at ${mark} (${finalExitReason})`,
+          `Auto-closed ${side.toUpperCase()} ${p.symbol} at ${mark} (${finalExitReason}) net=${(combinedPnl - estimatedTotalFee - estimatedSlippage).toFixed(4)} fee=${estimatedTotalFee.toFixed(4)}`,
         );
       }
     } else {
+      Object.assign(baseUpdate, {
+        gross_pnl: pnl,
+        estimated_total_fee: estimatedTotalFee,
+        estimated_slippage: estimatedSlippage,
+        estimated_net_pnl: estimatedNetPnl,
+      });
+      if (exitBlockedReason) {
+        Object.assign(baseUpdate, {
+          exit_blocked_reason: exitBlockedReason,
+          original_exit_reason: originalExitReason,
+        });
+        await logEvent(
+          supabase,
+          p.user_id as string,
+          "info",
+          `Exit blocked (${exitBlockedReason}) ${side.toUpperCase()} ${p.symbol}: gross=${grossPctPrice.toFixed(3)}% net=${netPctPrice.toFixed(3)}% min=${minNetExitPct}%`,
+        );
+      }
       const { error } = await supabase.from("positions").update(baseUpdate as never).eq("id", p.id as string);
       if (!error) updated++;
     }
