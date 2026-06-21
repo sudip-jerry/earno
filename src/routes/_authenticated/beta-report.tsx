@@ -15,7 +15,10 @@ import {
   type TesterReport,
   type TuneSuggestion,
   type TuningAction,
+  type BucketComparison,
+  type BucketStats,
 } from "@/lib/beta-report.functions";
+
 
 function downloadCsv(filename: string, csv: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
