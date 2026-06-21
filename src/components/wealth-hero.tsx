@@ -111,6 +111,28 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
         </p>
       </div>
 
+      {/* Transparent math: baseline + realized − fees = portfolio */}
+      {stats && (
+        <div className="mt-2 rounded-xl border bg-muted/30 px-3 py-2 text-[11px] tabular-nums space-y-0.5">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Starting capital</span>
+            <span>{hideBalance ? masked : fmt(stats.baselineEquity)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Realized PnL (gross)</span>
+            <span className={toneClass(stats.realizedPnlAllTime + stats.realizedFeesAllTime)}>
+              {hideBalance ? masked : fmt(stats.realizedPnlAllTime + stats.realizedFeesAllTime, { signed: true })}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Fees & GST ({stats.closedAllTime} trades)</span>
+            <span className="text-destructive">
+              {hideBalance ? masked : `−${fmt(stats.realizedFeesAllTime)}`}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Today / 7-day / 30-day */}
       {!hasHistory ? (
         <div className="mt-3 rounded-2xl border bg-card p-4 text-center">
@@ -126,6 +148,11 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
             value={hideBalance ? masked : (stats ? fmt(stats.todayPnl, { signed: true }) : "—")}
             pct={stats?.todayPnlPct}
             icon={<ArrowUpRight className="size-3" />}
+            sub={
+              stats && stats.tradesToday > 0 && !hideBalance
+                ? `${stats.tradesToday} trades · fees −${fmt(stats.todayFees)}`
+                : undefined
+            }
           />
           <WealthStat
             label="7-Day Change"
