@@ -23,6 +23,9 @@ import {
   adminListCoupons,
   adminListTrades,
   adminListEvents,
+  adminGetUserConfig,
+  adminUpdateUserConfig,
+  adminCopyUserConfig,
 } from "@/lib/plans.functions";
 
 import { PLAN_NAME, type PlanTier } from "@/lib/plans";
@@ -293,6 +296,11 @@ function AdminPage() {
                     )}
                   </div>
                 </div>
+                <UserConfigEditor
+                  userId={x.id}
+                  label={x.email ?? x.id.slice(0, 8)}
+                  allUsers={u}
+                />
               </div>
             );
           })}
@@ -414,3 +422,256 @@ function Tile({ label, value }: { label: string; value: string }) {
   );
 }
 
+
+type EditableCfg = {
+  is_running: boolean;
+  auto_book: boolean;
+  mode: "paper" | "live";
+  trading_style: "conservative" | "balanced" | "aggressive";
+  allow_long: boolean;
+  allow_short: boolean;
+  leverage: number;
+  risk_per_trade_pct: number;
+  max_open_positions: number;
+  max_trades_per_day: number;
+  cooldown_minutes: number;
+  auto_close_minutes: number;
+  daily_loss_cap_pct: number;
+  min_scalp_score: number;
+  auto_book_confidence_threshold: number;
+  display_confidence_threshold: number;
+  atr_multiplier: number;
+  target_multiplier: number;
+  min_rr: number;
+  min_sl_pct: number;
+  max_auto_sl_pct: number;
+  move_to_breakeven: boolean;
+  trailing_enabled: boolean;
+  regime_filter_enabled: boolean;
+  symbol_blacklist_threshold: number;
+  symbol_sl_cooldown_minutes: number;
+};
+
+const NUM_FIELDS: { key: keyof EditableCfg; label: string; step?: number }[] = [
+  { key: "leverage", label: "Leverage" },
+  { key: "risk_per_trade_pct", label: "Risk/trade %", step: 0.1 },
+  { key: "max_open_positions", label: "Max open" },
+  { key: "max_trades_per_day", label: "Max trades/day" },
+  { key: "cooldown_minutes", label: "Cooldown (min)" },
+  { key: "auto_close_minutes", label: "Auto-close (min)" },
+  { key: "daily_loss_cap_pct", label: "Daily loss cap %", step: 0.1 },
+  { key: "min_scalp_score", label: "Min scalp score" },
+  { key: "auto_book_confidence_threshold", label: "Auto-book conf %" },
+  { key: "display_confidence_threshold", label: "Display conf %" },
+  { key: "atr_multiplier", label: "ATR mult", step: 0.1 },
+  { key: "target_multiplier", label: "Target mult", step: 0.1 },
+  { key: "min_rr", label: "Min RR", step: 0.1 },
+  { key: "min_sl_pct", label: "Min SL %", step: 0.1 },
+  { key: "max_auto_sl_pct", label: "Max auto SL %", step: 0.1 },
+  { key: "symbol_blacklist_threshold", label: "Symbol blacklist N" },
+  { key: "symbol_sl_cooldown_minutes", label: "Symbol SL cooldown (min)" },
+];
+
+const BOOL_FIELDS: { key: keyof EditableCfg; label: string }[] = [
+  { key: "is_running", label: "Bot running" },
+  { key: "auto_book", label: "Auto-book" },
+  { key: "allow_long", label: "Allow longs" },
+  { key: "allow_short", label: "Allow shorts" },
+  { key: "move_to_breakeven", label: "Move to BE" },
+  { key: "trailing_enabled", label: "Trailing SL" },
+  { key: "regime_filter_enabled", label: "Regime filter" },
+];
+
+function UserConfigEditor({
+  userId,
+  label,
+  allUsers,
+}: {
+  userId: string;
+  label: string;
+  allUsers: { id: string; email: string | null }[];
+}) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [patch, setPatch] = useState<Partial<EditableCfg>>({});
+  const [copyFrom, setCopyFrom] = useState<string>("");
+  const getFn = useServerFn(adminGetUserConfig);
+  const updFn = useServerFn(adminUpdateUserConfig);
+  const copyFn = useServerFn(adminCopyUserConfig);
+
+  const cfg = useQuery({
+    queryKey: ["admin_user_cfg", userId],
+    queryFn: () => getFn({ data: { userId } }),
+    enabled: open,
+  });
+
+  const upd = useMutation({
+    mutationFn: (p: Partial<EditableCfg>) =>
+      updFn({ data: { userId, patch: p } }),
+    onSuccess: () => {
+      toast.success("Config saved");
+      setPatch({});
+      qc.invalidateQueries({ queryKey: ["admin_user_cfg", userId] });
+      qc.invalidateQueries({ queryKey: ["admin_users"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  const copy = useMutation({
+    mutationFn: (fromUserId: string) =>
+      copyFn({ data: { fromUserId, toUserId: userId } }),
+    onSuccess: () => {
+      toast.success("Config copied");
+      setCopyFrom("");
+      qc.invalidateQueries({ queryKey: ["admin_user_cfg", userId] });
+      qc.invalidateQueries({ queryKey: ["admin_users"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  const c = (cfg.data ?? {}) as Partial<EditableCfg>;
+  const get = <K extends keyof EditableCfg>(k: K): EditableCfg[K] | undefined =>
+    (patch[k] ?? c[k]) as EditableCfg[K] | undefined;
+  const setK = <K extends keyof EditableCfg>(k: K, v: EditableCfg[K]) =>
+    setPatch((p) => ({ ...p, [k]: v }));
+
+  return (
+    <div className="mt-2 border-t pt-2">
+      <button
+        type="button"
+        className="text-[11px] text-primary hover:underline"
+        onClick={() => setOpen((o) => !o)}
+      >
+        {open ? "Hide config ▴" : "Edit config ▾"}
+      </button>
+      {open && (
+        <div className="mt-2 space-y-3">
+          {cfg.isLoading ? (
+            <p className="text-xs text-muted-foreground">Loading…</p>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <Select value={copyFrom} onValueChange={setCopyFrom}>
+                  <SelectTrigger className="h-7 text-xs flex-1">
+                    <SelectValue placeholder="Copy config from…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allUsers
+                      .filter((o) => o.id !== userId)
+                      .map((o) => (
+                        <SelectItem key={o.id} value={o.id}>
+                          {o.email ?? o.id.slice(0, 8)}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="h-7 text-xs"
+                  disabled={!copyFrom || copy.isPending}
+                  onClick={() => copy.mutate(copyFrom)}
+                >
+                  Copy
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1">Mode</p>
+                  <Select
+                    value={(get("mode") ?? "paper") as string}
+                    onValueChange={(v) => setK("mode", v as EditableCfg["mode"])}
+                  >
+                    <SelectTrigger className="h-7 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="paper">Paper</SelectItem>
+                      <SelectItem value="live">Live</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1">Style</p>
+                  <Select
+                    value={(get("trading_style") ?? "balanced") as string}
+                    onValueChange={(v) =>
+                      setK("trading_style", v as EditableCfg["trading_style"])
+                    }
+                  >
+                    <SelectTrigger className="h-7 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="conservative">Conservative</SelectItem>
+                      <SelectItem value="balanced">Balanced</SelectItem>
+                      <SelectItem value="aggressive">Aggressive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {BOOL_FIELDS.map((f) => (
+                  <label
+                    key={f.key}
+                    className="flex items-center justify-between rounded-md border bg-background px-2 py-1.5 text-[11px]"
+                  >
+                    <span>{f.label}</span>
+                    <Switch
+                      checked={!!get(f.key)}
+                      onCheckedChange={(v) => setK(f.key, v as never)}
+                    />
+                  </label>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {NUM_FIELDS.map((f) => {
+                  const v = get(f.key);
+                  return (
+                    <label key={f.key} className="text-[11px]">
+                      <span className="text-muted-foreground">{f.label}</span>
+                      <Input
+                        type="number"
+                        step={f.step ?? 1}
+                        className="h-7 text-xs mt-0.5"
+                        value={v == null ? "" : String(v)}
+                        onChange={(e) => {
+                          const n = e.target.value === "" ? undefined : Number(e.target.value);
+                          if (n === undefined || Number.isNaN(n)) return;
+                          setK(f.key, n as never);
+                        }}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  disabled={Object.keys(patch).length === 0}
+                  onClick={() => setPatch({})}
+                >
+                  Discard
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-7 text-xs flex-1"
+                  disabled={Object.keys(patch).length === 0 || upd.isPending}
+                  onClick={() => upd.mutate(patch)}
+                >
+                  Save {Object.keys(patch).length > 0 ? `(${Object.keys(patch).length})` : ""} for {label.split("@")[0]}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
