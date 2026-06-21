@@ -368,7 +368,8 @@ function PositionsPage() {
         />
       )}
 
-
+      </MarketAwarePositionsBody>
+      <CoinPositionsSection />
       <TabBar />
 
       {chartOpen ? (
