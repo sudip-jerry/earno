@@ -37,41 +37,29 @@ export const redeemCoupon = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ code: z.string().trim().min(2).max(64) }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const code = data.code.toUpperCase();
-    const { data: c } = await supabaseAdmin
-      .from("coupons")
-      .select("*")
-      .eq("code", code)
-      .eq("active", true)
-      .maybeSingle();
-    if (!c) throw new Error("Invalid or inactive coupon");
-    if (c.valid_until && new Date(c.valid_until) < new Date()) throw new Error("Coupon expired");
-    if (c.max_uses != null && c.used_count >= c.max_uses)
-      throw new Error("Coupon fully redeemed");
-    const { data: prev } = await supabaseAdmin
-      .from("coupon_redemptions")
-      .select("id")
-      .eq("coupon_id", c.id)
-      .eq("user_id", context.userId)
-      .maybeSingle();
-    if (prev) throw new Error("You've already used this coupon");
-    const expires = new Date(Date.now() + c.duration_days * 86_400_000).toISOString();
-    await supabaseAdmin
-      .from("coupon_redemptions")
-      .insert({ coupon_id: c.id, user_id: context.userId });
-    await supabaseAdmin
-      .from("coupons")
-      .update({ used_count: c.used_count + 1 })
-      .eq("id", c.id);
-    await supabaseAdmin.from("user_plans").upsert({
-      user_id: context.userId,
-      tier: c.tier,
-      source: "coupon",
-      started_at: new Date().toISOString(),
-      expires_at: expires,
-      status: "active",
+    const { data: rows, error } = await supabaseAdmin.rpc("redeem_coupon_atomic", {
+      _code: data.code,
+      _user_id: context.userId,
     });
-    return { ok: true, tier: c.tier as PlanTier, expires_at: expires };
+    if (error) {
+      const msg = error.message || "";
+      const known = [
+        "Invalid or inactive coupon",
+        "Coupon expired",
+        "Coupon fully redeemed",
+        "You have already used this coupon",
+      ];
+      const match = known.find((k) => msg.includes(k));
+      if (match) throw new Error(match);
+      console.error("redeemCoupon failed", error);
+      throw new Error("Could not redeem coupon. Please try again.");
+    }
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    return {
+      ok: true,
+      tier: row?.tier as PlanTier,
+      expires_at: row?.expires_at as string,
+    };
   });
 
 export const adminListUsers = createServerFn({ method: "GET" })
