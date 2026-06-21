@@ -12,6 +12,8 @@ import { useCurrency } from "@/hooks/use-currency";
 import { netPnl, tradeFee } from "@/lib/fees";
 import { toast } from "sonner";
 import { Briefcase, RefreshCw, HelpCircle, Pencil, Target, Shield, LineChart } from "lucide-react";
+import { useMarketMode } from "@/hooks/use-market-mode";
+import { CoinPortfolioCard, CoinHoldingsCard, CoinSignalsList } from "@/components/coin-bot/coin-panels";
 import { lazy, Suspense } from "react";
 const PositionChartSheet = lazy(() =>
   import("@/components/position-chart-sheet").then((m) => ({ default: m.PositionChartSheet })),
