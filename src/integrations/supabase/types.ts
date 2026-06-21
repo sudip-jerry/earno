@@ -79,6 +79,7 @@ export type Database = {
           display_confidence_threshold: number
           ema_fast: number
           ema_slow: number
+          fee_aware_exits_enabled: boolean
           is_running: boolean
           leverage: number
           live_allocation_amount: number
@@ -91,6 +92,9 @@ export type Database = {
           min_rr: number
           min_scalp_score: number
           min_sl_pct: number
+          minimum_gross_profit_before_profit_fade_exit_pct: number
+          minimum_gross_profit_before_weak_progress_exit_pct: number
+          minimum_net_profit_to_exit_pct: number
           mode: string
           move_to_breakeven: boolean
           paper_equity: number
@@ -98,6 +102,7 @@ export type Database = {
           risk_per_trade_pct: number
           scan_interval_minutes: number
           scanner_top_n: number
+          slippage_buffer_pct: number
           stop_loss_pct: number
           strategy: string
           symbol_blacklist_threshold: number
@@ -124,6 +129,7 @@ export type Database = {
           display_confidence_threshold?: number
           ema_fast?: number
           ema_slow?: number
+          fee_aware_exits_enabled?: boolean
           is_running?: boolean
           leverage?: number
           live_allocation_amount?: number
@@ -136,6 +142,9 @@ export type Database = {
           min_rr?: number
           min_scalp_score?: number
           min_sl_pct?: number
+          minimum_gross_profit_before_profit_fade_exit_pct?: number
+          minimum_gross_profit_before_weak_progress_exit_pct?: number
+          minimum_net_profit_to_exit_pct?: number
           mode?: string
           move_to_breakeven?: boolean
           paper_equity?: number
@@ -143,6 +152,7 @@ export type Database = {
           risk_per_trade_pct?: number
           scan_interval_minutes?: number
           scanner_top_n?: number
+          slippage_buffer_pct?: number
           stop_loss_pct?: number
           strategy?: string
           symbol_blacklist_threshold?: number
@@ -169,6 +179,7 @@ export type Database = {
           display_confidence_threshold?: number
           ema_fast?: number
           ema_slow?: number
+          fee_aware_exits_enabled?: boolean
           is_running?: boolean
           leverage?: number
           live_allocation_amount?: number
@@ -181,6 +192,9 @@ export type Database = {
           min_rr?: number
           min_scalp_score?: number
           min_sl_pct?: number
+          minimum_gross_profit_before_profit_fade_exit_pct?: number
+          minimum_gross_profit_before_weak_progress_exit_pct?: number
+          minimum_net_profit_to_exit_pct?: number
           mode?: string
           move_to_breakeven?: boolean
           paper_equity?: number
@@ -188,6 +202,7 @@ export type Database = {
           risk_per_trade_pct?: number
           scan_interval_minutes?: number
           scanner_top_n?: number
+          slippage_buffer_pct?: number
           stop_loss_pct?: number
           strategy?: string
           symbol_blacklist_threshold?: number
@@ -496,7 +511,12 @@ export type Database = {
           distance_from_vwap_pct_at_entry: number | null
           entry_price: number
           entry_reason: string | null
+          estimated_net_pnl: number | null
+          estimated_slippage: number | null
+          estimated_total_fee: number | null
           exchange_order_id: string | null
+          exit_blocked_reason: string | null
+          exit_fee_aware: boolean | null
           exit_price: number | null
           exit_reason: string | null
           experiment_id: string | null
@@ -504,6 +524,7 @@ export type Database = {
           final_sl_pct: number | null
           final_tp_hit: boolean
           giveback_pct: number | null
+          gross_pnl: number | null
           highest_unrealized_pnl: number | null
           id: string
           instrument: string | null
@@ -517,6 +538,7 @@ export type Database = {
           max_favourable_excursion_pct: number | null
           mode: string
           opened_at: string
+          original_exit_reason: string | null
           peak_unrealized_pnl_pct: number | null
           pnl: number | null
           pnl_pct: number | null
@@ -567,7 +589,12 @@ export type Database = {
           distance_from_vwap_pct_at_entry?: number | null
           entry_price: number
           entry_reason?: string | null
+          estimated_net_pnl?: number | null
+          estimated_slippage?: number | null
+          estimated_total_fee?: number | null
           exchange_order_id?: string | null
+          exit_blocked_reason?: string | null
+          exit_fee_aware?: boolean | null
           exit_price?: number | null
           exit_reason?: string | null
           experiment_id?: string | null
@@ -575,6 +602,7 @@ export type Database = {
           final_sl_pct?: number | null
           final_tp_hit?: boolean
           giveback_pct?: number | null
+          gross_pnl?: number | null
           highest_unrealized_pnl?: number | null
           id?: string
           instrument?: string | null
@@ -588,6 +616,7 @@ export type Database = {
           max_favourable_excursion_pct?: number | null
           mode: string
           opened_at?: string
+          original_exit_reason?: string | null
           peak_unrealized_pnl_pct?: number | null
           pnl?: number | null
           pnl_pct?: number | null
@@ -638,7 +667,12 @@ export type Database = {
           distance_from_vwap_pct_at_entry?: number | null
           entry_price?: number
           entry_reason?: string | null
+          estimated_net_pnl?: number | null
+          estimated_slippage?: number | null
+          estimated_total_fee?: number | null
           exchange_order_id?: string | null
+          exit_blocked_reason?: string | null
+          exit_fee_aware?: boolean | null
           exit_price?: number | null
           exit_reason?: string | null
           experiment_id?: string | null
@@ -646,6 +680,7 @@ export type Database = {
           final_sl_pct?: number | null
           final_tp_hit?: boolean
           giveback_pct?: number | null
+          gross_pnl?: number | null
           highest_unrealized_pnl?: number | null
           id?: string
           instrument?: string | null
@@ -659,6 +694,7 @@ export type Database = {
           max_favourable_excursion_pct?: number | null
           mode?: string
           opened_at?: string
+          original_exit_reason?: string | null
           peak_unrealized_pnl_pct?: number | null
           pnl?: number | null
           pnl_pct?: number | null
