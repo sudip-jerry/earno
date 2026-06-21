@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { netPnl, computeFees } from "@/lib/fees";
+import { netPnl, computeFees, tradeFee } from "@/lib/fees";
+
 
 type AnySupa = { rpc: (...a: unknown[]) => Promise<{ data: unknown }> };
 
@@ -30,7 +31,11 @@ type Pos = {
   entry_price: number | null;
   exit_price: number | null;
   qty: number | null;
+  confidence_at_entry: number | null;
+  estimated_total_fee: number | null;
 };
+
+
 
 type Cfg = {
   user_id: string;
@@ -46,7 +51,32 @@ type Cfg = {
   allow_short: boolean;
   leverage: number;
   trading_style: string;
+  strategy: string | null;
 };
+
+export type BucketStats = {
+  bucket: "top_10" | "top_30" | "all_50";
+  trades: number;
+  grossPnl: number;
+  estimatedFees: number;
+  netPnl: number;
+  winRate: number;
+  profitFactor: number;
+  slCount: number;
+  tpCount: number;
+  avgHoldMinutes: number;
+  avgConfidence: number;
+};
+
+export type BucketComparison = {
+  strategy: string | null;
+  source: "auto" | "all"; // analysis cohort actually used
+  totalAutoBooked: number; // raw count of qualifying auto trades today (capped at 50)
+  top10: BucketStats;
+  top30: BucketStats;
+  all50: BucketStats;
+};
+
 
 export type TuneSuggestion = {
   key: string;
@@ -130,10 +160,12 @@ export type TesterReport = {
   maxConsecutiveLosses: number;
   settings: Cfg | null;
   today: DayStats;
+  buckets: BucketComparison;
   diagnosis: DiagnosisItem[];
   diagnosisStage: "none" | "early" | "ready";
   suggestions: TuneSuggestion[];
 };
+
 
 function emptyDay(): DayStats {
   return {
@@ -233,6 +265,96 @@ function maxConsecLosses(closed: Pos[]): number {
   }
   return best;
 }
+
+function emptyBucket(bucket: BucketStats["bucket"]): BucketStats {
+  return {
+    bucket,
+    trades: 0,
+    grossPnl: 0,
+    estimatedFees: 0,
+    netPnl: 0,
+    winRate: 0,
+    profitFactor: 0,
+    slCount: 0,
+    tpCount: 0,
+    avgHoldMinutes: 0,
+    avgConfidence: 0,
+  };
+}
+
+function bucketStats(trades: Pos[], bucket: BucketStats["bucket"]): BucketStats {
+  if (trades.length === 0) return emptyBucket(bucket);
+  const closed = trades.filter((t) => t.status === "closed");
+  let gross = 0, fees = 0, net = 0, wins = 0, gain = 0, loss = 0;
+  let sl = 0, tp = 0, holdMs = 0, holdN = 0, confSum = 0, confN = 0;
+  for (const t of trades) {
+    const conf = Number(t.confidence_at_entry ?? 0);
+    if (conf > 0) { confSum += conf; confN++; }
+  }
+  for (const t of closed) {
+    const grossPnl = Number(t.pnl ?? 0);
+    const fee = Number(t.estimated_total_fee ?? NaN);
+    const f = Number.isFinite(fee) ? fee : tradeFee(t);
+    const n = grossPnl - f;
+    gross += grossPnl; fees += f; net += n;
+    if (n > 0) { wins++; gain += n; } else if (n < 0) { loss += -n; }
+    const reason = t.final_exit_reason ?? t.exit_reason ?? "";
+    if (reason === "stop_loss") sl++;
+    if (reason === "take_profit" || t.tp1_hit) tp++;
+    if (t.closed_at) {
+      holdMs += new Date(t.closed_at).getTime() - new Date(t.opened_at).getTime();
+      holdN++;
+    }
+  }
+  return {
+    bucket,
+    trades: trades.length,
+    grossPnl: gross,
+    estimatedFees: fees,
+    netPnl: net,
+    winRate: closed.length ? (wins / closed.length) * 100 : 0,
+    profitFactor: loss === 0 ? (gain > 0 ? Infinity : 0) : gain / loss,
+    slCount: sl,
+    tpCount: tp,
+    avgHoldMinutes: holdN ? Math.round(holdMs / holdN / 60_000) : 0,
+    avgConfidence: confN ? confSum / confN : 0,
+  };
+}
+
+const MAX_PAPER_TRADES_PER_DAY = 50;
+
+function computeBuckets(
+  trades: Pos[],
+  sinceIso: string,
+  strategy: string | null,
+): BucketComparison {
+  const sinceMs = new Date(sinceIso).getTime();
+  // Auto-booked trades opened today, hard-capped at 50 per spec.
+  const isManual = (t: Pos) =>
+    t.source === "manual" ||
+    (t.final_exit_reason ?? "").startsWith("manual") ||
+    (t.exit_reason ?? "").startsWith("manual");
+  const todayAuto = trades.filter(
+    (t) => new Date(t.opened_at).getTime() >= sinceMs && !isManual(t),
+  );
+  // Highest-confidence first; tie-breaker by earliest opened_at.
+  const ranked = [...todayAuto].sort((a, b) => {
+    const ca = Number(a.confidence_at_entry ?? 0);
+    const cb = Number(b.confidence_at_entry ?? 0);
+    if (cb !== ca) return cb - ca;
+    return a.opened_at.localeCompare(b.opened_at);
+  });
+  const capped = ranked.slice(0, MAX_PAPER_TRADES_PER_DAY);
+  return {
+    strategy,
+    source: "auto",
+    totalAutoBooked: capped.length,
+    top10: bucketStats(capped.slice(0, 10), "top_10"),
+    top30: bucketStats(capped.slice(0, 30), "top_30"),
+    all50: bucketStats(capped, "all_50"),
+  };
+}
+
 
 function buildDiagnosis(
   r: Omit<TesterReport, "diagnosis" | "diagnosisStage" | "suggestions">,
@@ -411,7 +533,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
         supabaseAdmin
           .from("positions")
           .select(
-            "user_id,symbol,side,status,pnl,pnl_pct,exit_reason,final_exit_reason,tp1_hit,tp1_pnl,peak_unrealized_pnl_pct,manual_saved_pnl,manual_missed_pnl,source,opened_at,closed_at,entry_price,exit_price,qty",
+            "user_id,symbol,side,status,pnl,pnl_pct,exit_reason,final_exit_reason,tp1_hit,tp1_pnl,peak_unrealized_pnl_pct,manual_saved_pnl,manual_missed_pnl,source,opened_at,closed_at,entry_price,exit_price,qty,confidence_at_entry,estimated_total_fee",
           )
           .eq("mode", "paper")
           .order("opened_at", { ascending: false })
@@ -488,7 +610,9 @@ export const getBetaReport = createServerFn({ method: "GET" })
         maxConsecutiveLosses: maxConsecLosses(closed),
         settings: cfgMap.get(p.id) ?? null,
         today: computeDayStats(trades, sinceIso),
+        buckets: computeBuckets(trades, sinceIso, cfgMap.get(p.id)?.strategy ?? null),
       };
+
       const stage: TesterReport["diagnosisStage"] =
         closed.length < 30 ? "none" : closed.length <= 50 ? "early" : "ready";
       const { diagnosis, suggestions } =
