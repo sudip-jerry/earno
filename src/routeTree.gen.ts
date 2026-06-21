@@ -20,6 +20,7 @@ import { Route as AuthenticatedPrivacyRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPositionsRouteImport } from './routes/_authenticated/positions'
 import { Route as AuthenticatedMoversRouteImport } from './routes/_authenticated/movers'
 import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
+import { Route as AuthenticatedCoinBotRouteImport } from './routes/_authenticated/coin-bot'
 import { Route as AuthenticatedBotRouteImport } from './routes/_authenticated/bot'
 import { Route as AuthenticatedBetaReportRouteImport } from './routes/_authenticated/beta-report'
 import { Route as AuthenticatedAlgoConfigRouteImport } from './routes/_authenticated/algo-config'
@@ -82,6 +83,11 @@ const AuthenticatedHelpRoute = AuthenticatedHelpRouteImport.update({
   path: '/help',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCoinBotRoute = AuthenticatedCoinBotRouteImport.update({
+  id: '/coin-bot',
+  path: '/coin-bot',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedBotRoute = AuthenticatedBotRouteImport.update({
   id: '/bot',
   path: '/bot',
@@ -127,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/algo-config': typeof AuthenticatedAlgoConfigRoute
   '/beta-report': typeof AuthenticatedBetaReportRoute
   '/bot': typeof AuthenticatedBotRoute
+  '/coin-bot': typeof AuthenticatedCoinBotRoute
   '/help': typeof AuthenticatedHelpRoute
   '/movers': typeof AuthenticatedMoversRoute
   '/positions': typeof AuthenticatedPositionsRoute
@@ -145,6 +152,7 @@ export interface FileRoutesByTo {
   '/algo-config': typeof AuthenticatedAlgoConfigRoute
   '/beta-report': typeof AuthenticatedBetaReportRoute
   '/bot': typeof AuthenticatedBotRoute
+  '/coin-bot': typeof AuthenticatedCoinBotRoute
   '/help': typeof AuthenticatedHelpRoute
   '/movers': typeof AuthenticatedMoversRoute
   '/positions': typeof AuthenticatedPositionsRoute
@@ -166,6 +174,7 @@ export interface FileRoutesById {
   '/_authenticated/algo-config': typeof AuthenticatedAlgoConfigRoute
   '/_authenticated/beta-report': typeof AuthenticatedBetaReportRoute
   '/_authenticated/bot': typeof AuthenticatedBotRoute
+  '/_authenticated/coin-bot': typeof AuthenticatedCoinBotRoute
   '/_authenticated/help': typeof AuthenticatedHelpRoute
   '/_authenticated/movers': typeof AuthenticatedMoversRoute
   '/_authenticated/positions': typeof AuthenticatedPositionsRoute
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/algo-config'
     | '/beta-report'
     | '/bot'
+    | '/coin-bot'
     | '/help'
     | '/movers'
     | '/positions'
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
     | '/algo-config'
     | '/beta-report'
     | '/bot'
+    | '/coin-bot'
     | '/help'
     | '/movers'
     | '/positions'
@@ -226,6 +237,7 @@ export interface FileRouteTypes {
     | '/_authenticated/algo-config'
     | '/_authenticated/beta-report'
     | '/_authenticated/bot'
+    | '/_authenticated/coin-bot'
     | '/_authenticated/help'
     | '/_authenticated/movers'
     | '/_authenticated/positions'
@@ -325,6 +337,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHelpRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/coin-bot': {
+      id: '/_authenticated/coin-bot'
+      path: '/coin-bot'
+      fullPath: '/coin-bot'
+      preLoaderRoute: typeof AuthenticatedCoinBotRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/bot': {
       id: '/_authenticated/bot'
       path: '/bot'
@@ -383,6 +402,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlgoConfigRoute: typeof AuthenticatedAlgoConfigRoute
   AuthenticatedBetaReportRoute: typeof AuthenticatedBetaReportRoute
   AuthenticatedBotRoute: typeof AuthenticatedBotRoute
+  AuthenticatedCoinBotRoute: typeof AuthenticatedCoinBotRoute
   AuthenticatedHelpRoute: typeof AuthenticatedHelpRoute
   AuthenticatedMoversRoute: typeof AuthenticatedMoversRoute
   AuthenticatedPositionsRoute: typeof AuthenticatedPositionsRoute
@@ -400,6 +420,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAlgoConfigRoute: AuthenticatedAlgoConfigRoute,
   AuthenticatedBetaReportRoute: AuthenticatedBetaReportRoute,
   AuthenticatedBotRoute: AuthenticatedBotRoute,
+  AuthenticatedCoinBotRoute: AuthenticatedCoinBotRoute,
   AuthenticatedHelpRoute: AuthenticatedHelpRoute,
   AuthenticatedMoversRoute: AuthenticatedMoversRoute,
   AuthenticatedPositionsRoute: AuthenticatedPositionsRoute,
@@ -423,13 +444,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -389,6 +389,192 @@ export type Database = {
         }
         Relationships: []
       }
+      coin_bot_config: {
+        Row: {
+          allocated_capital_usdt: number
+          available_cash_usdt: number
+          created_at: string
+          enabled: boolean
+          max_holding_days: number
+          max_holdings: number
+          min_confidence: number
+          mode: string
+          scan_interval_min: number
+          universe_size: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allocated_capital_usdt?: number
+          available_cash_usdt?: number
+          created_at?: string
+          enabled?: boolean
+          max_holding_days?: number
+          max_holdings?: number
+          min_confidence?: number
+          mode?: string
+          scan_interval_min?: number
+          universe_size?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allocated_capital_usdt?: number
+          available_cash_usdt?: number
+          created_at?: string
+          enabled?: boolean
+          max_holding_days?: number
+          max_holdings?: number
+          min_confidence?: number
+          mode?: string
+          scan_interval_min?: number
+          universe_size?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      coin_positions: {
+        Row: {
+          avg_buy_price: number
+          closed_at: string | null
+          created_at: string
+          current_value_usdt: number | null
+          display: string
+          exit_price: number | null
+          exit_reason: string | null
+          id: string
+          invested_usdt: number
+          last_price: number | null
+          max_holding_until: string | null
+          mode: string
+          notes: string | null
+          open_reason: string | null
+          opened_at: string
+          qty: number
+          realized_pnl_usdt: number | null
+          source: string
+          status: string
+          stop_price: number | null
+          symbol: string
+          target_price: number | null
+          unrealized_pnl_usdt: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avg_buy_price: number
+          closed_at?: string | null
+          created_at?: string
+          current_value_usdt?: number | null
+          display: string
+          exit_price?: number | null
+          exit_reason?: string | null
+          id?: string
+          invested_usdt: number
+          last_price?: number | null
+          max_holding_until?: string | null
+          mode?: string
+          notes?: string | null
+          open_reason?: string | null
+          opened_at?: string
+          qty: number
+          realized_pnl_usdt?: number | null
+          source?: string
+          status?: string
+          stop_price?: number | null
+          symbol: string
+          target_price?: number | null
+          unrealized_pnl_usdt?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avg_buy_price?: number
+          closed_at?: string | null
+          created_at?: string
+          current_value_usdt?: number | null
+          display?: string
+          exit_price?: number | null
+          exit_reason?: string | null
+          id?: string
+          invested_usdt?: number
+          last_price?: number | null
+          max_holding_until?: string | null
+          mode?: string
+          notes?: string | null
+          open_reason?: string | null
+          opened_at?: string
+          qty?: number
+          realized_pnl_usdt?: number | null
+          source?: string
+          status?: string
+          stop_price?: number | null
+          symbol?: string
+          target_price?: number | null
+          unrealized_pnl_usdt?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      coin_signals: {
+        Row: {
+          action: string
+          buy_zone_high: number | null
+          buy_zone_low: number | null
+          confidence: number
+          created_at: string
+          display: string
+          id: string
+          mode: string
+          price: number
+          reason_detail: Json
+          reason_short: string
+          status: string
+          stop: number | null
+          symbol: string
+          target: number | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          buy_zone_high?: number | null
+          buy_zone_low?: number | null
+          confidence?: number
+          created_at?: string
+          display: string
+          id?: string
+          mode?: string
+          price: number
+          reason_detail?: Json
+          reason_short?: string
+          status?: string
+          stop?: number | null
+          symbol: string
+          target?: number | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          buy_zone_high?: number | null
+          buy_zone_low?: number | null
+          confidence?: number
+          created_at?: string
+          display?: string
+          id?: string
+          mode?: string
+          price?: number
+          reason_detail?: Json
+          reason_short?: string
+          status?: string
+          stop?: number | null
+          symbol?: string
+          target?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       coupon_redemptions: {
         Row: {
           coupon_id: string
