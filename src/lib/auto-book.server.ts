@@ -897,7 +897,7 @@ export async function runMarkPass(
   );
   const { data: cfgRows } = await supabase
     .from("bot_config")
-    .select("user_id,auto_close_minutes,trading_style,min_scalp_score")
+    .select("user_id,auto_close_minutes,trading_style,min_scalp_score,fee_aware_exits_enabled,minimum_net_profit_to_exit_pct,slippage_buffer_pct,minimum_gross_profit_before_profit_fade_exit_pct,minimum_gross_profit_before_weak_progress_exit_pct")
     .in("user_id", userIds);
   const cfgByUser = new Map((cfgRows ?? []).map((c) => [c.user_id as string, c]));
 
