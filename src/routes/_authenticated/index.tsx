@@ -55,6 +55,10 @@ import {
 import { toast } from "sonner";
 import { useMarketMode, type MarketMode } from "@/hooks/use-market-mode";
 import { CoinPortfolioCard, CoinHoldingsCard, CoinSignalsList } from "@/components/coin-bot/coin-panels";
+import { CoinHero } from "@/components/coin-bot/coin-hero";
+import { CoinKpiStrip } from "@/components/coin-bot/coin-kpi-strip";
+import { CoinBotHealth } from "@/components/coin-bot/coin-bot-health";
+import { CoinRecentActivity } from "@/components/coin-bot/coin-recent-activity";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -215,10 +219,22 @@ function Home() {
             Coin paper bot · live CoinDCX market data · no real orders
           </p>
         </header>
-        <div className="px-5 mt-4 space-y-3">
-          <CoinPortfolioCard />
-          <CoinHoldingsCard />
-          <CoinSignalsList />
+        <div className="px-5 mt-4 space-y-4">
+          <CoinHero />
+          <CoinKpiStrip />
+          <CoinBotHealth />
+          <section>
+            <div className="px-1 pb-2 flex items-center justify-between">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Top signals</div>
+              <Link to="/scanner" className="text-[11px] font-medium text-primary">See all →</Link>
+            </div>
+            <CoinSignalsList hideHeader limit={5} />
+          </section>
+          <section>
+            <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">Holdings</div>
+            <CoinHoldingsCard />
+          </section>
+          <CoinRecentActivity />
         </div>
         <TabBar />
       </div>
