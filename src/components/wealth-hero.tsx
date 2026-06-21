@@ -242,7 +242,7 @@ export function PerformanceHistoryCard({ stats }: { stats?: DashboardStats }) {
 }
 
 function WealthStat({
-  label, value, pct, icon, plain, tone,
+  label, value, pct, icon, plain, tone, sub,
 }: {
   label: string;
   value: string;
@@ -250,6 +250,7 @@ function WealthStat({
   icon?: React.ReactNode;
   plain?: boolean;
   tone?: "positive" | "negative";
+  sub?: string;
 }) {
   const t = plain
     ? (tone === "positive" ? "text-emerald-500" : tone === "negative" ? "text-destructive" : "text-foreground")
@@ -268,6 +269,7 @@ function WealthStat({
           {pctStr(pct)}
         </span>
       )}
+      {sub && <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">{sub}</p>}
     </div>
   );
 }
