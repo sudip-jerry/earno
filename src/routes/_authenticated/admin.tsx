@@ -296,6 +296,11 @@ function AdminPage() {
                     )}
                   </div>
                 </div>
+                <UserConfigEditor
+                  userId={x.id}
+                  label={x.email ?? x.id.slice(0, 8)}
+                  allUsers={u}
+                />
               </div>
             );
           })}
