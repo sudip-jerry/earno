@@ -220,9 +220,9 @@ export function CoinSignalsList({
                 </Button>
               </div>
               <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] text-muted-foreground">
-                <div>Price <span className="text-foreground">{fmt(s.price, 6)}</span></div>
-                <div>Target <span className="text-foreground">{fmt(s.target, 6)}</span></div>
-                <div>Stop <span className="text-foreground">{fmt(s.stop, 6)}</span></div>
+                <div>Price <span className="text-foreground">{fmt(s.price, 6)}</span> <span className="text-[9px]">USDT</span></div>
+                <div>Target <span className="text-foreground">{fmt(s.target, 6)}</span> <span className="text-[9px]">USDT</span></div>
+                <div>Stop <span className="text-foreground">{fmt(s.stop, 6)}</span> <span className="text-[9px]">USDT</span></div>
               </div>
               <div className="mt-1 text-xs">{s.reason_short}</div>
               {whyOpen === s.id && s.reason_detail?.pills && (
