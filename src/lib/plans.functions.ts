@@ -191,7 +191,7 @@ export const adminCreateCoupon = createServerFn({ method: "POST" })
       max_uses: data.maxUses ?? null,
       created_by: context.userId,
     });
-    if (error) throw new Error(error.message);
+    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
     return { ok: true };
   });
 
@@ -312,7 +312,7 @@ export const adminGetUserConfig = createServerFn({ method: "GET" })
       .select("*")
       .eq("user_id", data.userId)
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
     return row;
   });
 
@@ -329,7 +329,7 @@ export const adminUpdateUserConfig = createServerFn({ method: "POST" })
       .from("bot_config")
       .update({ ...data.patch, updated_at: new Date().toISOString() })
       .eq("user_id", data.userId);
-    if (error) throw new Error(error.message);
+    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
     return { ok: true };
   });
 
