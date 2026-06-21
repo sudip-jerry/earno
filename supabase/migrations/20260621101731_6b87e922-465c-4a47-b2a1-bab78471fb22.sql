@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "users insert own order" ON public.payment_orders;
