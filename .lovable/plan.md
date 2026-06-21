@@ -1,119 +1,112 @@
 ## Goal
 
-Improve automated exits and dashboard attribution by mirroring profitable manual-exit behaviour. Entry engine, scanner, Trading Style UI, Strictness UI, user flow, final TP formula, and SL formula are unchanged (SL only moves to breakeven after TP1).
+Add a second, parallel paper-trading engine — **Coin Paper Bot** — alongside the existing **Futures Paper Bot**, without touching the futures algo, futures routes, futures scripts, or futures tables unless strictly required. Both engines use real CoinDCX public market data only. No live orders, no API keys, no dummy prices.
 
-## Scope of change (files)
+## Scope rules
 
-- DB migration (one): extend `positions` and `bot_config_audit` use only — no new versioning columns.
-- `src/lib/risk-engine.ts` — add TP1 %, trail %, profit-fade, weak-progress thresholds per Trading Style preset. Pure functions.
-- `src/lib/auto-book.server.ts` — populate TP1 + trail + tracking fields on open; new mark-pass behaviour (TP1 partial → breakeven SL, trailing, profit-fade, weak-progress, MFE/MAE).
-- `src/lib/auto-book.server.ts` — add style-aware execution caps + rolling symbol cooldown + market regime guard at book-decision time.
-- `src/lib/bot.functions.ts` (manual close path) — snapshot MFE/MAE/peak/giveback at manual close and tag `exit_reason='manual'`.
-- `src/lib/beta-report.functions.ts` — new aggregation fields for the dashboard split.
-- `src/lib/recommendations.functions.ts` — guardrails + dedupe + anti-thrash check against `bot_config_audit`.
-- `src/routes/_authenticated/beta-report.tsx` (or whichever dashboard panel renders PnL) — render the new split safely with null-safe fallbacks.
-- No changes to scanner, entry engine, Trading Style UI, Strictness UI.
+- Do NOT modify `auto-book.server.ts` futures logic, futures fee model, futures exit logic, or `positions` table schema beyond adding a single nullable `market_kind` column to distinguish futures vs coin rows (or use a new table — see Decision A).
+- Do NOT touch existing futures routes (`/positions`, `/scanner`, `/bot`, `/beta-report`) except for additive UI: market-type filter pill in scanner, split sections in portfolio.
+- No emoji icons anywhere. Use professional status pills.
+- Branding tokens applied via `src/styles.css` semantic CSS variables, not hardcoded hex in components.
 
-## DB migration
+## Decision A — storage shape
 
-Single migration, additive only. All columns nullable so old rows keep working.
+Use a **separate `coin_positions` table** rather than overloading `positions`. Reason: futures rows have leverage/margin/TP-SL-price columns that are meaningless for coin holdings; mixing them risks breaking the futures algo's queries. Keeps blast radius zero on the futures side.
 
-`positions` adds:
-- `tp1_price numeric`, `tp1_pct numeric`
-- `tp1_hit boolean default false`, `tp1_hit_at timestamptz`, `tp1_pnl numeric`
-- `tp1_qty_closed numeric` (simulated half), `remaining_qty numeric`
-- `breakeven_moved boolean default false`
-- `trail_pct numeric`, `trail_anchor_price numeric` (best price seen post-TP1)
-- `final_tp_hit boolean default false`
-- `final_exit_reason text` (one of `take_profit | stop_loss | time_exit | trailing_exit | profit_fade_exit | breakeven_exit | manual | weak_progress_time_exit`)
-- `peak_unrealized_pnl_pct numeric`, `giveback_pct numeric`
-- `max_favourable_excursion_pct numeric`, `max_adverse_excursion_pct numeric`
-- `highest_unrealized_pnl numeric`, `lowest_unrealized_pnl numeric`
-- `weak_progress boolean default false`, `weak_progress_marked_at timestamptz`
-- `manual_saved_pnl numeric`, `manual_missed_pnl numeric`, `shadow_exit_reason text`, `shadow_exit_pnl numeric`, `shadow_closed_at timestamptz`
+New tables (with GRANTs + RLS per project rules):
 
-No new columns on `bot_config`. Style-aware caps + cooldowns are derived from existing `trading_style` + strictness (no schema churn); `max_open_positions`, `risk_per_trade_pct`, `daily_loss_cap_pct` already exist and remain user-tunable overrides.
+- `coin_bot_config` — per user: enabled, mode (`intraday` | `swing`), allocated_capital_usdt, available_cash_usdt, max_holdings, min_confidence, scan_interval_min, max_holding_days
+- `coin_positions` — id, user_id, symbol, display, qty, avg_buy_price, last_price, status (`open`|`closed`), opened_at, closed_at, realized_pnl_usdt, unrealized_pnl_usdt, exit_reason, mode, target_price, stop_price, max_holding_until, notes
+- `coin_signals` — id, user_id, symbol, action (`buy`|`sell`|`hold`|`wait`|`avoid`), confidence, price, buy_zone_low, buy_zone_high, target, stop, reason_short, reason_detail (jsonb), created_at, mode
 
-Audit/version tracking continues via existing `bot_config_audit` trigger — no `algo_version` field.
+## Decision B — signal source
 
-## Style presets (added to `risk-engine.ts`)
+Reuse `src/services/coindcxPublicApi.ts` (`fetchFuturesTickers` + `fetchCandles`). Coin universe = all `B-*_USDT` tickers from the same public board (CoinDCX exposes spot via futures-mirrored symbols on the public endpoint we already use). For each candidate, fetch 1m/5m/30m candles via `fetchMultiTimeframe` and score with a coin-mode scorer that ignores leverage/funding.
 
-Extend `StylePreset` with: `tp1Pct`, `trailPct`, `profitFadeMinPct=0.6`, `profitFadeGivebackPct=0.4`, `weakProgressMinPct=0.3`, `weakProgressWindowMin=60`, plus execution caps `maxTradesPerDay`, `maxSameDirPerDay`, `maxTradesPerSymbolPerDay`, `lossesBeforeSymbolCooldown`, `symbolCooldownHours`.
+## Files to add
 
-```text
-                 tp1   trail  trades/d  sameDir  /sym  losses→cd  cd-hrs
-Conservative    0.55   0.30      9         5      2       2         6
-Balanced        0.70   0.42     15         8      3       2-3      4-6
-Aggressive      0.90   0.62     25        12      4       3        3-4
+```
+src/lib/coin-bot/
+  scorer.ts                 # pure: candles → {action, confidence, target, stop, reason}
+  engine.server.ts          # privileged scan + open/close paper trades (service role, called from cron)
+  coin-bot.functions.ts     # createServerFn: getCoinPortfolio, getCoinSignals, getCoinHoldings,
+                            #                  paperBuy, paperSell, getCoinConfig, updateCoinConfig
+src/routes/_authenticated/
+  coin-bot.tsx              # Coin Bot screen: signals list + holdings table + config drawer
+src/routes/api/public/hooks/
+  coin-scan.ts              # cron-callable: runs engine.server.ts scan for all enabled users
+src/components/coin-bot/
+  signal-card.tsx
+  holdings-table.tsx
+  why-coin-panel.tsx
+src/hooks/use-market-type.ts # filter state for scanner: 'futures' | 'coin' | 'all'
+supabase/migrations/<ts>_coin_bot.sql
 ```
 
-Strictness shifts caps:
-- less → upper end, moderate → middle, strict → lower end (and stricter min-score). Strictness is read from the existing `useStrictness` preset on the client and mirrored server-side via the value persisted in `bot_config.min_scalp_score` mapping (no schema change).
+## Files to edit (additive only)
 
-If ATR-derived TP exists for a setup, use `max(tp1Pct, atrTp1Equivalent)`.
+- `src/routes/_authenticated/positions.tsx` — split into **Total / Futures / Coin** summary cards. Futures section reads existing data unchanged; Coin section reads new server fns.
+- `src/routes/_authenticated/scanner.tsx` — add market-type pill (Futures / Coin / All). Futures path unchanged; Coin path renders coin signals.
+- `src/routes/_authenticated/route.tsx` (or tab bar) — add **Coin Bot** tab.
+- `src/components/tab-bar.tsx` — add Coin Bot entry.
+- `src/styles.css` — add brand tokens: `--brand-black #0B0B0B`, `--brand-blue #0D1B3D`, `--brand-blue-accent #1E3A8A`, `--brand-gray #F1F3F6`. Map to semantic tokens; do not hardcode in components.
+- `src/integrations/supabase/types.ts` — regenerated after migration.
 
-## Auto-book changes (open phase, `auto-book.server.ts`)
+## Coin Bot scoring (engine)
 
-When opening a paper trade:
-1. Compute TP1 from preset (or ATR equivalent), persist `tp1_price`, `tp1_pct`, `remaining_qty = qty`, `tp1_qty_closed = 0`, `trail_pct` from preset.
-2. Pre-trade gates (in this order, all reuse existing data):
-   - Market regime guard (new): compute `market_regime` from BTC 1h EMA slope + RSI buckets already fetched in the scanner pass; block shorts in strong_bullish unless confidence ≥ 90 & reversal pattern flag; symmetric for strong_bearish/longs. Bullish/bearish require stricter confirmation (+5 conf, +1 confluence). Persist `market_regime`, `shorts_allowed_reason`, `longs_allowed_reason` on the resulting `bot_signals` row; increment a `trades_blocked_by_regime` counter in the per-user event log.
-   - Style-aware caps: count today's positions (UTC day) for user — total, same-direction, per-symbol — and reject when over preset cap.
-   - Rolling symbol cooldown: query last 24h closed positions for `(user, symbol)`; apply cooldown windows above; 4+ losses & 0 wins → 24h cooldown.
-3. All other entry logic unchanged.
+Pure function over 1m/5m/30m candles + 24h change. Outputs one of:
 
-## Mark-pass changes (`runMarkPass`)
+- `buy` — 5m + 30m EMA trending up, RSI 50–70, volume > 1.5x avg, confidence ≥ min
+- `sell` — open holding hit target / stop / 5m trend break / momentum fade / max holding reached / better-opportunity rotation
+- `hold` — open holding, trend intact, no exit trigger
+- `wait` — setup forming, confidence below threshold
+- `avoid` — downtrend, low volume, or wide spread
 
-Per open position, in order:
-1. Compute `pnl`, `pnlPct` (existing).
-2. Update MFE/MAE: `max_favourable_excursion_pct = max(prev, pnlPct)`, `max_adverse_excursion_pct = min(prev, pnlPct)`; same for `highest_unrealized_pnl` / `lowest_unrealized_pnl`; `peak_unrealized_pnl_pct = max(prev, pnlPct)`; `giveback_pct = peak - pnlPct` when `peak ≥ profitFadeMinPct`.
-3. TP1: if not `tp1_hit` and price crossed `tp1_price`:
-   - Set `tp1_hit=true`, `tp1_hit_at`, `tp1_pnl = pnlPct * (qty/2)` (simulated 50% close — one row remains visible).
-   - Set `tp1_qty_closed = qty/2`, `remaining_qty = qty/2`.
-   - Move `stop_loss = entry_price` (breakeven), `breakeven_moved=true`. SL formula otherwise unchanged.
-   - Initialize `trail_anchor_price = mark`.
-4. Post-TP1 trailing: update `trail_anchor_price` to best favourable mark; if mark retraces by `trail_pct` from anchor → close remaining, `final_exit_reason='trailing_exit'`.
-5. Profit-fade: if `peak_unrealized_pnl_pct ≥ 0.6` and `giveback_pct/peak ≥ 0.4` → close remaining, `final_exit_reason='profit_fade_exit'`.
-6. Final TP (existing formula): on hit → `final_tp_hit=true`, `final_exit_reason='take_profit'`.
-7. SL (existing formula, possibly moved to breakeven): on hit → `final_exit_reason= breakeven_exit if breakeven_moved else stop_loss`.
-8. Weak-progress: if `opened_at` age in 45–60 min window and `peak_unrealized_pnl_pct < 0.3` → set `weak_progress=true`, `weak_progress_marked_at`. Do NOT force SL. After flag, tighten trail to `trail_pct/2` and shorten `auto_close_minutes` effective ceiling to `min(existing, age + 30m)`; if momentum turns negative (mark crosses below entry post-flag for long, opposite for short) → `final_exit_reason='weak_progress_time_exit'`.
-9. PnL on closed trades reflects TP1 leg + remaining-leg pnl: `pnl_pct = tp1_pnl + (exit_pnl_pct * remaining_qty/qty)`. `pnl` recomputed from leg pnls. Verified by unit-style check in the validation step.
+No 12-min / 180-min force close. Exit only on listed triggers.
 
-All transitions guarded so no double-exit (`if status!='open' return`; idempotent on `tp1_hit`).
+## Modes
 
-## Manual exits (`bot.functions.ts`)
+- **Intraday Coin Mode**: scan every 3 min, prefer short-term momentum, allow overnight carry if trend valid.
+- **Swing Coin Mode**: scan every 15 min, hold across days, exit only on signal/stop/target/trend break. `max_holding_days` default 7.
 
-On user-initiated close:
-- Snapshot `peak_unrealized_pnl_pct`, MFE/MAE at exit, set `exit_reason='manual'`, `source='manual'` on positions row (already exists).
-- Spawn a lightweight shadow tracker: persist `shadow_exit_*` later via mark-pass continuing to read the row even when closed-manually — implemented by NOT updating `status` for shadow; instead the mark-pass also picks rows where `exit_reason='manual' AND shadow_exit_reason IS NULL AND closed_at > now()-24h` and simulates what would have happened (TP1/TP/SL/trail/fade/time) until one fires. Result stored in `shadow_exit_*`, plus `manual_saved_pnl = manual_pnl - shadow_pnl` (when manual better) and `manual_missed_pnl = shadow_pnl - manual_pnl` (when shadow better).
+## Cron
 
-## Dashboard (`beta-report.functions.ts` + panel)
+New row via `supabase--insert` (NOT migration, per project rules) calling `/api/public/hooks/coin-scan` every 3 minutes. Handler verifies `CRON_SECRET`, iterates enabled coin-bot users, calls engine for each.
 
-Add aggregations (computed in the existing report function, null-safe with `COALESCE(...,0)`):
-`total_pnl, bot_exit_pnl, manual_exit_pnl, manual_saved_pnl, manual_missed_pnl, take_profit_pnl, tp1_pnl, stop_loss_pnl, time_exit_pnl, trailing_exit_pnl, profit_fade_exit_pnl, breakeven_exit_pnl, manual_exit_count, bot_exit_count, tp1_hit_rate, final_tp_hit_rate, sl_after_positive_count` (count of closed losers where `peak_unrealized_pnl_pct > 0.3`).
+## Portfolio page layout
 
-Render in the existing dashboard panel as a new "Exit attribution" sub-grid. Old rows with null new fields fall back to current `exit_reason`/`pnl` only.
+```text
+[ Total Portfolio ]
+  total value | virtual cash | realized | unrealized | today | open | closed | drawdown
 
-## Recommendation engine (`recommendations.functions.ts`)
+[ Futures Paper Bot ]            [ Coin Paper Bot ]
+  allocated / available / margin   allocated / cash / holdings value
+  open positions                   active holdings count
+  realized / unrealized            realized / unrealized
+  trades today                     best / worst coin
+```
 
-- Whitelist of actions: symbol cooldown, direction guard, risk reduction, max-open-position guard, kill switch, regime-based short/long restriction. All other automated mutations disabled.
-- Each card payload: `{ problem, affected, evidence, action, configDiff, willNotChange, whySafe, blockedByAntiThrash }`.
-- Dedupe: group candidate recommendations by `(user_id, field)` per cycle, keep highest-priority only.
-- Anti-thrash (read `bot_config_audit`):
-  - Skip if same `(user_id, field)` changed in last 24h.
-  - Skip risk-up / cap-up / cooldown-down if user's last 24h realized PnL < 0.
-  - Risk-up additionally requires 24h profit factor > 1.2 and trade count ≥ 20.
-  - Skip confidence-down on losing day.
-  - Log each skipped recommendation with reason for the admin panel.
+Each section links to its dedicated screen (Futures → `/positions` existing, Coin → `/coin-bot`).
 
-## Validation
+## Coin Bot screen
 
-After migration + code edits:
-1. `bun run build` / typecheck (auto by harness).
-2. Targeted vitest cases (add under `src/services/__tests__/`): TP1 split pnl math, breakeven activation, trailing exit, profit-fade trigger at peak 1.0% → 0.6%, weak-progress flag at 60 min, MFE/MAE monotonicity, market-regime block of shorts in strong_bullish, style cap rejection, anti-thrash skip path.
-3. Manual smoke via `/api/public/hooks/mark-positions` POST against a seeded paper trade.
-4. Dashboard renders for a user whose trades have all-null new fields.
+- **Signals list** — cards: coin, action pill, confidence %, current price, buy zone, target, stop, holding status, short reason, [Paper Buy] [Paper Sell] [Why?]
+- **Holdings table** — coin, qty, avg buy, current, value, unrealized PnL, realized PnL, holding duration, bot action (Hold/Sell/Add), exit reason if sold
+- **Why panel** — status pills only (Trend / Momentum / Volume / Spread / Risk), no emoji, no raw numbers on main UI
 
-## Explicitly out of scope
+## Scanner update
 
-No new mode, no copilot/autopilot split, no `algo_version` column, no scanner change, no entry change, no UI flow change, no change to final TP or SL formulas (other than the breakeven move after TP1).
+Single filter pill row at top: `[Futures] [Coin] [All]`. Default = Futures (preserves current behavior). Coin tab renders coin signals from `getCoinSignals`. UI shows Action / Confidence / Reason / Status / Risk only — technicals stay inside Why.
+
+## What stays unchanged
+
+- All futures algo files: `auto-book.server.ts`, `signal-scoring.server.ts`, `fees.ts`, `beta-report.functions.ts`, futures cron `mark-positions.ts` and `auto-book.ts` hooks, `positions` table.
+- Existing paper futures engine `paperTradingEngine.ts`.
+
+## Open questions before implementing
+
+1. **Coin Bot starting virtual capital** — default to **5,000 USDT** allocated, separate from futures wallet? Or share one virtual wallet split by allocation slider?
+2. **Coin universe size** — scan all ~150 `B-*_USDT` symbols every cycle, or top 50 by 24h volume? (Smaller = faster, fewer public-API calls.)
+3. **Should the Coin Bot tab be visible to all users immediately, or gated behind a feature flag / plan tier like the futures bot is?**
+
+If you confirm sensible defaults (5000 USDT, top 50 by volume, visible to all authenticated users) I'll proceed.
