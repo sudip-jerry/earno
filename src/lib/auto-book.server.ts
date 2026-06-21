@@ -652,20 +652,7 @@ export async function runAutoBookPass(
       } else if (remainingToday - opened <= 0) {
         rejection = "Daily auto-book limit reached";
         final = "skip";
-      } else if (opened + longTodayCount + shortTodayCount >= preset.maxTradesPerDay) {
-        rejection = `Style cap: max ${preset.maxTradesPerDay} trades/day (${preset.key})`;
-        final = "skip";
-      } else if (
-        (a.side_bias === "long" ? longTodayCount + sameDirOpenedThisPass.long : shortTodayCount + sameDirOpenedThisPass.short) >= preset.maxSameDirPerDay
-      ) {
-        rejection = `Style cap: max ${preset.maxSameDirPerDay} ${a.side_bias} trades/day`;
-        final = "skip";
-      } else if (
-        ((perSymbolTodayCount.get(sym) ?? 0) + (symbolOpenedThisPass.get(sym) ?? 0)) >=
-        preset.maxTradesPerSymbolPerDay
-      ) {
-        rejection = `Style cap: max ${preset.maxTradesPerSymbolPerDay} trades/symbol/day`;
-        final = "skip";
+      // Style trades/day, same-direction, and per-symbol/day hardcaps removed for now.
       } else if (openSlot <= 0) {
         rejection = "Max open positions reached";
         final = "skip";
