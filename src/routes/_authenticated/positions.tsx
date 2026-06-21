@@ -716,7 +716,8 @@ function ClosedList({
   return (
     <ul className="px-5 mt-3 space-y-2">
       {rows.map((p) => {
-        const pnl = Number(p.pnl ?? 0);
+        const pnl = netPnl(p);
+        const fee = tradeFee(p);
         const up = pnl >= 0;
         const sideCls =
           p.side === "long" ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive";
