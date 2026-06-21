@@ -416,6 +416,10 @@ function TesterCard({
         </div>
       </div>
 
+      <BucketComparisonBlock buckets={t.buckets} />
+
+
+
 
       {t.settings && (
         <div className="mt-3 rounded-lg border bg-muted/40 p-2 text-[11px] text-muted-foreground">
