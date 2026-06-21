@@ -1190,6 +1190,8 @@ export const exportAllTradesCsv = createServerFn({ method: "GET" })
         exit_reason: t.exit_reason ?? "",
         pnl: t.pnl ?? "",
         pnl_pct: t.pnl_pct ?? "",
+        fee_paid: t.status === "closed" ? Number(tradeFee(t).toFixed(6)) : "",
+        net_pnl: t.status === "closed" ? Number(netPnl(t).toFixed(6)) : "",
         exchange_order_id: t.exchange_order_id ?? "",
         opened_at: t.opened_at,
         closed_at: t.closed_at ?? "",
