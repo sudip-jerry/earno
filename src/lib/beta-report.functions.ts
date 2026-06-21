@@ -158,10 +158,12 @@ export type TesterReport = {
   maxConsecutiveLosses: number;
   settings: Cfg | null;
   today: DayStats;
+  buckets: BucketComparison;
   diagnosis: DiagnosisItem[];
   diagnosisStage: "none" | "early" | "ready";
   suggestions: TuneSuggestion[];
 };
+
 
 function emptyDay(): DayStats {
   return {
