@@ -31,7 +31,9 @@ type Pos = {
   entry_price: number | null;
   exit_price: number | null;
   qty: number | null;
+  confidence_at_entry: number | null;
 };
+
 
 type Cfg = {
   user_id: string;
