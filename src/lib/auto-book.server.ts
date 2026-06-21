@@ -591,9 +591,8 @@ export async function runAutoBookPass(
       } else if (a.side_bias === "long" && cfg.allow_long === false) {
         rejection = "Longs disabled in config";
         final = "skip";
-      } else if ((lossCountBySymbol.get(sym) ?? 0) >= blacklistThreshold) {
-        rejection = `Symbol blacklisted (${lossCountBySymbol.get(sym)} losses in 24h)`;
-        final = "skip";
+      // Loss-based symbol blacklist removed — only delisted symbols (filtered
+      // upstream by the market list) remain excluded.
       } else if (cooldownActive) {
         rejection = "Cooldown active";
         final = "skip";
