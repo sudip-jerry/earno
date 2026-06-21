@@ -1020,12 +1020,58 @@ export async function runMarkPass(
     const hitTimeExit =
       autoCloseMinutes > 0 && Number.isFinite(openedAt) && Date.now() - openedAt >= autoCloseMinutes * 60_000;
 
-    if (hitTp) finalExitReason = "take_profit";
-    else if (hitSl) finalExitReason = newBreakeven ? "breakeven_exit" : "stop_loss";
-    else if (hitTrail) finalExitReason = "trailing_exit";
-    else if (hitProfitFade) finalExitReason = "profit_fade_exit";
-    else if (weakNegative) finalExitReason = "weak_progress_time_exit";
-    else if (hitTimeExit) finalExitReason = "time_exit";
+    // Fee-aware exit evaluation (CoinDCX USDT futures: maker/taker + GST).
+    // grossPctPrice/netPctPrice are price-move %, not leveraged — thresholds in bot_config are in price terms.
+    const grossPctPrice = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul : 0;
+    const feeRates = feeModelRates(DEFAULT_FEE_MODEL);
+    const roundTripFeePct =
+      (feeRates.entry_fee_pct + feeRates.exit_fee_pct) * (1 + feeRates.gst_pct / 100);
+    const slippageBufferPct = Number(cfgRow?.slippage_buffer_pct ?? 0.05);
+    const fundingEstimatePct = 0; // CoinDCX 8h funding negligible per scan; reserved for future.
+    const netPctPrice = grossPctPrice - roundTripFeePct - slippageBufferPct - fundingEstimatePct;
+    const feeAwareEnabled = cfgRow?.fee_aware_exits_enabled !== false;
+    const minNetExitPct = Number(cfgRow?.minimum_net_profit_to_exit_pct ?? 0.18);
+    const minGrossFadePct = Number(cfgRow?.minimum_gross_profit_before_profit_fade_exit_pct ?? 0.30);
+    const minGrossWeakPct = Number(cfgRow?.minimum_gross_profit_before_weak_progress_exit_pct ?? 0.25);
+
+    // Notional-based fee/slippage estimates in USDT for storage.
+    const notionalEntry = qty * entry;
+    const notionalExit = qty * mark;
+    const estimatedTotalFee =
+      ((notionalEntry * feeRates.entry_fee_pct) / 100 +
+        (notionalExit * feeRates.exit_fee_pct) / 100) *
+      (1 + feeRates.gst_pct / 100);
+    const estimatedSlippage = (notionalExit * slippageBufferPct) / 100;
+    const estimatedNetPnl = pnl - estimatedTotalFee - estimatedSlippage;
+
+    let exitBlockedReason: string | null = null;
+    let originalExitReason: string | null = null;
+
+    if (hitTp) {
+      finalExitReason = "take_profit";
+    } else if (hitSl) {
+      finalExitReason = newBreakeven ? "breakeven_exit" : "stop_loss";
+    } else if (hitTrail) {
+      finalExitReason = "trailing_exit";
+    } else if (hitProfitFade) {
+      if (feeAwareEnabled && (grossPctPrice < minGrossFadePct || netPctPrice < minNetExitPct)) {
+        originalExitReason = "profit_fade_exit";
+        exitBlockedReason = "fee_blocked_profit_fade";
+      } else {
+        finalExitReason = "profit_fade_exit";
+      }
+    } else if (weakNegative) {
+      // Weak-progress: require net profit OR trend invalidation (mark beyond stop is already SL).
+      // Without an external trend-invalidation signal here, we only exit when net PnL clears the bar.
+      if (feeAwareEnabled && (grossPctPrice < minGrossWeakPct || netPctPrice < minNetExitPct)) {
+        originalExitReason = "weak_progress_time_exit";
+        exitBlockedReason = "fee_blocked_weak_progress";
+      } else {
+        finalExitReason = "weak_progress_time_exit";
+      }
+    } else if (hitTimeExit) {
+      finalExitReason = "time_exit";
+    }
 
     // ----- Apply update -----
     const baseUpdate: Record<string, unknown> = {
