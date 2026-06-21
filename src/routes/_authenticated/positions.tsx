@@ -9,6 +9,7 @@ import { TabBar } from "@/components/tab-bar";
 import { PositionsStrip } from "@/components/positions-strip";
 import { useLivePrices } from "@/hooks/use-live-prices";
 import { useCurrency } from "@/hooks/use-currency";
+import { netPnl, tradeFee } from "@/lib/fees";
 import { toast } from "sonner";
 import { Briefcase, RefreshCw, HelpCircle, Pencil, Target, Shield, LineChart } from "lucide-react";
 import { lazy, Suspense } from "react";
