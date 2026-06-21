@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { netPnl, computeFees } from "@/lib/fees";
+import { netPnl, computeFees, tradeFee } from "@/lib/fees";
+
 
 type AnySupa = { rpc: (...a: unknown[]) => Promise<{ data: unknown }> };
 
