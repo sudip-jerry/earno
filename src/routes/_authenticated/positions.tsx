@@ -14,6 +14,10 @@ import { toast } from "sonner";
 import { Briefcase, RefreshCw, HelpCircle, Pencil, Target, Shield, LineChart } from "lucide-react";
 import { useMarketMode } from "@/hooks/use-market-mode";
 import { CoinPortfolioCard, CoinHoldingsCard, CoinSignalsList } from "@/components/coin-bot/coin-panels";
+import { CoinHero } from "@/components/coin-bot/coin-hero";
+import { CoinKpiStrip } from "@/components/coin-bot/coin-kpi-strip";
+import { CoinBotHealth } from "@/components/coin-bot/coin-bot-health";
+import { CoinRecentActivity } from "@/components/coin-bot/coin-recent-activity";
 import { lazy, Suspense } from "react";
 const PositionChartSheet = lazy(() =>
   import("@/components/position-chart-sheet").then((m) => ({ default: m.PositionChartSheet })),
@@ -802,12 +806,15 @@ function CoinPositionsSection() {
   if (market !== "spot") return null;
   return (
     <div className="px-5 pt-4 space-y-4">
-      <CoinPortfolioCard />
+      <CoinHero />
+      <CoinKpiStrip />
+      <CoinBotHealth />
       <div>
         <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">Coin holdings</div>
         <CoinHoldingsCard />
       </div>
-      <CoinSignalsList />
+      <CoinRecentActivity />
+      <CoinSignalsList limit={10} />
     </div>
   );
 }

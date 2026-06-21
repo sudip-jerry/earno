@@ -188,3 +188,32 @@ function ScannerPage() {
     </div>
   );
 }
+
+function CoinScannerView() {
+  const [filter, setFilter] = useState<CoinFilter>("all");
+  const [query, setQuery] = useState("");
+  return (
+    <div className="min-h-svh bg-background pb-28">
+      <PositionsStrip />
+      <header className="px-5 pt-6 pb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Radar className="size-5 text-primary" />
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Coin Scanner</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Live CoinDCX coins · paper buy/sell</p>
+          </div>
+        </div>
+        <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
+          <HelpCircle className="size-5 text-muted-foreground" />
+        </Link>
+      </header>
+      <div className="px-5 space-y-4">
+        <CoinHero />
+        <CoinKpiStrip />
+        <CoinScannerToolbar filter={filter} onFilter={setFilter} query={query} onQuery={setQuery} />
+        <CoinSignalsList hideHeader filterAction={filter} query={query} />
+      </div>
+      <TabBar />
+    </div>
+  );
+}
