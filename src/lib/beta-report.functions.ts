@@ -1192,6 +1192,15 @@ export const exportAllTradesCsv = createServerFn({ method: "GET" })
         hold_minutes:
           opened && closed ? Math.round((closed - opened) / 60_000) : "",
         updated_at: t.updated_at,
+        sl_floor_applied: t.sl_floor_applied ?? "",
+        calculated_sl_pct: t.calculated_sl_pct ?? "",
+        final_sl_pct: t.final_sl_pct ?? "",
+        atr_multiplier_used: t.atr_multiplier_used ?? "",
+        sl_floor_experiment_version: t.sl_floor_experiment_version ?? "",
+        auto_close_minutes_used: t.auto_close_minutes_used ?? "",
+        auto_close_reason: t.auto_close_reason ?? "",
+        auto_close_experiment_version: t.auto_close_experiment_version ?? "",
+        experiment_id: t.experiment_id ?? "",
       };
     });
 

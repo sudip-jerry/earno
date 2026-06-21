@@ -483,7 +483,12 @@ export type Database = {
           algo_id: string | null
           algo_name: string | null
           algo_version: string | null
+          atr_multiplier_used: number | null
+          auto_close_experiment_version: string | null
+          auto_close_minutes_used: number | null
+          auto_close_reason: string | null
           breakeven_moved: boolean
+          calculated_sl_pct: number | null
           closed_at: string | null
           confidence_at_entry: number | null
           confidence_band_at_entry: string | null
@@ -494,7 +499,9 @@ export type Database = {
           exchange_order_id: string | null
           exit_price: number | null
           exit_reason: string | null
+          experiment_id: string | null
           final_exit_reason: string | null
+          final_sl_pct: number | null
           final_tp_hit: boolean
           giveback_pct: number | null
           highest_unrealized_pnl: number | null
@@ -521,6 +528,8 @@ export type Database = {
           shadow_exit_reason: string | null
           side: string
           signal_id: string | null
+          sl_floor_applied: boolean | null
+          sl_floor_experiment_version: string | null
           source: string
           spread_pct_at_entry: number | null
           status: string
@@ -545,7 +554,12 @@ export type Database = {
           algo_id?: string | null
           algo_name?: string | null
           algo_version?: string | null
+          atr_multiplier_used?: number | null
+          auto_close_experiment_version?: string | null
+          auto_close_minutes_used?: number | null
+          auto_close_reason?: string | null
           breakeven_moved?: boolean
+          calculated_sl_pct?: number | null
           closed_at?: string | null
           confidence_at_entry?: number | null
           confidence_band_at_entry?: string | null
@@ -556,7 +570,9 @@ export type Database = {
           exchange_order_id?: string | null
           exit_price?: number | null
           exit_reason?: string | null
+          experiment_id?: string | null
           final_exit_reason?: string | null
+          final_sl_pct?: number | null
           final_tp_hit?: boolean
           giveback_pct?: number | null
           highest_unrealized_pnl?: number | null
@@ -583,6 +599,8 @@ export type Database = {
           shadow_exit_reason?: string | null
           side: string
           signal_id?: string | null
+          sl_floor_applied?: boolean | null
+          sl_floor_experiment_version?: string | null
           source?: string
           spread_pct_at_entry?: number | null
           status?: string
@@ -607,7 +625,12 @@ export type Database = {
           algo_id?: string | null
           algo_name?: string | null
           algo_version?: string | null
+          atr_multiplier_used?: number | null
+          auto_close_experiment_version?: string | null
+          auto_close_minutes_used?: number | null
+          auto_close_reason?: string | null
           breakeven_moved?: boolean
+          calculated_sl_pct?: number | null
           closed_at?: string | null
           confidence_at_entry?: number | null
           confidence_band_at_entry?: string | null
@@ -618,7 +641,9 @@ export type Database = {
           exchange_order_id?: string | null
           exit_price?: number | null
           exit_reason?: string | null
+          experiment_id?: string | null
           final_exit_reason?: string | null
+          final_sl_pct?: number | null
           final_tp_hit?: boolean
           giveback_pct?: number | null
           highest_unrealized_pnl?: number | null
@@ -645,6 +670,8 @@ export type Database = {
           shadow_exit_reason?: string | null
           side?: string
           signal_id?: string | null
+          sl_floor_applied?: boolean | null
+          sl_floor_experiment_version?: string | null
           source?: string
           spread_pct_at_entry?: number | null
           status?: string
