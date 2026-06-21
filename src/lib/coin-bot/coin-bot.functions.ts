@@ -62,13 +62,16 @@ export const updateCoinConfig = createServerFn({ method: "POST" })
   .inputValidator((d: Partial<Omit<CoinConfigRow, "user_id">>) => d)
   .handler(async ({ data, context }) => {
     await ensureConfig(context);
-    const patch: Record<string, unknown> = {};
-    for (const k of [
-      "enabled","mode","allocated_capital_usdt","available_cash_usdt",
-      "max_holdings","min_confidence","scan_interval_min","max_holding_days","universe_size",
-    ] as const) {
-      if (data[k] !== undefined) patch[k] = data[k];
-    }
+    const patch: Partial<Omit<CoinConfigRow, "user_id">> = {};
+    if (data.enabled !== undefined) patch.enabled = data.enabled;
+    if (data.mode !== undefined) patch.mode = data.mode;
+    if (data.allocated_capital_usdt !== undefined) patch.allocated_capital_usdt = data.allocated_capital_usdt;
+    if (data.available_cash_usdt !== undefined) patch.available_cash_usdt = data.available_cash_usdt;
+    if (data.max_holdings !== undefined) patch.max_holdings = data.max_holdings;
+    if (data.min_confidence !== undefined) patch.min_confidence = data.min_confidence;
+    if (data.scan_interval_min !== undefined) patch.scan_interval_min = data.scan_interval_min;
+    if (data.max_holding_days !== undefined) patch.max_holding_days = data.max_holding_days;
+    if (data.universe_size !== undefined) patch.universe_size = data.universe_size;
     if (Object.keys(patch).length) {
       await context.supabase.from("coin_bot_config").update(patch).eq("user_id", context.userId);
     }
