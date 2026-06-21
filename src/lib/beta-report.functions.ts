@@ -32,7 +32,9 @@ type Pos = {
   exit_price: number | null;
   qty: number | null;
   confidence_at_entry: number | null;
+  estimated_total_fee: number | null;
 };
+
 
 
 type Cfg = {
