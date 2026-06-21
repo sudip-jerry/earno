@@ -27,6 +27,9 @@ type Pos = {
   source: string | null;
   opened_at: string;
   closed_at: string | null;
+  entry_price: number | null;
+  exit_price: number | null;
+  qty: number | null;
 };
 
 type Cfg = {
