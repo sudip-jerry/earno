@@ -795,3 +795,18 @@ function ClosedList({
   );
 }
 
+
+function CoinPositionsSection() {
+  const { market } = useMarketMode();
+  if (market !== "spot") return null;
+  return (
+    <div className="px-5 pt-4 space-y-4">
+      <CoinPortfolioCard />
+      <div>
+        <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">Coin holdings</div>
+        <CoinHoldingsCard />
+      </div>
+      <CoinSignalsList />
+    </div>
+  );
+}
