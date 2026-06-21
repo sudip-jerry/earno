@@ -538,6 +538,75 @@ function Stat({ k, v, tone }: { k: string; v: string; tone?: "pos" | "neg" }) {
   );
 }
 
+function pf(n: number) {
+  return Number.isFinite(n) ? n.toFixed(2) : "∞";
+}
+
+function BucketRow({ label, b }: { label: string; b: BucketStats }) {
+  return (
+    <tr className="border-t">
+      <td className="px-2 py-1 font-medium">{label}</td>
+      <td className="px-2 py-1 tabular-nums text-right">{b.trades}</td>
+      <td className={`px-2 py-1 tabular-nums text-right ${b.grossPnl >= 0 ? "text-emerald-500" : "text-destructive"}`}>{money(b.grossPnl)}</td>
+      <td className="px-2 py-1 tabular-nums text-right text-muted-foreground">{money(b.estimatedFees)}</td>
+      <td className={`px-2 py-1 tabular-nums text-right font-semibold ${b.netPnl >= 0 ? "text-emerald-500" : "text-destructive"}`}>{money(b.netPnl)}</td>
+      <td className="px-2 py-1 tabular-nums text-right">{fmt(b.winRate, 0)}%</td>
+      <td className="px-2 py-1 tabular-nums text-right">{pf(b.profitFactor)}</td>
+      <td className="px-2 py-1 tabular-nums text-right">{b.tpCount}/{b.slCount}</td>
+      <td className="px-2 py-1 tabular-nums text-right">{b.avgHoldMinutes}m</td>
+      <td className="px-2 py-1 tabular-nums text-right">{fmt(b.avgConfidence, 0)}</td>
+    </tr>
+  );
+}
+
+function BucketComparisonBlock({ buckets }: { buckets: BucketComparison }) {
+  if (buckets.totalAutoBooked === 0) {
+    return (
+      <div className="mt-3 rounded-lg border bg-muted/40 p-2 text-[11px] text-muted-foreground">
+        <p className="font-medium text-foreground mb-0.5">Quality buckets (today, auto-booked, max 50)</p>
+        No auto-booked trades today{buckets.strategy ? ` for strategy ${buckets.strategy}` : ""}.
+      </div>
+    );
+  }
+  return (
+    <div className="mt-3 rounded-lg border bg-card p-2">
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          Quality buckets — today, auto-booked (max 50)
+        </p>
+        <p className="text-[10px] text-muted-foreground">
+          Strategy: {buckets.strategy ?? "—"} · Pool: {buckets.totalAutoBooked}
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[11px]">
+          <thead className="text-muted-foreground">
+            <tr>
+              <th className="px-2 py-1 text-left font-normal">Bucket</th>
+              <th className="px-2 py-1 text-right font-normal">Trades</th>
+              <th className="px-2 py-1 text-right font-normal">Gross</th>
+              <th className="px-2 py-1 text-right font-normal">Fees</th>
+              <th className="px-2 py-1 text-right font-normal">Net</th>
+              <th className="px-2 py-1 text-right font-normal">Win</th>
+              <th className="px-2 py-1 text-right font-normal">PF</th>
+              <th className="px-2 py-1 text-right font-normal">TP/SL</th>
+              <th className="px-2 py-1 text-right font-normal">Hold</th>
+              <th className="px-2 py-1 text-right font-normal">Conf</th>
+            </tr>
+          </thead>
+          <tbody>
+            <BucketRow label="Top 10" b={buckets.top10} />
+            <BucketRow label="Top 30" b={buckets.top30} />
+            <BucketRow label="All 50" b={buckets.all50} />
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+
+
 function ExportBar() {
   const tradesFn = useServerFn(exportAllTradesCsv);
   const signalsFn = useServerFn(exportSignalsCsv);
