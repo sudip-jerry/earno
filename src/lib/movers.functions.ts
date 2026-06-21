@@ -802,7 +802,7 @@ export const bookManualTrade = createServerFn({ method: "POST" })
       exchange_order_id: cfg.mode === "paper" ? `paper-manual-${Date.now()}` : null,
       source: "manual",
     });
-    if (error) throw new Error(error.message);
+    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
 
     await supabaseAdmin.from("bot_events").insert({
       user_id: context.userId,
@@ -869,7 +869,7 @@ export const closeManualTrade = createServerFn({ method: "POST" })
         max_adverse_excursion_pct: maeAtClose,
       } as never)
       .eq("id", pos.id);
-    if (error) throw new Error(error.message);
+    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
 
     await supabaseAdmin.from("bot_events").insert({
       user_id: context.userId,
@@ -918,7 +918,7 @@ export const updatePositionTpSl = createServerFn({ method: "POST" })
     if (Object.keys(patch).length === 0) return { ok: true as const };
 
     const { error } = await supabaseAdmin.from("positions").update(patch).eq("id", pos.id);
-    if (error) throw new Error(error.message);
+    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
 
 
     await supabaseAdmin.from("bot_events").insert({

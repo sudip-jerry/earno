@@ -19,7 +19,7 @@ export const saveCredentials = createServerFn({ method: "POST" })
       is_valid: false,
       last_checked_at: null,
     });
-    if (error) throw new Error(error.message);
+    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
     return { ok: true };
   });
 
@@ -182,7 +182,7 @@ export const updateConfig = createServerFn({ method: "POST" })
       }
     }
     const { error } = await supabase.from("bot_config").update(data).eq("user_id", context.userId);
-    if (error) throw new Error(error.message);
+    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
     return { ok: true };
   });
 

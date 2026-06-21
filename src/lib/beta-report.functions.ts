@@ -915,7 +915,7 @@ export const adminApplyTune = createServerFn({ method: "POST" })
       .update(patch as never)
       .eq("user_id", data.userId)
       .eq("mode", "paper");
-    if (error) throw new Error(error.message);
+    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
     await supabaseAdmin.from("bot_events").insert({
       user_id: data.userId,
       level: "info",

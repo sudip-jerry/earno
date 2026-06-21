@@ -808,6 +808,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      redeem_coupon_atomic: {
+        Args: { _code: string; _user_id: string }
+        Returns: {
+          expires_at: string
+          tier: Database["public"]["Enums"]["plan_tier"]
+        }[]
+      }
       verify_cron_secret: { Args: { _token: string }; Returns: boolean }
     }
     Enums: {
