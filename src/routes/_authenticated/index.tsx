@@ -54,6 +54,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMarketMode, type MarketMode } from "@/hooks/use-market-mode";
+import { CoinPortfolioCard, CoinHoldingsCard, CoinSignalsList } from "@/components/coin-bot/coin-panels";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -194,6 +195,35 @@ function Home() {
     if (openCount > 0) return `Managing ${openCount} open position${openCount === 1 ? "" : "s"}.`;
     return s?.noTradeReason?.trim() || "Scanning markets calmly.";
   }, [isRunning, s, openCount]);
+
+  const { market } = useMarketMode();
+
+  if (market === "spot") {
+    return (
+      <div className="min-h-svh bg-background pb-28">
+        <header className="px-5 pt-5">
+          <div className="flex items-center gap-3">
+            <img src={earnoStacked.url} alt="earn'O" className="h-11 w-auto select-none" draggable={false} />
+            <div className="ml-auto flex items-center gap-1">
+              <MarketTogglePill />
+              <IconBtn ariaLabel="Settings" onClick={() => navigate({ to: "/settings" })}>
+                <Cog className="size-4" />
+              </IconBtn>
+            </div>
+          </div>
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            Coin paper bot · live CoinDCX market data · no real orders
+          </p>
+        </header>
+        <div className="px-5 mt-4 space-y-3">
+          <CoinPortfolioCard />
+          <CoinHoldingsCard />
+          <CoinSignalsList />
+        </div>
+        <TabBar />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-svh bg-background pb-28">
