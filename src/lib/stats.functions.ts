@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { netPnl } from "@/lib/fees";
+import { netPnl, tradeFee } from "@/lib/fees";
 
 export type EquityPoint = { t: string; equity: number };
 
@@ -54,6 +54,8 @@ export type HealthState = "healthy" | "monitoring" | "paused" | "cooldown";
 export type DashboardStats = {
   todayPnl: number;
   todayPnlPct: number;
+  todayGrossPnl: number;
+  todayFees: number;
   tradesToday: number;
   winRateAllTime: number;
   closedAllTime: number;
@@ -64,6 +66,8 @@ export type DashboardStats = {
   openPnlPct: number;
   consecutiveLosses: number;
   realizedPnlAllTime: number;
+  realizedFeesAllTime: number;
+  baselineEquity: number;
   portfolioValue: number;
 
   // Period changes (replace CAGR)
@@ -166,7 +170,9 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     const allRows = closedAll ?? [];
     const allEvents = events ?? [];
 
-    const todayPnl = todayRows.reduce((a, r) => a + netPnl(r), 0);
+    const todayGrossPnl = todayRows.reduce((a, r) => a + Number(r.pnl ?? 0), 0);
+    const todayFees = todayRows.reduce((a, r) => a + tradeFee(r), 0);
+    const todayPnl = todayGrossPnl - todayFees;
     const baselineEquity =
       mode === "live" ? Number(cfg?.live_allocation_amount ?? 0) : Number(cfg?.paper_equity ?? 1000);
     const equity = baselineEquity;
@@ -193,7 +199,9 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       else break;
     }
 
-    const realizedPnlAllTime = allRows.reduce((a, r) => a + netPnl(r), 0);
+    const realizedGrossAllTime = allRows.reduce((a, r) => a + Number(r.pnl ?? 0), 0);
+    const realizedFeesAllTime = allRows.reduce((a, r) => a + tradeFee(r), 0);
+    const realizedPnlAllTime = realizedGrossAllTime - realizedFeesAllTime;
     const portfolioValue = equity + realizedPnlAllTime;
 
     const now = Date.now();
@@ -323,7 +331,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     }));
 
     return {
-      todayPnl, todayPnlPct, tradesToday,
+      todayPnl, todayPnlPct, todayGrossPnl, todayFees, tradesToday,
       winRateAllTime: winRate,
       closedAllTime: allRows.length,
       maxDrawdown: mdd,
@@ -338,6 +346,8 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       })(),
       consecutiveLosses: streak,
       realizedPnlAllTime,
+      realizedFeesAllTime,
+      baselineEquity,
       portfolioValue,
       weekChangeAbs, weekChangePct,
       monthlyGrowthPct, monthlyGrowthAbs,
