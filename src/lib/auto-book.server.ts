@@ -964,77 +964,118 @@ export async function runMarkPass(
     const lowPnl = Math.min(Number(p.lowest_unrealized_pnl ?? 0), pnl);
     const giveback = peak >= preset.profitFadeMinPct ? Math.max(0, peak - pnlPct) : 0;
 
+    // ----- ROE-based profit protection (style-aware) -----
+    // pnlPct is already leverage-adjusted, so it IS ROE %.
+    const styleKey = String(cfgRow?.trading_style ?? "balanced").toLowerCase();
+    const ROE_THRESHOLDS: Record<string, { be: number; tp1: number; hard: number }> = {
+      conservative: { be: 1.0, tp1: 1.2, hard: 1.6 },
+      balanced:     { be: 1.1, tp1: 1.4, hard: 1.8 },
+      aggressive:   { be: 1.2, tp1: 1.5, hard: 2.0 },
+    };
+    const roeTh = ROE_THRESHOLDS[styleKey] ?? ROE_THRESHOLDS.balanced;
+    const currentRoe = pnlPct;
+    const peakRoe = peak;
+    const moveToBeEnabled = true; // existing config has no toggle; protection on by default
+    const trailingEnabled = trailPct != null && trailPct > 0;
+
+    // ROE-based giveback (drives profit-fade after protected profit exists).
+    const roeGiveback = peakRoe >= roeTh.tp1 && peakRoe > 0 ? Math.max(0, peakRoe - currentRoe) : 0;
+    const roeGivebackPct = peakRoe > 0 ? (roeGiveback / peakRoe) * 100 : 0;
+
     // ----- Resolve exit decision (priority order) -----
     let finalExitReason: string | null = null;
+    let exitProtectionReason: string | null = null;
     let tp1JustHit = false;
+    let tp1TriggerSource: "price" | "roe" | null = null;
     let newSl = sl;
     let newBreakeven = breakevenMoved;
+    let armBreakevenNow = false;
 
-    // 1) TP1 (partial close: simulated 50%).
+    // 1a) TP1 by price target (existing).
     if (!tp1Hit && tp1 != null) {
       const crossed = side === "long" ? mark >= tp1 : mark <= tp1;
       if (crossed) {
         tp1JustHit = true;
-        newSl = entry; // move stop to breakeven on remaining
+        tp1TriggerSource = "price";
+        newSl = entry;
         newBreakeven = true;
         trailAnchor = mark;
       }
     }
+    // 1b) TP1 by ROE threshold (new — profit protection).
+    if (!tp1Hit && !tp1JustHit && currentRoe >= roeTh.tp1) {
+      tp1JustHit = true;
+      tp1TriggerSource = "roe";
+      newSl = entry;
+      newBreakeven = true;
+      trailAnchor = mark;
+    }
 
-    // 2) Final TP (closes full remaining).
+    // 1c) Move SL to breakeven once peak ROE crosses the breakeven trigger,
+    //     even before TP1 fires. Protected trades cannot later close at full SL.
+    if (!newBreakeven && moveToBeEnabled && peakRoe >= roeTh.be) {
+      newBreakeven = true;
+      armBreakevenNow = true;
+      newSl = entry;
+    }
+
+    const profitProtected = newBreakeven || tp1Hit || tp1JustHit || peakRoe >= roeTh.be;
+
+    // 2) Final TP.
     const hitTp = tp != null && (side === "long" ? mark >= tp : mark <= tp);
-    // 3) SL (could be at breakeven).
+    // 3) SL (at breakeven if protected).
+    const effSlPrice = newBreakeven ? entry : (sl ?? null);
     const hitSl =
-      (tp1Hit || tp1JustHit ? entry : (sl ?? null)) != null &&
-      (side === "long"
-        ? mark <= (tp1Hit || tp1JustHit ? entry : (sl as number))
-        : mark >= (tp1Hit || tp1JustHit ? entry : (sl as number)));
+      effSlPrice != null &&
+      (side === "long" ? mark <= (effSlPrice as number) : mark >= (effSlPrice as number));
 
-    // 4) Trailing exit (only after TP1 hit, on the runner).
+    // 4) Trailing exit (after TP1, on the runner).
     let hitTrail = false;
-    if (tp1Hit && trailPct != null && trailAnchor != null) {
-      // Update anchor to best favourable price.
+    if (tp1Hit && trailingEnabled && trailAnchor != null) {
       trailAnchor = side === "long" ? Math.max(trailAnchor, mark) : Math.min(trailAnchor, mark);
       const retrace =
         side === "long"
           ? ((trailAnchor - mark) / trailAnchor) * 100
           : ((mark - trailAnchor) / trailAnchor) * 100;
-      const effTrail = (p.weak_progress ? trailPct / 2 : trailPct);
+      const effTrail = (p.weak_progress ? (trailPct as number) / 2 : (trailPct as number));
       if (retrace >= effTrail) hitTrail = true;
     }
 
-    // 5) Profit-fade.
+    // 5a) Existing price-% profit fade.
     const hitProfitFade =
       peak >= preset.profitFadeMinPct &&
       peak > 0 &&
       giveback / peak >= preset.profitFadeGivebackPct;
+    // 5b) ROE-based profit fade: peak ROE crossed TP1 and 40%+ given back.
+    const hitRoeProfitFade =
+      peakRoe >= roeTh.tp1 && peakRoe > 0 && roeGivebackPct >= 40;
+    // 5c) Hard profit-protection fallback: trade not yet protected and ROE hit cap.
+    const hitHardProfitExit = !profitProtected && currentRoe >= roeTh.hard;
 
-    // 6) Weak progress detection (flag only — does NOT force SL).
+    // 6) Weak progress flag.
     let newWeakProgress: { weak_progress: boolean; weak_progress_marked_at: string } | null = null;
     if (!p.weak_progress && ageMin >= 45 && ageMin <= preset.weakProgressWindowMin + 5 && peak < preset.weakProgressMinPct) {
       newWeakProgress = { weak_progress: true, weak_progress_marked_at: new Date().toISOString() };
     }
 
-    // 7) Weak-progress time exit when momentum turns negative post-flag.
+    // 7) Weak-progress time exit.
     const weakNegative = p.weak_progress && (side === "long" ? mark < entry : mark > entry);
     const hitTimeExit =
       autoCloseMinutes > 0 && Number.isFinite(openedAt) && Date.now() - openedAt >= autoCloseMinutes * 60_000;
 
-    // Fee-aware exit evaluation (CoinDCX USDT futures: maker/taker + GST).
-    // grossPctPrice/netPctPrice are price-move %, not leveraged — thresholds in bot_config are in price terms.
+    // Fee-aware evaluation (unchanged).
     const grossPctPrice = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul : 0;
     const feeRates = feeModelRates(DEFAULT_FEE_MODEL);
     const roundTripFeePct =
       (feeRates.entry_fee_pct + feeRates.exit_fee_pct) * (1 + feeRates.gst_pct / 100);
     const slippageBufferPct = Number(cfgRow?.slippage_buffer_pct ?? 0.05);
-    const fundingEstimatePct = 0; // CoinDCX 8h funding negligible per scan; reserved for future.
+    const fundingEstimatePct = 0;
     const netPctPrice = grossPctPrice - roundTripFeePct - slippageBufferPct - fundingEstimatePct;
     const feeAwareEnabled = cfgRow?.fee_aware_exits_enabled !== false;
     const minNetExitPct = Number(cfgRow?.minimum_net_profit_to_exit_pct ?? 0.18);
     const minGrossFadePct = Number(cfgRow?.minimum_gross_profit_before_profit_fade_exit_pct ?? 0.30);
     const minGrossWeakPct = Number(cfgRow?.minimum_gross_profit_before_weak_progress_exit_pct ?? 0.25);
 
-    // Notional-based fee/slippage estimates in USDT for storage.
     const notionalEntry = qty * entry;
     const notionalExit = qty * mark;
     const estimatedTotalFee =
@@ -1049,10 +1090,23 @@ export async function runMarkPass(
 
     if (hitTp) {
       finalExitReason = "take_profit";
+    } else if (hitHardProfitExit) {
+      finalExitReason = "profit_protection_exit";
+      exitProtectionReason = "profit_protection";
     } else if (hitSl) {
-      finalExitReason = newBreakeven ? "breakeven_exit" : "stop_loss";
+      // Stop-loss guard: once peak ROE crossed TP1 trigger, never close as full
+      // stop_loss — degrade to breakeven_exit.
+      if (newBreakeven || peakRoe >= roeTh.tp1) {
+        finalExitReason = "breakeven_exit";
+        exitProtectionReason = "breakeven_protected";
+      } else {
+        finalExitReason = "stop_loss";
+      }
     } else if (hitTrail) {
       finalExitReason = "trailing_exit";
+    } else if (hitRoeProfitFade) {
+      finalExitReason = "profit_fade_exit";
+      exitProtectionReason = "profit_fade";
     } else if (hitProfitFade) {
       if (feeAwareEnabled && (grossPctPrice < minGrossFadePct || netPctPrice < minNetExitPct)) {
         originalExitReason = "profit_fade_exit";
@@ -1061,8 +1115,6 @@ export async function runMarkPass(
         finalExitReason = "profit_fade_exit";
       }
     } else if (weakNegative) {
-      // Weak-progress: require net profit OR trend invalidation (mark beyond stop is already SL).
-      // Without an external trend-invalidation signal here, we only exit when net PnL clears the bar.
       if (feeAwareEnabled && (grossPctPrice < minGrossWeakPct || netPctPrice < minNetExitPct)) {
         originalExitReason = "weak_progress_time_exit";
         exitBlockedReason = "fee_blocked_weak_progress";
@@ -1079,7 +1131,7 @@ export async function runMarkPass(
       pnl,
       pnl_pct: pnlPct,
       peak_unrealized_pnl_pct: peak,
-      giveback_pct: giveback,
+      giveback_pct: Math.max(giveback, roeGiveback),
       max_favourable_excursion_pct: mfePct,
       max_adverse_excursion_pct: maePct,
       highest_unrealized_pnl: highPnl,
@@ -1088,6 +1140,7 @@ export async function runMarkPass(
     if (tp1JustHit) {
       baseUpdate.tp1_hit = true;
       baseUpdate.tp1_hit_at = new Date().toISOString();
+      baseUpdate.tp1_roe_pct = currentRoe;
       // Simulated 50% close: bank half the pnl_pct at TP1 price, leverage-adjusted.
       const tp1PctRealized = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul * lev : 0;
       baseUpdate.tp1_pnl = tp1PctRealized * 0.5;
@@ -1095,11 +1148,19 @@ export async function runMarkPass(
       baseUpdate.remaining_qty = qty / 2;
       baseUpdate.stop_loss = entry;
       baseUpdate.breakeven_moved = true;
+      baseUpdate.breakeven_armed_at = new Date().toISOString();
       baseUpdate.trail_anchor_price = mark;
+      void tp1TriggerSource;
     } else if (tp1Hit) {
       baseUpdate.trail_anchor_price = trailAnchor;
     }
+    if (armBreakevenNow && !tp1JustHit) {
+      baseUpdate.stop_loss = entry;
+      baseUpdate.breakeven_moved = true;
+      baseUpdate.breakeven_armed_at = new Date().toISOString();
+    }
     if (newWeakProgress) Object.assign(baseUpdate, newWeakProgress);
+
 
     if (finalExitReason != null) {
       // Final pnl combines TP1 leg (50%) + remaining leg pnl based on qty share.
@@ -1125,6 +1186,7 @@ export async function runMarkPass(
         estimated_net_pnl: combinedPnl - estimatedTotalFee - estimatedSlippage,
         exit_fee_aware: feeAwareEnabled,
         exit_blocked_reason: null,
+        exit_protection_reason: exitProtectionReason,
         closed_at: new Date().toISOString(),
       });
       const { error } = await supabase.from("positions").update(baseUpdate as never).eq("id", p.id as string);
