@@ -1131,7 +1131,7 @@ export async function runMarkPass(
       pnl,
       pnl_pct: pnlPct,
       peak_unrealized_pnl_pct: peak,
-      giveback_pct: giveback,
+      giveback_pct: Math.max(giveback, roeGiveback),
       max_favourable_excursion_pct: mfePct,
       max_adverse_excursion_pct: maePct,
       highest_unrealized_pnl: highPnl,
@@ -1140,6 +1140,7 @@ export async function runMarkPass(
     if (tp1JustHit) {
       baseUpdate.tp1_hit = true;
       baseUpdate.tp1_hit_at = new Date().toISOString();
+      baseUpdate.tp1_roe_pct = currentRoe;
       // Simulated 50% close: bank half the pnl_pct at TP1 price, leverage-adjusted.
       const tp1PctRealized = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul * lev : 0;
       baseUpdate.tp1_pnl = tp1PctRealized * 0.5;
@@ -1147,11 +1148,19 @@ export async function runMarkPass(
       baseUpdate.remaining_qty = qty / 2;
       baseUpdate.stop_loss = entry;
       baseUpdate.breakeven_moved = true;
+      baseUpdate.breakeven_armed_at = new Date().toISOString();
       baseUpdate.trail_anchor_price = mark;
+      void tp1TriggerSource;
     } else if (tp1Hit) {
       baseUpdate.trail_anchor_price = trailAnchor;
     }
+    if (armBreakevenNow && !tp1JustHit) {
+      baseUpdate.stop_loss = entry;
+      baseUpdate.breakeven_moved = true;
+      baseUpdate.breakeven_armed_at = new Date().toISOString();
+    }
     if (newWeakProgress) Object.assign(baseUpdate, newWeakProgress);
+
 
     if (finalExitReason != null) {
       // Final pnl combines TP1 leg (50%) + remaining leg pnl based on qty share.
