@@ -97,7 +97,7 @@ function PositionsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("positions")
-        .select("id,symbol,side,leverage,qty,entry_price,mark_price,stop_loss,take_profit,pnl,pnl_pct,opened_at,mode,instrument")
+        .select("id,symbol,side,leverage,qty,entry_price,mark_price,stop_loss,take_profit,pnl,pnl_pct,opened_at,mode,instrument,tp1_hit,tp1_roe_pct,breakeven_armed_at,breakeven_moved,peak_unrealized_pnl_pct")
         .eq("status", "open")
         .order("opened_at", { ascending: false });
       if (error) throw error;
