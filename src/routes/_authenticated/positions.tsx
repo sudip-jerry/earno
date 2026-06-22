@@ -54,6 +54,12 @@ type ClosedRow = PositionRow & {
   exit_price: number | null;
   exit_reason: string | null;
   closed_at: string | null;
+  tp1_hit?: boolean | null;
+  tp1_roe_pct?: number | null;
+  breakeven_armed_at?: string | null;
+  breakeven_moved?: boolean | null;
+  peak_unrealized_pnl_pct?: number | null;
+  exit_protection_reason?: string | null;
 };
 
 function fmtNum(n: number | null | undefined, digits = 4): string {
