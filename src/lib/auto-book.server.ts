@@ -1186,6 +1186,7 @@ export async function runMarkPass(
         estimated_net_pnl: combinedPnl - estimatedTotalFee - estimatedSlippage,
         exit_fee_aware: feeAwareEnabled,
         exit_blocked_reason: null,
+        exit_protection_reason: exitProtectionReason,
         closed_at: new Date().toISOString(),
       });
       const { error } = await supabase.from("positions").update(baseUpdate as never).eq("id", p.id as string);
