@@ -48,6 +48,11 @@ type PositionRow = {
   opened_at: string;
   mode: string;
   instrument: "futures" | "spot" | null;
+  tp1_hit?: boolean | null;
+  tp1_roe_pct?: number | null;
+  breakeven_armed_at?: string | null;
+  breakeven_moved?: boolean | null;
+  peak_unrealized_pnl_pct?: number | null;
 };
 
 type ClosedRow = PositionRow & {
