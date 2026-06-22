@@ -688,6 +688,7 @@ export type Database = {
           auto_close_experiment_version: string | null
           auto_close_minutes_used: number | null
           auto_close_reason: string | null
+          breakeven_armed_at: string | null
           breakeven_moved: boolean
           calculated_sl_pct: number | null
           closed_at: string | null
@@ -704,6 +705,7 @@ export type Database = {
           exit_blocked_reason: string | null
           exit_fee_aware: boolean | null
           exit_price: number | null
+          exit_protection_reason: string | null
           exit_reason: string | null
           experiment_id: string | null
           final_exit_reason: string | null
@@ -750,6 +752,7 @@ export type Database = {
           tp1_pnl: number | null
           tp1_price: number | null
           tp1_qty_closed: number | null
+          tp1_roe_pct: number | null
           trail_anchor_price: number | null
           trail_pct: number | null
           updated_at: string
@@ -766,6 +769,7 @@ export type Database = {
           auto_close_experiment_version?: string | null
           auto_close_minutes_used?: number | null
           auto_close_reason?: string | null
+          breakeven_armed_at?: string | null
           breakeven_moved?: boolean
           calculated_sl_pct?: number | null
           closed_at?: string | null
@@ -782,6 +786,7 @@ export type Database = {
           exit_blocked_reason?: string | null
           exit_fee_aware?: boolean | null
           exit_price?: number | null
+          exit_protection_reason?: string | null
           exit_reason?: string | null
           experiment_id?: string | null
           final_exit_reason?: string | null
@@ -828,6 +833,7 @@ export type Database = {
           tp1_pnl?: number | null
           tp1_price?: number | null
           tp1_qty_closed?: number | null
+          tp1_roe_pct?: number | null
           trail_anchor_price?: number | null
           trail_pct?: number | null
           updated_at?: string
@@ -844,6 +850,7 @@ export type Database = {
           auto_close_experiment_version?: string | null
           auto_close_minutes_used?: number | null
           auto_close_reason?: string | null
+          breakeven_armed_at?: string | null
           breakeven_moved?: boolean
           calculated_sl_pct?: number | null
           closed_at?: string | null
@@ -860,6 +867,7 @@ export type Database = {
           exit_blocked_reason?: string | null
           exit_fee_aware?: boolean | null
           exit_price?: number | null
+          exit_protection_reason?: string | null
           exit_reason?: string | null
           experiment_id?: string | null
           final_exit_reason?: string | null
@@ -906,6 +914,7 @@ export type Database = {
           tp1_pnl?: number | null
           tp1_price?: number | null
           tp1_qty_closed?: number | null
+          tp1_roe_pct?: number | null
           trail_anchor_price?: number | null
           trail_pct?: number | null
           updated_at?: string
