@@ -12,6 +12,7 @@ import {
   exportAllTradesCsv,
   exportSignalsCsv,
   exportAlgoConfigsCsv,
+  exportAlgoAuditCsv,
   type TesterReport,
   type TuneSuggestion,
   type TuningAction,
@@ -611,6 +612,7 @@ function ExportBar() {
   const tradesFn = useServerFn(exportAllTradesCsv);
   const signalsFn = useServerFn(exportSignalsCsv);
   const cfgFn = useServerFn(exportAlgoConfigsCsv);
+  const auditFn = useServerFn(exportAlgoAuditCsv);
 
   const trades = useMutation({
     mutationFn: () => tradesFn(),
@@ -633,6 +635,14 @@ function ExportBar() {
     onSuccess: (r) => {
       downloadCsv(`algo-configs-${ts()}.csv`, r.csv);
       toast.success(`Exported ${r.count} configs`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+  const audit = useMutation({
+    mutationFn: () => auditFn(),
+    onSuccess: (r) => {
+      downloadCsv(`algo-config-history-${ts()}.csv`, r.csv);
+      toast.success(`Exported ${r.count} config changes`);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
@@ -673,7 +683,16 @@ function ExportBar() {
             disabled={cfg.isPending}
             onClick={() => cfg.mutate()}
           >
-            {cfg.isPending ? "Exporting…" : "Download algo configs CSV"}
+            {cfg.isPending ? "Exporting…" : "Download current configs CSV"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            disabled={audit.isPending}
+            onClick={() => audit.mutate()}
+          >
+            {audit.isPending ? "Exporting…" : "Download config history CSV"}
           </Button>
         </div>
         <p className="text-[10px] text-muted-foreground mt-2">
@@ -683,8 +702,10 @@ function ExportBar() {
           band, full indicator snapshot (trend, VWAP, EMA, RSI, volume spike,
           spread, ATR, distances, R:R, regime), risk gates (cooldown, daily
           loss, max positions), booked/skip/avoid decision, rejection reason,
-          plus each tester's config snapshot. Configs = current per-user bot
-          settings.
+          plus each tester's config snapshot. Current configs = latest per-user
+          bot settings snapshot. Config history = full audit log of every
+          per-field change with old/new values, who changed it (user/admin/system)
+          and when.
         </p>
       </div>
     </section>
