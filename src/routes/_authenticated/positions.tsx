@@ -264,8 +264,19 @@ function PositionsPage() {
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">
                       {p.mode}
                     </span>
+                    {(p.breakeven_armed_at || p.breakeven_moved) && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-500">
+                        Protected{p.peak_unrealized_pnl_pct != null ? ` at +${Number(p.peak_unrealized_pnl_pct).toFixed(2)}% ROE` : ""}
+                      </span>
+                    )}
+                    {p.tp1_hit && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500">
+                        TP1 hit{p.tp1_roe_pct != null ? ` +${Number(p.tp1_roe_pct).toFixed(2)}%` : ""}
+                      </span>
+                    )}
                   </div>
                 </div>
+
 
                 <div className="mt-3 flex items-start justify-between">
                   <div>
