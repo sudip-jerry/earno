@@ -749,7 +749,14 @@ function ClosedList({
           : reason === "manual_limit" ? "Manual Close"
           : reason === "kill_switch" ? "Emergency Stop"
           : reason === "risk_protection" ? "Risk Protection"
+          : reason === "breakeven_exit" ? "Breakeven Protected"
+          : reason === "profit_protection_exit" ? "Profit Protected"
+          : reason === "profit_fade_exit" ? "Exited by Profit Fade"
+          : reason === "trailing_exit" ? "Trailing Exit"
           : reason.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        const peakRoe = Number(p.peak_unrealized_pnl_pct ?? 0);
+        const tp1Roe = p.tp1_roe_pct != null ? Number(p.tp1_roe_pct) : null;
+        const showProtection = Boolean(p.breakeven_armed_at || p.breakeven_moved || p.tp1_hit || peakRoe > 0);
         return (
           <li key={p.id} className="rounded-2xl border bg-card p-4">
             <div className="flex items-center justify-between">
@@ -772,6 +779,31 @@ function ClosedList({
                 <p className="text-[10px] text-muted-foreground">Fee {fmt(fee)}</p>
               </div>
             </div>
+            {showProtection && (
+              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                {peakRoe > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                    Peak ROE +{peakRoe.toFixed(2)}%
+                  </span>
+                )}
+                {p.tp1_hit && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500">
+                    TP1 hit{tp1Roe != null ? ` at +${tp1Roe.toFixed(2)}% ROE` : ""}
+                  </span>
+                )}
+                {(p.breakeven_armed_at || p.breakeven_moved) && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-500">
+                    Breakeven armed
+                  </span>
+                )}
+                {p.exit_protection_reason && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 capitalize">
+                    {p.exit_protection_reason.replace(/_/g, " ")}
+                  </span>
+                )}
+              </div>
+            )}
+
             <div className="mt-2 grid grid-cols-4 gap-2 text-[11px]">
               <div>
                 <p className="text-muted-foreground">Entry</p>
