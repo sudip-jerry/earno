@@ -12,6 +12,7 @@ import {
   exportAllTradesCsv,
   exportSignalsCsv,
   exportAlgoConfigsCsv,
+  exportAlgoAuditCsv,
   type TesterReport,
   type TuneSuggestion,
   type TuningAction,
