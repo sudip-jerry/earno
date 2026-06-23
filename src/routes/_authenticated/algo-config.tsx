@@ -542,18 +542,6 @@ function SliderRow({
   );
 }
 
-
-function BoolRow({
-  label, value, onChange,
-}: { label: string; value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="flex items-center justify-between rounded-md border bg-background px-2.5 py-1.5">
-      <span className="text-[11px]">{label}</span>
-      <Switch checked={value} onCheckedChange={onChange} />
-    </div>
-  );
-}
-
 type AuditRow = {
   id: string;
   changed_at: string;
