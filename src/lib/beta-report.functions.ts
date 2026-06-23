@@ -989,12 +989,23 @@ const tunePatchSchema = z.object({
       atr_multiplier: z.number().min(0.5).max(5).optional(),
       target_multiplier: z.number().min(0.5).max(5).optional(),
       max_open_positions: z.number().int().min(1).max(10).optional(),
+      max_trades_per_day: z.number().int().min(1).max(200).optional(),
       auto_close_minutes: z.number().int().min(5).max(720).optional(),
+      cooldown_minutes: z.number().int().min(0).max(720).optional(),
+      scan_interval_minutes: z.number().int().min(1).max(120).optional(),
       risk_per_trade_pct: z.number().min(0.1).max(10).optional(),
+      daily_loss_cap_pct: z.number().min(0.5).max(50).optional(),
       min_scalp_score: z.number().int().min(0).max(100).optional(),
+      leverage: z.number().int().min(1).max(50).optional(),
+      allow_long: z.boolean().optional(),
       allow_short: z.boolean().optional(),
-      // NOTE: strategy and trading_style are deliberately NOT tuneable here.
-      // They are identity-level choices and must not be auto-flipped.
+      auto_book: z.boolean().optional(),
+      is_running: z.boolean().optional(),
+      move_to_breakeven: z.boolean().optional(),
+      trailing_enabled: z.boolean().optional(),
+      regime_filter_enabled: z.boolean().optional(),
+      trading_style: z.enum(["conservative", "balanced", "aggressive"]).optional(),
+      // NOTE: `mode` and `strategy` are identity-level and intentionally not editable here.
     })
     .strict()
     .refine((p) => Object.keys(p).length > 0, "empty patch"),
@@ -1538,6 +1549,10 @@ export const getAlgoConfigsOverview = createServerFn({ method: "GET" })
         cooldown_minutes: c.cooldown_minutes,
         daily_loss_cap_pct: Number(c.daily_loss_cap_pct),
         scan_interval_minutes: c.scan_interval_minutes,
+        auto_book: c.auto_book,
+        move_to_breakeven: c.move_to_breakeven,
+        trailing_enabled: c.trailing_enabled,
+        regime_filter_enabled: c.regime_filter_enabled,
         updated_at: c.updated_at,
       })),
       recentTunes: (tuneEvents ?? []).map((e) => ({
