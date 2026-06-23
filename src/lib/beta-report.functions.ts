@@ -1549,6 +1549,10 @@ export const getAlgoConfigsOverview = createServerFn({ method: "GET" })
         cooldown_minutes: c.cooldown_minutes,
         daily_loss_cap_pct: Number(c.daily_loss_cap_pct),
         scan_interval_minutes: c.scan_interval_minutes,
+        auto_book: c.auto_book,
+        move_to_breakeven: c.move_to_breakeven,
+        trailing_enabled: c.trailing_enabled,
+        regime_filter_enabled: c.regime_filter_enabled,
         updated_at: c.updated_at,
       })),
       recentTunes: (tuneEvents ?? []).map((e) => ({
