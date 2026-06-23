@@ -146,38 +146,7 @@ function AlgoConfigPage() {
 
       <section className="px-5 space-y-2">
         {filtered.map((c) => (
-          <div key={c.user_id} className="rounded-2xl border bg-card p-3">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <div className="min-w-0">
-                <p className="font-medium truncate text-sm">
-                  {c.user_email ?? c.user_id.slice(0, 8)}
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  {c.mode} · {c.is_running ? "running" : "stopped"} · style{" "}
-                  {c.trading_style}
-                </p>
-              </div>
-              <p className="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                {new Date(c.updated_at).toLocaleString()}
-              </p>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5 text-[11px]">
-              <Kv k="ATR" v={c.atr_multiplier.toFixed(2)} />
-              <Kv k="Tgt" v={c.target_multiplier.toFixed(2)} />
-              <Kv k="Min RR" v={c.min_rr.toFixed(2)} />
-              <Kv k="Risk %" v={c.risk_per_trade_pct.toFixed(2)} />
-              <Kv k="MinScore" v={`${c.min_scalp_score}`} />
-              <Kv k="Lev" v={`${c.leverage}x`} />
-              <Kv k="MaxOpen" v={`${c.max_open_positions}`} />
-              <Kv k="Max/day" v={`${c.max_trades_per_day}`} />
-              <Kv k="AutoClose" v={`${c.auto_close_minutes}m`} />
-              <Kv k="DailyCap" v={`${c.daily_loss_cap_pct.toFixed(2)}%`} />
-              <Kv k="Cooldown" v={`${c.cooldown_minutes}m`} />
-              <Kv k="ScanEvery" v={`${c.scan_interval_minutes}m`} />
-              <Kv k="Long" v={c.allow_long ? "on" : "off"} />
-              <Kv k="Short" v={c.allow_short ? "on" : "off"} />
-            </div>
-          </div>
+          <UserConfigCard key={c.user_id} c={c} />
         ))}
         {!data.isLoading && filtered.length === 0 && (
           <p className="text-xs text-muted-foreground">No configs match.</p>
