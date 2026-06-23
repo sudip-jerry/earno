@@ -12,7 +12,11 @@ import {
   exportAlgoAuditCsv,
   getAlgoConfigsOverview,
   getAlgoAuditLog,
+  adminApplyTune,
 } from "@/lib/beta-report.functions";
+import { useQueryClient } from "@tanstack/react-query";
+import { Switch } from "@/components/ui/switch";
+import { Pencil, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/algo-config")({
   head: () => ({ meta: [{ title: "Algo Configs — Earn'O" }] }),
