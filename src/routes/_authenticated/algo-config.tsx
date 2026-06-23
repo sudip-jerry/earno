@@ -1,10 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { ChevronLeft, Download } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, Download, Pencil, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { getMyEntitlements } from "@/lib/plans.functions";
 import {
@@ -14,9 +23,6 @@ import {
   getAlgoAuditLog,
   adminApplyTune,
 } from "@/lib/beta-report.functions";
-import { useQueryClient } from "@tanstack/react-query";
-import { Switch } from "@/components/ui/switch";
-import { Pencil, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/algo-config")({
   head: () => ({ meta: [{ title: "Algo Configs — Earn'O" }] }),
