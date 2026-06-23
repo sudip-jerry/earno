@@ -1,10 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { ChevronLeft, Download } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, Download, Pencil, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { getMyEntitlements } from "@/lib/plans.functions";
 import {
@@ -14,9 +23,6 @@ import {
   getAlgoAuditLog,
   adminApplyTune,
 } from "@/lib/beta-report.functions";
-import { useQueryClient } from "@tanstack/react-query";
-import { Switch } from "@/components/ui/switch";
-import { Pencil, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/algo-config")({
   head: () => ({ meta: [{ title: "Algo Configs — Earn'O" }] }),
@@ -278,25 +284,47 @@ type BoolField =
   | "trailing_enabled"
   | "regime_filter_enabled";
 
+type Draft = {
+  leverage: number;
+  risk_per_trade_pct: number;
+  max_open_positions: number;
+  max_trades_per_day: number;
+  cooldown_minutes: number;
+  auto_close_minutes: number;
+  scan_interval_minutes: number;
+  daily_loss_cap_pct: number;
+  min_scalp_score: number;
+  atr_multiplier: number;
+  target_multiplier: number;
+  trading_style: string;
+  is_running: boolean;
+  auto_book: boolean;
+  allow_long: boolean;
+  allow_short: boolean;
+  move_to_breakeven: boolean;
+  trailing_enabled: boolean;
+  regime_filter_enabled: boolean;
+};
+
 function UserConfigCard({ c }: { c: CfgRow }) {
   const qc = useQueryClient();
   const tuneFn = useServerFn(adminApplyTune);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<Record<string, string | boolean>>({});
+  const [draft, setDraft] = useState<Draft | null>(null);
 
   const startEdit = () => {
     setDraft({
-      leverage: String(c.leverage),
-      risk_per_trade_pct: String(c.risk_per_trade_pct),
-      max_open_positions: String(c.max_open_positions),
-      max_trades_per_day: String(c.max_trades_per_day),
-      cooldown_minutes: String(c.cooldown_minutes),
-      auto_close_minutes: String(c.auto_close_minutes),
-      scan_interval_minutes: String(c.scan_interval_minutes),
-      daily_loss_cap_pct: String(c.daily_loss_cap_pct),
-      min_scalp_score: String(c.min_scalp_score),
-      atr_multiplier: String(c.atr_multiplier),
-      target_multiplier: String(c.target_multiplier),
+      leverage: c.leverage,
+      risk_per_trade_pct: c.risk_per_trade_pct,
+      max_open_positions: c.max_open_positions,
+      max_trades_per_day: c.max_trades_per_day,
+      cooldown_minutes: c.cooldown_minutes,
+      auto_close_minutes: c.auto_close_minutes,
+      scan_interval_minutes: c.scan_interval_minutes,
+      daily_loss_cap_pct: c.daily_loss_cap_pct,
+      min_scalp_score: c.min_scalp_score,
+      atr_multiplier: c.atr_multiplier,
+      target_multiplier: c.target_multiplier,
       trading_style: c.trading_style,
       is_running: c.is_running,
       auto_book: c.auto_book,
@@ -308,6 +336,8 @@ function UserConfigCard({ c }: { c: CfgRow }) {
     });
     setEditing(true);
   };
+  const setField = <K extends keyof Draft>(k: K, v: Draft[K]) =>
+    setDraft((d) => (d ? { ...d, [k]: v } : d));
 
   const save = useMutation({
     mutationFn: (patch: Record<string, unknown>) =>
@@ -321,35 +351,20 @@ function UserConfigCard({ c }: { c: CfgRow }) {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
-  const buildPatch = (): Record<string, unknown> => {
-    const numFields: NumField[] = [
+  const buildPatch = (d: Draft): Record<string, unknown> => {
+    const out: Record<string, unknown> = {};
+    const numKeys: NumField[] = [
       "leverage", "risk_per_trade_pct", "max_open_positions", "max_trades_per_day",
       "cooldown_minutes", "auto_close_minutes", "scan_interval_minutes",
       "daily_loss_cap_pct", "min_scalp_score", "atr_multiplier", "target_multiplier",
     ];
-    const boolFields: BoolField[] = [
+    for (const k of numKeys) if (d[k] !== Number(c[k])) out[k] = d[k];
+    const boolKeys: BoolField[] = [
       "is_running", "auto_book", "allow_long", "allow_short",
       "move_to_breakeven", "trailing_enabled", "regime_filter_enabled",
     ];
-    const intFields = new Set<NumField>([
-      "leverage", "max_open_positions", "max_trades_per_day",
-      "cooldown_minutes", "auto_close_minutes", "scan_interval_minutes", "min_scalp_score",
-    ]);
-    const out: Record<string, unknown> = {};
-    for (const f of numFields) {
-      const raw = String(draft[f] ?? "").trim();
-      if (raw === "") continue;
-      const n = Number(raw);
-      if (!Number.isFinite(n)) continue;
-      const v = intFields.has(f) ? Math.round(n) : n;
-      if (v !== Number(c[f])) out[f] = v;
-    }
-    for (const f of boolFields) {
-      const v = Boolean(draft[f]);
-      if (v !== c[f]) out[f] = v;
-    }
-    const style = String(draft.trading_style ?? "");
-    if (style && style !== c.trading_style) out.trading_style = style;
+    for (const k of boolKeys) if (d[k] !== c[k]) out[k] = d[k];
+    if (d.trading_style !== c.trading_style) out.trading_style = d.trading_style;
     return out;
   };
 
@@ -380,7 +395,7 @@ function UserConfigCard({ c }: { c: CfgRow }) {
         </div>
       </div>
 
-      {!editing ? (
+      {!editing || !draft ? (
         <div className="grid grid-cols-3 gap-1.5 text-[11px]">
           <Kv k="ATR" v={c.atr_multiplier.toFixed(2)} />
           <Kv k="Tgt" v={c.target_multiplier.toFixed(2)} />
@@ -402,45 +417,70 @@ function UserConfigCard({ c }: { c: CfgRow }) {
           <Kv k="Regime" v={c.regime_filter_enabled ? "on" : "off"} />
         </div>
       ) : (
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <SelField
-              label="Style"
-              value={String(draft.trading_style ?? "")}
-              onChange={(v) => setDraft((d) => ({ ...d, trading_style: v }))}
-              options={["conservative", "balanced", "aggressive"]}
-            />
-            <NumField label="Leverage" value={draft.leverage} onChange={(v) => setDraft((d) => ({ ...d, leverage: v }))} />
-            <NumField label="Risk/trade %" value={draft.risk_per_trade_pct} onChange={(v) => setDraft((d) => ({ ...d, risk_per_trade_pct: v }))} />
-            <NumField label="Max open" value={draft.max_open_positions} onChange={(v) => setDraft((d) => ({ ...d, max_open_positions: v }))} />
-            <NumField label="Max/day" value={draft.max_trades_per_day} onChange={(v) => setDraft((d) => ({ ...d, max_trades_per_day: v }))} />
-            <NumField label="Cooldown (min)" value={draft.cooldown_minutes} onChange={(v) => setDraft((d) => ({ ...d, cooldown_minutes: v }))} />
-            <NumField label="Auto-close (min)" value={draft.auto_close_minutes} onChange={(v) => setDraft((d) => ({ ...d, auto_close_minutes: v }))} />
-            <NumField label="Scan every (min)" value={draft.scan_interval_minutes} onChange={(v) => setDraft((d) => ({ ...d, scan_interval_minutes: v }))} />
-            <NumField label="Daily cap %" value={draft.daily_loss_cap_pct} onChange={(v) => setDraft((d) => ({ ...d, daily_loss_cap_pct: v }))} />
-            <NumField label="Min score" value={draft.min_scalp_score} onChange={(v) => setDraft((d) => ({ ...d, min_scalp_score: v }))} />
-            <NumField label="ATR mult" value={draft.atr_multiplier} onChange={(v) => setDraft((d) => ({ ...d, atr_multiplier: v }))} />
-            <NumField label="Target mult" value={draft.target_multiplier} onChange={(v) => setDraft((d) => ({ ...d, target_multiplier: v }))} />
+        <div className="space-y-4">
+          {/* Toggles */}
+          <div className="rounded-xl border bg-background divide-y">
+            <ToggleRow label="Bot running" value={draft.is_running} onChange={(v) => setField("is_running", v)} />
+            <ToggleRow label="Auto-book" value={draft.auto_book} onChange={(v) => setField("auto_book", v)} />
+            <ToggleRow label="Allow longs" value={draft.allow_long} onChange={(v) => setField("allow_long", v)} />
+            <ToggleRow label="Allow shorts" value={draft.allow_short} onChange={(v) => setField("allow_short", v)} />
+            <ToggleRow label="Move SL to breakeven" value={draft.move_to_breakeven} onChange={(v) => setField("move_to_breakeven", v)} />
+            <ToggleRow label="Trailing SL" value={draft.trailing_enabled} onChange={(v) => setField("trailing_enabled", v)} />
+            <ToggleRow label="Regime filter" value={draft.regime_filter_enabled} onChange={(v) => setField("regime_filter_enabled", v)} />
+            <div className="flex items-center justify-between px-3 py-2.5">
+              <span className="text-xs">Trading style</span>
+              <Select
+                value={draft.trading_style}
+                onValueChange={(v) => setField("trading_style", v)}
+              >
+                <SelectTrigger className="h-8 w-36 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="conservative">Conservative</SelectItem>
+                  <SelectItem value="balanced">Balanced</SelectItem>
+                  <SelectItem value="aggressive">Aggressive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <BoolRow label="Bot running" value={!!draft.is_running} onChange={(v) => setDraft((d) => ({ ...d, is_running: v }))} />
-            <BoolRow label="Auto-book" value={!!draft.auto_book} onChange={(v) => setDraft((d) => ({ ...d, auto_book: v }))} />
-            <BoolRow label="Allow longs" value={!!draft.allow_long} onChange={(v) => setDraft((d) => ({ ...d, allow_long: v }))} />
-            <BoolRow label="Allow shorts" value={!!draft.allow_short} onChange={(v) => setDraft((d) => ({ ...d, allow_short: v }))} />
-            <BoolRow label="Move to BE" value={!!draft.move_to_breakeven} onChange={(v) => setDraft((d) => ({ ...d, move_to_breakeven: v }))} />
-            <BoolRow label="Trailing SL" value={!!draft.trailing_enabled} onChange={(v) => setDraft((d) => ({ ...d, trailing_enabled: v }))} />
-            <BoolRow label="Regime filter" value={!!draft.regime_filter_enabled} onChange={(v) => setDraft((d) => ({ ...d, regime_filter_enabled: v }))} />
+
+          {/* Sliders */}
+          <div className="rounded-xl border bg-background p-3 space-y-4">
+            <SliderRow label="Leverage" unit="x" min={1} max={20} step={1}
+              value={draft.leverage} onChange={(v) => setField("leverage", v)} />
+            <SliderRow label="Risk per trade" unit="%" min={0.1} max={5} step={0.1}
+              value={draft.risk_per_trade_pct} onChange={(v) => setField("risk_per_trade_pct", v)} />
+            <SliderRow label="Max open positions" unit="" min={1} max={10} step={1}
+              value={draft.max_open_positions} onChange={(v) => setField("max_open_positions", v)} />
+            <SliderRow label="Max trades/day" unit="" min={1} max={100} step={1}
+              value={draft.max_trades_per_day} onChange={(v) => setField("max_trades_per_day", v)} />
+            <SliderRow label="Cooldown" unit=" min" min={0} max={240} step={5}
+              value={draft.cooldown_minutes} onChange={(v) => setField("cooldown_minutes", v)} />
+            <SliderRow label="Auto-close after" unit=" min" min={5} max={480} step={5}
+              value={draft.auto_close_minutes} onChange={(v) => setField("auto_close_minutes", v)} />
+            <SliderRow label="Scan interval" unit=" min" min={1} max={60} step={1}
+              value={draft.scan_interval_minutes} onChange={(v) => setField("scan_interval_minutes", v)} />
+            <SliderRow label="Daily loss cap" unit="%" min={1} max={30} step={1}
+              value={draft.daily_loss_cap_pct} onChange={(v) => setField("daily_loss_cap_pct", v)} />
+            <SliderRow label="Minimum confidence" unit="" min={0} max={100} step={1}
+              value={draft.min_scalp_score} onChange={(v) => setField("min_scalp_score", v)} />
+            <SliderRow label="ATR multiplier" unit="x" min={0.5} max={5} step={0.1}
+              value={draft.atr_multiplier} onChange={(v) => setField("atr_multiplier", v)} />
+            <SliderRow label="Target multiplier" unit="x" min={0.5} max={5} step={0.1}
+              value={draft.target_multiplier} onChange={(v) => setField("target_multiplier", v)} />
           </div>
-          <div className="flex justify-end gap-2 pt-1">
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(false)}>
+
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setEditing(false)}>
               Cancel
             </Button>
             <Button
               size="sm"
-              className="h-7 text-xs"
+              className="h-8 text-xs"
               disabled={save.isPending}
               onClick={() => {
-                const patch = buildPatch();
+                const patch = buildPatch(draft);
                 if (Object.keys(patch).length === 0) {
                   toast.info("No changes");
                   return;
@@ -448,7 +488,7 @@ function UserConfigCard({ c }: { c: CfgRow }) {
                 save.mutate(patch);
               }}
             >
-              {save.isPending ? "Saving…" : "Save"}
+              {save.isPending ? "Saving…" : "Save changes"}
             </Button>
           </div>
         </div>
@@ -457,48 +497,47 @@ function UserConfigCard({ c }: { c: CfgRow }) {
   );
 }
 
-function NumField({
-  label, value, onChange,
-}: { label: string; value: string | boolean | undefined; onChange: (v: string) => void }) {
-  return (
-    <label className="block">
-      <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label}</span>
-      <Input
-        value={typeof value === "string" ? value : ""}
-        onChange={(e) => onChange(e.target.value)}
-        inputMode="decimal"
-        className="h-8 text-xs"
-      />
-    </label>
-  );
-}
-
-function SelField({
-  label, value, onChange, options,
-}: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
-  return (
-    <label className="block">
-      <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-8 w-full rounded-md border bg-background px-2 text-xs capitalize"
-      >
-        {options.map((o) => (
-          <option key={o} value={o} className="capitalize">{o}</option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function BoolRow({
+function ToggleRow({
   label, value, onChange,
 }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div className="flex items-center justify-between rounded-md border bg-background px-2.5 py-1.5">
-      <span className="text-[11px]">{label}</span>
+    <div className="flex items-center justify-between px-3 py-2.5">
+      <span className="text-xs">{label}</span>
       <Switch checked={value} onCheckedChange={onChange} />
+    </div>
+  );
+}
+
+function SliderRow({
+  label, unit, min, max, step, value, onChange,
+}: {
+  label: string;
+  unit: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const [local, setLocal] = useState(value);
+  useEffect(() => { setLocal(value); }, [value]);
+  const decimals = step < 1 ? 2 : 0;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-1.5">
+        <span className="text-xs">{label}</span>
+        <span className="text-xs font-medium tabular-nums">
+          {Number(local).toFixed(decimals)}{unit}
+        </span>
+      </div>
+      <Slider
+        min={min}
+        max={max}
+        step={step}
+        value={[local]}
+        onValueChange={(v) => setLocal(v[0]!)}
+        onValueCommit={(v) => onChange(v[0]!)}
+      />
     </div>
   );
 }
