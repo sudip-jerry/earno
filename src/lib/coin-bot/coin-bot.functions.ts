@@ -268,7 +268,16 @@ export const paperBuyCoin = createServerFn({ method: "POST" })
 
 export const paperSellCoin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { positionId?: string; symbol?: string; price: number; reason?: string }) => d)
+  .inputValidator((d: unknown) =>
+    z.object({
+      positionId: z.string().uuid().optional(),
+      symbol: z.string().trim().regex(/^[A-Z0-9_-]+$/i).max(40).optional(),
+      price: z.number().positive().max(10_000_000),
+      reason: z.string().max(500).optional(),
+    }).strict().refine((v) => v.positionId || v.symbol, {
+      message: "positionId or symbol required",
+    }).parse(d),
+  )
   .handler(async ({ data, context }) => {
     if (data.price <= 0) return { ok: false as const, error: "Invalid price" };
     const q = context.supabase.from("coin_positions").select("*")
