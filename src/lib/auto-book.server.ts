@@ -970,7 +970,9 @@ export async function runMarkPass(
     const ROE_THRESHOLDS: Record<string, { be: number; tp1: number; hard: number }> = {
       conservative: { be: 1.0, tp1: 1.2, hard: 1.6 },
       balanced:     { be: 1.1, tp1: 1.4, hard: 1.8 },
-      aggressive:   { be: 1.2, tp1: 1.5, hard: 2.0 },
+      // Aggressive (3m scalp): lower breakeven trigger to +1.00% ROE so
+      // trades that brushed +1.0–1.2% can't later become full stop-loss.
+      aggressive:   { be: 1.0, tp1: 1.5, hard: 2.0 },
     };
     const roeTh = ROE_THRESHOLDS[styleKey] ?? ROE_THRESHOLDS.balanced;
     const currentRoe = pnlPct;
