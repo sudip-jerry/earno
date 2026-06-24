@@ -981,6 +981,10 @@ export async function runMarkPass(
     // ROE-based giveback (drives profit-fade after protected profit exists).
     const roeGiveback = peakRoe >= roeTh.tp1 && peakRoe > 0 ? Math.max(0, peakRoe - currentRoe) : 0;
     const roeGivebackPct = peakRoe > 0 ? (roeGiveback / peakRoe) * 100 : 0;
+    // After TP1 we tighten the trail aggressively: 20% giveback (was 40%)
+    // and any drop below the breakeven ROE threshold force-exits the runner.
+    const postTp1GivebackPct = 20;
+    const roeRunnerFloor = roeTh.be;
 
     // ----- Resolve exit decision (priority order) -----
     let finalExitReason: string | null = null;
@@ -1046,9 +1050,15 @@ export async function runMarkPass(
       peak >= preset.profitFadeMinPct &&
       peak > 0 &&
       giveback / peak >= preset.profitFadeGivebackPct;
-    // 5b) ROE-based profit fade: peak ROE crossed TP1 and 40%+ given back.
+    // 5b) ROE-based profit fade. After TP1 has banked half, the runner trails
+    //     tightly (20% giveback) and also exits if ROE falls back below the
+    //     breakeven trigger. Before TP1, the looser 40% giveback applies so a
+    //     trade that merely brushes the TP1 line and stalls isn't cut too soon.
+    const postTp1 = tp1Hit || tp1JustHit;
+    const givebackTriggerPct = postTp1 ? postTp1GivebackPct : 40;
     const hitRoeProfitFade =
-      peakRoe >= roeTh.tp1 && peakRoe > 0 && roeGivebackPct >= 40;
+      peakRoe >= roeTh.tp1 && peakRoe > 0 &&
+      (roeGivebackPct >= givebackTriggerPct || (postTp1 && currentRoe < roeRunnerFloor));
     // 5c) Hard profit-protection fallback: trade not yet protected and ROE hit cap.
     const hitHardProfitExit = !profitProtected && currentRoe >= roeTh.hard;
 
