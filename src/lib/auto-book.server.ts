@@ -527,7 +527,7 @@ export async function runAutoBookPass(
     const blacklistThreshold = Math.max(1, Number(cfg.symbol_blacklist_threshold ?? 3));
     const { data: recent } = await supabase
       .from("positions")
-      .select("symbol,opened_at,closed_at,exit_reason,pnl,side")
+      .select("symbol,opened_at,closed_at,exit_reason,pnl,pnl_pct,side")
       .eq("user_id", cfg.user_id)
       .gte("opened_at", new Date(Date.now() - 24 * 3600_000).toISOString());
     const lastOpen = new Map<string, number>();
@@ -535,6 +535,9 @@ export async function runAutoBookPass(
     const lossCountBySymbol = new Map<string, number>();
     const lastLossAtBySymbol = new Map<string, number>();
     const winCountBySymbol = new Map<string, number>();
+    // Per-user hard-SL tracker (last 6h, hard = stop_loss reason OR ROE <= -4.5%).
+    const userHardSlAt = new Map<string, number>();
+    const hardSlCutoff = Date.now() - HARD_SL_WINDOW_MS;
     for (const r of recent ?? []) {
       const sym = r.symbol as string;
       const t = new Date(r.opened_at as string).getTime();
@@ -545,6 +548,14 @@ export async function runAutoBookPass(
       if (r.exit_reason === "stop_loss" && r.closed_at) {
         const prevC = lastSlClose.get(sym) ?? 0;
         if (closedTs > prevC) lastSlClose.set(sym, closedTs);
+      }
+      if (closedTs >= hardSlCutoff) {
+        const isHard =
+          r.exit_reason === "stop_loss" || Number(r.pnl_pct ?? 0) <= HARD_SL_ROE_THRESHOLD;
+        if (isHard) {
+          const prevH = userHardSlAt.get(sym) ?? 0;
+          if (closedTs > prevH) userHardSlAt.set(sym, closedTs);
+        }
       }
       if (pnl < 0) {
         lossCountBySymbol.set(sym, (lossCountBySymbol.get(sym) ?? 0) + 1);
