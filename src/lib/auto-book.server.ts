@@ -981,6 +981,10 @@ export async function runMarkPass(
     // ROE-based giveback (drives profit-fade after protected profit exists).
     const roeGiveback = peakRoe >= roeTh.tp1 && peakRoe > 0 ? Math.max(0, peakRoe - currentRoe) : 0;
     const roeGivebackPct = peakRoe > 0 ? (roeGiveback / peakRoe) * 100 : 0;
+    // After TP1 we tighten the trail aggressively: 20% giveback (was 40%)
+    // and any drop below the breakeven ROE threshold force-exits the runner.
+    const postTp1GivebackPct = 20;
+    const roeRunnerFloor = roeTh.be;
 
     // ----- Resolve exit decision (priority order) -----
     let finalExitReason: string | null = null;
