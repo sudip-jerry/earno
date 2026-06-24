@@ -60,7 +60,19 @@ export const getCoinConfig = createServerFn({ method: "GET" })
 
 export const updateCoinConfig = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: Partial<Omit<CoinConfigRow, "user_id">>) => d)
+  .inputValidator((d: unknown) =>
+    z.object({
+      enabled: z.boolean().optional(),
+      mode: z.enum(["intraday", "swing"]).optional(),
+      allocated_capital_usdt: z.number().min(0).max(100_000).optional(),
+      available_cash_usdt: z.number().min(0).max(100_000).optional(),
+      max_holdings: z.number().int().min(1).max(50).optional(),
+      min_confidence: z.number().int().min(0).max(100).optional(),
+      scan_interval_min: z.number().int().min(1).max(1440).optional(),
+      max_holding_days: z.number().int().min(1).max(365).optional(),
+      universe_size: z.number().int().min(1).max(500).optional(),
+    }).strict().parse(d),
+  )
   .handler(async ({ data, context }) => {
     await ensureConfig(context);
     const patch: Partial<Omit<CoinConfigRow, "user_id">> = {};
