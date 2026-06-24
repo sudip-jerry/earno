@@ -4,6 +4,7 @@
  */
 
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   fetchFuturesTickers,
@@ -59,7 +60,19 @@ export const getCoinConfig = createServerFn({ method: "GET" })
 
 export const updateCoinConfig = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: Partial<Omit<CoinConfigRow, "user_id">>) => d)
+  .inputValidator((d: unknown) =>
+    z.object({
+      enabled: z.boolean().optional(),
+      mode: z.enum(["intraday", "swing"]).optional(),
+      allocated_capital_usdt: z.number().min(0).max(100_000).optional(),
+      available_cash_usdt: z.number().min(0).max(100_000).optional(),
+      max_holdings: z.number().int().min(1).max(50).optional(),
+      min_confidence: z.number().int().min(0).max(100).optional(),
+      scan_interval_min: z.number().int().min(1).max(1440).optional(),
+      max_holding_days: z.number().int().min(1).max(365).optional(),
+      universe_size: z.number().int().min(1).max(500).optional(),
+    }).strict().parse(d),
+  )
   .handler(async ({ data, context }) => {
     await ensureConfig(context);
     const patch: Partial<Omit<CoinConfigRow, "user_id">> = {};
@@ -195,7 +208,19 @@ export const getCoinSignals = createServerFn({ method: "GET" })
 
 export const paperBuyCoin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { symbol: string; display: string; price: number; usdt: number; mode?: CoinMode; reason?: string; target?: number; stop?: number; source?: "manual" | "bot" }) => d)
+  .inputValidator((d: unknown) =>
+    z.object({
+      symbol: z.string().trim().regex(/^[A-Z0-9_-]+$/i).max(40),
+      display: z.string().trim().min(1).max(80),
+      price: z.number().positive().max(10_000_000),
+      usdt: z.number().positive().max(100_000),
+      mode: z.enum(["intraday", "swing"]).optional(),
+      reason: z.string().max(500).optional(),
+      target: z.number().positive().max(10_000_000).optional(),
+      stop: z.number().positive().max(10_000_000).optional(),
+      source: z.enum(["manual", "bot"]).optional(),
+    }).strict().parse(d),
+  )
   .handler(async ({ data, context }) => {
     if (!data.symbol || data.price <= 0 || data.usdt <= 0) {
       return { ok: false as const, error: "Invalid buy parameters" };
@@ -243,7 +268,16 @@ export const paperBuyCoin = createServerFn({ method: "POST" })
 
 export const paperSellCoin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { positionId?: string; symbol?: string; price: number; reason?: string }) => d)
+  .inputValidator((d: unknown) =>
+    z.object({
+      positionId: z.string().uuid().optional(),
+      symbol: z.string().trim().regex(/^[A-Z0-9_-]+$/i).max(40).optional(),
+      price: z.number().positive().max(10_000_000),
+      reason: z.string().max(500).optional(),
+    }).strict().refine((v) => v.positionId || v.symbol, {
+      message: "positionId or symbol required",
+    }).parse(d),
+  )
   .handler(async ({ data, context }) => {
     if (data.price <= 0) return { ok: false as const, error: "Invalid price" };
     const q = context.supabase.from("coin_positions").select("*")
