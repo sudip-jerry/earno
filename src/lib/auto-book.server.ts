@@ -616,6 +616,22 @@ export async function runAutoBookPass(
       if (blockedSymbols.has(sym.toUpperCase())) {
         rejection = "Symbol on user blocklist";
         final = "skip";
+      } else if (
+        // Global hard-SL cooldown: 2+ hard SLs across Futures paper users in
+        // the last 6h blocks new auto-book entries (both long & short) for 6h.
+        cfg.mode === "paper" && (globalHardSlCount.get(sym) ?? 0) >= 2
+      ) {
+        rejection = "Symbol globally cooled (2+ hard SLs across users in 6h)";
+        final = "skip";
+      } else if (
+        // Per-user hard-SL cooldown: 1 hard SL in last 6h blocks re-entry
+        // for symbol_sl_cooldown_minutes.
+        cfg.mode === "paper" &&
+        userHardSlAt.has(sym) &&
+        Date.now() - (userHardSlAt.get(sym) as number) < symbolSlCooldownMs
+      ) {
+        rejection = "Symbol hard-SL cooldown (user, last 6h)";
+        final = "skip";
       } else if (a.action === "AVOID" || a.side_bias === "neutral") {
         rejection = "Bias unclear / avoid";
         final = "avoid";
