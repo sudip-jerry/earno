@@ -208,7 +208,19 @@ export const getCoinSignals = createServerFn({ method: "GET" })
 
 export const paperBuyCoin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { symbol: string; display: string; price: number; usdt: number; mode?: CoinMode; reason?: string; target?: number; stop?: number; source?: "manual" | "bot" }) => d)
+  .inputValidator((d: unknown) =>
+    z.object({
+      symbol: z.string().trim().regex(/^[A-Z0-9_-]+$/i).max(40),
+      display: z.string().trim().min(1).max(80),
+      price: z.number().positive().max(10_000_000),
+      usdt: z.number().positive().max(100_000),
+      mode: z.enum(["intraday", "swing"]).optional(),
+      reason: z.string().max(500).optional(),
+      target: z.number().positive().max(10_000_000).optional(),
+      stop: z.number().positive().max(10_000_000).optional(),
+      source: z.enum(["manual", "bot"]).optional(),
+    }).strict().parse(d),
+  )
   .handler(async ({ data, context }) => {
     if (!data.symbol || data.price <= 0 || data.usdt <= 0) {
       return { ok: false as const, error: "Invalid buy parameters" };
