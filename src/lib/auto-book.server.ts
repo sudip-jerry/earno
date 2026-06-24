@@ -381,6 +381,28 @@ export async function runAutoBookPass(
   // Compute market regime once for the whole pass.
   const marketRegime = await fetchMarketRegime();
 
+  // Cross-user hard-SL tracker for Futures paper trades in the last 6h.
+  // Hard SL = exit_reason='stop_loss' OR final ROE (pnl_pct, leverage-adjusted) <= -4.5%.
+  // 2+ hard SLs on the same symbol globally blocks new auto-book entries for 6h.
+  const HARD_SL_WINDOW_MS = 6 * 3600_000;
+  const HARD_SL_ROE_THRESHOLD = -4.5;
+  const sixHoursAgoIso = new Date(Date.now() - HARD_SL_WINDOW_MS).toISOString();
+  const { data: globalRecentClosed } = await supabase
+    .from("positions")
+    .select("symbol,exit_reason,pnl_pct,closed_at,mode,instrument,status")
+    .eq("mode", "paper")
+    .eq("instrument", "futures")
+    .eq("status", "closed")
+    .gte("closed_at", sixHoursAgoIso);
+  const globalHardSlCount = new Map<string, number>();
+  for (const r of globalRecentClosed ?? []) {
+    const isHard =
+      r.exit_reason === "stop_loss" || Number(r.pnl_pct ?? 0) <= HARD_SL_ROE_THRESHOLD;
+    if (!isHard) continue;
+    const sym = r.symbol as string;
+    globalHardSlCount.set(sym, (globalHardSlCount.get(sym) ?? 0) + 1);
+  }
+
 
   for (const cfg of users) {
     let opened = 0;
