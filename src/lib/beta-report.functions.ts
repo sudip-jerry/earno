@@ -1325,6 +1325,23 @@ export const exportAllTradesCsv = createServerFn({ method: "GET" })
         exit_reason: t.exit_reason ?? "",
         pnl: t.pnl ?? "",
         pnl_pct: t.pnl_pct ?? "",
+        // ---- Profit-protection / debugging fields (additive; existing columns preserved) ----
+        current_roe_pct: t.pnl_pct ?? "",
+        peak_roe_pct: t.peak_unrealized_pnl_pct ?? "",
+        breakeven_armed_at: t.breakeven_armed_at ?? "",
+        tp1_hit: t.tp1_hit ?? "",
+        tp1_roe_pct: t.tp1_roe_pct ?? "",
+        exit_protection_reason: t.exit_protection_reason ?? "",
+        symbol_cooldown_applied: "",
+        margin_used:
+          t.qty != null && t.entry_price != null && Number(t.leverage) > 0
+            ? Number(((Number(t.qty) * Number(t.entry_price)) / Number(t.leverage)).toFixed(6))
+            : "",
+        notional_size:
+          t.qty != null && t.entry_price != null
+            ? Number((Number(t.qty) * Number(t.entry_price)).toFixed(6))
+            : "",
+        fees: t.estimated_total_fee ?? "",
         ...(() => {
           if (t.status !== "closed") {
             return {

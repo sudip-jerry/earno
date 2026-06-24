@@ -381,6 +381,28 @@ export async function runAutoBookPass(
   // Compute market regime once for the whole pass.
   const marketRegime = await fetchMarketRegime();
 
+  // Cross-user hard-SL tracker for Futures paper trades in the last 6h.
+  // Hard SL = exit_reason='stop_loss' OR final ROE (pnl_pct, leverage-adjusted) <= -4.5%.
+  // 2+ hard SLs on the same symbol globally blocks new auto-book entries for 6h.
+  const HARD_SL_WINDOW_MS = 6 * 3600_000;
+  const HARD_SL_ROE_THRESHOLD = -4.5;
+  const sixHoursAgoIso = new Date(Date.now() - HARD_SL_WINDOW_MS).toISOString();
+  const { data: globalRecentClosed } = await supabase
+    .from("positions")
+    .select("symbol,exit_reason,pnl_pct,closed_at,mode,instrument,status")
+    .eq("mode", "paper")
+    .eq("instrument", "futures")
+    .eq("status", "closed")
+    .gte("closed_at", sixHoursAgoIso);
+  const globalHardSlCount = new Map<string, number>();
+  for (const r of globalRecentClosed ?? []) {
+    const isHard =
+      r.exit_reason === "stop_loss" || Number(r.pnl_pct ?? 0) <= HARD_SL_ROE_THRESHOLD;
+    if (!isHard) continue;
+    const sym = r.symbol as string;
+    globalHardSlCount.set(sym, (globalHardSlCount.get(sym) ?? 0) + 1);
+  }
+
 
   for (const cfg of users) {
     let opened = 0;
@@ -505,7 +527,7 @@ export async function runAutoBookPass(
     const blacklistThreshold = Math.max(1, Number(cfg.symbol_blacklist_threshold ?? 3));
     const { data: recent } = await supabase
       .from("positions")
-      .select("symbol,opened_at,closed_at,exit_reason,pnl,side")
+      .select("symbol,opened_at,closed_at,exit_reason,pnl,pnl_pct,side")
       .eq("user_id", cfg.user_id)
       .gte("opened_at", new Date(Date.now() - 24 * 3600_000).toISOString());
     const lastOpen = new Map<string, number>();
@@ -513,6 +535,9 @@ export async function runAutoBookPass(
     const lossCountBySymbol = new Map<string, number>();
     const lastLossAtBySymbol = new Map<string, number>();
     const winCountBySymbol = new Map<string, number>();
+    // Per-user hard-SL tracker (last 6h, hard = stop_loss reason OR ROE <= -4.5%).
+    const userHardSlAt = new Map<string, number>();
+    const hardSlCutoff = Date.now() - HARD_SL_WINDOW_MS;
     for (const r of recent ?? []) {
       const sym = r.symbol as string;
       const t = new Date(r.opened_at as string).getTime();
@@ -523,6 +548,14 @@ export async function runAutoBookPass(
       if (r.exit_reason === "stop_loss" && r.closed_at) {
         const prevC = lastSlClose.get(sym) ?? 0;
         if (closedTs > prevC) lastSlClose.set(sym, closedTs);
+      }
+      if (closedTs >= hardSlCutoff) {
+        const isHard =
+          r.exit_reason === "stop_loss" || Number(r.pnl_pct ?? 0) <= HARD_SL_ROE_THRESHOLD;
+        if (isHard) {
+          const prevH = userHardSlAt.get(sym) ?? 0;
+          if (closedTs > prevH) userHardSlAt.set(sym, closedTs);
+        }
       }
       if (pnl < 0) {
         lossCountBySymbol.set(sym, (lossCountBySymbol.get(sym) ?? 0) + 1);
@@ -582,6 +615,22 @@ export async function runAutoBookPass(
 
       if (blockedSymbols.has(sym.toUpperCase())) {
         rejection = "Symbol on user blocklist";
+        final = "skip";
+      } else if (
+        // Global hard-SL cooldown: 2+ hard SLs across Futures paper users in
+        // the last 6h blocks new auto-book entries (both long & short) for 6h.
+        cfg.mode === "paper" && (globalHardSlCount.get(sym) ?? 0) >= 2
+      ) {
+        rejection = "Symbol globally cooled (2+ hard SLs across users in 6h)";
+        final = "skip";
+      } else if (
+        // Per-user hard-SL cooldown: 1 hard SL in last 6h blocks re-entry
+        // for symbol_sl_cooldown_minutes.
+        cfg.mode === "paper" &&
+        userHardSlAt.has(sym) &&
+        Date.now() - (userHardSlAt.get(sym) as number) < symbolSlCooldownMs
+      ) {
+        rejection = "Symbol hard-SL cooldown (user, last 6h)";
         final = "skip";
       } else if (a.action === "AVOID" || a.side_bias === "neutral") {
         rejection = "Bias unclear / avoid";
@@ -970,7 +1019,9 @@ export async function runMarkPass(
     const ROE_THRESHOLDS: Record<string, { be: number; tp1: number; hard: number }> = {
       conservative: { be: 1.0, tp1: 1.2, hard: 1.6 },
       balanced:     { be: 1.1, tp1: 1.4, hard: 1.8 },
-      aggressive:   { be: 1.2, tp1: 1.5, hard: 2.0 },
+      // Aggressive (3m scalp): lower breakeven trigger to +1.00% ROE so
+      // trades that brushed +1.0–1.2% can't later become full stop-loss.
+      aggressive:   { be: 1.0, tp1: 1.5, hard: 2.0 },
     };
     const roeTh = ROE_THRESHOLDS[styleKey] ?? ROE_THRESHOLDS.balanced;
     const currentRoe = pnlPct;
