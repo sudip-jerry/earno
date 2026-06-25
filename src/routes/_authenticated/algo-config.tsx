@@ -520,6 +520,10 @@ function UserConfigCard({ c }: { c: CfgRow }) {
               value={draft.atr_multiplier} onChange={(v) => setField("atr_multiplier", v)} />
             <SliderRow label="Target multiplier" unit="x" min={0.5} max={5} step={0.1}
               value={draft.target_multiplier} onChange={(v) => setField("target_multiplier", v)} />
+            <SliderRow label="Minimum SL" unit="%" min={0.1} max={10} step={0.1}
+              value={draft.min_sl_pct} onChange={(v) => setField("min_sl_pct", v)} />
+            <SliderRow label="Minimum RR" unit=":1" min={0.5} max={5} step={0.1}
+              value={draft.min_rr} onChange={(v) => setField("min_rr", v)} />
           </div>
 
           <div className="flex justify-end gap-2">
