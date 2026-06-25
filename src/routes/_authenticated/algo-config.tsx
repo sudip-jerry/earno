@@ -259,6 +259,9 @@ type CfgRow = {
   move_to_breakeven: boolean;
   trailing_enabled: boolean;
   regime_filter_enabled: boolean;
+  min_sl_pct: number;
+  strategy: string | null;
+  timeframe: string | null;
   updated_at: string;
 };
 
