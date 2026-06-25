@@ -1323,16 +1323,6 @@ export async function runMarkPass(
       }
       const { error } = await supabase.from("positions").update(baseUpdate as never).eq("id", p.id as string);
       if (!error) updated++;
-      else {
-        try {
-          await logEvent(
-            supabase,
-            p.user_id as string,
-            "warn",
-            `mark-pass update FAILED ${p.symbol}: ${error.message}`,
-          );
-        } catch {/* noop */}
-      }
     }
   }
 
