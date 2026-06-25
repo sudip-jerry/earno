@@ -276,7 +276,9 @@ type NumField =
   | "daily_loss_cap_pct"
   | "min_scalp_score"
   | "atr_multiplier"
-  | "target_multiplier";
+  | "target_multiplier"
+  | "min_sl_pct"
+  | "min_rr";
 
 type BoolField =
   | "is_running"
@@ -299,7 +301,11 @@ type Draft = {
   min_scalp_score: number;
   atr_multiplier: number;
   target_multiplier: number;
+  min_sl_pct: number;
+  min_rr: number;
   trading_style: string;
+  strategy: string | null;
+  timeframe: string | null;
   is_running: boolean;
   auto_book: boolean;
   allow_long: boolean;
