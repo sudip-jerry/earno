@@ -425,6 +425,9 @@ function UserConfigCard({ c }: { c: CfgRow }) {
           <Kv k="DailyCap" v={`${c.daily_loss_cap_pct.toFixed(2)}%`} />
           <Kv k="Cooldown" v={`${c.cooldown_minutes}m`} />
           <Kv k="ScanEvery" v={`${c.scan_interval_minutes}m`} />
+          <Kv k="Min SL" v={`${c.min_sl_pct.toFixed(2)}%`} />
+          <Kv k="Strategy" v={c.strategy ?? "default"} />
+          <Kv k="Timeframe" v={c.timeframe ?? "5m"} />
           <Kv k="Long" v={c.allow_long ? "on" : "off"} />
           <Kv k="Short" v={c.allow_short ? "on" : "off"} />
           <Kv k="AutoBook" v={c.auto_book ? "on" : "off"} />
