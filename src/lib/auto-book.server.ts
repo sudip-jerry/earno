@@ -1221,17 +1221,21 @@ export async function runMarkPass(
       lowest_unrealized_pnl: lowPnl,
     };
     if (tp1JustHit) {
+      const halfQty = qty / 2;
+      const tp1AbsPnl = (mark - entry) * halfQty * sideMul;
       baseUpdate.tp1_hit = true;
       baseUpdate.tp1_hit_at = new Date().toISOString();
       baseUpdate.tp1_roe_pct = currentRoe;
       // Simulated 50% close: bank half the pnl_pct at TP1 price, leverage-adjusted.
       const tp1PctRealized = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul * lev : 0;
       baseUpdate.tp1_pnl = tp1PctRealized * 0.5;
-      baseUpdate.tp1_qty_closed = qty / 2;
-      baseUpdate.remaining_qty = qty / 2;
+      baseUpdate.tp1_booked_pnl = tp1AbsPnl;
+      baseUpdate.tp1_qty_closed = halfQty;
+      baseUpdate.remaining_qty = halfQty;
       baseUpdate.stop_loss = entry;
       baseUpdate.breakeven_moved = true;
       baseUpdate.breakeven_armed_at = new Date().toISOString();
+      baseUpdate.profit_protection_active = true;
       baseUpdate.trail_anchor_price = mark;
       void tp1TriggerSource;
     } else if (tp1Hit) {
@@ -1241,6 +1245,10 @@ export async function runMarkPass(
       baseUpdate.stop_loss = entry;
       baseUpdate.breakeven_moved = true;
       baseUpdate.breakeven_armed_at = new Date().toISOString();
+      baseUpdate.profit_protection_active = true;
+    }
+    if (postTp1 && lockedRunnerRoe > Number(p.locked_runner_roe_pct ?? 0)) {
+      baseUpdate.locked_runner_roe_pct = lockedRunnerRoe;
     }
     if (newWeakProgress) Object.assign(baseUpdate, newWeakProgress);
 
