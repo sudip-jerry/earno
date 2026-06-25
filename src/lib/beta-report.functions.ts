@@ -1332,6 +1332,10 @@ export const exportAllTradesCsv = createServerFn({ method: "GET" })
         tp1_hit: t.tp1_hit ?? "",
         tp1_roe_pct: t.tp1_roe_pct ?? "",
         exit_protection_reason: t.exit_protection_reason ?? "",
+        locked_runner_roe_pct: (t as Record<string, unknown>).locked_runner_roe_pct ?? "",
+        tp1_booked_pnl: (t as Record<string, unknown>).tp1_booked_pnl ?? "",
+        runner_pnl: (t as Record<string, unknown>).runner_pnl ?? "",
+        profit_protection_active: (t as Record<string, unknown>).profit_protection_active ?? "",
         symbol_cooldown_applied: "",
         margin_used:
           t.qty != null && t.entry_price != null && Number(t.leverage) > 0

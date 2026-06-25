@@ -1094,6 +1094,28 @@ export async function runMarkPass(
       if (retrace >= effTrail) hitTrail = true;
     }
 
+    // 4b) Post-TP1 locked-runner ROE protection.
+    // After TP1 books 50%, lock a floor under the runner ROE that ratchets
+    // upward only. If current ROE drops to/below the lock, exit the runner.
+    const postTp1 = tp1Hit || tp1JustHit;
+    let lockedRunnerRoe = Number(p.locked_runner_roe_pct ?? 0);
+    let hitLockedRunnerExit = false;
+    if (postTp1) {
+      const tp1RoeRef = tp1JustHit
+        ? currentRoe
+        : Number(p.tp1_roe_pct ?? roeTh.tp1);
+      let lockFactor = 0.80;
+      if (peakRoe > 4.0) lockFactor = 0.90;
+      else if (peakRoe > 2.5) lockFactor = 0.85;
+      let candidate = peakRoe * lockFactor;
+      const tp1Floor = tp1RoeRef * 0.90;
+      if (tp1Floor > candidate) candidate = tp1Floor;
+      if (candidate > lockedRunnerRoe) lockedRunnerRoe = candidate;
+      if (lockedRunnerRoe > 0 && currentRoe <= lockedRunnerRoe && currentRoe < peakRoe) {
+        hitLockedRunnerExit = true;
+      }
+    }
+
     // 5a) Existing price-% profit fade.
     const hitProfitFade =
       peak >= preset.profitFadeMinPct &&
@@ -1103,7 +1125,6 @@ export async function runMarkPass(
     //     tightly (20% giveback) and also exits if ROE falls back below the
     //     breakeven trigger. Before TP1, the looser 40% giveback applies so a
     //     trade that merely brushes the TP1 line and stalls isn't cut too soon.
-    const postTp1 = tp1Hit || tp1JustHit;
     const givebackTriggerPct = postTp1 ? postTp1GivebackPct : 40;
     const hitRoeProfitFade =
       peakRoe >= roeTh.tp1 && peakRoe > 0 &&
@@ -1153,14 +1174,17 @@ export async function runMarkPass(
       finalExitReason = "profit_protection_exit";
       exitProtectionReason = "profit_protection";
     } else if (hitSl) {
-      // Stop-loss guard: once peak ROE crossed TP1 trigger, never close as full
-      // stop_loss — degrade to breakeven_exit.
-      if (newBreakeven || peakRoe >= roeTh.tp1) {
+      // Stop-loss guard: once peak ROE crossed TP1 trigger OR TP1 was banked,
+      // never close as full stop_loss — degrade to breakeven_exit.
+      if (newBreakeven || tp1Hit || tp1JustHit || peakRoe >= roeTh.tp1 || peakRoe >= roeTh.be) {
         finalExitReason = "breakeven_exit";
         exitProtectionReason = "breakeven_protected";
       } else {
         finalExitReason = "stop_loss";
       }
+    } else if (hitLockedRunnerExit) {
+      finalExitReason = "profit_fade_exit";
+      exitProtectionReason = "post_tp1_locked_roe_exit";
     } else if (hitTrail) {
       finalExitReason = "trailing_exit";
     } else if (hitRoeProfitFade) {
@@ -1197,17 +1221,21 @@ export async function runMarkPass(
       lowest_unrealized_pnl: lowPnl,
     };
     if (tp1JustHit) {
+      const halfQty = qty / 2;
+      const tp1AbsPnl = (mark - entry) * halfQty * sideMul;
       baseUpdate.tp1_hit = true;
       baseUpdate.tp1_hit_at = new Date().toISOString();
       baseUpdate.tp1_roe_pct = currentRoe;
       // Simulated 50% close: bank half the pnl_pct at TP1 price, leverage-adjusted.
       const tp1PctRealized = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul * lev : 0;
       baseUpdate.tp1_pnl = tp1PctRealized * 0.5;
-      baseUpdate.tp1_qty_closed = qty / 2;
-      baseUpdate.remaining_qty = qty / 2;
+      baseUpdate.tp1_booked_pnl = tp1AbsPnl;
+      baseUpdate.tp1_qty_closed = halfQty;
+      baseUpdate.remaining_qty = halfQty;
       baseUpdate.stop_loss = entry;
       baseUpdate.breakeven_moved = true;
       baseUpdate.breakeven_armed_at = new Date().toISOString();
+      baseUpdate.profit_protection_active = true;
       baseUpdate.trail_anchor_price = mark;
       void tp1TriggerSource;
     } else if (tp1Hit) {
@@ -1217,18 +1245,32 @@ export async function runMarkPass(
       baseUpdate.stop_loss = entry;
       baseUpdate.breakeven_moved = true;
       baseUpdate.breakeven_armed_at = new Date().toISOString();
+      baseUpdate.profit_protection_active = true;
+    }
+    if (postTp1 && lockedRunnerRoe > Number(p.locked_runner_roe_pct ?? 0)) {
+      baseUpdate.locked_runner_roe_pct = lockedRunnerRoe;
     }
     if (newWeakProgress) Object.assign(baseUpdate, newWeakProgress);
 
 
     if (finalExitReason != null) {
-      // Final pnl combines TP1 leg (50%) + remaining leg pnl based on qty share.
-      const remainingShare = (tp1Hit || tp1JustHit) ? (remainingQty / qty) : 1;
-      const tp1Leg = tp1JustHit ? Number(baseUpdate.tp1_pnl ?? 0) : tp1Pnl;
-      const combinedPnlPct = tp1Leg + pnlPct * remainingShare;
-      const combinedPnl =
-        (tp1JustHit ? (mark - entry) * (qty / 2) * sideMul : 0) +
-        (mark - entry) * (remainingShare === 1 ? qty : qty / 2) * sideMul;
+      // Final pnl = TP1 booked leg (absolute) + runner leg (absolute on remaining qty).
+      const hadTp1 = tp1Hit || tp1JustHit;
+      const runnerQty = hadTp1 ? (qty / 2) : qty;
+      const runnerAbsPnl = (mark - entry) * runnerQty * sideMul;
+      const tp1BookedAbs = hadTp1
+        ? Number(
+            (baseUpdate.tp1_booked_pnl as number | undefined) ??
+              p.tp1_booked_pnl ??
+              // Fallback for legacy rows: derive from tp1 price if available.
+              (p.tp1_price != null ? (Number(p.tp1_price) - entry) * (qty / 2) * sideMul : 0),
+          )
+        : 0;
+      const combinedPnl = tp1BookedAbs + runnerAbsPnl;
+      const remainingShare = hadTp1 ? (runnerQty / qty) : 1;
+      const tp1LegPct = tp1JustHit ? Number(baseUpdate.tp1_pnl ?? 0) : tp1Pnl;
+      const combinedPnlPct = tp1LegPct + pnlPct * remainingShare;
+      const netPnl = combinedPnl - estimatedTotalFee - estimatedSlippage;
 
       Object.assign(baseUpdate, {
         status: "closed",
@@ -1240,9 +1282,11 @@ export async function runMarkPass(
         pnl: combinedPnl,
         pnl_pct: combinedPnlPct,
         gross_pnl: combinedPnl,
+        runner_pnl: runnerAbsPnl,
+        tp1_booked_pnl: tp1BookedAbs,
         estimated_total_fee: estimatedTotalFee,
         estimated_slippage: estimatedSlippage,
-        estimated_net_pnl: combinedPnl - estimatedTotalFee - estimatedSlippage,
+        estimated_net_pnl: netPnl,
         exit_fee_aware: feeAwareEnabled,
         exit_blocked_reason: null,
         exit_protection_reason: exitProtectionReason,
