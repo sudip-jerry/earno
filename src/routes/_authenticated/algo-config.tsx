@@ -370,6 +370,7 @@ function UserConfigCard({ c }: { c: CfgRow }) {
       "leverage", "risk_per_trade_pct", "max_open_positions", "max_trades_per_day",
       "cooldown_minutes", "auto_close_minutes", "scan_interval_minutes",
       "daily_loss_cap_pct", "min_scalp_score", "atr_multiplier", "target_multiplier",
+      "min_sl_pct", "min_rr",
     ];
     for (const k of numKeys) if (d[k] !== Number(c[k])) out[k] = d[k];
     const boolKeys: BoolField[] = [
@@ -378,6 +379,8 @@ function UserConfigCard({ c }: { c: CfgRow }) {
     ];
     for (const k of boolKeys) if (d[k] !== c[k]) out[k] = d[k];
     if (d.trading_style !== c.trading_style) out.trading_style = d.trading_style;
+    if (d.strategy !== c.strategy) out.strategy = d.strategy;
+    if (d.timeframe !== c.timeframe) out.timeframe = d.timeframe;
     return out;
   };
 
