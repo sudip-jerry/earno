@@ -1101,9 +1101,9 @@ export async function runMarkPass(
     let lockedRunnerRoe = Number(p.locked_runner_roe_pct ?? 0);
     let hitLockedRunnerExit = false;
     if (postTp1) {
-      const tp1RoeRef = Number(
-        (baseUpdate.tp1_roe_pct as number | undefined) ?? p.tp1_roe_pct ?? roeTh.tp1,
-      );
+      const tp1RoeRef = tp1JustHit
+        ? currentRoe
+        : Number(p.tp1_roe_pct ?? roeTh.tp1);
       let lockFactor = 0.80;
       if (peakRoe > 4.0) lockFactor = 0.90;
       else if (peakRoe > 2.5) lockFactor = 0.85;
