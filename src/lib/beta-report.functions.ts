@@ -1005,7 +1005,11 @@ const tunePatchSchema = z.object({
       trailing_enabled: z.boolean().optional(),
       regime_filter_enabled: z.boolean().optional(),
       trading_style: z.enum(["conservative", "balanced", "aggressive"]).optional(),
-      // NOTE: `mode` and `strategy` are identity-level and intentionally not editable here.
+      min_sl_pct: z.number().min(0.1).max(20).optional(),
+      min_rr: z.number().min(0.5).max(10).optional(),
+      strategy: z.enum(["vwap_pullback", "momentum_breakout"]).optional(),
+      timeframe: z.enum(["1m", "3m", "5m", "15m", "1h", "4h"]).optional(),
+      // NOTE: `mode` is identity-level and intentionally not editable here.
     })
     .strict()
     .refine((p) => Object.keys(p).length > 0, "empty patch"),
