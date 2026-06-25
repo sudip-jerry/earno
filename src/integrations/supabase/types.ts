@@ -717,6 +717,7 @@ export type Database = {
           id: string
           instrument: string | null
           leverage: number
+          locked_runner_roe_pct: number | null
           lowest_unrealized_pnl: number | null
           manual_missed_pnl: number | null
           manual_saved_pnl: number | null
@@ -730,9 +731,11 @@ export type Database = {
           peak_unrealized_pnl_pct: number | null
           pnl: number | null
           pnl_pct: number | null
+          profit_protection_active: boolean | null
           qty: number
           remaining_qty: number | null
           rsi_at_entry: number | null
+          runner_pnl: number | null
           shadow_closed_at: string | null
           shadow_exit_pnl: number | null
           shadow_exit_reason: string | null
@@ -746,6 +749,7 @@ export type Database = {
           stop_loss: number | null
           symbol: string
           take_profit: number | null
+          tp1_booked_pnl: number | null
           tp1_hit: boolean
           tp1_hit_at: string | null
           tp1_pct: number | null
@@ -798,6 +802,7 @@ export type Database = {
           id?: string
           instrument?: string | null
           leverage: number
+          locked_runner_roe_pct?: number | null
           lowest_unrealized_pnl?: number | null
           manual_missed_pnl?: number | null
           manual_saved_pnl?: number | null
@@ -811,9 +816,11 @@ export type Database = {
           peak_unrealized_pnl_pct?: number | null
           pnl?: number | null
           pnl_pct?: number | null
+          profit_protection_active?: boolean | null
           qty: number
           remaining_qty?: number | null
           rsi_at_entry?: number | null
+          runner_pnl?: number | null
           shadow_closed_at?: string | null
           shadow_exit_pnl?: number | null
           shadow_exit_reason?: string | null
@@ -827,6 +834,7 @@ export type Database = {
           stop_loss?: number | null
           symbol: string
           take_profit?: number | null
+          tp1_booked_pnl?: number | null
           tp1_hit?: boolean
           tp1_hit_at?: string | null
           tp1_pct?: number | null
@@ -879,6 +887,7 @@ export type Database = {
           id?: string
           instrument?: string | null
           leverage?: number
+          locked_runner_roe_pct?: number | null
           lowest_unrealized_pnl?: number | null
           manual_missed_pnl?: number | null
           manual_saved_pnl?: number | null
@@ -892,9 +901,11 @@ export type Database = {
           peak_unrealized_pnl_pct?: number | null
           pnl?: number | null
           pnl_pct?: number | null
+          profit_protection_active?: boolean | null
           qty?: number
           remaining_qty?: number | null
           rsi_at_entry?: number | null
+          runner_pnl?: number | null
           shadow_closed_at?: string | null
           shadow_exit_pnl?: number | null
           shadow_exit_reason?: string | null
@@ -908,6 +919,7 @@ export type Database = {
           stop_loss?: number | null
           symbol?: string
           take_profit?: number | null
+          tp1_booked_pnl?: number | null
           tp1_hit?: boolean
           tp1_hit_at?: string | null
           tp1_pct?: number | null
