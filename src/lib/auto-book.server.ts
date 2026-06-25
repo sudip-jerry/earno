@@ -1174,14 +1174,17 @@ export async function runMarkPass(
       finalExitReason = "profit_protection_exit";
       exitProtectionReason = "profit_protection";
     } else if (hitSl) {
-      // Stop-loss guard: once peak ROE crossed TP1 trigger, never close as full
-      // stop_loss — degrade to breakeven_exit.
-      if (newBreakeven || peakRoe >= roeTh.tp1) {
+      // Stop-loss guard: once peak ROE crossed TP1 trigger OR TP1 was banked,
+      // never close as full stop_loss — degrade to breakeven_exit.
+      if (newBreakeven || tp1Hit || tp1JustHit || peakRoe >= roeTh.tp1 || peakRoe >= roeTh.be) {
         finalExitReason = "breakeven_exit";
         exitProtectionReason = "breakeven_protected";
       } else {
         finalExitReason = "stop_loss";
       }
+    } else if (hitLockedRunnerExit) {
+      finalExitReason = "profit_fade_exit";
+      exitProtectionReason = "post_tp1_locked_roe_exit";
     } else if (hitTrail) {
       finalExitReason = "trailing_exit";
     } else if (hitRoeProfitFade) {
