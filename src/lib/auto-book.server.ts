@@ -1254,13 +1254,23 @@ export async function runMarkPass(
 
 
     if (finalExitReason != null) {
-      // Final pnl combines TP1 leg (50%) + remaining leg pnl based on qty share.
-      const remainingShare = (tp1Hit || tp1JustHit) ? (remainingQty / qty) : 1;
-      const tp1Leg = tp1JustHit ? Number(baseUpdate.tp1_pnl ?? 0) : tp1Pnl;
-      const combinedPnlPct = tp1Leg + pnlPct * remainingShare;
-      const combinedPnl =
-        (tp1JustHit ? (mark - entry) * (qty / 2) * sideMul : 0) +
-        (mark - entry) * (remainingShare === 1 ? qty : qty / 2) * sideMul;
+      // Final pnl = TP1 booked leg (absolute) + runner leg (absolute on remaining qty).
+      const hadTp1 = tp1Hit || tp1JustHit;
+      const runnerQty = hadTp1 ? (qty / 2) : qty;
+      const runnerAbsPnl = (mark - entry) * runnerQty * sideMul;
+      const tp1BookedAbs = hadTp1
+        ? Number(
+            (baseUpdate.tp1_booked_pnl as number | undefined) ??
+              p.tp1_booked_pnl ??
+              // Fallback for legacy rows: derive from tp1 price if available.
+              (p.tp1_price != null ? (Number(p.tp1_price) - entry) * (qty / 2) * sideMul : 0),
+          )
+        : 0;
+      const combinedPnl = tp1BookedAbs + runnerAbsPnl;
+      const remainingShare = hadTp1 ? (runnerQty / qty) : 1;
+      const tp1LegPct = tp1JustHit ? Number(baseUpdate.tp1_pnl ?? 0) : tp1Pnl;
+      const combinedPnlPct = tp1LegPct + pnlPct * remainingShare;
+      const netPnl = combinedPnl - estimatedTotalFee - estimatedSlippage;
 
       Object.assign(baseUpdate, {
         status: "closed",
@@ -1272,9 +1282,11 @@ export async function runMarkPass(
         pnl: combinedPnl,
         pnl_pct: combinedPnlPct,
         gross_pnl: combinedPnl,
+        runner_pnl: runnerAbsPnl,
+        tp1_booked_pnl: tp1BookedAbs,
         estimated_total_fee: estimatedTotalFee,
         estimated_slippage: estimatedSlippage,
-        estimated_net_pnl: combinedPnl - estimatedTotalFee - estimatedSlippage,
+        estimated_net_pnl: netPnl,
         exit_fee_aware: feeAwareEnabled,
         exit_blocked_reason: null,
         exit_protection_reason: exitProtectionReason,
