@@ -37,21 +37,17 @@ function num(x: unknown): number {
 
 async function fetchCandles(pair: string, interval: string, limit: number): Promise<Candle[] | null> {
   try {
-    const res = await fetch(CANDLES(pair, interval, limit), {
+    const [base, group] = resolveInterval(interval);
+    const res = await fetch(CANDLES(pair, base, limit * group), {
       headers: PUB_HEADERS,
       signal: AbortSignal.timeout(3500),
     });
     if (!res.ok) return null;
     const raw = (await res.json()) as Array<Record<string, unknown>>;
     if (!Array.isArray(raw) || raw.length < 10) return null;
-    return raw.map((k) => ({
-      open: num(k.open),
-      high: num(k.high),
-      low: num(k.low),
-      close: num(k.close),
-      volume: num(k.volume),
-      time: num(k.time),
-    }));
+    const agg = aggregateCandles(raw as any, group);
+    if (agg.length < 10) return null;
+    return agg;
   } catch {
     return null;
   }
