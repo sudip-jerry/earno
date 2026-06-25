@@ -956,21 +956,6 @@ export async function runMarkPass(
     ]),
   );
   const marks = await fetchMarkPrices(allSymbols);
-  // DEBUG: log symbols missing a mark price so we can see why some positions
-  // never have their mark_price refreshed (and therefore never trigger SL/TP).
-  {
-    const missing = allSymbols.filter((s) => !marks[s]);
-    if (missing.length) {
-      try {
-        await logEvent(
-          supabase,
-          (positions[0]?.user_id as string) ?? "00000000-0000-0000-0000-000000000000",
-          "warn",
-          `mark-pass: no ticker price for ${missing.join(",")}; got ${Object.keys(marks).length}/${allSymbols.length}`,
-        );
-      } catch {/* noop */}
-    }
-  }
 
   let updated = 0;
   let closed = 0;
