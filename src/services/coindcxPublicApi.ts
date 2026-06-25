@@ -110,9 +110,11 @@ export async function fetchCandles(
   interval: Interval,
   limit = 100,
 ): Promise<Candle[]> {
+  const { resolveInterval, aggregateCandles } = await import("@/lib/candle-aggregator");
+  const [base, group] = resolveInterval(interval);
   const url = `${PUBLIC_BASE}/market_data/candles?pair=${encodeURIComponent(
     pair,
-  )}&interval=${interval}&limit=${limit}`;
+  )}&interval=${base}&limit=${limit * group}`;
   type Raw = {
     open: number | string; close: number | string;
     high: number | string; low: number | string;
@@ -120,13 +122,10 @@ export async function fetchCandles(
   };
   const raw = await getJSON<Raw[]>(url, 4500);
   if (!Array.isArray(raw)) return [];
-  return raw.map((k) => ({
-    open: num(k.open),
-    high: num(k.high),
-    low: num(k.low),
-    close: num(k.close),
-    volume: num(k.volume),
-    time: k.time,
+  const agg = aggregateCandles(raw as any, group);
+  return agg.map((k) => ({
+    open: k.open, high: k.high, low: k.low, close: k.close,
+    volume: k.volume, time: k.time,
   }));
 }
 
