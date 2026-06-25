@@ -462,6 +462,38 @@ function UserConfigCard({ c }: { c: CfgRow }) {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex items-center justify-between px-3 py-2.5">
+              <span className="text-xs">Strategy</span>
+              <Select
+                value={draft.strategy ?? "vwap_pullback"}
+                onValueChange={(v) => setField("strategy", v)}
+              >
+                <SelectTrigger className="h-8 w-44 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="vwap_pullback">VWAP Pullback</SelectItem>
+                  <SelectItem value="momentum_breakout">Momentum Breakout</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center justify-between px-3 py-2.5">
+              <span className="text-xs">Timeframe</span>
+              <Select
+                value={draft.timeframe ?? "5m"}
+                onValueChange={(v) => setField("timeframe", v)}
+              >
+                <SelectTrigger className="h-8 w-24 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1m">1m</SelectItem>
+                  <SelectItem value="3m">3m</SelectItem>
+                  <SelectItem value="5m">5m</SelectItem>
+                  <SelectItem value="15m">15m</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Sliders */}
