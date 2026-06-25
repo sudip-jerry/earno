@@ -259,6 +259,9 @@ type CfgRow = {
   move_to_breakeven: boolean;
   trailing_enabled: boolean;
   regime_filter_enabled: boolean;
+  min_sl_pct: number;
+  strategy: string | null;
+  timeframe: string | null;
   updated_at: string;
 };
 
@@ -273,7 +276,9 @@ type NumField =
   | "daily_loss_cap_pct"
   | "min_scalp_score"
   | "atr_multiplier"
-  | "target_multiplier";
+  | "target_multiplier"
+  | "min_sl_pct"
+  | "min_rr";
 
 type BoolField =
   | "is_running"
@@ -296,7 +301,11 @@ type Draft = {
   min_scalp_score: number;
   atr_multiplier: number;
   target_multiplier: number;
+  min_sl_pct: number;
+  min_rr: number;
   trading_style: string;
+  strategy: string | null;
+  timeframe: string | null;
   is_running: boolean;
   auto_book: boolean;
   allow_long: boolean;
@@ -325,7 +334,11 @@ function UserConfigCard({ c }: { c: CfgRow }) {
       min_scalp_score: c.min_scalp_score,
       atr_multiplier: c.atr_multiplier,
       target_multiplier: c.target_multiplier,
+      min_sl_pct: c.min_sl_pct,
+      min_rr: c.min_rr,
       trading_style: c.trading_style,
+      strategy: c.strategy,
+      timeframe: c.timeframe,
       is_running: c.is_running,
       auto_book: c.auto_book,
       allow_long: c.allow_long,
@@ -357,6 +370,7 @@ function UserConfigCard({ c }: { c: CfgRow }) {
       "leverage", "risk_per_trade_pct", "max_open_positions", "max_trades_per_day",
       "cooldown_minutes", "auto_close_minutes", "scan_interval_minutes",
       "daily_loss_cap_pct", "min_scalp_score", "atr_multiplier", "target_multiplier",
+      "min_sl_pct", "min_rr",
     ];
     for (const k of numKeys) if (d[k] !== Number(c[k])) out[k] = d[k];
     const boolKeys: BoolField[] = [
@@ -365,6 +379,8 @@ function UserConfigCard({ c }: { c: CfgRow }) {
     ];
     for (const k of boolKeys) if (d[k] !== c[k]) out[k] = d[k];
     if (d.trading_style !== c.trading_style) out.trading_style = d.trading_style;
+    if (d.strategy !== c.strategy) out.strategy = d.strategy;
+    if (d.timeframe !== c.timeframe) out.timeframe = d.timeframe;
     return out;
   };
 
@@ -409,6 +425,9 @@ function UserConfigCard({ c }: { c: CfgRow }) {
           <Kv k="DailyCap" v={`${c.daily_loss_cap_pct.toFixed(2)}%`} />
           <Kv k="Cooldown" v={`${c.cooldown_minutes}m`} />
           <Kv k="ScanEvery" v={`${c.scan_interval_minutes}m`} />
+          <Kv k="Min SL" v={`${c.min_sl_pct.toFixed(2)}%`} />
+          <Kv k="Strategy" v={c.strategy ?? "default"} />
+          <Kv k="Timeframe" v={c.timeframe ?? "5m"} />
           <Kv k="Long" v={c.allow_long ? "on" : "off"} />
           <Kv k="Short" v={c.allow_short ? "on" : "off"} />
           <Kv k="AutoBook" v={c.auto_book ? "on" : "off"} />
@@ -443,6 +462,38 @@ function UserConfigCard({ c }: { c: CfgRow }) {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex items-center justify-between px-3 py-2.5">
+              <span className="text-xs">Strategy</span>
+              <Select
+                value={draft.strategy ?? "vwap_pullback"}
+                onValueChange={(v) => setField("strategy", v)}
+              >
+                <SelectTrigger className="h-8 w-44 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="vwap_pullback">VWAP Pullback</SelectItem>
+                  <SelectItem value="momentum_breakout">Momentum Breakout</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center justify-between px-3 py-2.5">
+              <span className="text-xs">Timeframe</span>
+              <Select
+                value={draft.timeframe ?? "5m"}
+                onValueChange={(v) => setField("timeframe", v)}
+              >
+                <SelectTrigger className="h-8 w-24 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1m">1m</SelectItem>
+                  <SelectItem value="3m">3m</SelectItem>
+                  <SelectItem value="5m">5m</SelectItem>
+                  <SelectItem value="15m">15m</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Sliders */}
@@ -469,6 +520,10 @@ function UserConfigCard({ c }: { c: CfgRow }) {
               value={draft.atr_multiplier} onChange={(v) => setField("atr_multiplier", v)} />
             <SliderRow label="Target multiplier" unit="x" min={0.5} max={5} step={0.1}
               value={draft.target_multiplier} onChange={(v) => setField("target_multiplier", v)} />
+            <SliderRow label="Minimum SL" unit="%" min={0.1} max={10} step={0.1}
+              value={draft.min_sl_pct} onChange={(v) => setField("min_sl_pct", v)} />
+            <SliderRow label="Minimum RR" unit=":1" min={0.5} max={5} step={0.1}
+              value={draft.min_rr} onChange={(v) => setField("min_rr", v)} />
           </div>
 
           <div className="flex justify-end gap-2">
