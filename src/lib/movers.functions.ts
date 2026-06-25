@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { atrPctFromCandles } from "@/lib/risk-engine";
+import { resolveInterval, aggregateCandles } from "@/lib/candle-aggregator";
 
 export type Bias = "long" | "short" | "wait";
 export type Action = "long" | "short" | "wait" | "avoid";
@@ -103,19 +104,17 @@ function prettySymbol(s: string): string {
 
 async function fetchCandles(pair: string, interval: string, limit: number): Promise<Candle[] | null> {
   try {
-    const res = await fetch(CANDLES(pair, interval, limit), {
+    const [base, group] = resolveInterval(interval);
+    const res = await fetch(CANDLES(pair, base, limit * group), {
       headers: PUBLIC_API_HEADERS,
       signal: AbortSignal.timeout(4500),
     });
     if (!res.ok) return null;
-    const json = (await res.json()) as Candle[];
+    const json = (await res.json()) as Array<Record<string, unknown>>;
     if (!Array.isArray(json) || json.length < 1) return null;
-    return json.map((k) => ({
-      open: num(k.open),
-      close: num(k.close),
-      high: num(k.high),
-      low: num(k.low),
-      volume: k.volume != null ? num(k.volume) : undefined,
+    const agg = aggregateCandles(json as any, group);
+    return agg.map((k) => ({
+      open: k.open, close: k.close, high: k.high, low: k.low, volume: k.volume,
     }));
   } catch {
     return null;

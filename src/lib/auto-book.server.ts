@@ -27,20 +27,18 @@ const PUB_HEADERS = {
 
 async function fetchAtrPct(pair: string): Promise<number | null> {
   try {
-    const res = await fetch(CANDLES(pair, "5m", 30), {
+    const { resolveInterval, aggregateCandles } = await import("@/lib/candle-aggregator");
+    const [base, group] = resolveInterval("5m");
+    const res = await fetch(CANDLES(pair, base, 30 * group), {
       headers: PUB_HEADERS,
       signal: AbortSignal.timeout(3500),
     });
     if (!res.ok) return null;
-    const raw = (await res.json()) as Array<{ open: number | string; high: number | string; low: number | string; close: number | string }>;
+    const raw = (await res.json()) as Array<Record<string, unknown>>;
     if (!Array.isArray(raw) || raw.length < 16) return null;
-    const candles = raw.map((k) => ({
-      open: num(k.open),
-      high: num(k.high),
-      low: num(k.low),
-      close: num(k.close),
-    }));
-    return atrPctFromCandles(candles, 14);
+    const agg = aggregateCandles(raw as any, group);
+    if (agg.length < 16) return null;
+    return atrPctFromCandles(agg, 14);
   } catch {
     return null;
   }
