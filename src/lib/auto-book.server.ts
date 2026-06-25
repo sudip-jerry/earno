@@ -1094,6 +1094,28 @@ export async function runMarkPass(
       if (retrace >= effTrail) hitTrail = true;
     }
 
+    // 4b) Post-TP1 locked-runner ROE protection.
+    // After TP1 books 50%, lock a floor under the runner ROE that ratchets
+    // upward only. If current ROE drops to/below the lock, exit the runner.
+    const postTp1 = tp1Hit || tp1JustHit;
+    let lockedRunnerRoe = Number(p.locked_runner_roe_pct ?? 0);
+    let hitLockedRunnerExit = false;
+    if (postTp1) {
+      const tp1RoeRef = Number(
+        (baseUpdate.tp1_roe_pct as number | undefined) ?? p.tp1_roe_pct ?? roeTh.tp1,
+      );
+      let lockFactor = 0.80;
+      if (peakRoe > 4.0) lockFactor = 0.90;
+      else if (peakRoe > 2.5) lockFactor = 0.85;
+      let candidate = peakRoe * lockFactor;
+      const tp1Floor = tp1RoeRef * 0.90;
+      if (tp1Floor > candidate) candidate = tp1Floor;
+      if (candidate > lockedRunnerRoe) lockedRunnerRoe = candidate;
+      if (lockedRunnerRoe > 0 && currentRoe <= lockedRunnerRoe && currentRoe < peakRoe) {
+        hitLockedRunnerExit = true;
+      }
+    }
+
     // 5a) Existing price-% profit fade.
     const hitProfitFade =
       peak >= preset.profitFadeMinPct &&
@@ -1103,7 +1125,6 @@ export async function runMarkPass(
     //     tightly (20% giveback) and also exits if ROE falls back below the
     //     breakeven trigger. Before TP1, the looser 40% giveback applies so a
     //     trade that merely brushes the TP1 line and stalls isn't cut too soon.
-    const postTp1 = tp1Hit || tp1JustHit;
     const givebackTriggerPct = postTp1 ? postTp1GivebackPct : 40;
     const hitRoeProfitFade =
       peakRoe >= roeTh.tp1 && peakRoe > 0 &&
