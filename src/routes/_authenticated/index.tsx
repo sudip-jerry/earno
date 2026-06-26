@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TabBar } from "@/components/tab-bar";
 import { WealthHero, MilestoneCard, PerformanceHistoryCard } from "@/components/wealth-hero";
+import { useCurrency } from "@/hooks/use-currency";
 import { RecentActivity } from "@/components/recent-activity";
 import { RecommendationsPanel } from "@/components/recommendations-panel";
 import {
