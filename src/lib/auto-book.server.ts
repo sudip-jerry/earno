@@ -601,7 +601,8 @@ export async function runAutoBookPass(
     const symbolOpenedThisPass = new Map<string, number>();
     void openedToday;
 
-
+    const cfgTimeframe = (cfg.timeframe && cfg.timeframe.trim()) || "5m";
+    const analyses = analysesByTf.get(cfgTimeframe) ?? [];
 
     for (const a of analyses) {
       const sym = a.symbol;
