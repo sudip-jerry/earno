@@ -400,7 +400,7 @@ function Home() {
                     : "text-rose-600 dark:text-rose-400"
                 }`}
               >
-                {(s?.openPnl ?? 0) >= 0 ? "+" : "−"}${Math.abs(s?.openPnl ?? 0).toFixed(2)}
+                {fmt(s?.openPnl ?? 0, { signed: true })}
                 <span className="ml-1.5 text-[11px] font-medium opacity-80">
                   ({(s?.openPnlPct ?? 0) >= 0 ? "+" : ""}
                   {(s?.openPnlPct ?? 0).toFixed(2)}%)
