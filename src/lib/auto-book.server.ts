@@ -762,7 +762,7 @@ export async function runAutoBookPass(
             final_decision: "pending",
             booked: false,
             strategy: cfg.strategy ?? "default",
-            timeframe: "5m",
+            timeframe: cfgTimeframe,
             config_id: cfg.user_id,
             trend_status: a.trend_status,
             vwap_status: a.vwap_status,
