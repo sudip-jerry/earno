@@ -361,21 +361,31 @@ export async function runAutoBookPass(
     (profiles ?? []).map((p) => [p.id as string, ((p.display_name as string) || (p.email as string) || "") as string]),
   );
 
-  // Universe + per-symbol analysis (shared across users in this pass).
+  // Universe + per-timeframe per-symbol analysis (shared across users with the same timeframe).
   const universe = await fetchScanUniverse(25, 25);
   const scannedCount = universe.length;
-  const analyses: SignalAnalysis[] = [];
+  const distinctTimeframes = Array.from(
+    new Set(users.map((u) => (u.timeframe && u.timeframe.trim()) || "5m")),
+  );
+  const analysesByTf = new Map<string, SignalAnalysis[]>();
   if (universe.length) {
-    const settled = await Promise.allSettled(
-      universe.map((u) => analyzeSymbol(u.symbol, u.price, u.change24h)),
+    await Promise.all(
+      distinctTimeframes.map(async (tf) => {
+        const settled = await Promise.allSettled(
+          universe.map((u) => analyzeSymbol(u.symbol, u.price, u.change24h, tf)),
+        );
+        const arr: SignalAnalysis[] = [];
+        for (const s of settled) {
+          if (s.status === "fulfilled" && s.value) arr.push(s.value);
+        }
+        arr.sort((a, b) => b.confidence_pct - a.confidence_pct);
+        analysesByTf.set(tf, arr);
+      }),
     );
-    for (const s of settled) {
-      if (s.status === "fulfilled" && s.value) analyses.push(s.value);
-    }
   }
-  // Sort by confidence so booking targets highest-conviction setups first.
-  analyses.sort((a, b) => b.confidence_pct - a.confidence_pct);
-  const topConfidenceOverall = analyses[0]?.confidence_pct ?? 0;
+  const topConfidenceOverall = Array.from(analysesByTf.values())
+    .flat()
+    .reduce((m, a) => Math.max(m, a.confidence_pct), 0);
 
   // Compute market regime once for the whole pass.
   const marketRegime = await fetchMarketRegime();
