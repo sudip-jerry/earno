@@ -1103,6 +1103,89 @@ type CfgRow = {
   symbol_sl_cooldown_minutes: number | null;
 };
 
+// ---------- Retrospective validation (train/test split guard) ----------
+
+/** Days in each half of the retrospective window (train: T-14d→T-7d, test: T-7d→T). */
+const RETRO_WINDOW_DAYS = 7;
+/** Minimum closed trades required in each window for the check to be meaningful. */
+const MIN_RETRO_PER_WINDOW = 5;
+
+type RetroPosRow = {
+  user_id: string;
+  pnl: number | null;
+  confidence_at_entry: number | null;
+  side: string;
+  closed_at: string;
+};
+
+function _avgPnl(rows: Array<{ pnl: number | null }>): number {
+  if (rows.length === 0) return 0;
+  return rows.reduce((s, r) => s + (r.pnl ?? 0), 0) / rows.length;
+}
+
+/**
+ * Returns true if the patch is likely to help (apply it), false if it appears
+ * to be chasing regime-specific noise (skip it).
+ *
+ * Strategy:
+ * - Train window: positions closed in [T-14d, T-7d)
+ * - Test window:  positions closed in [T-7d, T)
+ * - For confidence patches: counterfactual = only test trades above new threshold.
+ *   If that subset outperforms the actual test avg, the patch would have helped.
+ * - For direction patches: counterfactual = only the allowed direction in test window.
+ * - Fallback (risk/timing/blacklist patches): if test performance already improved
+ *   vs the train window, the bad period was transient — skip the patch.
+ */
+function retroValidatePatch(
+  patch: Record<string, unknown>,
+  allRetro: RetroPosRow[],
+): boolean {
+  const now = Date.now();
+  const splitIso = new Date(now - RETRO_WINDOW_DAYS * 86400_000).toISOString();
+
+  const train = allRetro.filter((p) => p.closed_at < splitIso);
+  const test = allRetro.filter((p) => p.closed_at >= splitIso);
+
+  // Not enough data in either window — let the patch through rather than
+  // silently suppressing it on insufficient evidence.
+  if (train.length < MIN_RETRO_PER_WINDOW || test.length < MIN_RETRO_PER_WINDOW) {
+    return true;
+  }
+
+  const actualTestAvg = _avgPnl(test);
+
+  // Confidence-based patches: simulate raising the entry threshold.
+  const newConfThreshold = patch.auto_book_confidence_threshold as number | undefined;
+  if (newConfThreshold !== undefined) {
+    const above = test.filter(
+      (p) => p.confidence_at_entry != null && p.confidence_at_entry >= newConfThreshold,
+    );
+    // If nothing would have passed the new bar, we can't validate — let through.
+    if (above.length === 0) return true;
+    // Patch helps only if higher-confidence trades outperformed the full test set.
+    return _avgPnl(above) > actualTestAvg;
+  }
+
+  // Direction patches: simulate disabling one side.
+  if (patch.allow_short === false) {
+    const longsOnly = test.filter((p) => p.side === "long");
+    if (longsOnly.length === 0) return true;
+    return _avgPnl(longsOnly) > actualTestAvg;
+  }
+  if (patch.allow_long === false) {
+    const shortsOnly = test.filter((p) => p.side === "short");
+    if (shortsOnly.length === 0) return true;
+    return _avgPnl(shortsOnly) > actualTestAvg;
+  }
+
+  // Fallback for risk/timing/blacklist patches: compare test performance to the
+  // training window. If test_avg >= train_avg, performance has already recovered —
+  // the bad signal was regime-specific noise, so skip the patch (return false).
+  // If test_avg < train_avg, the degradation is continuing — the patch may help,
+  // so apply it (return true).
+  return actualTestAvg < _avgPnl(train);
+}
+
 function buildPatch(kind: typeof tuningKinds[number], cur: CfgRow): Record<string, unknown> | null {
   const conf = cur.auto_book_confidence_threshold ?? 70;
   switch (kind) {
@@ -1161,20 +1244,39 @@ export const adminApplyTuningAction = createServerFn({ method: "POST" })
     // Min-sample guard: only tune users with >=100 closed paper trades.
     // Prevents config thrashing from small-sample noise.
     const MIN_CLOSED_TRADES = 100;
-    const { data: closedRows } = await supabaseAdmin
-      .from("positions")
-      .select("user_id")
-      .in("user_id", data.userIds)
-      .eq("mode", "paper")
-      .eq("status", "closed");
+    // Retrospective-validation: fetch 14 days of closed positions for the cohort.
+    const retro14dAgo = new Date(Date.now() - 2 * RETRO_WINDOW_DAYS * 86400_000).toISOString();
+    const [{ data: closedRows }, { data: retroRows }] = await Promise.all([
+      supabaseAdmin
+        .from("positions")
+        .select("user_id")
+        .in("user_id", data.userIds)
+        .eq("mode", "paper")
+        .eq("status", "closed"),
+      supabaseAdmin
+        .from("positions")
+        .select("user_id, pnl, confidence_at_entry, side, closed_at")
+        .in("user_id", data.userIds)
+        .eq("mode", "paper")
+        .eq("status", "closed")
+        .gte("closed_at", retro14dAgo)
+        .order("closed_at"),
+    ]);
     const closedByUser = new Map<string, number>();
     for (const r of (closedRows ?? []) as { user_id: string }[]) {
       closedByUser.set(r.user_id, (closedByUser.get(r.user_id) ?? 0) + 1);
+    }
+    const retroByUser = new Map<string, RetroPosRow[]>();
+    for (const r of (retroRows ?? []) as RetroPosRow[]) {
+      const arr = retroByUser.get(r.user_id) ?? [];
+      arr.push(r);
+      retroByUser.set(r.user_id, arr);
     }
 
     let updated = 0;
     let insufficientSample = 0;
     let thrashSkipped = 0;
+    let retroValidationSkipped = 0;
     const errors: string[] = [];
     // 24h per-field anti-thrash: load recent audit rows for the cohort once.
     const cooldownSince = new Date(Date.now() - 24 * 3600_000).toISOString();
@@ -1210,6 +1312,19 @@ export const adminApplyTuningAction = createServerFn({ method: "POST" })
         thrashSkipped += 1;
         continue;
       }
+      // Retrospective validation guard: verify that the same patch applied 7 days
+      // ago would have improved performance over the 7 days that followed.
+      // If not, the patch is chasing regime-specific noise — skip it.
+      if (!retroValidatePatch(patch, retroByUser.get(cfg.user_id) ?? [])) {
+        retroValidationSkipped += 1;
+        await supabaseAdmin.from("bot_events").insert({
+          user_id: cfg.user_id,
+          level: "info",
+          message: "patch_skipped",
+          meta: { kind: data.kind, patch: patch as Record<string, string | number | boolean | null>, reason: "retrospective validation failed" },
+        });
+        continue;
+      }
       const { error: e2 } = await supabaseAdmin
         .from("bot_config")
         .update(patch as never)
@@ -1230,9 +1345,10 @@ export const adminApplyTuningAction = createServerFn({ method: "POST" })
     return {
       ok: true,
       updated,
-      skipped: (cfgs?.length ?? 0) - updated - insufficientSample - thrashSkipped,
+      skipped: (cfgs?.length ?? 0) - updated - insufficientSample - thrashSkipped - retroValidationSkipped,
       insufficientSample,
       thrashSkipped,
+      retroValidationSkipped,
       minClosedTrades: MIN_CLOSED_TRADES,
       errors,
     };
