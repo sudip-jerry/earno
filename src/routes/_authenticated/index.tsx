@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TabBar } from "@/components/tab-bar";
 import { WealthHero, MilestoneCard, PerformanceHistoryCard } from "@/components/wealth-hero";
+import { useCurrency } from "@/hooks/use-currency";
 import { RecentActivity } from "@/components/recent-activity";
 import { RecommendationsPanel } from "@/components/recommendations-panel";
 import {
@@ -98,6 +99,7 @@ function Home() {
   const killFn = useServerFn(killAll);
   const statsFn = useServerFn(getDashboardStats);
   const entFn = useServerFn(getMyEntitlements);
+  const { fmt } = useCurrency();
 
   const [hideBalance, setHideBalance] = useState(false);
   const [confirmLive, setConfirmLive] = useState(false);
@@ -398,7 +400,7 @@ function Home() {
                     : "text-rose-600 dark:text-rose-400"
                 }`}
               >
-                {(s?.openPnl ?? 0) >= 0 ? "+" : "−"}${Math.abs(s?.openPnl ?? 0).toFixed(2)}
+                {fmt(s?.openPnl ?? 0, { signed: true })}
                 <span className="ml-1.5 text-[11px] font-medium opacity-80">
                   ({(s?.openPnlPct ?? 0) >= 0 ? "+" : ""}
                   {(s?.openPnlPct ?? 0).toFixed(2)}%)
