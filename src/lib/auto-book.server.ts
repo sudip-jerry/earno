@@ -220,6 +220,7 @@ type BotConfig = {
   live_allocation_mode?: string | null;
   live_allocation_amount?: number | null;
   live_allocation_pct?: number | null;
+  timeframe?: string | null;
 };
 
 
@@ -329,7 +330,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -360,21 +361,31 @@ export async function runAutoBookPass(
     (profiles ?? []).map((p) => [p.id as string, ((p.display_name as string) || (p.email as string) || "") as string]),
   );
 
-  // Universe + per-symbol analysis (shared across users in this pass).
+  // Universe + per-timeframe per-symbol analysis (shared across users with the same timeframe).
   const universe = await fetchScanUniverse(25, 25);
   const scannedCount = universe.length;
-  const analyses: SignalAnalysis[] = [];
+  const distinctTimeframes = Array.from(
+    new Set(users.map((u) => (u.timeframe && u.timeframe.trim()) || "5m")),
+  );
+  const analysesByTf = new Map<string, SignalAnalysis[]>();
   if (universe.length) {
-    const settled = await Promise.allSettled(
-      universe.map((u) => analyzeSymbol(u.symbol, u.price, u.change24h)),
+    await Promise.all(
+      distinctTimeframes.map(async (tf) => {
+        const settled = await Promise.allSettled(
+          universe.map((u) => analyzeSymbol(u.symbol, u.price, u.change24h, tf)),
+        );
+        const arr: SignalAnalysis[] = [];
+        for (const s of settled) {
+          if (s.status === "fulfilled" && s.value) arr.push(s.value);
+        }
+        arr.sort((a, b) => b.confidence_pct - a.confidence_pct);
+        analysesByTf.set(tf, arr);
+      }),
     );
-    for (const s of settled) {
-      if (s.status === "fulfilled" && s.value) analyses.push(s.value);
-    }
   }
-  // Sort by confidence so booking targets highest-conviction setups first.
-  analyses.sort((a, b) => b.confidence_pct - a.confidence_pct);
-  const topConfidenceOverall = analyses[0]?.confidence_pct ?? 0;
+  const topConfidenceOverall = Array.from(analysesByTf.values())
+    .flat()
+    .reduce((m, a) => Math.max(m, a.confidence_pct), 0);
 
   // Compute market regime once for the whole pass.
   const marketRegime = await fetchMarketRegime();
@@ -449,7 +460,7 @@ export async function runAutoBookPass(
         booked_trade_id: bookedTradeId,
         rejection_reason: rejection,
         strategy: cfg.strategy ?? "default",
-        timeframe: "5m",
+        timeframe: (cfg.timeframe && cfg.timeframe.trim()) || "5m",
         config_id: cfg.user_id,
         trend_status: a.trend_status,
         vwap_status: a.vwap_status,
@@ -590,7 +601,8 @@ export async function runAutoBookPass(
     const symbolOpenedThisPass = new Map<string, number>();
     void openedToday;
 
-
+    const cfgTimeframe = (cfg.timeframe && cfg.timeframe.trim()) || "5m";
+    const analyses = analysesByTf.get(cfgTimeframe) ?? [];
 
     for (const a of analyses) {
       const sym = a.symbol;
@@ -750,7 +762,7 @@ export async function runAutoBookPass(
             final_decision: "pending",
             booked: false,
             strategy: cfg.strategy ?? "default",
-            timeframe: "5m",
+            timeframe: cfgTimeframe,
             config_id: cfg.user_id,
             trend_status: a.trend_status,
             vwap_status: a.vwap_status,
