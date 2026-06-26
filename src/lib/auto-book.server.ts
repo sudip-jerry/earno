@@ -220,6 +220,7 @@ type BotConfig = {
   live_allocation_mode?: string | null;
   live_allocation_amount?: number | null;
   live_allocation_pct?: number | null;
+  timeframe?: string | null;
 };
 
 
