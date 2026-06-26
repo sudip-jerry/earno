@@ -99,6 +99,7 @@ function Home() {
   const killFn = useServerFn(killAll);
   const statsFn = useServerFn(getDashboardStats);
   const entFn = useServerFn(getMyEntitlements);
+  const { fmt } = useCurrency();
 
   const [hideBalance, setHideBalance] = useState(false);
   const [confirmLive, setConfirmLive] = useState(false);
