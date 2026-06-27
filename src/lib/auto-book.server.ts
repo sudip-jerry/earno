@@ -1181,11 +1181,30 @@ export async function runMarkPass(
     let exitBlockedReason: string | null = null;
     let originalExitReason: string | null = null;
 
+    // Pre-TP1 protective exits (run before hard SL so failing trades exit
+    // on policy and hard SL stays an emergency fallback).
+    const { evaluateFuturesExit } = await import("@/lib/futures-exit-policy");
+    const policyDecision = evaluateFuturesExit(
+      {
+        tp1Hit: tp1Hit || tp1JustHit,
+        heldMinutes: ageMin,
+        peakRoePct: peakRoe,
+        currentRoePct: currentRoe,
+      },
+      {
+        strategyType: cfgRow?.strategy ?? null,
+        tradingStyle: cfgRow?.trading_style ?? null,
+      },
+    );
+
     if (hitTp) {
       finalExitReason = "take_profit";
     } else if (hitHardProfitExit) {
       finalExitReason = "profit_protection_exit";
       exitProtectionReason = "profit_protection";
+    } else if (policyDecision) {
+      finalExitReason = policyDecision.exitReason;
+      exitProtectionReason = policyDecision.protectionReason ?? policyDecision.rule;
     } else if (hitSl) {
       // Stop-loss guard: once peak ROE crossed TP1 trigger OR TP1 was banked,
       // never close as full stop_loss — degrade to breakeven_exit.
