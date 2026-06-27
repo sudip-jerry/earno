@@ -1396,6 +1396,32 @@ export async function runMarkPass(
         exit_protection_reason: exitProtectionReason,
         closed_at: new Date().toISOString(),
       });
+
+      // LIVE exit: flatten the position on the exchange before recording the
+      // closure locally. Failure is logged but does NOT block the local close
+      // (price has already crossed our exit; the operator must reconcile).
+      if (p.mode === "live") {
+        const remainQ = Number(p.remaining_qty ?? qty);
+        const creds = await loadLiveCreds(supabase, p.user_id as string);
+        if (!creds) {
+          await logEvent(supabase, p.user_id as string, "warn",
+            `Live exit ${p.symbol}: no API credentials — local close only`);
+        } else if (remainQ > 0) {
+          const exec = await placeLiveExit({
+            creds, symbol: p.symbol as string, side, qty: remainQ,
+          });
+          if (!exec.ok) {
+            await logEvent(supabase, p.user_id as string, "error",
+              `Live exit ${p.symbol} failed: ${exec.error} — local close only`,
+              { kind: "live_exit_failed", symbol: p.symbol, side });
+          } else {
+            (baseUpdate as Record<string, unknown>).exit_exchange_order_id = exec.orderId;
+            await logEvent(supabase, p.user_id as string, "info",
+              `Live exit order placed for ${p.symbol} (#${exec.orderId})`);
+          }
+        }
+      }
+
       const { error } = await supabase.from("positions").update(baseUpdate as never).eq("id", p.id as string);
       if (!error) {
         closed++;
