@@ -31,7 +31,6 @@ import { WealthHero, MilestoneCard, PerformanceHistoryCard } from "@/components/
 import { useCurrency } from "@/hooks/use-currency";
 import { RecentActivity } from "@/components/recent-activity";
 import { RecommendationsPanel } from "@/components/recommendations-panel";
-import { AppVersionDialog } from "@/components/AppVersionDialog";
 import {
   AlertTriangle,
   ChevronRight,
@@ -113,7 +112,6 @@ function Home() {
   const [confirmLive, setConfirmLive] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
   const [riskOpen, setRiskOpen] = useState(false);
-  const [versionOpen, setVersionOpen] = useState(false);
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
 
@@ -220,8 +218,8 @@ function Home() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setVersionOpen(true)}
-              aria-label="App version info"
+              onClick={() => navigate({ to: "/about" })}
+              aria-label="About earn'O"
               className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <img
@@ -266,7 +264,6 @@ function Home() {
           <CoinRecentActivity />
         </div>
         <TabBar />
-        <AppVersionDialog open={versionOpen} onClose={() => setVersionOpen(false)} />
       </div>
     );
   }
@@ -278,8 +275,8 @@ function Home() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => setVersionOpen(true)}
-            aria-label="App version info"
+            onClick={() => navigate({ to: "/about" })}
+            aria-label="About earn'O"
             className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <img
@@ -703,7 +700,6 @@ function Home() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <AppVersionDialog open={versionOpen} onClose={() => setVersionOpen(false)} />
     </div>
   );
 }

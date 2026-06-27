@@ -12,6 +12,7 @@ import {
 } from "@/lib/bot.functions";
 import { getMyEntitlements } from "@/lib/plans.functions";
 import { PLAN_NAME, type PlanTier } from "@/lib/plans";
+import { AppVersionDialog } from "@/components/AppVersionDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,7 +47,12 @@ import {
 } from "lucide-react";
 import { useTheme, type ThemeMode } from "@/hooks/use-theme";
 import { useStrictness, STRICTNESS_PRESETS, type Strictness } from "@/hooks/use-strictness";
-import { useCurrency, CURRENCY_OPTIONS, CURRENCY_SYMBOL, type CurrencyCode } from "@/hooks/use-currency";
+import {
+  useCurrency,
+  CURRENCY_OPTIONS,
+  CURRENCY_SYMBOL,
+  type CurrencyCode,
+} from "@/hooks/use-currency";
 import { STYLE_PRESETS, type TradingStyle } from "@/lib/risk-engine";
 
 function CurrencyControl() {
@@ -62,7 +68,9 @@ function CurrencyControl() {
             disabled={isUpdating}
             onClick={() => setCurrency(c)}
             className={`h-9 rounded-md text-xs font-medium transition ${
-              active ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+              active
+                ? "bg-background shadow text-foreground"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             <span className="mr-1">{CURRENCY_SYMBOL[c].trim()}</span>
@@ -96,7 +104,9 @@ function StrictnessControl() {
   const handleChange = async (k: Strictness) => {
     setStrictness(k);
     try {
-      await updateFn({ data: { auto_book_confidence_threshold: STRICTNESS_PRESETS[k].autoConf } as never });
+      await updateFn({
+        data: { auto_book_confidence_threshold: STRICTNESS_PRESETS[k].autoConf } as never,
+      });
       toast.success(`Auto-book threshold set to ${STRICTNESS_PRESETS[k].autoConf}%`);
       qc.invalidateQueries();
     } catch (e) {
@@ -126,7 +136,9 @@ function StrictnessControl() {
               type="button"
               onClick={() => handleChange(k)}
               className={`h-9 rounded-md text-xs font-medium transition ${
-                active ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                active
+                  ? "bg-background shadow text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {p.label}
@@ -151,7 +163,9 @@ function StrictnessControl() {
         </Button>
       </div>
       <p className="text-[10px] text-muted-foreground/70">
-        Resets threshold, trades/day, cooldown, risk %, and blacklist back to "{STRICTNESS_PRESETS[strictness].label}" defaults — undoes any tightening from Earno's auto-tune.
+        Resets threshold, trades/day, cooldown, risk %, and blacklist back to "
+        {STRICTNESS_PRESETS[strictness].label}" defaults — undoes any tightening from Earno's
+        auto-tune.
       </p>
     </div>
   );
@@ -161,7 +175,9 @@ function ThemeSelect() {
   const { theme, setTheme } = useTheme();
   return (
     <Select value={theme} onValueChange={(v) => setTheme(v as ThemeMode)}>
-      <SelectTrigger className="w-32 h-9"><SelectValue /></SelectTrigger>
+      <SelectTrigger className="w-32 h-9">
+        <SelectValue />
+      </SelectTrigger>
       <SelectContent>
         <SelectItem value="light">Light</SelectItem>
         <SelectItem value="dark">Dark</SelectItem>
@@ -239,8 +255,6 @@ function BlocklistEditor({
     </div>
   );
 }
-
-
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -320,7 +334,6 @@ const DEFAULTS: Cfg = {
   symbol_blocklist: [],
 };
 
-
 function SettingsPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -335,6 +348,7 @@ function SettingsPage() {
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [pending, setPending] = useState<Partial<Cfg>>({});
+  const [showVersionDialog, setShowVersionDialog] = useState(false);
 
   const status = useQuery({
     queryKey: ["cred_status"],
@@ -356,7 +370,10 @@ function SettingsPage() {
         .eq("id", u.user.id)
         .maybeSingle();
       return {
-        display_name: (data?.display_name as string | null) ?? (u.user.user_metadata?.full_name as string | undefined) ?? null,
+        display_name:
+          (data?.display_name as string | null) ??
+          (u.user.user_metadata?.full_name as string | undefined) ??
+          null,
         email: (data?.email as string | null) ?? u.user.email ?? null,
         avatar_url: (u.user.user_metadata?.avatar_url as string | undefined) ?? null,
       };
@@ -382,8 +399,7 @@ function SettingsPage() {
   const get = <K extends keyof Cfg>(k: K): Cfg[K] =>
     (pending[k] ?? c?.[k] ?? DEFAULTS[k]) as Cfg[K];
 
-  const set = <K extends keyof Cfg>(k: K, v: Cfg[K]) =>
-    setPending((p) => ({ ...p, [k]: v }));
+  const set = <K extends keyof Cfg>(k: K, v: Cfg[K]) => setPending((p) => ({ ...p, [k]: v }));
 
   const hasChanges = Object.keys(pending).length > 0;
 
@@ -453,14 +469,22 @@ function SettingsPage() {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium truncate">{profile.data?.display_name ?? "Welcome"}</p>
-              <p className="text-[11px] text-muted-foreground truncate">{profile.data?.email ?? ""}</p>
+              <p className="text-sm font-medium truncate">
+                {profile.data?.display_name ?? "Welcome"}
+              </p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {profile.data?.email ?? ""}
+              </p>
             </div>
-            <span className={`text-[10px] px-2 h-5 inline-flex items-center rounded-full font-medium shrink-0 ${
-              tier === "unlimited" ? "bg-primary text-primary-foreground" :
-              tier === "auto5" ? "bg-primary/10 text-primary" :
-              "bg-muted text-muted-foreground"
-            }`}>
+            <span
+              className={`text-[10px] px-2 h-5 inline-flex items-center rounded-full font-medium shrink-0 ${
+                tier === "unlimited"
+                  ? "bg-primary text-primary-foreground"
+                  : tier === "auto5"
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted text-muted-foreground"
+              }`}
+            >
               {PLAN_NAME[tier]}
             </span>
           </div>
@@ -468,9 +492,21 @@ function SettingsPage() {
           <div className="border-t divide-y">
             <AccountRow
               to="/upgrade"
-              icon={tier === "unlimited" ? <Crown className="size-4 text-primary" /> : <Sparkles className="size-4 text-primary" />}
+              icon={
+                tier === "unlimited" ? (
+                  <Crown className="size-4 text-primary" />
+                ) : (
+                  <Sparkles className="size-4 text-primary" />
+                )
+              }
               label={"Plan & Upgrade"}
-              hint={tier === "unlimited" ? "You're on Unlimited" : tier === "auto5" ? "Auto-Trader plan" : "Free plan — upgrade for auto-trading"}
+              hint={
+                tier === "unlimited"
+                  ? "You're on Unlimited"
+                  : tier === "auto5"
+                    ? "Auto-Trader plan"
+                    : "Free plan — upgrade for auto-trading"
+              }
             />
             {isAdmin && (
               <AccountRow
@@ -494,14 +530,22 @@ function SettingsPage() {
             />
             <div className="flex items-center gap-3 p-4">
               <div className="size-8 rounded-full bg-muted grid place-items-center shrink-0">
-                {theme === "dark" ? <Moon className="size-4" /> : theme === "light" ? <Sun className="size-4" /> : <Monitor className="size-4" />}
+                {theme === "dark" ? (
+                  <Moon className="size-4" />
+                ) : theme === "light" ? (
+                  <Sun className="size-4" />
+                ) : (
+                  <Monitor className="size-4" />
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">Appearance</p>
                 <p className="text-[11px] text-muted-foreground">Light, dark, or follow system</p>
               </div>
               <Select value={theme} onValueChange={(v) => setTheme(v as ThemeMode)}>
-                <SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-28 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="light">Light</SelectItem>
                   <SelectItem value="dark">Dark</SelectItem>
@@ -512,8 +556,6 @@ function SettingsPage() {
           </div>
         </div>
       </section>
-
-
 
       {/* CoinDCX credentials */}
       <section className="px-5">
@@ -595,10 +637,7 @@ function SettingsPage() {
         </h2>
         <div className="rounded-2xl border bg-card divide-y">
           <Row label="Auto-book trades">
-            <Switch
-              checked={get("auto_book")}
-              onCheckedChange={(v) => set("auto_book", v)}
-            />
+            <Switch checked={get("auto_book")} onCheckedChange={(v) => set("auto_book", v)} />
           </Row>
           <Row label="Mode">
             <Select
@@ -608,7 +647,9 @@ function SettingsPage() {
                 set("mode", v as "paper" | "live");
               }}
             >
-              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-28">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="paper">Paper</SelectItem>
                 <SelectItem value="live">Live</SelectItem>
@@ -620,7 +661,9 @@ function SettingsPage() {
               value={get("strategy")}
               onValueChange={(v) => set("strategy", v as Cfg["strategy"])}
             >
-              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-44">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="vwap_pullback">VWAP Pullback</SelectItem>
                 <SelectItem value="momentum_breakout">Momentum Breakout</SelectItem>
@@ -632,7 +675,9 @@ function SettingsPage() {
               value={get("timeframe")}
               onValueChange={(v) => set("timeframe", v as Cfg["timeframe"])}
             >
-              <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-24">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="1m">1m</SelectItem>
                 <SelectItem value="3m">3m</SelectItem>
@@ -642,16 +687,10 @@ function SettingsPage() {
             </Select>
           </Row>
           <Row label="Allow longs">
-            <Switch
-              checked={get("allow_long")}
-              onCheckedChange={(v) => set("allow_long", v)}
-            />
+            <Switch checked={get("allow_long")} onCheckedChange={(v) => set("allow_long", v)} />
           </Row>
           <Row label="Allow shorts">
-            <Switch
-              checked={get("allow_short")}
-              onCheckedChange={(v) => set("allow_short", v)}
-            />
+            <Switch checked={get("allow_short")} onCheckedChange={(v) => set("allow_short", v)} />
           </Row>
           <Row label="Move SL to breakeven">
             <Switch
@@ -666,8 +705,8 @@ function SettingsPage() {
             <div className="mt-3 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 flex gap-2 text-xs text-destructive">
               <AlertTriangle className="size-4 shrink-0 mt-0.5" />
               <p>
-                Live mode places real futures trades. Use only after paper testing. A working CoinDCX
-                API key with Futures permissions is required.
+                Live mode places real futures trades. Use only after paper testing. A working
+                CoinDCX API key with Futures permissions is required.
               </p>
             </div>
             <LiveFunding
@@ -757,8 +796,8 @@ function SettingsPage() {
           })}
         </div>
         <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
-          Wider stops reduce noise exits but require smaller position sizes. Risk per trade
-          controls the maximum money lost if stop loss is hit.
+          Wider stops reduce noise exits but require smaller position sizes. Risk per trade controls
+          the maximum money lost if stop loss is hit.
         </p>
       </section>
 
@@ -892,7 +931,6 @@ function SettingsPage() {
         </details>
       </section>
 
-
       <section className="px-5 mt-6">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
           Recommendation strictness
@@ -913,12 +951,11 @@ function SettingsPage() {
             saving={updCfg.isPending}
           />
           <p className="text-[11px] text-muted-foreground mt-2">
-            The bot will never auto-book any symbol on this list. Use full
-            CoinDCX names like <code>B-PHB_USDT</code>.
+            The bot will never auto-book any symbol on this list. Use full CoinDCX names like{" "}
+            <code>B-PHB_USDT</code>.
           </p>
         </div>
       </section>
-
 
       <section className="px-5 mt-6">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
@@ -943,9 +980,6 @@ function SettingsPage() {
           <ThemeSelect />
         </div>
       </section>
-
-
-
 
       {hasChanges && (
         <div className="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-4 flex gap-3 z-50 safe-area-pb">
@@ -974,6 +1008,14 @@ function SettingsPage() {
       )}
 
       <section className="px-5 mt-8 space-y-2">
+        <Button
+          variant="outline"
+          className="w-full justify-between"
+          onClick={() => setShowVersionDialog(true)}
+        >
+          <span>Version & build info</span>
+          <ChevronRight className="size-4" />
+        </Button>
         <Link to="/about" className="block rounded-xl border bg-card p-3 text-sm hover:bg-muted">
           About Earn'O
         </Link>
@@ -985,6 +1027,7 @@ function SettingsPage() {
           Sign out
         </Button>
       </section>
+      <AppVersionDialog open={showVersionDialog} onClose={() => setShowVersionDialog(false)} />
     </div>
   );
 }
@@ -1001,7 +1044,16 @@ function LiveFunding({
   setPct,
   hasCreds,
 }: {
-  walletsFn: () => Promise<{ ok: true; spot: number; futures: number; spotError: string | null; futuresError: string | null } | { ok: false; error: string }>;
+  walletsFn: () => Promise<
+    | {
+        ok: true;
+        spot: number;
+        futures: number;
+        spotError: string | null;
+        futuresError: string | null;
+      }
+    | { ok: false; error: string }
+  >;
   source: "futures" | "spot";
   mode: "full" | "amount" | "percent";
   amount: number;
@@ -1052,17 +1104,25 @@ function LiveFunding({
         <div className="mt-1.5 grid grid-cols-2 gap-1.5 rounded-lg bg-muted p-1">
           {(["futures", "spot"] as const).map((w) => {
             const active = source === w;
-            const bal = wallets.data?.ok ? (w === "futures" ? wallets.data.futures : wallets.data.spot) : null;
+            const bal = wallets.data?.ok
+              ? w === "futures"
+                ? wallets.data.futures
+                : wallets.data.spot
+              : null;
             return (
               <button
                 key={w}
                 type="button"
                 onClick={() => setSource(w)}
                 className={`h-12 rounded-md text-xs font-medium transition flex flex-col items-center justify-center ${
-                  active ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                  active
+                    ? "bg-background shadow text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <span className="capitalize">{w === "futures" ? "Futures wallet" : "Trade wallet"}</span>
+                <span className="capitalize">
+                  {w === "futures" ? "Futures wallet" : "Trade wallet"}
+                </span>
                 <span className="text-[10px] opacity-70 tabular-nums">
                   {bal != null ? `${bal.toFixed(2)} USDT` : hasCreds ? "—" : "Save API key"}
                 </span>
@@ -1075,7 +1135,9 @@ function LiveFunding({
       <div>
         <Label className="text-xs">Allocation</Label>
         <Select value={mode} onValueChange={(v) => setMode(v as typeof mode)}>
-          <SelectTrigger className="w-full mt-1.5"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full mt-1.5">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="full">Use full wallet</SelectItem>
             <SelectItem value="amount">Fixed USDT amount</SelectItem>
@@ -1087,7 +1149,9 @@ function LiveFunding({
       {mode === "amount" ? (
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <Label htmlFor="alloc-amt" className="text-xs">Amount (USDT)</Label>
+            <Label htmlFor="alloc-amt" className="text-xs">
+              Amount (USDT)
+            </Label>
             {available > 0 ? (
               <button
                 type="button"
@@ -1134,7 +1198,9 @@ function LiveFunding({
           </p>
         ) : null}
         {!hasCreds ? (
-          <p className="text-muted-foreground text-[11px]">Save your CoinDCX API key above to see live balances.</p>
+          <p className="text-muted-foreground text-[11px]">
+            Save your CoinDCX API key above to see live balances.
+          </p>
         ) : null}
         {wallets.data && !wallets.data.ok ? (
           <p className="text-destructive text-[11px]">{wallets.data.error}</p>
@@ -1179,7 +1245,9 @@ function SliderField({
   onChange: (v: number) => void;
 }) {
   const [local, setLocal] = useState(value);
-  useEffect(() => { setLocal(value); }, [value]);
+  useEffect(() => {
+    setLocal(value);
+  }, [value]);
   return (
     <div>
       <div className="flex justify-between items-baseline mb-2">
