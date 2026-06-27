@@ -1211,7 +1211,7 @@ export async function runMarkPass(
 
     // Pre-TP1 protective exits (run before hard SL so failing trades exit
     // on policy and hard SL stays an emergency fallback).
-    const { evaluateFuturesExit } = await import("@/lib/futures-exit-policy");
+    const { evaluateFuturesExit } = await import("@/lib/futures/exit-policy");
     const policyDecision = evaluateFuturesExit(
       {
         tp1Hit: tp1Hit || tp1JustHit,
