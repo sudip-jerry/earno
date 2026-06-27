@@ -28,6 +28,7 @@ import { Route as AuthenticatedAlgoConfigRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAboutRouteImport } from './routes/_authenticated/about'
 import { Route as ApiPublicHooksMarkPositionsRouteImport } from './routes/api/public/hooks/mark-positions'
+import { Route as ApiPublicHooksCoinScanRouteImport } from './routes/api/public/hooks/coin-scan'
 import { Route as ApiPublicHooksAutoBookRouteImport } from './routes/api/public/hooks/auto-book'
 
 const AuthRoute = AuthRouteImport.update({
@@ -125,6 +126,11 @@ const ApiPublicHooksMarkPositionsRoute =
     path: '/api/public/hooks/mark-positions',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksCoinScanRoute = ApiPublicHooksCoinScanRouteImport.update({
+  id: '/api/public/hooks/coin-scan',
+  path: '/api/public/hooks/coin-scan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksAutoBookRoute = ApiPublicHooksAutoBookRouteImport.update({
   id: '/api/public/hooks/auto-book',
   path: '/api/public/hooks/auto-book',
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof AuthenticatedTermsRoute
   '/upgrade': typeof AuthenticatedUpgradeRoute
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
+  '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
 }
 export interface FileRoutesByTo {
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/upgrade': typeof AuthenticatedUpgradeRoute
   '/': typeof AuthenticatedIndexRoute
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
+  '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
 }
 export interface FileRoutesById {
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/_authenticated/upgrade': typeof AuthenticatedUpgradeRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
+  '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
 }
 export interface FileRouteTypes {
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/upgrade'
     | '/api/public/hooks/auto-book'
+    | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
     | '/upgrade'
     | '/'
     | '/api/public/hooks/auto-book'
+    | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
   id:
     | '__root__'
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '/_authenticated/upgrade'
     | '/_authenticated/'
     | '/api/public/hooks/auto-book'
+    | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
   fileRoutesById: FileRoutesById
 }
@@ -267,6 +279,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiPublicHooksAutoBookRoute: typeof ApiPublicHooksAutoBookRoute
+  ApiPublicHooksCoinScanRoute: typeof ApiPublicHooksCoinScanRoute
   ApiPublicHooksMarkPositionsRoute: typeof ApiPublicHooksMarkPositionsRoute
 }
 
@@ -405,6 +418,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksMarkPositionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/coin-scan': {
+      id: '/api/public/hooks/coin-scan'
+      path: '/api/public/hooks/coin-scan'
+      fullPath: '/api/public/hooks/coin-scan'
+      preLoaderRoute: typeof ApiPublicHooksCoinScanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/auto-book': {
       id: '/api/public/hooks/auto-book'
       path: '/api/public/hooks/auto-book'
@@ -460,6 +480,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiPublicHooksAutoBookRoute: ApiPublicHooksAutoBookRoute,
+  ApiPublicHooksCoinScanRoute: ApiPublicHooksCoinScanRoute,
   ApiPublicHooksMarkPositionsRoute: ApiPublicHooksMarkPositionsRoute,
 }
 export const routeTree = rootRouteImport
