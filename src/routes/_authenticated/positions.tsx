@@ -815,27 +815,53 @@ function ClosedList({
               </div>
             )}
 
-            <div className="mt-2 grid grid-cols-4 gap-2 text-[11px]">
-              <div>
-                <p className="text-muted-foreground">Entry</p>
-                <p className="tabular-nums font-medium mt-0.5">{fmtNum(p.entry_price, 6)}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Exit</p>
-                <p className="tabular-nums font-medium mt-0.5">{fmtNum(p.exit_price ?? p.mark_price, 6)}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">ROE</p>
-                <p className={`tabular-nums font-medium mt-0.5 ${up ? "text-emerald-500" : "text-destructive"}`}>
-                  {up ? "+" : ""}
-                  {Number(p.pnl_pct ?? 0).toFixed(2)}%
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-muted-foreground">Held</p>
-                <p className="tabular-nums font-medium mt-0.5">{fmtDuration(p.opened_at, p.closed_at)}</p>
-              </div>
-            </div>
+            {(() => {
+              const qty = Number(p.qty);
+              const entry = Number(p.entry_price);
+              const exit = Number(p.exit_price ?? p.mark_price ?? entry);
+              const lev = Math.max(1, Number(p.leverage) || 1);
+              const size = qty * exit;
+              const margin = (qty * entry) / lev;
+              return (
+                <div className="mt-2 grid grid-cols-4 gap-2 text-[11px]">
+                  <div>
+                    <p className="text-muted-foreground">Entry</p>
+                    <p className="tabular-nums font-medium mt-0.5">{fmtNum(entry, 6)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Exit</p>
+                    <p className="tabular-nums font-medium mt-0.5">{fmtNum(exit, 6)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">ROE</p>
+                    <p className={`tabular-nums font-medium mt-0.5 ${up ? "text-emerald-500" : "text-destructive"}`}>
+                      {up ? "+" : ""}
+                      {Number(p.pnl_pct ?? 0).toFixed(2)}%
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-muted-foreground">Held</p>
+                    <p className="tabular-nums font-medium mt-0.5">{fmtDuration(p.opened_at, p.closed_at)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Qty</p>
+                    <p className="tabular-nums font-medium mt-0.5">{fmtNum(qty, 4)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Size</p>
+                    <p className="tabular-nums font-medium mt-0.5">{fmt(size)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Margin</p>
+                    <p className="tabular-nums font-medium mt-0.5">{fmt(margin)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-muted-foreground">Leverage</p>
+                    <p className="tabular-nums font-medium mt-0.5">{lev}x</p>
+                  </div>
+                </div>
+              );
+            })()}
             <p className="text-[10px] text-muted-foreground mt-2">
               {new Date(p.opened_at).toLocaleString()} → {p.closed_at ? new Date(p.closed_at).toLocaleString() : "—"}
             </p>
