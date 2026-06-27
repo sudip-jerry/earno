@@ -15,6 +15,9 @@ import {
 } from "@/lib/risk-engine";
 import { analyzeSymbol, HARD_SPREAD_BLOCK_PCT, ALGO_ID, ALGO_NAME, ALGO_VERSION, type SignalAnalysis } from "@/lib/signal-scoring.server";
 import { feeModelRates, DEFAULT_FEE_MODEL } from "@/lib/fees";
+import { classifySetup } from "@/lib/futures/setup-classifier";
+import { getBackendStrategyPolicy } from "@/lib/futures/strategy-policy";
+import { evaluateTradeEligibility } from "@/lib/futures/trade-eligibility";
 
 
 const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
@@ -603,6 +606,10 @@ export async function runAutoBookPass(
 
     const cfgTimeframe = (cfg.timeframe && cfg.timeframe.trim()) || "5m";
     const analyses = analysesByTf.get(cfgTimeframe) ?? [];
+    const backendPolicy = getBackendStrategyPolicy({
+      strategy: cfg.strategy,
+      trading_style: cfg.trading_style,
+    });
 
     for (const a of analyses) {
       const sym = a.symbol;
@@ -722,6 +729,21 @@ export async function runAutoBookPass(
       } else if (a.confidence_pct < autoConfThreshold) {
         rejection = `Below auto-book threshold (${a.confidence_pct} < ${autoConfThreshold})`;
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
+      }
+
+      // Backend setup classification + policy gate (Futures-only, beginner-invisible).
+      const setup = classifySetup(a);
+      if (rejection == null) {
+        const eligibility = evaluateTradeEligibility(a, setup, backendPolicy);
+        if (!eligibility.allowed) {
+          rejection = eligibility.reason ?? "Backend policy rejected";
+          final = "skip";
+          await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+            kind: "eligibility_skip",
+            symbol: a.symbol,
+            ...(eligibility.metadata ?? {}),
+          });
+        }
       }
 
 
@@ -882,6 +904,12 @@ export async function runAutoBookPass(
                 riskAmount: plan.riskAmount,
                 positionSize: plan.positionSize,
                 stopType: "Volatility-based",
+                detected_setup: setup.primarySetup,
+                setup_confidence: setup.setupConfidence,
+                momentum_score: setup.momentumScore,
+                pullback_score: setup.pullbackScore,
+                overlap_flags: setup.overlapFlags,
+                backend_risk_profile: backendPolicy.riskProfile,
               },
             );
           }
@@ -1183,7 +1211,7 @@ export async function runMarkPass(
 
     // Pre-TP1 protective exits (run before hard SL so failing trades exit
     // on policy and hard SL stays an emergency fallback).
-    const { evaluateFuturesExit } = await import("@/lib/futures-exit-policy");
+    const { evaluateFuturesExit } = await import("@/lib/futures/exit-policy");
     const policyDecision = evaluateFuturesExit(
       {
         tp1Hit: tp1Hit || tp1JustHit,
