@@ -6,12 +6,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import {
-  fetchFuturesTickers,
-  fetchMultiTimeframe,
-  type NormalizedTicker,
-} from "@/services/coindcxPublicApi";
-import { scoreCoin, type CoinAction } from "./scorer";
+import { fetchFuturesTickers } from "@/services/coindcxPublicApi";
+import type { CoinAction } from "./scorer";
+
 
 type CoinMode = "intraday" | "swing";
 
