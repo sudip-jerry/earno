@@ -18,6 +18,7 @@ import { feeModelRates, DEFAULT_FEE_MODEL } from "@/lib/fees";
 import { classifySetup } from "@/lib/futures/setup-classifier";
 import { getBackendStrategyPolicy } from "@/lib/futures/strategy-policy";
 import { evaluateTradeEligibility } from "@/lib/futures/trade-eligibility";
+import { loadLiveCreds, placeLiveEntry, placeLiveExit, type LiveCreds } from "@/lib/futures/live-execution.server";
 
 
 const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
