@@ -5,11 +5,34 @@
 //     error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { execSync } from "node:child_process";
+
+function getBuildInfo(): { sha: string; buildTime: string } {
+  try {
+    const sha = execSync("git rev-parse --short HEAD", { stdio: ["pipe", "pipe", "ignore"] })
+      .toString()
+      .trim();
+    const buildTime = execSync("git log -1 --format=%cI", { stdio: ["pipe", "pipe", "ignore"] })
+      .toString()
+      .trim();
+    return { sha, buildTime };
+  } catch {
+    return { sha: "", buildTime: "" };
+  }
+}
+
+const buildInfo = getBuildInfo();
 
 export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
+  },
+  vite: {
+    define: {
+      "import.meta.env.VITE_APP_COMMIT_SHA": JSON.stringify(buildInfo.sha),
+      "import.meta.env.VITE_APP_BUILD_TIME": JSON.stringify(buildInfo.buildTime),
+    },
   },
 });
