@@ -15,6 +15,9 @@ import {
 } from "@/lib/risk-engine";
 import { analyzeSymbol, HARD_SPREAD_BLOCK_PCT, ALGO_ID, ALGO_NAME, ALGO_VERSION, type SignalAnalysis } from "@/lib/signal-scoring.server";
 import { feeModelRates, DEFAULT_FEE_MODEL } from "@/lib/fees";
+import { classifySetup } from "@/lib/futures/setup-classifier";
+import { getBackendStrategyPolicy } from "@/lib/futures/strategy-policy";
+import { evaluateTradeEligibility } from "@/lib/futures/trade-eligibility";
 
 
 const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
