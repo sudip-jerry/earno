@@ -20,6 +20,7 @@ import { Route as AuthenticatedPrivacyRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPositionsRouteImport } from './routes/_authenticated/positions'
 import { Route as AuthenticatedMoversRouteImport } from './routes/_authenticated/movers'
 import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
+import { Route as AuthenticatedExitReplayRouteImport } from './routes/_authenticated/exit-replay'
 import { Route as AuthenticatedCoinBotRouteImport } from './routes/_authenticated/coin-bot'
 import { Route as AuthenticatedBotRouteImport } from './routes/_authenticated/bot'
 import { Route as AuthenticatedBetaReportRouteImport } from './routes/_authenticated/beta-report'
@@ -83,6 +84,11 @@ const AuthenticatedHelpRoute = AuthenticatedHelpRouteImport.update({
   path: '/help',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedExitReplayRoute = AuthenticatedExitReplayRouteImport.update({
+  id: '/exit-replay',
+  path: '/exit-replay',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedCoinBotRoute = AuthenticatedCoinBotRouteImport.update({
   id: '/coin-bot',
   path: '/coin-bot',
@@ -134,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/beta-report': typeof AuthenticatedBetaReportRoute
   '/bot': typeof AuthenticatedBotRoute
   '/coin-bot': typeof AuthenticatedCoinBotRoute
+  '/exit-replay': typeof AuthenticatedExitReplayRoute
   '/help': typeof AuthenticatedHelpRoute
   '/movers': typeof AuthenticatedMoversRoute
   '/positions': typeof AuthenticatedPositionsRoute
@@ -153,6 +160,7 @@ export interface FileRoutesByTo {
   '/beta-report': typeof AuthenticatedBetaReportRoute
   '/bot': typeof AuthenticatedBotRoute
   '/coin-bot': typeof AuthenticatedCoinBotRoute
+  '/exit-replay': typeof AuthenticatedExitReplayRoute
   '/help': typeof AuthenticatedHelpRoute
   '/movers': typeof AuthenticatedMoversRoute
   '/positions': typeof AuthenticatedPositionsRoute
@@ -175,6 +183,7 @@ export interface FileRoutesById {
   '/_authenticated/beta-report': typeof AuthenticatedBetaReportRoute
   '/_authenticated/bot': typeof AuthenticatedBotRoute
   '/_authenticated/coin-bot': typeof AuthenticatedCoinBotRoute
+  '/_authenticated/exit-replay': typeof AuthenticatedExitReplayRoute
   '/_authenticated/help': typeof AuthenticatedHelpRoute
   '/_authenticated/movers': typeof AuthenticatedMoversRoute
   '/_authenticated/positions': typeof AuthenticatedPositionsRoute
@@ -198,6 +207,7 @@ export interface FileRouteTypes {
     | '/beta-report'
     | '/bot'
     | '/coin-bot'
+    | '/exit-replay'
     | '/help'
     | '/movers'
     | '/positions'
@@ -217,6 +227,7 @@ export interface FileRouteTypes {
     | '/beta-report'
     | '/bot'
     | '/coin-bot'
+    | '/exit-replay'
     | '/help'
     | '/movers'
     | '/positions'
@@ -238,6 +249,7 @@ export interface FileRouteTypes {
     | '/_authenticated/beta-report'
     | '/_authenticated/bot'
     | '/_authenticated/coin-bot'
+    | '/_authenticated/exit-replay'
     | '/_authenticated/help'
     | '/_authenticated/movers'
     | '/_authenticated/positions'
@@ -337,6 +349,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHelpRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/exit-replay': {
+      id: '/_authenticated/exit-replay'
+      path: '/exit-replay'
+      fullPath: '/exit-replay'
+      preLoaderRoute: typeof AuthenticatedExitReplayRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/coin-bot': {
       id: '/_authenticated/coin-bot'
       path: '/coin-bot'
@@ -403,6 +422,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBetaReportRoute: typeof AuthenticatedBetaReportRoute
   AuthenticatedBotRoute: typeof AuthenticatedBotRoute
   AuthenticatedCoinBotRoute: typeof AuthenticatedCoinBotRoute
+  AuthenticatedExitReplayRoute: typeof AuthenticatedExitReplayRoute
   AuthenticatedHelpRoute: typeof AuthenticatedHelpRoute
   AuthenticatedMoversRoute: typeof AuthenticatedMoversRoute
   AuthenticatedPositionsRoute: typeof AuthenticatedPositionsRoute
@@ -421,6 +441,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBetaReportRoute: AuthenticatedBetaReportRoute,
   AuthenticatedBotRoute: AuthenticatedBotRoute,
   AuthenticatedCoinBotRoute: AuthenticatedCoinBotRoute,
+  AuthenticatedExitReplayRoute: AuthenticatedExitReplayRoute,
   AuthenticatedHelpRoute: AuthenticatedHelpRoute,
   AuthenticatedMoversRoute: AuthenticatedMoversRoute,
   AuthenticatedPositionsRoute: AuthenticatedPositionsRoute,
