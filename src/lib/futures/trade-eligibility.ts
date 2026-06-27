@@ -48,18 +48,18 @@ export function evaluateTradeEligibility(
     };
   }
 
-  if (setup.setupConfidence < policy.minSetupConfidence) {
-    return {
-      allowed: false,
-      reason: `Setup confidence ${setup.setupConfidence} < min ${policy.minSetupConfidence} for ${policy.riskProfile}`,
-      metadata: meta,
-    };
-  }
-
   if (setup.overlapFlags.includes("weak_signal")) {
     return {
       allowed: false,
       reason: "Weak signal (both setup scores low)",
+      metadata: meta,
+    };
+  }
+
+  if (setup.setupConfidence < policy.minSetupConfidence) {
+    return {
+      allowed: false,
+      reason: `Setup confidence ${setup.setupConfidence} < min ${policy.minSetupConfidence} for ${policy.riskProfile}`,
       metadata: meta,
     };
   }
