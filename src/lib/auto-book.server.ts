@@ -1415,7 +1415,6 @@ export async function runMarkPass(
               `Live exit ${p.symbol} failed: ${exec.error} — local close only`,
               { kind: "live_exit_failed", symbol: p.symbol, side });
           } else {
-            (baseUpdate as Record<string, unknown>).exit_exchange_order_id = exec.orderId;
             await logEvent(supabase, p.user_id as string, "info",
               `Live exit order placed for ${p.symbol} (#${exec.orderId})`);
           }
