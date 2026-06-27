@@ -996,6 +996,7 @@ export async function runMarkPass(
       | {
           auto_close_minutes: number;
           trading_style?: string;
+          strategy?: string | null;
           min_scalp_score?: number;
           fee_aware_exits_enabled?: boolean | null;
           minimum_net_profit_to_exit_pct?: number | null;
