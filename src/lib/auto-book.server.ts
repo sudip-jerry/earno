@@ -808,6 +808,47 @@ export async function runAutoBookPass(
             final = "skip";
             await logEvent(supabase, cfg.user_id, "error", `Auto-book ${a.symbol} failed: ${rejection}`);
           } else {
+          // LIVE (wallet) execution: place a real market order before recording
+          // the position. On failure we skip the booking so the local DB and
+          // the exchange never disagree. Paper mode is unchanged.
+          let liveOrderId: string | null = null;
+          if (cfg.mode === "live") {
+            const creds = await loadLiveCreds(supabase, cfg.user_id);
+            if (!creds) {
+              rejection = "Live mode: no CoinDCX API credentials configured";
+              final = "skip";
+              await logEvent(supabase, cfg.user_id, "warn", `Auto-book ${a.symbol} skipped: ${rejection}`);
+              await supabase
+                .from("bot_signals")
+                .update({ final_decision: "skip", rejection_reason: rejection })
+                .eq("id", signalId);
+            } else {
+              const exec = await placeLiveEntry({
+                creds,
+                symbol: a.symbol,
+                side,
+                qty,
+                leverage: lev,
+              });
+              if (!exec.ok) {
+                rejection = `Live order rejected: ${exec.error}`;
+                final = "skip";
+                await logEvent(supabase, cfg.user_id, "error", `Auto-book ${a.symbol} live order failed: ${exec.error}`, {
+                  kind: "live_entry_failed", symbol: a.symbol, side,
+                });
+                await supabase
+                  .from("bot_signals")
+                  .update({ final_decision: "skip", rejection_reason: rejection })
+                  .eq("id", signalId);
+              } else {
+                liveOrderId = exec.orderId;
+              }
+            }
+          }
+
+          if (rejection != null) {
+            // live execution failed — fall through past the position insert.
+          } else {
           const { data: inserted, error } = await supabase
             .from("positions")
             .insert({
@@ -825,7 +866,8 @@ export async function runAutoBookPass(
               pnl_pct: 0,
               status: "open",
               instrument: "futures",
-              exchange_order_id: cfg.mode === "paper" ? `paper-auto-${Date.now()}` : null,
+              exchange_order_id:
+                cfg.mode === "paper" ? `paper-auto-${Date.now()}` : liveOrderId,
               signal_id: signalId,
               source: "auto",
               algo_id: ALGO_ID,
