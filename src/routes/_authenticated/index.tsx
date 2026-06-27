@@ -31,6 +31,7 @@ import { WealthHero, MilestoneCard, PerformanceHistoryCard } from "@/components/
 import { useCurrency } from "@/hooks/use-currency";
 import { RecentActivity } from "@/components/recent-activity";
 import { RecommendationsPanel } from "@/components/recommendations-panel";
+import { AppVersionDialog } from "@/components/AppVersionDialog";
 import {
   AlertTriangle,
   ChevronRight,
@@ -55,7 +56,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMarketMode, type MarketMode } from "@/hooks/use-market-mode";
-import { CoinPortfolioCard, CoinHoldingsCard, CoinSignalsList } from "@/components/coin-bot/coin-panels";
+import {
+  CoinPortfolioCard,
+  CoinHoldingsCard,
+  CoinSignalsList,
+} from "@/components/coin-bot/coin-panels";
 import { CoinHero } from "@/components/coin-bot/coin-hero";
 import { CoinKpiStrip } from "@/components/coin-bot/coin-kpi-strip";
 import { CoinBotHealth } from "@/components/coin-bot/coin-bot-health";
@@ -66,7 +71,10 @@ export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "Dashboard — Earn'O" },
-      { name: "description", content: "Your Earn'O Wealth Engine at a glance — portfolio, status, and what's next." },
+      {
+        name: "description",
+        content: "Your Earn'O Wealth Engine at a glance — portfolio, status, and what's next.",
+      },
     ],
   }),
   component: Home,
@@ -105,6 +113,7 @@ function Home() {
   const [confirmLive, setConfirmLive] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
   const [riskOpen, setRiskOpen] = useState(false);
+  const [versionOpen, setVersionOpen] = useState(false);
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
 
@@ -209,7 +218,19 @@ function Home() {
       <div className="min-h-svh bg-background pb-28">
         <header className="px-5 pt-5">
           <div className="flex items-center gap-3">
-            <img src={earnoStacked.url} alt="earn'O" className="h-11 w-auto select-none" draggable={false} />
+            <button
+              type="button"
+              onClick={() => setVersionOpen(true)}
+              aria-label="App version info"
+              className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <img
+                src={earnoStacked.url}
+                alt="earn'O"
+                className="h-11 w-auto select-none"
+                draggable={false}
+              />
+            </button>
             <div className="ml-auto flex items-center gap-1">
               <MarketTogglePill />
               <IconBtn ariaLabel="Settings" onClick={() => navigate({ to: "/settings" })}>
@@ -227,18 +248,25 @@ function Home() {
           <CoinBotHealth />
           <section>
             <div className="px-1 pb-2 flex items-center justify-between">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Top signals</div>
-              <Link to="/scanner" className="text-[11px] font-medium text-primary">See all →</Link>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                Top signals
+              </div>
+              <Link to="/scanner" className="text-[11px] font-medium text-primary">
+                See all →
+              </Link>
             </div>
             <CoinSignalsList hideHeader limit={5} />
           </section>
           <section>
-            <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">Holdings</div>
+            <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">
+              Holdings
+            </div>
             <CoinHoldingsCard />
           </section>
           <CoinRecentActivity />
         </div>
         <TabBar />
+        <AppVersionDialog open={versionOpen} onClose={() => setVersionOpen(false)} />
       </div>
     );
   }
@@ -248,12 +276,19 @@ function Home() {
       {/* ===== TOP BAR — brand + ops controls ===== */}
       <header className="px-5 pt-5">
         <div className="flex items-center gap-3">
-          <img
-            src={earnoStacked.url}
-            alt="earn'O"
-            className="h-11 w-auto select-none"
-            draggable={false}
-          />
+          <button
+            type="button"
+            onClick={() => setVersionOpen(true)}
+            aria-label="App version info"
+            className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <img
+              src={earnoStacked.url}
+              alt="earn'O"
+              className="h-11 w-auto select-none"
+              draggable={false}
+            />
+          </button>
           <div className="ml-auto flex items-center gap-1">
             {/* Open positions chip */}
             <Link
@@ -363,9 +398,7 @@ function Home() {
           </div>
           <span
             className={`text-[10px] font-semibold tracking-wider px-2 h-6 inline-flex items-center rounded-full ${
-              isLive
-                ? "bg-destructive text-destructive-foreground"
-                : "bg-amber-500 text-white"
+              isLive ? "bg-destructive text-destructive-foreground" : "bg-amber-500 text-white"
             }`}
           >
             {isLive ? "LIVE" : "PAPER"}
@@ -442,12 +475,7 @@ function Home() {
       {/* ===== Quick actions ===== */}
       <section className="px-5 mt-6">
         <div className="grid grid-cols-3 gap-2.5">
-          <QuickAction
-            to="/bot"
-            label="Bot Panel"
-            icon={<BotIcon className="size-5" />}
-            accent
-          />
+          <QuickAction to="/bot" label="Bot Panel" icon={<BotIcon className="size-5" />} accent />
           <QuickAction to="/scanner" label="Scanner" icon={<Radar className="size-5" />} />
           <QuickAction
             to="/positions"
@@ -481,12 +509,12 @@ function Home() {
                 Risk <Info className="size-2.5 opacity-60" />
               </dt>
               <dd className="mt-1 text-[13px] font-semibold tabular-nums inline-flex items-center gap-1">
-                {s?.riskHealthy ?? true ? (
+                {(s?.riskHealthy ?? true) ? (
                   <ShieldCheck className="size-3 text-emerald-500" />
                 ) : (
                   <AlertTriangle className="size-3 text-amber-500" />
                 )}
-                {s?.riskHealthy ?? true ? "Active" : "Warning"}
+                {(s?.riskHealthy ?? true) ? "Active" : "Warning"}
               </dd>
             </button>
             <Metric label="Last scan" value={timeAgo(s?.lastAnalysisAt ?? null)} />
@@ -602,8 +630,8 @@ function Home() {
               Emergency Stop
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will immediately halt the bot and force-close every open position at market price.
-              This action cannot be undone.
+              This will immediately halt the bot and force-close every open position at market
+              price. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -622,12 +650,12 @@ function Home() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              {s?.riskHealthy ?? true ? (
+              {(s?.riskHealthy ?? true) ? (
                 <ShieldCheck className="size-5 text-emerald-500" />
               ) : (
                 <AlertTriangle className="size-5 text-amber-500" />
               )}
-              Risk Protection — {s?.riskHealthy ?? true ? "Active" : "Warning"}
+              Risk Protection — {(s?.riskHealthy ?? true) ? "Active" : "Warning"}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-left">
               {s?.riskReason ??
@@ -664,10 +692,7 @@ function Home() {
               value={`${s?.minConfidenceRequired ?? 0}`}
               sub={`Top today: ${s?.topConfidenceToday ?? 0}`}
             />
-            <RiskRow
-              label="Cooldown after loss"
-              value={`${s?.cooldownMinutes ?? 0} min`}
-            />
+            <RiskRow label="Cooldown after loss" value={`${s?.cooldownMinutes ?? 0} min`} />
           </div>
 
           <AlertDialogFooter>
@@ -678,13 +703,22 @@ function Home() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <AppVersionDialog open={versionOpen} onClose={() => setVersionOpen(false)} />
     </div>
   );
 }
 
 function RiskRow({
-  label, value, sub, warn,
-}: { label: string; value: string; sub?: string; warn?: boolean }) {
+  label,
+  value,
+  sub,
+  warn,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  warn?: boolean;
+}) {
   return (
     <div className="flex items-center justify-between rounded-lg border bg-background/40 px-3 py-2">
       <div>
@@ -788,7 +822,9 @@ function MarketTogglePill() {
             type="button"
             onClick={() => setMarket(o.v)}
             className={`px-2.5 h-6 rounded-full transition ${
-              active ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              active
+                ? "bg-background shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             {o.label}

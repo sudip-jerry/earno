@@ -1,9 +1,11 @@
-// CoinDCX Global / USDT Futures fee model.
-// Configurable: maker 0.044%, taker 0.050%, GST 18% on fees.
-// Default for paper simulation: maker_taker_with_gst (entry maker, exit taker).
-// Strategy logic is unchanged — this only affects realized PnL accounting.
+// CoinDCX INR-M Futures fee model.
+// maker 0.02%, taker 0.05%, GST 18% on fees.
+// Default for paper simulation: taker_taker_with_gst (market order both sides).
+// Effective fee per side incl. GST: 0.059% (0.05% × 1.18).
+// Fee is calculated on notional = qty × price (not on margin).
+// Do not add TDS for INR-M Futures.
 
-export const MAKER_FEE_PCT = 0.044;
+export const MAKER_FEE_PCT = 0.02;
 export const TAKER_FEE_PCT = 0.05;
 export const GST_PCT = 18;
 
@@ -13,7 +15,7 @@ export type FeeModel =
   | "taker_taker_with_gst"
   | "taker_taker_without_gst";
 
-export const DEFAULT_FEE_MODEL: FeeModel = "maker_taker_with_gst";
+export const DEFAULT_FEE_MODEL: FeeModel = "taker_taker_with_gst";
 
 export function feeModelRates(model: FeeModel = DEFAULT_FEE_MODEL): {
   entry_fee_pct: number;
@@ -56,10 +58,7 @@ export type FeeBreakdown = {
   net_pnl: number;
 };
 
-export function computeFees(
-  t: FeeInputs,
-  model: FeeModel = DEFAULT_FEE_MODEL,
-): FeeBreakdown {
+export function computeFees(t: FeeInputs, model: FeeModel = DEFAULT_FEE_MODEL): FeeBreakdown {
   const { entry_fee_pct, exit_fee_pct, gst_pct } = feeModelRates(model);
   const entry = Number(t.entry_price ?? 0);
   const exit = Number(t.exit_price ?? 0);

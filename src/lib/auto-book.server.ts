@@ -13,9 +13,15 @@ import {
   tp1PriceFor,
   type StylePreset,
 } from "@/lib/risk-engine";
-import { analyzeSymbol, HARD_SPREAD_BLOCK_PCT, ALGO_ID, ALGO_NAME, ALGO_VERSION, type SignalAnalysis } from "@/lib/signal-scoring.server";
+import {
+  analyzeSymbol,
+  HARD_SPREAD_BLOCK_PCT,
+  ALGO_ID,
+  ALGO_NAME,
+  ALGO_VERSION,
+  type SignalAnalysis,
+} from "@/lib/signal-scoring.server";
 import { feeModelRates, DEFAULT_FEE_MODEL } from "@/lib/fees";
-
 
 const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
 const CANDLES = (pair: string, interval: string, limit: number) =>
@@ -44,8 +50,6 @@ async function fetchAtrPct(pair: string): Promise<number | null> {
   }
 }
 
-
-
 type PlanTier = "free" | "reco" | "auto5" | "unlimited";
 
 const AUTO_PLAN_DAILY_LIMIT: Record<PlanTier, number> = {
@@ -70,9 +74,6 @@ function num(x: unknown, d = 0): number {
   const n = typeof x === "string" ? parseFloat(x) : typeof x === "number" ? x : NaN;
   return Number.isFinite(n) ? n : d;
 }
-
-
-
 
 /**
  * Build a dynamic scan universe from the CoinDCX futures ticker:
@@ -107,7 +108,9 @@ async function fetchScanUniverse(
   if (Array.isArray(dict)) dict.forEach((r) => consume(undefined, r));
   else Object.entries(dict).forEach(([k, v]) => v && typeof v === "object" && consume(k, v));
 
-  const byChange = [...rows].sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h)).slice(0, nChange);
+  const byChange = [...rows]
+    .sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h))
+    .slice(0, nChange);
   const byVolume = [...rows].sort((a, b) => b.volume24h - a.volume24h).slice(0, nVolume);
   const seen = new Set<string>();
   const union: typeof rows = [];
@@ -145,12 +148,7 @@ export async function fetchMarkPrices(symbols: string[]): Promise<Record<string,
 /** Coarse market regime computed from BTC 1h trend + last-candle momentum.
  * Used to gate trade direction at open time. Returns null on fetch failure
  * (caller treats null as "neutral"). */
-export type MarketRegime =
-  | "strong_bullish"
-  | "bullish"
-  | "neutral"
-  | "bearish"
-  | "strong_bearish";
+export type MarketRegime = "strong_bullish" | "bullish" | "neutral" | "bearish" | "strong_bearish";
 
 function ema(values: number[], period: number): number | null {
   if (!values || values.length < period) return null;
@@ -167,7 +165,12 @@ export async function fetchMarketRegime(): Promise<MarketRegime | null> {
       signal: AbortSignal.timeout(3500),
     });
     if (!res.ok) return null;
-    const raw = (await res.json()) as Array<{ open: number | string; high: number | string; low: number | string; close: number | string }>;
+    const raw = (await res.json()) as Array<{
+      open: number | string;
+      high: number | string;
+      low: number | string;
+      close: number | string;
+    }>;
     if (!Array.isArray(raw) || raw.length < 22) return null;
     const closes = raw.map((k) => num(k.close));
     const last = closes[closes.length - 1];
@@ -185,7 +188,6 @@ export async function fetchMarketRegime(): Promise<MarketRegime | null> {
     return null;
   }
 }
-
 
 type BotConfig = {
   user_id: string;
@@ -222,8 +224,6 @@ type BotConfig = {
   live_allocation_pct?: number | null;
 };
 
-
-
 /** Returns the USDT capital to size positions against. Paper uses paper_equity.
  * Live reads the user's CoinDCX wallet (futures or spot) and applies the
  * configured allocation (full / fixed amount / % of wallet). */
@@ -249,7 +249,9 @@ async function resolveEquity(supabase: SupabaseClient, cfg: BotConfig): Promise<
       );
       if (r.ok) available = Number(r.data.find((b) => b.currency === "USDT")?.balance ?? 0) || 0;
     } else {
-      const r = await coindcxAuthedPost<Array<{ asset?: string; currency?: string; balance?: string; available_balance?: string }>>(
+      const r = await coindcxAuthedPost<
+        Array<{ asset?: string; currency?: string; balance?: string; available_balance?: string }>
+      >(
         "/exchange/v1/derivatives/futures/wallets",
         creds.api_key as string,
         creds.api_secret as string,
@@ -262,7 +264,8 @@ async function resolveEquity(supabase: SupabaseClient, cfg: BotConfig): Promise<
 
     const mode = (cfg.live_allocation_mode ?? "amount") as "full" | "amount" | "percent";
     if (mode === "full") return available;
-    if (mode === "percent") return Math.max(0, (available * Number(cfg.live_allocation_pct ?? 100)) / 100);
+    if (mode === "percent")
+      return Math.max(0, (available * Number(cfg.live_allocation_pct ?? 100)) / 100);
     return Math.min(Number(cfg.live_allocation_amount ?? 0), available);
   } catch {
     return 0;
@@ -314,8 +317,6 @@ async function logPauseEvent(supabase: SupabaseClient, userId: string, message: 
   if (!data?.length) await logEvent(supabase, userId, "warn", message);
 }
 
-
-
 /** Run one auto-book pass. Optionally restrict to a single user (manual trigger). */
 export async function runAutoBookPass(
   supabase: SupabaseClient,
@@ -357,7 +358,10 @@ export async function runAutoBookPass(
       users.map((u) => u.user_id),
     );
   const nameByUser = new Map<string, string>(
-    (profiles ?? []).map((p) => [p.id as string, ((p.display_name as string) || (p.email as string) || "") as string]),
+    (profiles ?? []).map((p) => [
+      p.id as string,
+      ((p.display_name as string) || (p.email as string) || "") as string,
+    ]),
   );
 
   // Universe + per-symbol analysis (shared across users in this pass).
@@ -394,13 +398,11 @@ export async function runAutoBookPass(
     .gte("closed_at", sixHoursAgoIso);
   const globalHardSlCount = new Map<string, number>();
   for (const r of globalRecentClosed ?? []) {
-    const isHard =
-      r.exit_reason === "stop_loss" || Number(r.pnl_pct ?? 0) <= HARD_SL_ROE_THRESHOLD;
+    const isHard = r.exit_reason === "stop_loss" || Number(r.pnl_pct ?? 0) <= HARD_SL_ROE_THRESHOLD;
     if (!isHard) continue;
     const sym = r.symbol as string;
     globalHardSlCount.set(sym, (globalHardSlCount.get(sym) ?? 0) + 1);
   }
-
 
   for (const cfg of users) {
     let opened = 0;
@@ -429,8 +431,8 @@ export async function runAutoBookPass(
           ? a.side_bias === "long"
             ? "LONG"
             : a.side_bias === "short"
-            ? "SHORT"
-            : a.action
+              ? "SHORT"
+              : a.action
           : a.action;
       signalRows.push({
         id: signalId,
@@ -573,31 +575,41 @@ export async function runAutoBookPass(
     );
 
     // Today's auto/paper trades for style caps (count opened today regardless of status).
-    const openedToday = (todayPos ?? []) as Array<{ pnl: number | null; status: string; opened_at: string; exchange_order_id: string | null }>;
-    const todayAutoRecent = (await supabase
-      .from("positions")
-      .select("symbol,side")
-      .eq("user_id", cfg.user_id)
-      .gte("opened_at", startOfDay.toISOString())).data ?? [];
+    const openedToday = (todayPos ?? []) as Array<{
+      pnl: number | null;
+      status: string;
+      opened_at: string;
+      exchange_order_id: string | null;
+    }>;
+    const todayAutoRecent =
+      (
+        await supabase
+          .from("positions")
+          .select("symbol,side")
+          .eq("user_id", cfg.user_id)
+          .gte("opened_at", startOfDay.toISOString())
+      ).data ?? [];
     const longTodayCount = todayAutoRecent.filter((r) => r.side === "long").length;
     const shortTodayCount = todayAutoRecent.filter((r) => r.side === "short").length;
     const perSymbolTodayCount = new Map<string, number>();
     for (const r of todayAutoRecent) {
-      perSymbolTodayCount.set(r.symbol as string, (perSymbolTodayCount.get(r.symbol as string) ?? 0) + 1);
+      perSymbolTodayCount.set(
+        r.symbol as string,
+        (perSymbolTodayCount.get(r.symbol as string) ?? 0) + 1,
+      );
     }
     // Track in-pass increments so caps account for trades booked earlier in this loop.
     const sameDirOpenedThisPass = { long: 0, short: 0 };
     const symbolOpenedThisPass = new Map<string, number>();
     void openedToday;
 
-
-
     for (const a of analyses) {
       const sym = a.symbol;
       const signalId = crypto.randomUUID();
       const cooldownActive =
         (lastOpen.get(sym) != null && Date.now() - (lastOpen.get(sym) as number) < cooldownMs) ||
-        (lastSlClose.get(sym) != null && Date.now() - (lastSlClose.get(sym) as number) < symbolSlCooldownMs);
+        (lastSlClose.get(sym) != null &&
+          Date.now() - (lastSlClose.get(sym) as number) < symbolSlCooldownMs);
 
       // Compute risk plan up front so we can include rr on every row.
       const plan = computeRiskPlan({
@@ -617,7 +629,8 @@ export async function runAutoBookPass(
       } else if (
         // Global hard-SL cooldown: 2+ hard SLs across Futures paper users in
         // the last 6h blocks new auto-book entries (both long & short) for 6h.
-        cfg.mode === "paper" && (globalHardSlCount.get(sym) ?? 0) >= 2
+        cfg.mode === "paper" &&
+        (globalHardSlCount.get(sym) ?? 0) >= 2
       ) {
         rejection = "Symbol globally cooled (2+ hard SLs across users in 6h)";
         final = "skip";
@@ -639,8 +652,8 @@ export async function runAutoBookPass(
       } else if (a.side_bias === "long" && cfg.allow_long === false) {
         rejection = "Longs disabled in config";
         final = "skip";
-      // Loss-based symbol blacklist removed — only delisted symbols (filtered
-      // upstream by the market list) remain excluded.
+        // Loss-based symbol blacklist removed — only delisted symbols (filtered
+        // upstream by the market list) remain excluded.
       } else if (cooldownActive) {
         rejection = "Cooldown active";
         final = "skip";
@@ -700,7 +713,7 @@ export async function runAutoBookPass(
       } else if (remainingToday - opened <= 0) {
         rejection = "Daily auto-book limit reached";
         final = "skip";
-      // Style trades/day, same-direction, and per-symbol/day hardcaps removed for now.
+        // Style trades/day, same-direction, and per-symbol/day hardcaps removed for now.
       } else if (openSlot <= 0) {
         rejection = "Max open positions reached";
         final = "skip";
@@ -711,7 +724,6 @@ export async function runAutoBookPass(
         rejection = `Below auto-book threshold (${a.confidence_pct} < ${autoConfThreshold})`;
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
       }
-
 
       let bookedTradeId: string | null = null;
 
@@ -771,108 +783,118 @@ export async function runAutoBookPass(
           if (sigErr) {
             rejection = `Signal pre-insert failed: ${sigErr.message}`;
             final = "skip";
-            await logEvent(supabase, cfg.user_id, "error", `Auto-book ${a.symbol} failed: ${rejection}`);
-          } else {
-          const { data: inserted, error } = await supabase
-            .from("positions")
-            .insert({
-              user_id: cfg.user_id,
-              mode: cfg.mode,
-              symbol: a.symbol,
-              side,
-              leverage: lev,
-              qty,
-              entry_price: a.price,
-              mark_price: a.price,
-              stop_loss,
-              take_profit,
-              pnl: 0,
-              pnl_pct: 0,
-              status: "open",
-              instrument: "futures",
-              exchange_order_id: cfg.mode === "paper" ? `paper-auto-${Date.now()}` : null,
-              signal_id: signalId,
-              source: "auto",
-              algo_id: ALGO_ID,
-              algo_name: ALGO_NAME,
-              algo_version: ALGO_VERSION,
-              confidence_at_entry: a.confidence_pct,
-              confidence_band_at_entry: a.confidence_band,
-              entry_reason: a.reason,
-              market_regime: marketRegime ?? a.market_regime,
-              rsi_at_entry: a.rsi,
-              volume_spike_ratio_at_entry: a.volume_spike_ratio,
-              spread_pct_at_entry: a.spread_pct,
-              distance_from_vwap_pct_at_entry: a.distance_from_vwap_pct,
-              distance_from_ema21_pct_at_entry: a.distance_from_ema21_pct,
-              // New exit-management fields:
-              tp1_price,
-              tp1_pct: tp1PctRaw,
-              tp1_hit: false,
-              remaining_qty: qty,
-              tp1_qty_closed: 0,
-              trail_pct: preset.trailPct,
-              breakeven_moved: false,
-              final_tp_hit: false,
-              peak_unrealized_pnl_pct: 0,
-              max_favourable_excursion_pct: 0,
-              max_adverse_excursion_pct: 0,
-              highest_unrealized_pnl: 0,
-              lowest_unrealized_pnl: 0,
-            } as never)
-            .select("id")
-            .single();
-
-          if (error || !inserted) {
-            rejection = error?.message ?? "Insert failed";
-            final = "skip";
-            await logEvent(supabase, cfg.user_id, "error", `Auto-book ${a.symbol} failed: ${rejection}`);
-            // Mark the pre-inserted signal as rejected.
-            await supabase
-              .from("bot_signals")
-              .update({ final_decision: "skip", rejection_reason: rejection })
-              .eq("id", signalId);
-          } else {
-            bookedTradeId = inserted.id as string;
-            final = "booked";
-            opened++;
-            openSlot--;
-            openSymbols.add(sym);
-            lastOpen.set(sym, Date.now());
-            sameDirOpenedThisPass[side]++;
-            symbolOpenedThisPass.set(sym, (symbolOpenedThisPass.get(sym) ?? 0) + 1);
-            // Write the booking linkage back onto the signal row.
-            await supabase
-              .from("bot_signals")
-              .update({
-                booked: true,
-                booked_trade_id: bookedTradeId,
-                final_decision: "booked",
-                action: side === "long" ? "LONG" : "SHORT",
-                confidence_pct: a.confidence_pct,
-                confidence_band: a.confidence_band,
-              })
-              .eq("id", signalId);
             await logEvent(
               supabase,
               cfg.user_id,
-              "info",
-              `Auto-booked ${side.toUpperCase()} ${a.symbol} · Confidence ${a.confidence_pct.toFixed(0)}% · Target +${tpPct.toFixed(2)}% · Stop −${slPct.toFixed(2)}% · Stop Type Volatility-based · R:R ${plan.rr.toFixed(2)}:1`,
-              {
-                kind: "auto_book",
+              "error",
+              `Auto-book ${a.symbol} failed: ${rejection}`,
+            );
+          } else {
+            const { data: inserted, error } = await supabase
+              .from("positions")
+              .insert({
+                user_id: cfg.user_id,
+                mode: cfg.mode,
                 symbol: a.symbol,
                 side,
-                confidence: Math.round(a.confidence_pct),
-                tpPct,
-                slPct,
-                atrPct: plan.atrPct,
-                rr: plan.rr,
-                riskAmount: plan.riskAmount,
-                positionSize: plan.positionSize,
-                stopType: "Volatility-based",
-              },
-            );
-          }
+                leverage: lev,
+                qty,
+                entry_price: a.price,
+                mark_price: a.price,
+                stop_loss,
+                take_profit,
+                pnl: 0,
+                pnl_pct: 0,
+                status: "open",
+                instrument: "futures",
+                exchange_order_id: cfg.mode === "paper" ? `paper-auto-${Date.now()}` : null,
+                signal_id: signalId,
+                source: "auto",
+                algo_id: ALGO_ID,
+                algo_name: ALGO_NAME,
+                algo_version: ALGO_VERSION,
+                confidence_at_entry: a.confidence_pct,
+                confidence_band_at_entry: a.confidence_band,
+                entry_reason: a.reason,
+                market_regime: marketRegime ?? a.market_regime,
+                rsi_at_entry: a.rsi,
+                volume_spike_ratio_at_entry: a.volume_spike_ratio,
+                spread_pct_at_entry: a.spread_pct,
+                distance_from_vwap_pct_at_entry: a.distance_from_vwap_pct,
+                distance_from_ema21_pct_at_entry: a.distance_from_ema21_pct,
+                // New exit-management fields:
+                tp1_price,
+                tp1_pct: tp1PctRaw,
+                tp1_hit: false,
+                remaining_qty: qty,
+                tp1_qty_closed: 0,
+                trail_pct: preset.trailPct,
+                breakeven_moved: false,
+                final_tp_hit: false,
+                peak_unrealized_pnl_pct: 0,
+                max_favourable_excursion_pct: 0,
+                max_adverse_excursion_pct: 0,
+                highest_unrealized_pnl: 0,
+                lowest_unrealized_pnl: 0,
+              } as never)
+              .select("id")
+              .single();
+
+            if (error || !inserted) {
+              rejection = error?.message ?? "Insert failed";
+              final = "skip";
+              await logEvent(
+                supabase,
+                cfg.user_id,
+                "error",
+                `Auto-book ${a.symbol} failed: ${rejection}`,
+              );
+              // Mark the pre-inserted signal as rejected.
+              await supabase
+                .from("bot_signals")
+                .update({ final_decision: "skip", rejection_reason: rejection })
+                .eq("id", signalId);
+            } else {
+              bookedTradeId = inserted.id as string;
+              final = "booked";
+              opened++;
+              openSlot--;
+              openSymbols.add(sym);
+              lastOpen.set(sym, Date.now());
+              sameDirOpenedThisPass[side]++;
+              symbolOpenedThisPass.set(sym, (symbolOpenedThisPass.get(sym) ?? 0) + 1);
+              // Write the booking linkage back onto the signal row.
+              await supabase
+                .from("bot_signals")
+                .update({
+                  booked: true,
+                  booked_trade_id: bookedTradeId,
+                  final_decision: "booked",
+                  action: side === "long" ? "LONG" : "SHORT",
+                  confidence_pct: a.confidence_pct,
+                  confidence_band: a.confidence_band,
+                })
+                .eq("id", signalId);
+              await logEvent(
+                supabase,
+                cfg.user_id,
+                "info",
+                `Auto-booked ${side.toUpperCase()} ${a.symbol} · Confidence ${a.confidence_pct.toFixed(0)}% · Target +${tpPct.toFixed(2)}% · Stop −${slPct.toFixed(2)}% · Stop Type Volatility-based · R:R ${plan.rr.toFixed(2)}:1`,
+                {
+                  kind: "auto_book",
+                  symbol: a.symbol,
+                  side,
+                  confidence: Math.round(a.confidence_pct),
+                  tpPct,
+                  slPct,
+                  atrPct: plan.atrPct,
+                  rr: plan.rr,
+                  riskAmount: plan.riskAmount,
+                  positionSize: plan.positionSize,
+                  stopType: "Volatility-based",
+                },
+              );
+            }
           } // close: sigErr else
         }
       } else {
@@ -902,8 +924,21 @@ export async function runAutoBookPass(
 
     result.opened += opened;
     result.skipped += skipped;
-    result.details.push({ user: cfg.user_id, opened, skipped, reason: userBlockReason ?? undefined });
-    await logScanEvent(supabase, cfg.user_id, scannedCount, analyses.filter((x) => x.action === "LONG" || x.action === "SHORT").length, opened, skipped, topConfidenceOverall);
+    result.details.push({
+      user: cfg.user_id,
+      opened,
+      skipped,
+      reason: userBlockReason ?? undefined,
+    });
+    await logScanEvent(
+      supabase,
+      cfg.user_id,
+      scannedCount,
+      analyses.filter((x) => x.action === "LONG" || x.action === "SHORT").length,
+      opened,
+      skipped,
+      topConfidenceOverall,
+    );
   }
 
   return result;
@@ -919,10 +954,7 @@ export async function runMarkPass(
   updated: number;
   closed: number;
 }> {
-  let q = supabase
-    .from("positions")
-    .select("*")
-    .eq("status", "open");
+  let q = supabase.from("positions").select("*").eq("status", "open");
   if (opts.userId) q = q.eq("user_id", opts.userId);
   const { data: open } = await q;
   const positions = (open ?? []) as Array<Record<string, unknown>>;
@@ -941,18 +973,23 @@ export async function runMarkPass(
   if (!positions.length && !(shadowRows ?? []).length) return { updated: 0, closed: 0 };
 
   const userIds = Array.from(
-    new Set([...positions.map((p) => p.user_id as string), ...((shadowRows ?? []).map((p) => p.user_id as string))]),
+    new Set([
+      ...positions.map((p) => p.user_id as string),
+      ...(shadowRows ?? []).map((p) => p.user_id as string),
+    ]),
   );
   const { data: cfgRows } = await supabase
     .from("bot_config")
-    .select("user_id,auto_close_minutes,trading_style,min_scalp_score,fee_aware_exits_enabled,minimum_net_profit_to_exit_pct,slippage_buffer_pct,minimum_gross_profit_before_profit_fade_exit_pct,minimum_gross_profit_before_weak_progress_exit_pct")
+    .select(
+      "user_id,auto_close_minutes,trading_style,min_scalp_score,fee_aware_exits_enabled,minimum_net_profit_to_exit_pct,slippage_buffer_pct,minimum_gross_profit_before_profit_fade_exit_pct,minimum_gross_profit_before_weak_progress_exit_pct",
+    )
     .in("user_id", userIds);
   const cfgByUser = new Map((cfgRows ?? []).map((c) => [c.user_id as string, c]));
 
   const allSymbols = Array.from(
     new Set([
       ...positions.map((p) => p.symbol as string),
-      ...((shadowRows ?? []).map((p) => p.symbol as string)),
+      ...(shadowRows ?? []).map((p) => p.symbol as string),
     ]),
   );
   const marks = await fetchMarkPrices(allSymbols);
@@ -995,10 +1032,17 @@ export async function runMarkPass(
     const autoCloseMinutes = Number(cfgRow?.auto_close_minutes ?? 120);
     const presetRaw = presetFromConfig({
       trading_style: cfgRow?.trading_style ?? "balanced",
-      min_sl_pct: null, atr_multiplier: null, max_auto_sl_pct: null,
-      target_multiplier: null, min_rr: null, risk_per_trade_pct: null,
+      min_sl_pct: null,
+      atr_multiplier: null,
+      max_auto_sl_pct: null,
+      target_multiplier: null,
+      min_rr: null,
+      risk_per_trade_pct: null,
     });
-    const preset = applyStrictnessToPreset(presetRaw, strictnessFromMinScore(cfgRow?.min_scalp_score));
+    const preset = applyStrictnessToPreset(
+      presetRaw,
+      strictnessFromMinScore(cfgRow?.min_scalp_score),
+    );
     const openedAt = new Date(p.opened_at as string).getTime();
     const ageMin = (Date.now() - openedAt) / 60_000;
 
@@ -1014,69 +1058,39 @@ export async function runMarkPass(
     // ----- ROE-based profit protection (style-aware) -----
     // pnlPct is already leverage-adjusted, so it IS ROE %.
     const styleKey = String(cfgRow?.trading_style ?? "balanced").toLowerCase();
-    const ROE_THRESHOLDS: Record<string, { be: number; tp1: number; hard: number }> = {
-      conservative: { be: 1.0, tp1: 1.2, hard: 1.6 },
-      balanced:     { be: 1.1, tp1: 1.4, hard: 1.8 },
-      // Aggressive (3m scalp): lower breakeven trigger to +1.00% ROE so
-      // trades that brushed +1.0–1.2% can't later become full stop-loss.
-      aggressive:   { be: 1.0, tp1: 1.5, hard: 2.0 },
+    // Only "hard" threshold is used — for a last-resort unprotected-trade exit.
+    const ROE_HARD: Record<string, number> = {
+      conservative: 1.6,
+      balanced: 1.8,
+      aggressive: 2.0,
     };
-    const roeTh = ROE_THRESHOLDS[styleKey] ?? ROE_THRESHOLDS.balanced;
+    const roeHard = ROE_HARD[styleKey] ?? ROE_HARD.balanced;
     const currentRoe = pnlPct;
     const peakRoe = peak;
-    const moveToBeEnabled = true; // existing config has no toggle; protection on by default
     const trailingEnabled = trailPct != null && trailPct > 0;
-
-    // ROE-based giveback (drives profit-fade after protected profit exists).
-    const roeGiveback = peakRoe >= roeTh.tp1 && peakRoe > 0 ? Math.max(0, peakRoe - currentRoe) : 0;
-    const roeGivebackPct = peakRoe > 0 ? (roeGiveback / peakRoe) * 100 : 0;
-    // After TP1 we tighten the trail aggressively: 20% giveback (was 40%)
-    // and any drop below the breakeven ROE threshold force-exits the runner.
-    const postTp1GivebackPct = 20;
-    const roeRunnerFloor = roeTh.be;
 
     // ----- Resolve exit decision (priority order) -----
     let finalExitReason: string | null = null;
     let exitProtectionReason: string | null = null;
     let tp1JustHit = false;
-    let tp1TriggerSource: "price" | "roe" | null = null;
-    let newSl = sl;
     let newBreakeven = breakevenMoved;
-    let armBreakevenNow = false;
 
-    // 1a) TP1 by price target (existing).
+    // 1a) TP1 by price target only. No ROE-based TP1 trigger.
     if (!tp1Hit && tp1 != null) {
       const crossed = side === "long" ? mark >= tp1 : mark <= tp1;
       if (crossed) {
         tp1JustHit = true;
-        tp1TriggerSource = "price";
-        newSl = entry;
         newBreakeven = true;
         trailAnchor = mark;
       }
     }
-    // 1b) TP1 by ROE threshold (new — profit protection).
-    if (!tp1Hit && !tp1JustHit && currentRoe >= roeTh.tp1) {
-      tp1JustHit = true;
-      tp1TriggerSource = "roe";
-      newSl = entry;
-      newBreakeven = true;
-      trailAnchor = mark;
-    }
 
-    // 1c) Move SL to breakeven once peak ROE crosses the breakeven trigger,
-    //     even before TP1 fires. Protected trades cannot later close at full SL.
-    if (!newBreakeven && moveToBeEnabled && peakRoe >= roeTh.be) {
-      newBreakeven = true;
-      armBreakevenNow = true;
-      newSl = entry;
-    }
-
-    const profitProtected = newBreakeven || tp1Hit || tp1JustHit || peakRoe >= roeTh.be;
+    // Breakeven only armed when TP1 fires. No pre-TP1 breakeven move.
+    const profitProtected = newBreakeven || tp1Hit || tp1JustHit;
 
     // 2) Final TP.
     const hitTp = tp != null && (side === "long" ? mark >= tp : mark <= tp);
-    // 3) SL (at breakeven if protected).
+    // 3) SL: before TP1 use original SL; after TP1 SL has moved to entry (breakeven).
     const effSlPrice = newBreakeven ? entry : (sl ?? null);
     const hitSl =
       effSlPrice != null &&
@@ -1090,58 +1104,58 @@ export async function runMarkPass(
         side === "long"
           ? ((trailAnchor - mark) / trailAnchor) * 100
           : ((mark - trailAnchor) / trailAnchor) * 100;
-      const effTrail = (p.weak_progress ? (trailPct as number) / 2 : (trailPct as number));
+      const effTrail = p.weak_progress ? (trailPct as number) / 2 : (trailPct as number);
       if (retrace >= effTrail) hitTrail = true;
     }
 
-    // 4b) Post-TP1 locked-runner ROE protection.
-    // After TP1 books 50%, lock a floor under the runner ROE that ratchets
-    // upward only. If current ROE drops to/below the lock, exit the runner.
+    // 4b) Post-TP1 style-aware runner protection.
+    // Activate only after a meaningful peak and exit on giveback from that peak.
+    // Conservative: peak >= 3%, giveback 35%
+    // Balanced:     peak >= 4%, giveback 45%
+    // Aggressive:   peak >= 5%, giveback 55%
     const postTp1 = tp1Hit || tp1JustHit;
-    let lockedRunnerRoe = Number(p.locked_runner_roe_pct ?? 0);
-    let hitLockedRunnerExit = false;
-    if (postTp1) {
-      const tp1RoeRef = tp1JustHit
-        ? currentRoe
-        : Number(p.tp1_roe_pct ?? roeTh.tp1);
-      let lockFactor = 0.80;
-      if (peakRoe > 4.0) lockFactor = 0.90;
-      else if (peakRoe > 2.5) lockFactor = 0.85;
-      let candidate = peakRoe * lockFactor;
-      const tp1Floor = tp1RoeRef * 0.90;
-      if (tp1Floor > candidate) candidate = tp1Floor;
-      if (candidate > lockedRunnerRoe) lockedRunnerRoe = candidate;
-      if (lockedRunnerRoe > 0 && currentRoe <= lockedRunnerRoe && currentRoe < peakRoe) {
-        hitLockedRunnerExit = true;
-      }
-    }
+    const RUNNER_PROT: Record<string, { minPeak: number; givebackFrac: number }> = {
+      conservative: { minPeak: 3.0, givebackFrac: 0.35 },
+      balanced: { minPeak: 4.0, givebackFrac: 0.45 },
+      aggressive: { minPeak: 5.0, givebackFrac: 0.55 },
+    };
+    const runnerProt = RUNNER_PROT[styleKey] ?? RUNNER_PROT.balanced;
+    const givebackFromPeakFrac = peakRoe > 0 ? (peakRoe - currentRoe) / peakRoe : 0;
+    const hitRunnerProtect =
+      postTp1 && peakRoe >= runnerProt.minPeak && givebackFromPeakFrac >= runnerProt.givebackFrac;
 
-    // 5a) Existing price-% profit fade.
+    // 5a) Price-% profit fade: only allowed after TP1 has been hit.
     const hitProfitFade =
+      postTp1 &&
       peak >= preset.profitFadeMinPct &&
       peak > 0 &&
       giveback / peak >= preset.profitFadeGivebackPct;
-    // 5b) ROE-based profit fade. After TP1 has banked half, the runner trails
-    //     tightly (20% giveback) and also exits if ROE falls back below the
-    //     breakeven trigger. Before TP1, the looser 40% giveback applies so a
-    //     trade that merely brushes the TP1 line and stalls isn't cut too soon.
-    const givebackTriggerPct = postTp1 ? postTp1GivebackPct : 40;
-    const hitRoeProfitFade =
-      peakRoe >= roeTh.tp1 && peakRoe > 0 &&
-      (roeGivebackPct >= givebackTriggerPct || (postTp1 && currentRoe < roeRunnerFloor));
-    // 5c) Hard profit-protection fallback: trade not yet protected and ROE hit cap.
-    const hitHardProfitExit = !profitProtected && currentRoe >= roeTh.hard;
+
+    // 5b) Pre-TP1 failed momentum: rare, strict exit before TP1 is hit.
+    // Only fires when all conditions are met — otherwise let trade reach TP1/SL/time_exit.
+    const hitPreTp1FailedMomentum =
+      !tp1Hit && !tp1JustHit && ageMin >= 30 && peakRoe >= 1.0 && currentRoe <= -2.0;
+
+    // 5c) Hard profit-protection fallback: unprotected trade that hit the ROE hard cap.
+    const hitHardProfitExit = !profitProtected && currentRoe >= roeHard;
 
     // 6) Weak progress flag.
     let newWeakProgress: { weak_progress: boolean; weak_progress_marked_at: string } | null = null;
-    if (!p.weak_progress && ageMin >= 45 && ageMin <= preset.weakProgressWindowMin + 5 && peak < preset.weakProgressMinPct) {
+    if (
+      !p.weak_progress &&
+      ageMin >= 45 &&
+      ageMin <= preset.weakProgressWindowMin + 5 &&
+      peak < preset.weakProgressMinPct
+    ) {
       newWeakProgress = { weak_progress: true, weak_progress_marked_at: new Date().toISOString() };
     }
 
     // 7) Weak-progress time exit.
     const weakNegative = p.weak_progress && (side === "long" ? mark < entry : mark > entry);
     const hitTimeExit =
-      autoCloseMinutes > 0 && Number.isFinite(openedAt) && Date.now() - openedAt >= autoCloseMinutes * 60_000;
+      autoCloseMinutes > 0 &&
+      Number.isFinite(openedAt) &&
+      Date.now() - openedAt >= autoCloseMinutes * 60_000;
 
     // Fee-aware evaluation (unchanged).
     const grossPctPrice = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul : 0;
@@ -1153,8 +1167,10 @@ export async function runMarkPass(
     const netPctPrice = grossPctPrice - roundTripFeePct - slippageBufferPct - fundingEstimatePct;
     const feeAwareEnabled = cfgRow?.fee_aware_exits_enabled !== false;
     const minNetExitPct = Number(cfgRow?.minimum_net_profit_to_exit_pct ?? 0.18);
-    const minGrossFadePct = Number(cfgRow?.minimum_gross_profit_before_profit_fade_exit_pct ?? 0.30);
-    const minGrossWeakPct = Number(cfgRow?.minimum_gross_profit_before_weak_progress_exit_pct ?? 0.25);
+    const minGrossFadePct = Number(cfgRow?.minimum_gross_profit_before_profit_fade_exit_pct ?? 0.3);
+    const minGrossWeakPct = Number(
+      cfgRow?.minimum_gross_profit_before_weak_progress_exit_pct ?? 0.25,
+    );
 
     const notionalEntry = qty * entry;
     const notionalExit = qty * mark;
@@ -1174,22 +1190,18 @@ export async function runMarkPass(
       finalExitReason = "profit_protection_exit";
       exitProtectionReason = "profit_protection";
     } else if (hitSl) {
-      // Stop-loss guard: once peak ROE crossed TP1 trigger OR TP1 was banked,
-      // never close as full stop_loss — degrade to breakeven_exit.
-      if (newBreakeven || tp1Hit || tp1JustHit || peakRoe >= roeTh.tp1 || peakRoe >= roeTh.be) {
+      // If TP1 was banked, SL has moved to entry — degrade to breakeven_exit.
+      if (newBreakeven || tp1Hit || tp1JustHit) {
         finalExitReason = "breakeven_exit";
         exitProtectionReason = "breakeven_protected";
       } else {
         finalExitReason = "stop_loss";
       }
-    } else if (hitLockedRunnerExit) {
+    } else if (hitRunnerProtect) {
       finalExitReason = "profit_fade_exit";
-      exitProtectionReason = "post_tp1_locked_roe_exit";
+      exitProtectionReason = "runner_protection";
     } else if (hitTrail) {
       finalExitReason = "trailing_exit";
-    } else if (hitRoeProfitFade) {
-      finalExitReason = "profit_fade_exit";
-      exitProtectionReason = "profit_fade";
     } else if (hitProfitFade) {
       if (feeAwareEnabled && (grossPctPrice < minGrossFadePct || netPctPrice < minNetExitPct)) {
         originalExitReason = "profit_fade_exit";
@@ -1197,6 +1209,9 @@ export async function runMarkPass(
       } else {
         finalExitReason = "profit_fade_exit";
       }
+    } else if (hitPreTp1FailedMomentum) {
+      finalExitReason = "profit_fade_exit";
+      exitProtectionReason = "pre_tp1_failed_momentum";
     } else if (weakNegative) {
       if (feeAwareEnabled && (grossPctPrice < minGrossWeakPct || netPctPrice < minNetExitPct)) {
         originalExitReason = "weak_progress_time_exit";
@@ -1209,6 +1224,7 @@ export async function runMarkPass(
     }
 
     // ----- Apply update -----
+    const roeGiveback = peakRoe > 0 ? Math.max(0, peakRoe - currentRoe) : 0;
     const baseUpdate: Record<string, unknown> = {
       mark_price: mark,
       pnl,
@@ -1237,27 +1253,23 @@ export async function runMarkPass(
       baseUpdate.breakeven_armed_at = new Date().toISOString();
       baseUpdate.profit_protection_active = true;
       baseUpdate.trail_anchor_price = mark;
-      void tp1TriggerSource;
     } else if (tp1Hit) {
       baseUpdate.trail_anchor_price = trailAnchor;
     }
-    if (armBreakevenNow && !tp1JustHit) {
-      baseUpdate.stop_loss = entry;
-      baseUpdate.breakeven_moved = true;
-      baseUpdate.breakeven_armed_at = new Date().toISOString();
-      baseUpdate.profit_protection_active = true;
-    }
-    if (postTp1 && lockedRunnerRoe > Number(p.locked_runner_roe_pct ?? 0)) {
-      baseUpdate.locked_runner_roe_pct = lockedRunnerRoe;
-    }
     if (newWeakProgress) Object.assign(baseUpdate, newWeakProgress);
 
-
     if (finalExitReason != null) {
+      // Paper mode SL fill price: use the configured SL price, not the current mark.
+      // For stop_loss: exit at effSlPrice (the original configured SL).
+      // For breakeven_exit: exit at entry (SL moved to breakeven after TP1).
+      const isSLExit = finalExitReason === "stop_loss" || finalExitReason === "breakeven_exit";
+      const exitPrice =
+        isSLExit && p.mode === "paper" && effSlPrice != null ? (effSlPrice as number) : mark;
+
       // Final pnl = TP1 booked leg (absolute) + runner leg (absolute on remaining qty).
       const hadTp1 = tp1Hit || tp1JustHit;
-      const runnerQty = hadTp1 ? (qty / 2) : qty;
-      const runnerAbsPnl = (mark - entry) * runnerQty * sideMul;
+      const runnerQty = hadTp1 ? qty / 2 : qty;
+      const runnerAbsPnl = (exitPrice - entry) * runnerQty * sideMul;
       const tp1BookedAbs = hadTp1
         ? Number(
             (baseUpdate.tp1_booked_pnl as number | undefined) ??
@@ -1267,14 +1279,15 @@ export async function runMarkPass(
           )
         : 0;
       const combinedPnl = tp1BookedAbs + runnerAbsPnl;
-      const remainingShare = hadTp1 ? (runnerQty / qty) : 1;
+      const remainingShare = hadTp1 ? runnerQty / qty : 1;
       const tp1LegPct = tp1JustHit ? Number(baseUpdate.tp1_pnl ?? 0) : tp1Pnl;
-      const combinedPnlPct = tp1LegPct + pnlPct * remainingShare;
+      const exitPnlPct = entry > 0 ? ((exitPrice - entry) / entry) * 100 * sideMul * lev : 0;
+      const combinedPnlPct = tp1LegPct + exitPnlPct * remainingShare;
       const netPnl = combinedPnl - estimatedTotalFee - estimatedSlippage;
 
       Object.assign(baseUpdate, {
         status: "closed",
-        exit_price: mark,
+        exit_price: exitPrice,
         exit_reason: finalExitReason,
         final_exit_reason: finalExitReason,
         original_exit_reason: finalExitReason,
@@ -1292,14 +1305,17 @@ export async function runMarkPass(
         exit_protection_reason: exitProtectionReason,
         closed_at: new Date().toISOString(),
       });
-      const { error } = await supabase.from("positions").update(baseUpdate as never).eq("id", p.id as string);
+      const { error } = await supabase
+        .from("positions")
+        .update(baseUpdate as never)
+        .eq("id", p.id as string);
       if (!error) {
         closed++;
         await logEvent(
           supabase,
           p.user_id as string,
           "info",
-          `Auto-closed ${side.toUpperCase()} ${p.symbol} at ${mark} (${finalExitReason}) net=${(combinedPnl - estimatedTotalFee - estimatedSlippage).toFixed(4)} fee=${estimatedTotalFee.toFixed(4)}`,
+          `Auto-closed ${side.toUpperCase()} ${p.symbol} at ${exitPrice} (${finalExitReason}) net=${(combinedPnl - estimatedTotalFee - estimatedSlippage).toFixed(4)} fee=${estimatedTotalFee.toFixed(4)}`,
         );
       }
     } else {
@@ -1321,7 +1337,10 @@ export async function runMarkPass(
           `Exit blocked (${exitBlockedReason}) ${side.toUpperCase()} ${p.symbol}: gross=${grossPctPrice.toFixed(3)}% net=${netPctPrice.toFixed(3)}% min=${minNetExitPct}%`,
         );
       }
-      const { error } = await supabase.from("positions").update(baseUpdate as never).eq("id", p.id as string);
+      const { error } = await supabase
+        .from("positions")
+        .update(baseUpdate as never)
+        .eq("id", p.id as string);
       if (!error) updated++;
     }
   }
@@ -1346,14 +1365,18 @@ export async function runMarkPass(
     let shadowReason: string | null = null;
     if (tp != null && (side === "long" ? mark >= tp : mark <= tp)) shadowReason = "take_profit";
     else if (sl != null && (side === "long" ? mark <= sl : mark >= sl)) shadowReason = "stop_loss";
-    else if (tp1 != null && (side === "long" ? mark >= tp1 : mark <= tp1)) shadowReason = "tp1_only";
+    else if (tp1 != null && (side === "long" ? mark >= tp1 : mark <= tp1))
+      shadowReason = "tp1_only";
 
     if (shadowReason) {
       const shadowExitPrice =
-        shadowReason === "take_profit" ? (tp as number)
-        : shadowReason === "stop_loss" ? (sl as number)
-        : (tp1 as number);
-      const shadowPnlPct = entry > 0 ? ((shadowExitPrice - entry) / entry) * 100 * sideMul * lev : 0;
+        shadowReason === "take_profit"
+          ? (tp as number)
+          : shadowReason === "stop_loss"
+            ? (sl as number)
+            : (tp1 as number);
+      const shadowPnlPct =
+        entry > 0 ? ((shadowExitPrice - entry) / entry) * 100 * sideMul * lev : 0;
       const shadowPnl = (shadowExitPrice - entry) * Number(p.qty) * sideMul;
       const saved = manualPnl > shadowPnl ? manualPnl - shadowPnl : 0;
       const missed = shadowPnl > manualPnl ? shadowPnl - manualPnl : 0;
@@ -1374,4 +1397,3 @@ export async function runMarkPass(
 
   return { updated, closed };
 }
-
