@@ -606,6 +606,10 @@ export async function runAutoBookPass(
 
     const cfgTimeframe = (cfg.timeframe && cfg.timeframe.trim()) || "5m";
     const analyses = analysesByTf.get(cfgTimeframe) ?? [];
+    const backendPolicy = getBackendStrategyPolicy({
+      strategy: cfg.strategy,
+      trading_style: cfg.trading_style,
+    });
 
     for (const a of analyses) {
       const sym = a.symbol;
