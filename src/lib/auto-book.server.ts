@@ -904,6 +904,12 @@ export async function runAutoBookPass(
                 riskAmount: plan.riskAmount,
                 positionSize: plan.positionSize,
                 stopType: "Volatility-based",
+                detected_setup: setup.primarySetup,
+                setup_confidence: setup.setupConfidence,
+                momentum_score: setup.momentumScore,
+                pullback_score: setup.pullbackScore,
+                overlap_flags: setup.overlapFlags,
+                backend_risk_profile: backendPolicy.riskProfile,
               },
             );
           }
