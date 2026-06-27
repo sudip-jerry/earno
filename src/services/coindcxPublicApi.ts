@@ -72,17 +72,33 @@ export async function fetchFuturesTickers(): Promise<NormalizedTicker[]> {
   const raw = await getJSON<unknown>(
     `${PUBLIC_BASE}/market_data/v3/current_prices/futures/rt`,
   );
-  const rows: RawTicker[] = Array.isArray(raw)
-    ? (raw as RawTicker[])
-    : raw && typeof raw === "object" && Array.isArray((raw as { prices?: unknown }).prices)
-      ? ((raw as { prices: RawTicker[] }).prices)
-      : raw && typeof raw === "object"
-        ? Object.values(raw as Record<string, RawTicker>)
-        : [];
+
+  // The endpoint returns one of:
+  //   1. [{ s, c, ... }, ...]                       (array, symbol on each row)
+  //   2. { prices: [{ s, c, ... }, ...] }           (wrapped array)
+  //   3. { prices: { "B-BTC_USDT": { c, ... } } }   (keyed object, symbol is the key)
+  //   4. { "B-BTC_USDT": { c, ... } }               (bare keyed object)
+  // For (3)/(4) we MUST take the symbol from the key, otherwise every row
+  // gets dropped because r.s / r.pair is undefined.
+  const entries: Array<[string | undefined, RawTicker]> = (() => {
+    if (Array.isArray(raw)) return (raw as RawTicker[]).map((r) => [undefined, r]);
+    if (raw && typeof raw === "object") {
+      const obj = raw as Record<string, unknown>;
+      const prices = obj.prices;
+      if (Array.isArray(prices)) {
+        return (prices as RawTicker[]).map((r) => [undefined, r]);
+      }
+      if (prices && typeof prices === "object") {
+        return Object.entries(prices as Record<string, RawTicker>);
+      }
+      return Object.entries(obj as Record<string, RawTicker>);
+    }
+    return [];
+  })();
 
   const out: NormalizedTicker[] = [];
-  for (const r of rows) {
-    const symbol = (r.s ?? r.pair ?? "").toString();
+  for (const [key, r] of entries) {
+    const symbol = (r.s ?? r.pair ?? key ?? "").toString();
     if (!symbol.startsWith("B-") || !symbol.endsWith("_USDT")) continue;
     const price = num(r.c ?? r.ls);
     if (price <= 0) continue;
@@ -103,6 +119,7 @@ export async function fetchFuturesTickers(): Promise<NormalizedTicker[]> {
   }
   return out;
 }
+
 
 /** Fetch OHLCV candles for a single pair. */
 export async function fetchCandles(
