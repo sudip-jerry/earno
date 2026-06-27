@@ -957,7 +957,7 @@ export async function runMarkPass(
   );
   const { data: cfgRows } = await supabase
     .from("bot_config")
-    .select("user_id,auto_close_minutes,trading_style,min_scalp_score,fee_aware_exits_enabled,minimum_net_profit_to_exit_pct,slippage_buffer_pct,minimum_gross_profit_before_profit_fade_exit_pct,minimum_gross_profit_before_weak_progress_exit_pct")
+    .select("user_id,auto_close_minutes,trading_style,strategy,min_scalp_score,fee_aware_exits_enabled,minimum_net_profit_to_exit_pct,slippage_buffer_pct,minimum_gross_profit_before_profit_fade_exit_pct,minimum_gross_profit_before_weak_progress_exit_pct")
     .in("user_id", userIds);
   const cfgByUser = new Map((cfgRows ?? []).map((c) => [c.user_id as string, c]));
 
@@ -996,6 +996,7 @@ export async function runMarkPass(
       | {
           auto_close_minutes: number;
           trading_style?: string;
+          strategy?: string | null;
           min_scalp_score?: number;
           fee_aware_exits_enabled?: boolean | null;
           minimum_net_profit_to_exit_pct?: number | null;
@@ -1180,11 +1181,30 @@ export async function runMarkPass(
     let exitBlockedReason: string | null = null;
     let originalExitReason: string | null = null;
 
+    // Pre-TP1 protective exits (run before hard SL so failing trades exit
+    // on policy and hard SL stays an emergency fallback).
+    const { evaluateFuturesExit } = await import("@/lib/futures-exit-policy");
+    const policyDecision = evaluateFuturesExit(
+      {
+        tp1Hit: tp1Hit || tp1JustHit,
+        heldMinutes: ageMin,
+        peakRoePct: peakRoe,
+        currentRoePct: currentRoe,
+      },
+      {
+        strategyType: cfgRow?.strategy ?? null,
+        tradingStyle: cfgRow?.trading_style ?? null,
+      },
+    );
+
     if (hitTp) {
       finalExitReason = "take_profit";
     } else if (hitHardProfitExit) {
       finalExitReason = "profit_protection_exit";
       exitProtectionReason = "profit_protection";
+    } else if (policyDecision) {
+      finalExitReason = policyDecision.exitReason;
+      exitProtectionReason = policyDecision.protectionReason ?? policyDecision.rule;
     } else if (hitSl) {
       // Stop-loss guard: once peak ROE crossed TP1 trigger OR TP1 was banked,
       // never close as full stop_loss — degrade to breakeven_exit.
