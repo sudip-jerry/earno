@@ -956,6 +956,7 @@ export async function runAutoBookPass(
               },
             );
           }
+          } // close: live-rejection else
           } // close: sigErr else
         }
       } else {
