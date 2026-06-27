@@ -731,6 +731,21 @@ export async function runAutoBookPass(
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
       }
 
+      // Backend setup classification + policy gate (Futures-only, beginner-invisible).
+      const setup = classifySetup(a);
+      if (rejection == null) {
+        const eligibility = evaluateTradeEligibility(a, setup, backendPolicy);
+        if (!eligibility.allowed) {
+          rejection = eligibility.reason ?? "Backend policy rejected";
+          final = "skip";
+          await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+            kind: "eligibility_skip",
+            symbol: a.symbol,
+            ...(eligibility.metadata ?? {}),
+          });
+        }
+      }
+
 
       let bookedTradeId: string | null = null;
 
