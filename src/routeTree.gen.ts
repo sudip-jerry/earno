@@ -20,6 +20,7 @@ import { Route as AuthenticatedPrivacyRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPositionsRouteImport } from './routes/_authenticated/positions'
 import { Route as AuthenticatedMoversRouteImport } from './routes/_authenticated/movers'
 import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
+import { Route as AuthenticatedExitReplayRouteImport } from './routes/_authenticated/exit-replay'
 import { Route as AuthenticatedCoinBotRouteImport } from './routes/_authenticated/coin-bot'
 import { Route as AuthenticatedBotRouteImport } from './routes/_authenticated/bot'
 import { Route as AuthenticatedBetaReportRouteImport } from './routes/_authenticated/beta-report'
@@ -27,6 +28,7 @@ import { Route as AuthenticatedAlgoConfigRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAboutRouteImport } from './routes/_authenticated/about'
 import { Route as ApiPublicHooksMarkPositionsRouteImport } from './routes/api/public/hooks/mark-positions'
+import { Route as ApiPublicHooksCoinScanRouteImport } from './routes/api/public/hooks/coin-scan'
 import { Route as ApiPublicHooksAutoBookRouteImport } from './routes/api/public/hooks/auto-book'
 
 const AuthRoute = AuthRouteImport.update({
@@ -83,6 +85,11 @@ const AuthenticatedHelpRoute = AuthenticatedHelpRouteImport.update({
   path: '/help',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedExitReplayRoute = AuthenticatedExitReplayRouteImport.update({
+  id: '/exit-replay',
+  path: '/exit-replay',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedCoinBotRoute = AuthenticatedCoinBotRouteImport.update({
   id: '/coin-bot',
   path: '/coin-bot',
@@ -119,6 +126,11 @@ const ApiPublicHooksMarkPositionsRoute =
     path: '/api/public/hooks/mark-positions',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksCoinScanRoute = ApiPublicHooksCoinScanRouteImport.update({
+  id: '/api/public/hooks/coin-scan',
+  path: '/api/public/hooks/coin-scan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksAutoBookRoute = ApiPublicHooksAutoBookRouteImport.update({
   id: '/api/public/hooks/auto-book',
   path: '/api/public/hooks/auto-book',
@@ -134,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/beta-report': typeof AuthenticatedBetaReportRoute
   '/bot': typeof AuthenticatedBotRoute
   '/coin-bot': typeof AuthenticatedCoinBotRoute
+  '/exit-replay': typeof AuthenticatedExitReplayRoute
   '/help': typeof AuthenticatedHelpRoute
   '/movers': typeof AuthenticatedMoversRoute
   '/positions': typeof AuthenticatedPositionsRoute
@@ -143,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof AuthenticatedTermsRoute
   '/upgrade': typeof AuthenticatedUpgradeRoute
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
+  '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
 }
 export interface FileRoutesByTo {
@@ -153,6 +167,7 @@ export interface FileRoutesByTo {
   '/beta-report': typeof AuthenticatedBetaReportRoute
   '/bot': typeof AuthenticatedBotRoute
   '/coin-bot': typeof AuthenticatedCoinBotRoute
+  '/exit-replay': typeof AuthenticatedExitReplayRoute
   '/help': typeof AuthenticatedHelpRoute
   '/movers': typeof AuthenticatedMoversRoute
   '/positions': typeof AuthenticatedPositionsRoute
@@ -163,6 +178,7 @@ export interface FileRoutesByTo {
   '/upgrade': typeof AuthenticatedUpgradeRoute
   '/': typeof AuthenticatedIndexRoute
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
+  '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
 }
 export interface FileRoutesById {
@@ -175,6 +191,7 @@ export interface FileRoutesById {
   '/_authenticated/beta-report': typeof AuthenticatedBetaReportRoute
   '/_authenticated/bot': typeof AuthenticatedBotRoute
   '/_authenticated/coin-bot': typeof AuthenticatedCoinBotRoute
+  '/_authenticated/exit-replay': typeof AuthenticatedExitReplayRoute
   '/_authenticated/help': typeof AuthenticatedHelpRoute
   '/_authenticated/movers': typeof AuthenticatedMoversRoute
   '/_authenticated/positions': typeof AuthenticatedPositionsRoute
@@ -185,6 +202,7 @@ export interface FileRoutesById {
   '/_authenticated/upgrade': typeof AuthenticatedUpgradeRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
+  '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
 }
 export interface FileRouteTypes {
@@ -198,6 +216,7 @@ export interface FileRouteTypes {
     | '/beta-report'
     | '/bot'
     | '/coin-bot'
+    | '/exit-replay'
     | '/help'
     | '/movers'
     | '/positions'
@@ -207,6 +226,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/upgrade'
     | '/api/public/hooks/auto-book'
+    | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -217,6 +237,7 @@ export interface FileRouteTypes {
     | '/beta-report'
     | '/bot'
     | '/coin-bot'
+    | '/exit-replay'
     | '/help'
     | '/movers'
     | '/positions'
@@ -227,6 +248,7 @@ export interface FileRouteTypes {
     | '/upgrade'
     | '/'
     | '/api/public/hooks/auto-book'
+    | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
   id:
     | '__root__'
@@ -238,6 +260,7 @@ export interface FileRouteTypes {
     | '/_authenticated/beta-report'
     | '/_authenticated/bot'
     | '/_authenticated/coin-bot'
+    | '/_authenticated/exit-replay'
     | '/_authenticated/help'
     | '/_authenticated/movers'
     | '/_authenticated/positions'
@@ -248,6 +271,7 @@ export interface FileRouteTypes {
     | '/_authenticated/upgrade'
     | '/_authenticated/'
     | '/api/public/hooks/auto-book'
+    | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
   fileRoutesById: FileRoutesById
 }
@@ -255,6 +279,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiPublicHooksAutoBookRoute: typeof ApiPublicHooksAutoBookRoute
+  ApiPublicHooksCoinScanRoute: typeof ApiPublicHooksCoinScanRoute
   ApiPublicHooksMarkPositionsRoute: typeof ApiPublicHooksMarkPositionsRoute
 }
 
@@ -337,6 +362,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHelpRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/exit-replay': {
+      id: '/_authenticated/exit-replay'
+      path: '/exit-replay'
+      fullPath: '/exit-replay'
+      preLoaderRoute: typeof AuthenticatedExitReplayRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/coin-bot': {
       id: '/_authenticated/coin-bot'
       path: '/coin-bot'
@@ -386,6 +418,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksMarkPositionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/coin-scan': {
+      id: '/api/public/hooks/coin-scan'
+      path: '/api/public/hooks/coin-scan'
+      fullPath: '/api/public/hooks/coin-scan'
+      preLoaderRoute: typeof ApiPublicHooksCoinScanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/auto-book': {
       id: '/api/public/hooks/auto-book'
       path: '/api/public/hooks/auto-book'
@@ -403,6 +442,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBetaReportRoute: typeof AuthenticatedBetaReportRoute
   AuthenticatedBotRoute: typeof AuthenticatedBotRoute
   AuthenticatedCoinBotRoute: typeof AuthenticatedCoinBotRoute
+  AuthenticatedExitReplayRoute: typeof AuthenticatedExitReplayRoute
   AuthenticatedHelpRoute: typeof AuthenticatedHelpRoute
   AuthenticatedMoversRoute: typeof AuthenticatedMoversRoute
   AuthenticatedPositionsRoute: typeof AuthenticatedPositionsRoute
@@ -421,6 +461,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBetaReportRoute: AuthenticatedBetaReportRoute,
   AuthenticatedBotRoute: AuthenticatedBotRoute,
   AuthenticatedCoinBotRoute: AuthenticatedCoinBotRoute,
+  AuthenticatedExitReplayRoute: AuthenticatedExitReplayRoute,
   AuthenticatedHelpRoute: AuthenticatedHelpRoute,
   AuthenticatedMoversRoute: AuthenticatedMoversRoute,
   AuthenticatedPositionsRoute: AuthenticatedPositionsRoute,
@@ -439,6 +480,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiPublicHooksAutoBookRoute: ApiPublicHooksAutoBookRoute,
+  ApiPublicHooksCoinScanRoute: ApiPublicHooksCoinScanRoute,
   ApiPublicHooksMarkPositionsRoute: ApiPublicHooksMarkPositionsRoute,
 }
 export const routeTree = rootRouteImport
