@@ -618,8 +618,6 @@ export async function runAutoBookPass(
     const symbolOpenedThisPass = new Map<string, number>();
     void openedToday;
 
-<<<<<<< HEAD
-=======
     const cfgTimeframe = (cfg.timeframe && cfg.timeframe.trim()) || "5m";
     const analyses = analysesByTf.get(cfgTimeframe) ?? [];
     const backendPolicy = getBackendStrategyPolicy({
@@ -627,7 +625,7 @@ export async function runAutoBookPass(
       trading_style: cfg.trading_style,
     });
 
->>>>>>> origin/main
+
     for (const a of analyses) {
       const sym = a.symbol;
       const signalId = crypto.randomUUID();
@@ -750,8 +748,6 @@ export async function runAutoBookPass(
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
       }
 
-<<<<<<< HEAD
-=======
       // Backend setup classification + policy gate (Futures-only, beginner-invisible).
       const setup = classifySetup(a);
       if (rejection == null) {
@@ -768,7 +764,7 @@ export async function runAutoBookPass(
       }
 
 
->>>>>>> origin/main
+
       let bookedTradeId: string | null = null;
 
       if (rejection == null) {
@@ -827,8 +823,6 @@ export async function runAutoBookPass(
           if (sigErr) {
             rejection = `Signal pre-insert failed: ${sigErr.message}`;
             final = "skip";
-<<<<<<< HEAD
-=======
             await logEvent(supabase, cfg.user_id, "error", `Auto-book ${a.symbol} failed: ${rejection}`);
           } else {
           // LIVE (wallet) execution: place a real market order before recording
@@ -953,121 +947,15 @@ export async function runAutoBookPass(
                 confidence_band: a.confidence_band,
               })
               .eq("id", signalId);
->>>>>>> origin/main
             await logEvent(
               supabase,
               cfg.user_id,
-              "error",
-              `Auto-book ${a.symbol} failed: ${rejection}`,
-            );
-          } else {
-            const { data: inserted, error } = await supabase
-              .from("positions")
-              .insert({
-                user_id: cfg.user_id,
-                mode: cfg.mode,
+              "info",
+              `Auto-booked ${side.toUpperCase()} ${a.symbol} · Confidence ${a.confidence_pct.toFixed(0)}% · Target +${tpPct.toFixed(2)}% · Stop −${slPct.toFixed(2)}% · Stop Type Volatility-based · R:R ${plan.rr.toFixed(2)}:1`,
+              {
+                kind: "auto_book",
                 symbol: a.symbol,
                 side,
-<<<<<<< HEAD
-                leverage: lev,
-                qty,
-                entry_price: a.price,
-                mark_price: a.price,
-                stop_loss,
-                take_profit,
-                pnl: 0,
-                pnl_pct: 0,
-                status: "open",
-                instrument: "futures",
-                exchange_order_id: cfg.mode === "paper" ? `paper-auto-${Date.now()}` : null,
-                signal_id: signalId,
-                source: "auto",
-                algo_id: ALGO_ID,
-                algo_name: ALGO_NAME,
-                algo_version: ALGO_VERSION,
-                confidence_at_entry: a.confidence_pct,
-                confidence_band_at_entry: a.confidence_band,
-                entry_reason: a.reason,
-                market_regime: marketRegime ?? a.market_regime,
-                rsi_at_entry: a.rsi,
-                volume_spike_ratio_at_entry: a.volume_spike_ratio,
-                spread_pct_at_entry: a.spread_pct,
-                distance_from_vwap_pct_at_entry: a.distance_from_vwap_pct,
-                distance_from_ema21_pct_at_entry: a.distance_from_ema21_pct,
-                // New exit-management fields:
-                tp1_price,
-                tp1_pct: tp1PctRaw,
-                tp1_hit: false,
-                remaining_qty: qty,
-                tp1_qty_closed: 0,
-                trail_pct: preset.trailPct,
-                breakeven_moved: false,
-                final_tp_hit: false,
-                peak_unrealized_pnl_pct: 0,
-                max_favourable_excursion_pct: 0,
-                max_adverse_excursion_pct: 0,
-                highest_unrealized_pnl: 0,
-                lowest_unrealized_pnl: 0,
-              } as never)
-              .select("id")
-              .single();
-
-            if (error || !inserted) {
-              rejection = error?.message ?? "Insert failed";
-              final = "skip";
-              await logEvent(
-                supabase,
-                cfg.user_id,
-                "error",
-                `Auto-book ${a.symbol} failed: ${rejection}`,
-              );
-              // Mark the pre-inserted signal as rejected.
-              await supabase
-                .from("bot_signals")
-                .update({ final_decision: "skip", rejection_reason: rejection })
-                .eq("id", signalId);
-            } else {
-              bookedTradeId = inserted.id as string;
-              final = "booked";
-              opened++;
-              openSlot--;
-              openSymbols.add(sym);
-              lastOpen.set(sym, Date.now());
-              sameDirOpenedThisPass[side]++;
-              symbolOpenedThisPass.set(sym, (symbolOpenedThisPass.get(sym) ?? 0) + 1);
-              // Write the booking linkage back onto the signal row.
-              await supabase
-                .from("bot_signals")
-                .update({
-                  booked: true,
-                  booked_trade_id: bookedTradeId,
-                  final_decision: "booked",
-                  action: side === "long" ? "LONG" : "SHORT",
-                  confidence_pct: a.confidence_pct,
-                  confidence_band: a.confidence_band,
-                })
-                .eq("id", signalId);
-              await logEvent(
-                supabase,
-                cfg.user_id,
-                "info",
-                `Auto-booked ${side.toUpperCase()} ${a.symbol} · Confidence ${a.confidence_pct.toFixed(0)}% · Target +${tpPct.toFixed(2)}% · Stop −${slPct.toFixed(2)}% · Stop Type Volatility-based · R:R ${plan.rr.toFixed(2)}:1`,
-                {
-                  kind: "auto_book",
-                  symbol: a.symbol,
-                  side,
-                  confidence: Math.round(a.confidence_pct),
-                  tpPct,
-                  slPct,
-                  atrPct: plan.atrPct,
-                  rr: plan.rr,
-                  riskAmount: plan.riskAmount,
-                  positionSize: plan.positionSize,
-                  stopType: "Volatility-based",
-                },
-              );
-            }
-=======
                 confidence: Math.round(a.confidence_pct),
                 tpPct,
                 slPct,
@@ -1086,7 +974,6 @@ export async function runAutoBookPass(
             );
           }
           } // close: live-rejection else
->>>>>>> origin/main
           } // close: sigErr else
         }
       } else {
@@ -1172,13 +1059,8 @@ export async function runMarkPass(
   );
   const { data: cfgRows } = await supabase
     .from("bot_config")
-<<<<<<< HEAD
-    .select(
-      "user_id,auto_close_minutes,trading_style,min_scalp_score,fee_aware_exits_enabled,minimum_net_profit_to_exit_pct,slippage_buffer_pct,minimum_gross_profit_before_profit_fade_exit_pct,minimum_gross_profit_before_weak_progress_exit_pct",
-    )
-=======
     .select("user_id,auto_close_minutes,trading_style,strategy,min_scalp_score,fee_aware_exits_enabled,minimum_net_profit_to_exit_pct,slippage_buffer_pct,minimum_gross_profit_before_profit_fade_exit_pct,minimum_gross_profit_before_weak_progress_exit_pct")
->>>>>>> origin/main
+
     .in("user_id", userIds);
   const cfgByUser = new Map((cfgRows ?? []).map((c) => [c.user_id as string, c]));
 
@@ -1521,12 +1403,6 @@ export async function runMarkPass(
         exit_protection_reason: exitProtectionReason,
         closed_at: new Date().toISOString(),
       });
-<<<<<<< HEAD
-      const { error } = await supabase
-        .from("positions")
-        .update(baseUpdate as never)
-        .eq("id", p.id as string);
-=======
 
       // LIVE exit: flatten the position on the exchange before recording the
       // closure locally. Failure is logged but does NOT block the local close
@@ -1553,7 +1429,7 @@ export async function runMarkPass(
       }
 
       const { error } = await supabase.from("positions").update(baseUpdate as never).eq("id", p.id as string);
->>>>>>> origin/main
+
       if (!error) {
         closed++;
         await logEvent(
