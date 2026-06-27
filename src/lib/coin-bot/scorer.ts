@@ -23,13 +23,15 @@ export type CoinScoreInput = {
   avgBuy?: number;
   /** caller mode */
   mode?: "intraday" | "swing";
+  /** when true, held coins wait for a 30m reversal before early exit */
+  holdUntilTrendReversal?: boolean;
 };
 
 export type CoinScore = {
   action: CoinAction;
-  confidence: number;       // 0-100
+  confidence: number; // 0-100
   reason_short: string;
-  target_pct: number;       // distance from price
+  target_pct: number; // distance from price
   stop_pct: number;
   target: number;
   stop: number;
@@ -60,7 +62,8 @@ function rsi(values: number[], period = 14): number | null {
   let losses = 0;
   for (let i = values.length - period; i < values.length; i++) {
     const diff = values[i] - values[i - 1];
-    if (diff >= 0) gains += diff; else losses -= diff;
+    if (diff >= 0) gains += diff;
+    else losses -= diff;
   }
   const avgGain = gains / period;
   const avgLoss = losses / period;
@@ -113,8 +116,7 @@ export function scoreCoin(input: CoinScoreInput): CoinScore {
   const mom = momentumOf(closes1.length ? closes1 : closes5);
   const vol = volumeStrength(input.m5.length ? input.m5 : input.m30);
   const r = rsi(closes5, 14);
-  const spread =
-    input.spreadPct == null ? "unknown" : input.spreadPct <= 0.15 ? "tight" : "wide";
+  const spread = input.spreadPct == null ? "unknown" : input.spreadPct <= 0.15 ? "tight" : "wide";
 
   const pills: string[] = [];
   pills.push(`Trend 5m: ${trend5}`);
@@ -133,12 +135,9 @@ export function scoreCoin(input: CoinScoreInput): CoinScore {
   let confidence = 40;
   let reason = "Setup forming";
 
-  const bullish =
-    trend5 === "up" && trend30 !== "down" && mom !== "fading" && vol !== "weak";
-  const strongBullish =
-    trend5 === "up" && trend30 === "up" && mom === "rising" && vol === "strong";
-  const bearish =
-    trend5 === "down" && (trend30 === "down" || mom === "fading");
+  const bullish = trend5 === "up" && trend30 !== "down" && mom !== "fading" && vol !== "weak";
+  const strongBullish = trend5 === "up" && trend30 === "up" && mom === "rising" && vol === "strong";
+  const bearish = trend5 === "down" && (trend30 === "down" || mom === "fading");
   const overbought = r != null && r > 78;
   const oversold = r != null && r < 25;
 
@@ -148,6 +147,8 @@ export function scoreCoin(input: CoinScoreInput): CoinScore {
     const pnlPct = ((input.price - avg) / avg) * 100;
     const trendBroken = trend5 === "down" && trend30 !== "up";
     const momFaded = mom === "fading" && trend5 !== "up";
+    const waitForTrendReversal = input.holdUntilTrendReversal === true;
+    const trendReversed = trend30 === "down";
 
     if (pnlPct >= targetPct) {
       action = "sell";
@@ -157,11 +158,15 @@ export function scoreCoin(input: CoinScoreInput): CoinScore {
       action = "sell";
       confidence = 80;
       reason = "Stop level reached";
-    } else if (trendBroken) {
+    } else if (waitForTrendReversal && trendReversed && (trend5 === "down" || mom === "fading")) {
+      action = "sell";
+      confidence = 74;
+      reason = "30m trend reversed";
+    } else if (!waitForTrendReversal && trendBroken) {
       action = "sell";
       confidence = 70;
       reason = "Trend broken";
-    } else if (momFaded && pnlPct < 0.2) {
+    } else if (!waitForTrendReversal && momFaded && pnlPct < 0.2) {
       action = "sell";
       confidence = 62;
       reason = "Momentum faded";
@@ -171,8 +176,19 @@ export function scoreCoin(input: CoinScoreInput): CoinScore {
       reason = "Overbought, take profit";
     } else {
       action = "hold";
-      confidence = strongBullish ? 78 : bullish ? 68 : 55;
-      reason = bullish ? "Trend intact" : "Holding, watching";
+      confidence = strongBullish
+        ? 78
+        : bullish
+          ? 68
+          : waitForTrendReversal && !trendReversed
+            ? 62
+            : 55;
+      reason =
+        waitForTrendReversal && !trendReversed && (trend5 === "down" || mom === "fading")
+          ? "Holding for bounce while 30m trend holds"
+          : bullish
+            ? "Trend intact"
+            : "Holding, watching";
     }
   } else {
     if (strongBullish && !overbought) {
@@ -212,9 +228,7 @@ export function scoreCoin(input: CoinScoreInput): CoinScore {
       ? input.price * (1 + targetPct / 100)
       : input.price * (1 + (dirSign * targetPct) / 100);
   const stop =
-    action === "buy"
-      ? input.price * (1 - stopPct / 100)
-      : input.price * (1 - stopPct / 100);
+    action === "buy" ? input.price * (1 - stopPct / 100) : input.price * (1 - stopPct / 100);
 
   return {
     action,
