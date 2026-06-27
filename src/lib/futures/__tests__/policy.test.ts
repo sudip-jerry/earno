@@ -130,7 +130,9 @@ describe("evaluateTradeEligibility", () => {
   it("rejects when setupConfidence is below the policy threshold", () => {
     const a = fixtures.cleanPullbackLong();
     const setup = classifySetup(a);
-    const tightPolicy = { ...moderatePolicy, minSetupConfidence: 99 };
+    // Force the threshold one point above the fixture's actual confidence so
+    // the test stays stable as scoring is tuned.
+    const tightPolicy = { ...moderatePolicy, minSetupConfidence: setup.setupConfidence + 1 };
     const r = evaluateTradeEligibility(a, setup, tightPolicy);
     expect(r.allowed).toBe(false);
     expect(r.reason).toMatch(/Setup confidence/);
