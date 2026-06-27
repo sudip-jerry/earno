@@ -109,7 +109,7 @@ export const replayFuturesExitPolicy = createServerFn({ method: "POST" })
       )
       .eq("user_id", userId)
       .eq("status", "closed")
-      .eq("is_paper", true)
+      .eq("mode", "paper")
       .gte("closed_at", windowStart)
       .order("closed_at", { ascending: false })
       .limit(data.limit);
