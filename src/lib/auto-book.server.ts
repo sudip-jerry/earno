@@ -18,6 +18,7 @@ import { feeModelRates, DEFAULT_FEE_MODEL } from "@/lib/fees";
 import { classifySetup } from "@/lib/futures/setup-classifier";
 import { getBackendStrategyPolicy } from "@/lib/futures/strategy-policy";
 import { evaluateTradeEligibility } from "@/lib/futures/trade-eligibility";
+import { loadLiveCreds, placeLiveEntry, placeLiveExit } from "@/lib/futures/live-execution.server";
 
 
 const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
@@ -807,6 +808,47 @@ export async function runAutoBookPass(
             final = "skip";
             await logEvent(supabase, cfg.user_id, "error", `Auto-book ${a.symbol} failed: ${rejection}`);
           } else {
+          // LIVE (wallet) execution: place a real market order before recording
+          // the position. On failure we skip the booking so the local DB and
+          // the exchange never disagree. Paper mode is unchanged.
+          let liveOrderId: string | null = null;
+          if (cfg.mode === "live") {
+            const creds = await loadLiveCreds(supabase, cfg.user_id);
+            if (!creds) {
+              rejection = "Live mode: no CoinDCX API credentials configured";
+              final = "skip";
+              await logEvent(supabase, cfg.user_id, "warn", `Auto-book ${a.symbol} skipped: ${rejection}`);
+              await supabase
+                .from("bot_signals")
+                .update({ final_decision: "skip", rejection_reason: rejection })
+                .eq("id", signalId);
+            } else {
+              const exec = await placeLiveEntry({
+                creds,
+                symbol: a.symbol,
+                side,
+                qty,
+                leverage: lev,
+              });
+              if (!exec.ok) {
+                rejection = `Live order rejected: ${exec.error}`;
+                final = "skip";
+                await logEvent(supabase, cfg.user_id, "error", `Auto-book ${a.symbol} live order failed: ${exec.error}`, {
+                  kind: "live_entry_failed", symbol: a.symbol, side,
+                });
+                await supabase
+                  .from("bot_signals")
+                  .update({ final_decision: "skip", rejection_reason: rejection })
+                  .eq("id", signalId);
+              } else {
+                liveOrderId = exec.orderId;
+              }
+            }
+          }
+
+          if (rejection != null) {
+            // live execution failed — fall through past the position insert.
+          } else {
           const { data: inserted, error } = await supabase
             .from("positions")
             .insert({
@@ -824,7 +866,8 @@ export async function runAutoBookPass(
               pnl_pct: 0,
               status: "open",
               instrument: "futures",
-              exchange_order_id: cfg.mode === "paper" ? `paper-auto-${Date.now()}` : null,
+              exchange_order_id:
+                cfg.mode === "paper" ? `paper-auto-${Date.now()}` : liveOrderId,
               signal_id: signalId,
               source: "auto",
               algo_id: ALGO_ID,
@@ -913,6 +956,7 @@ export async function runAutoBookPass(
               },
             );
           }
+          } // close: live-rejection else
           } // close: sigErr else
         }
       } else {
@@ -1352,6 +1396,31 @@ export async function runMarkPass(
         exit_protection_reason: exitProtectionReason,
         closed_at: new Date().toISOString(),
       });
+
+      // LIVE exit: flatten the position on the exchange before recording the
+      // closure locally. Failure is logged but does NOT block the local close
+      // (price has already crossed our exit; the operator must reconcile).
+      if (p.mode === "live") {
+        const remainQ = Number(p.remaining_qty ?? qty);
+        const creds = await loadLiveCreds(supabase, p.user_id as string);
+        if (!creds) {
+          await logEvent(supabase, p.user_id as string, "warn",
+            `Live exit ${p.symbol}: no API credentials — local close only`);
+        } else if (remainQ > 0) {
+          const exec = await placeLiveExit({
+            creds, symbol: p.symbol as string, side, qty: remainQ,
+          });
+          if (!exec.ok) {
+            await logEvent(supabase, p.user_id as string, "error",
+              `Live exit ${p.symbol} failed: ${exec.error} — local close only`,
+              { kind: "live_exit_failed", symbol: p.symbol, side });
+          } else {
+            await logEvent(supabase, p.user_id as string, "info",
+              `Live exit order placed for ${p.symbol} (#${exec.orderId})`);
+          }
+        }
+      }
+
       const { error } = await supabase.from("positions").update(baseUpdate as never).eq("id", p.id as string);
       if (!error) {
         closed++;
