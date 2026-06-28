@@ -112,6 +112,9 @@ export type DashboardStats = {
 
   // Recent activity
   recentActivity: ActivityItem[];
+
+  // Daily PnL buckets (last 30 days)
+  dailyPnl: { date: string; pnl: number }[];
 };
 
 const MILESTONES = [
@@ -330,6 +333,10 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       meta: (e.meta as ActivityItem["meta"]) ?? null,
     }));
 
+    const dailyPnl = [...dayMap.entries()]
+      .map(([date, pnl]) => ({ date, pnl }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
     return {
       todayPnl, todayPnlPct, todayGrossPnl, todayFees, tradesToday,
       winRateAllTime: winRate,
@@ -370,5 +377,6 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       scannerHealth, dataFeedHealth, riskEngineHealth, automationHealth,
       lastSuccessfulScanAt,
       recentActivity,
+      dailyPnl,
     };
   });

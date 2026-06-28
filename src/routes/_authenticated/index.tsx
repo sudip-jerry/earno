@@ -29,7 +29,6 @@ import {
 import { TabBar } from "@/components/tab-bar";
 import { useCurrency } from "@/hooks/use-currency";
 import { RecentActivity } from "@/components/recent-activity";
-import { WealthHero } from "@/components/wealth-hero";
 import { RecommendationsPanel } from "@/components/recommendations-panel";
 import {
   AlertTriangle,
@@ -50,6 +49,8 @@ import {
   HelpCircle,
   Info,
   LineChart,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMarketMode, type MarketMode } from "@/hooks/use-market-mode";
@@ -451,15 +452,18 @@ function Home() {
       )}
 
       {/* ===== Portfolio summary card ===== */}
-      <WealthHero
-        stats={stats.data}
-        equityFallback={Number(c?.paper_equity ?? 0)}
-        isLive={isLive}
-        hideBalance={hideBalance}
-        onToggleHide={() => setHideBalance((v) => !v)}
-        hideModeBanner
-        hide30d={!stats.data || stats.data.closedAllTime < 30}
-      />
+      <div className="px-5 mt-3">
+        <DailyChart
+          portfolioValue={Number(s?.portfolioValue ?? c?.paper_equity ?? 0)}
+          todayPnl={Number(s?.todayPnl ?? 0)}
+          weekChangeAbs={Number(s?.weekChangeAbs ?? 0)}
+          dailyPnl={s?.dailyPnl ?? []}
+          hideBalance={hideBalance}
+          onToggleHide={() => setHideBalance((v) => !v)}
+          fmt={fmt}
+        />
+      </div>
+
 
       {tier === "free" && (
         <Link
@@ -915,5 +919,105 @@ function MarketTogglePill() {
         );
       })}
     </div>
+  );
+}
+
+function DailyChart({
+  portfolioValue,
+  todayPnl,
+  weekChangeAbs,
+  dailyPnl,
+  hideBalance,
+  onToggleHide,
+  fmt,
+}: {
+  portfolioValue: number;
+  todayPnl: number;
+  weekChangeAbs: number;
+  dailyPnl: { date: string; pnl: number }[];
+  hideBalance: boolean;
+  onToggleHide: () => void;
+  fmt: (usd: number | null | undefined, opts?: { signed?: boolean; digits?: number }) => string;
+}) {
+  const series = dailyPnl.slice(-14);
+  const maxAbs = series.reduce((a, d) => Math.max(a, Math.abs(d.pnl)), 0);
+  const todayPos = todayPnl >= 0;
+
+  let context = "Flat week";
+  if (todayPnl > 0 && weekChangeAbs > 0) {
+    let streak = 0;
+    for (let i = dailyPnl.length - 1; i >= 0; i--) {
+      if (dailyPnl[i].pnl > 0) streak++;
+      else break;
+    }
+    context = `${Math.max(streak, 1)}-day win streak`;
+  } else if (weekChangeAbs < 0) {
+    context = "Down this week — bot is adjusting";
+  }
+
+  return (
+    <section className="rounded-2xl border bg-card px-5 py-4">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Portfolio value
+          </div>
+          <div className="mt-1 flex items-baseline gap-2 flex-wrap">
+            <div className="text-3xl font-semibold tabular-nums">
+              {hideBalance ? "••••••" : fmt(portfolioValue)}
+            </div>
+            <div
+              className={`text-[13px] font-medium tabular-nums ${
+                todayPos
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-rose-600 dark:text-rose-400"
+              }`}
+            >
+              {fmt(todayPnl, { signed: true })} today
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onToggleHide}
+          aria-label={hideBalance ? "Show balance" : "Hide balance"}
+          className="size-8 grid place-items-center rounded-full hover:bg-muted text-muted-foreground"
+        >
+          {hideBalance ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+        </button>
+      </div>
+
+      <div className="mt-4">
+        {series.length < 3 ? (
+          <div className="h-[64px] grid place-items-center text-[12px] text-muted-foreground">
+            Chart builds as trades close
+          </div>
+        ) : (
+          <div className="flex items-end gap-1.5 h-[64px]">
+            {series.map((d) => {
+              const ratio = maxAbs > 0 ? Math.abs(d.pnl) / maxAbs : 0;
+              const h = Math.max(3, Math.round(ratio * 48));
+              const pos = d.pnl >= 0;
+              const day = d.date.slice(-2);
+              return (
+                <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
+                  <div
+                    className={`w-full rounded-sm ${
+                      pos ? "bg-emerald-500/80" : "bg-rose-500/80"
+                    }`}
+                    style={{ height: `${h}px` }}
+                  />
+                  <div className="text-[9px] text-muted-foreground tabular-nums leading-none">
+                    {day}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 text-[11px] text-muted-foreground">{context}</div>
+    </section>
   );
 }
