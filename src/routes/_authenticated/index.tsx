@@ -456,6 +456,8 @@ function Home() {
         <DailyChart
           portfolioValue={Number(s?.portfolioValue ?? c?.paper_equity ?? 0)}
           todayPnl={Number(s?.todayPnl ?? 0)}
+          totalPnl={Number(s?.realizedPnlAllTime ?? 0)}
+          totalPnlPct={s?.baselineEquity ? (Number(s.realizedPnlAllTime ?? 0) / s.baselineEquity) * 100 : 0}
           weekChangeAbs={Number(s?.weekChangeAbs ?? 0)}
           dailyPnl={s?.dailyPnl ?? []}
           hideBalance={hideBalance}
@@ -925,6 +927,8 @@ function MarketTogglePill() {
 function DailyChart({
   portfolioValue,
   todayPnl,
+  totalPnl,
+  totalPnlPct,
   weekChangeAbs,
   dailyPnl,
   hideBalance,
@@ -933,6 +937,8 @@ function DailyChart({
 }: {
   portfolioValue: number;
   todayPnl: number;
+  totalPnl: number;
+  totalPnlPct: number;
   weekChangeAbs: number;
   dailyPnl: { date: string; pnl: number }[];
   hideBalance: boolean;
@@ -985,6 +991,34 @@ function DailyChart({
         >
           {hideBalance ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
         </button>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-xl border bg-background/60 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total P&L</p>
+          <p
+            className={`mt-0.5 text-[14px] font-semibold tabular-nums ${
+              totalPnl >= 0
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400"
+            }`}
+          >
+            {fmt(totalPnl, { signed: true })}
+          </p>
+        </div>
+        <div className="rounded-xl border bg-background/60 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Return</p>
+          <p
+            className={`mt-0.5 text-[14px] font-semibold tabular-nums ${
+              totalPnlPct >= 0
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400"
+            }`}
+          >
+            {totalPnlPct >= 0 ? "+" : "−"}
+            {Math.abs(totalPnlPct).toFixed(1)}%
+          </p>
+        </div>
       </div>
 
       <div className="mt-4">
