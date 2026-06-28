@@ -198,7 +198,7 @@ function StepWelcome() {
           <div className="min-w-0">
             <p className="text-xs opacity-80">Live demo</p>
             <p className="font-semibold mt-0.5">See your virtual portfolio</p>
-            <p className="text-xs opacity-80 mt-0.5">No setup. Start with ₹1,00,000 paper capital.</p>
+            <p className="text-xs opacity-80 mt-0.5">No setup. Start with {fmtCur(1190)} paper capital.</p>
           </div>
           <ArrowRight className="size-5 shrink-0" />
         </div>
