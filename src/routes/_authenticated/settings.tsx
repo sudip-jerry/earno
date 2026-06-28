@@ -115,9 +115,7 @@ function StrictnessControl() {
   };
 
   const handleReset = async () => {
-    const ok = window.confirm(
-      `This will reset your confidence threshold, cooldown, and risk % back to the '${STRICTNESS_PRESETS[strictness].label}' defaults — undoing any auto-tune improvements. Continue?`,
-    );
+    const ok = window.confirm(`Reset to "${STRICTNESS_PRESETS[strictness].label}" defaults? This will undo any auto-tune improvements.`);
     if (!ok) return;
     try {
       await updateFn({ data: presetPatch(strictness) as never });
