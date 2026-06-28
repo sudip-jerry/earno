@@ -452,15 +452,18 @@ function Home() {
       )}
 
       {/* ===== Portfolio summary card ===== */}
-      <WealthHero
-        stats={stats.data}
-        equityFallback={Number(c?.paper_equity ?? 0)}
-        isLive={isLive}
-        hideBalance={hideBalance}
-        onToggleHide={() => setHideBalance((v) => !v)}
-        hideModeBanner
-        hide30d={!stats.data || stats.data.closedAllTime < 30}
-      />
+      <div className="px-5 mt-3">
+        <DailyChart
+          portfolioValue={Number(s?.portfolioValue ?? c?.paper_equity ?? 0)}
+          todayPnl={Number(s?.todayPnl ?? 0)}
+          weekChangeAbs={Number(s?.weekChangeAbs ?? 0)}
+          dailyPnl={s?.dailyPnl ?? []}
+          hideBalance={hideBalance}
+          onToggleHide={() => setHideBalance((v) => !v)}
+          fmt={fmt}
+        />
+      </div>
+
 
       {tier === "free" && (
         <Link
