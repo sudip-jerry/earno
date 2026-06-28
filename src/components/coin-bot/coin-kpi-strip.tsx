@@ -2,10 +2,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { getCoinHoldings } from "@/lib/coin-bot/coin-bot.functions";
 
-function fmt(n: number | null | undefined, d = 2) {
-  if (n == null || !Number.isFinite(Number(n))) return "—";
-  return Number(n).toLocaleString(undefined, { maximumFractionDigits: d });
-}
 
 export function CoinKpiStrip() {
   const holdingsFn = useServerFn(getCoinHoldings);
