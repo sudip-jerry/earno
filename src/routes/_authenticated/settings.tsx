@@ -945,9 +945,54 @@ function SettingsPage() {
                 onCheckedChange={(v) => set("trailing_enabled", v)}
               />
             </Row>
+
+            <div className="pt-2 border-t mt-2">
+              <p className="text-xs font-semibold mb-1">Entry gate thresholds</p>
+              <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
+                These gates run before every trade is booked. Raising them reduces trade frequency but improves quality.
+              </p>
+              <div className="space-y-5">
+                <SliderField
+                  label="Max SL width (ATR %)"
+                  unit="%"
+                  min={0.5}
+                  max={5}
+                  step={0.1}
+                  value={get("max_sl_atr_pct")}
+                  onChange={(v) => set("max_sl_atr_pct", v)}
+                />
+                <SliderField
+                  label="Min EV ratio"
+                  unit=""
+                  min={0.5}
+                  max={2}
+                  step={0.05}
+                  value={get("min_ev_ratio")}
+                  onChange={(v) => set("min_ev_ratio", v)}
+                />
+                <SliderField
+                  label="Min net profit to enter (%)"
+                  unit="%"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={get("minimum_net_profit_to_enter_pct")}
+                  onChange={(v) => set("minimum_net_profit_to_enter_pct", v)}
+                />
+                <div className="rounded-lg border bg-muted/30 p-2.5">
+                  <p className="text-[11px] font-medium">
+                    Blocked IST hours: {(get("blocked_session_hours_ist") ?? []).length === 0
+                      ? "none"
+                      : (get("blocked_session_hours_ist") ?? []).join(", ")}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Edit via Admin panel</p>
+                </div>
+              </div>
+            </div>
           </div>
         </details>
       </section>
+
 
       <section className="px-5 mt-6">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
