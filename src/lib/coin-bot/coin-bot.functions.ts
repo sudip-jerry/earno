@@ -27,8 +27,8 @@ type CoinConfigRow = {
 const DEFAULT_CFG: Omit<CoinConfigRow, "user_id"> = {
   enabled: false,
   mode: "intraday",
-  allocated_capital_usdt: 5000,
-  available_cash_usdt: 5000,
+  allocated_capital_usdt: 500,
+  available_cash_usdt: 500,
   max_holdings: 8,
   min_confidence: 65,
   scan_interval_min: 3,
