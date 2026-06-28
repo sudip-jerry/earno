@@ -17,6 +17,7 @@ import {
 } from "@/lib/coin-bot/coin-bot.functions";
 import { Button } from "@/components/ui/button";
 import { TabBar } from "@/components/tab-bar";
+import { useCurrency } from "@/hooks/use-currency";
 
 export const Route = createFileRoute("/_authenticated/coin-bot")({
   head: () => ({
