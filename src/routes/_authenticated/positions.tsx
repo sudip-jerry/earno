@@ -233,7 +233,12 @@ function PositionsPage() {
             </div>
           </div>
         ) : (
-          <ClosedSummary rows={closedQ.data ?? []} />
+          <ClosedSummary rows={closedSummaryQ.data ?? []} />
+          {(closedSummaryQ.data?.length ?? 0) > 100 && (
+            <p className="text-[11px] text-muted-foreground px-1 mt-1">
+              Summary reflects all {closedSummaryQ.data?.length} trades. List shows last 100.
+            </p>
+          )}
         )}
       </section>
 
@@ -402,8 +407,8 @@ function PositionsPage() {
         </ul>
       ) : (
         <ClosedList
-          rows={closedQ.data ?? []}
-          isLoading={closedQ.isLoading}
+          rows={closedListQ.data ?? []}
+          isLoading={closedListQ.isLoading}
           onViewChart={(r) => setChartOpen(r)}
         />
       )}
