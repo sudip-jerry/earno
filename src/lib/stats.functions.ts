@@ -333,6 +333,10 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       meta: (e.meta as ActivityItem["meta"]) ?? null,
     }));
 
+    const dailyPnl = [...dayMap.entries()]
+      .map(([date, pnl]) => ({ date, pnl }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
     return {
       todayPnl, todayPnlPct, todayGrossPnl, todayFees, tradesToday,
       winRateAllTime: winRate,
