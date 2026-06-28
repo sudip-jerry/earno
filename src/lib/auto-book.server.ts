@@ -228,6 +228,9 @@ type BotConfig = {
   live_allocation_pct?: number | null;
   timeframe?: string | null;
   minimum_net_profit_to_enter_pct?: number | null;
+  max_sl_atr_pct?: number | null;
+  min_ev_ratio?: number | null;
+  blocked_session_hours_ist?: number[] | null;
 };
 
 /** Returns the USDT capital to size positions against. Paper uses paper_equity.
