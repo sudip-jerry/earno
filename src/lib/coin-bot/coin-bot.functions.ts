@@ -68,7 +68,6 @@ export const updateCoinConfig = createServerFn({ method: "POST" })
         scan_interval_min: z.number().int().min(1).max(1440).optional(),
         max_holding_days: z.number().int().min(1).max(365).optional(),
         universe_size: z.number().int().min(1).max(500).optional(),
-        universe_size: z.number().int().min(1).max(500).optional(),
       })
       .strict()
       .parse(d),
@@ -86,8 +85,6 @@ export const updateCoinConfig = createServerFn({ method: "POST" })
     if (data.min_confidence !== undefined) patch.min_confidence = data.min_confidence;
     if (data.scan_interval_min !== undefined) patch.scan_interval_min = data.scan_interval_min;
     if (data.max_holding_days !== undefined) patch.max_holding_days = data.max_holding_days;
-    if (data.hold_until_trend_reversal !== undefined)
-      patch.hold_until_trend_reversal = data.hold_until_trend_reversal;
     if (data.universe_size !== undefined) patch.universe_size = data.universe_size;
     if (Object.keys(patch).length) {
       await context.supabase.from("coin_bot_config").update(patch).eq("user_id", context.userId);
