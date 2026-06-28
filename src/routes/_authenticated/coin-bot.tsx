@@ -194,11 +194,11 @@ function CoinBotPage() {
             Coin portfolio
           </div>
           <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
-            <Stat label="Allocated" value={`$${fmt(p?.allocated_capital_usdt)}`} />
-            <Stat label="Available cash" value={`$${fmt(p?.available_cash_usdt)}`} />
-            <Stat label="Invested" value={`$${fmt(p?.invested_usdt)}`} />
+            <Stat label="Allocated" value={fmtCur(p?.allocated_capital_usdt)} />
+            <Stat label="Available cash" value={fmtCur(p?.available_cash_usdt)} />
+            <Stat label="Invested" value={fmtCur(p?.invested_usdt)} />
             <Stat label="Active holdings" value={String(p?.active_holdings ?? 0)} />
-            <Stat label="Realized today" value={`$${fmt(p?.realized_today_usdt)}`} />
+            <Stat label="Realized today" value={fmtCur(p?.realized_today_usdt, { signed: true })} />
             <Stat label="Bot" value={p?.enabled ? "On" : "Off"} />
           </div>
           {h?.summary && (
