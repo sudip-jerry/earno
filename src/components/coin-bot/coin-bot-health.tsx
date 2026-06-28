@@ -11,6 +11,7 @@ import { useCurrency } from "@/hooks/use-currency";
 
 export function CoinBotHealth() {
   const qc = useQueryClient();
+  const { fmt, rate, code } = useCurrency();
   const cfgFn = useServerFn(getCoinConfig);
   const updFn = useServerFn(updateCoinConfig);
   const cfg = useQuery({ queryKey: ["coin_cfg"], queryFn: () => cfgFn() });
