@@ -907,7 +907,12 @@ export async function runAutoBookPass(
           }
 
           if (rejection != null) {
-            // live execution failed — fall through past the position insert.
+            // live execution or pre-entry gate failed — record skip on the
+            // signal row and fall through past the position insert.
+            await supabase
+              .from("bot_signals")
+              .update({ final_decision: "skip", rejection_reason: rejection })
+              .eq("id", signalId);
           } else {
           const { data: inserted, error } = await supabase
             .from("positions")
