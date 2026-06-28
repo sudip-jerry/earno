@@ -152,7 +152,7 @@ function BetaReportPage() {
           <section className="px-5 mt-5">
             <div className="flex items-baseline justify-between mb-2">
               <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Today (since 00:30 IST / 19:00 UTC prev day)
+                Today (since 00:30 IST)
               </h2>
 
               <span className="text-[10px] text-muted-foreground">
@@ -350,7 +350,7 @@ function TesterCard({
     <div className="rounded-2xl border bg-card p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-medium truncate">{maskEmail(t.email) !== "—" ? maskEmail(t.email) : t.userId.slice(0, 8)}</p>
+          <p className="font-medium truncate">{maskEmail(t.email)}</p>
           <p className="text-[11px] text-muted-foreground">
             {t.settings?.mode ?? "—"} · {t.settings?.is_running ? "running" : "stopped"}{" "}
             · style {t.settings?.trading_style ?? "—"}

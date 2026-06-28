@@ -634,15 +634,14 @@ function UserConfigEditor({
                     />
                   </label>
                 ))}
-              </div>
-
-              <div className="rounded-md border bg-background px-2 py-1.5 text-[11px]">
-                <span className="text-muted-foreground">Blocked IST hours: </span>
-                <span className="font-medium">
-                  {(get("blocked_session_hours_ist") ?? []).length === 0
-                    ? "none"
-                    : (get("blocked_session_hours_ist") ?? []).join(", ")}
-                </span>
+                <div className="rounded-md border bg-muted/30 px-2 py-1.5 text-[11px] col-span-2">
+                  <span className="text-muted-foreground">Blocked IST hours: </span>
+                  <span className="font-medium">
+                    {Array.isArray((c as Record<string, unknown>)?.blocked_session_hours_ist) && ((c as Record<string, unknown>).blocked_session_hours_ist as number[]).length > 0
+                      ? ((c as Record<string, unknown>).blocked_session_hours_ist as number[]).join(", ")
+                      : "none"}
+                  </span>
+                </div>
               </div>
 
 
