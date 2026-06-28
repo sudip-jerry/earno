@@ -148,6 +148,15 @@ function BotPage() {
           }}
         />
 
+        {stats.data?.noTradeReason && stats.data.noTradeReason !== "Waiting for better entry." && (
+          <div className="rounded-2xl border bg-muted/40 px-4 py-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Why no trade</p>
+            <p className="text-sm">{stats.data.noTradeReason}</p>
+          </div>
+        )}
+
+
+
         <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
           <div className="min-w-0">
             <p className="text-sm font-medium">Trading mode</p>

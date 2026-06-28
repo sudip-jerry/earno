@@ -450,7 +450,12 @@ type EditableCfg = {
   regime_filter_enabled: boolean;
   symbol_blacklist_threshold: number;
   symbol_sl_cooldown_minutes: number;
+  max_sl_atr_pct: number;
+  min_ev_ratio: number;
+  minimum_net_profit_to_enter_pct: number;
+  blocked_session_hours_ist: number[];
 };
+
 
 const NUM_FIELDS: { key: keyof EditableCfg; label: string; step?: number }[] = [
   { key: "leverage", label: "Leverage" },
@@ -470,7 +475,11 @@ const NUM_FIELDS: { key: keyof EditableCfg; label: string; step?: number }[] = [
   { key: "max_auto_sl_pct", label: "Max auto SL %", step: 0.1 },
   { key: "symbol_blacklist_threshold", label: "Symbol blacklist N" },
   { key: "symbol_sl_cooldown_minutes", label: "Symbol SL cooldown (min)" },
+  { key: "max_sl_atr_pct", label: "Max SL ATR %", step: 0.1 },
+  { key: "min_ev_ratio", label: "Min EV ratio", step: 0.05 },
+  { key: "minimum_net_profit_to_enter_pct", label: "Min net profit to enter %", step: 0.01 },
 ];
+
 
 const BOOL_FIELDS: { key: keyof EditableCfg; label: string }[] = [
   { key: "is_running", label: "Bot running" },
@@ -626,6 +635,16 @@ function UserConfigEditor({
                   </label>
                 ))}
               </div>
+
+              <div className="rounded-md border bg-background px-2 py-1.5 text-[11px]">
+                <span className="text-muted-foreground">Blocked IST hours: </span>
+                <span className="font-medium">
+                  {(get("blocked_session_hours_ist") ?? []).length === 0
+                    ? "none"
+                    : (get("blocked_session_hours_ist") ?? []).join(", ")}
+                </span>
+              </div>
+
 
               <div className="grid grid-cols-2 gap-2">
                 {NUM_FIELDS.map((f) => {

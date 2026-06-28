@@ -115,6 +115,10 @@ function StrictnessControl() {
   };
 
   const handleReset = async () => {
+    const ok = window.confirm(
+      `This will reset your confidence threshold, cooldown, and risk % back to the '${STRICTNESS_PRESETS[strictness].label}' defaults — undoing any auto-tune improvements. Continue?`,
+    );
+    if (!ok) return;
     try {
       await updateFn({ data: presetPatch(strictness) as never });
       toast.success(`Reset auto-tuned values to "${STRICTNESS_PRESETS[strictness].label}"`);
@@ -123,6 +127,7 @@ function StrictnessControl() {
       toast.error(e instanceof Error ? e.message : "Reset failed");
     }
   };
+
 
   return (
     <div className="space-y-2">
@@ -298,6 +303,10 @@ type Cfg = {
   live_allocation_amount: number;
   live_allocation_pct: number;
   symbol_blocklist: string[];
+  max_sl_atr_pct: number;
+  min_ev_ratio: number;
+  minimum_net_profit_to_enter_pct: number;
+  blocked_session_hours_ist: number[];
 };
 
 const DEFAULTS: Cfg = {
@@ -332,7 +341,12 @@ const DEFAULTS: Cfg = {
   live_allocation_amount: 0,
   live_allocation_pct: 100,
   symbol_blocklist: [],
+  max_sl_atr_pct: 2.0,
+  min_ev_ratio: 1.0,
+  minimum_net_profit_to_enter_pct: 0.15,
+  blocked_session_hours_ist: [],
 };
+
 
 function SettingsPage() {
   const qc = useQueryClient();
@@ -386,7 +400,7 @@ function SettingsPage() {
       const { data, error } = await supabase
         .from("bot_config")
         .select(
-          "mode,ema_fast,ema_slow,timeframe,leverage,take_profit_pct,stop_loss_pct,trailing_enabled,risk_per_trade_pct,max_open_positions,daily_loss_cap_pct,allow_short,allow_long,auto_book,strategy,cooldown_minutes,max_trades_per_day,auto_close_minutes,move_to_breakeven,min_scalp_score,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,symbol_blocklist",
+          "mode,ema_fast,ema_slow,timeframe,leverage,take_profit_pct,stop_loss_pct,trailing_enabled,risk_per_trade_pct,max_open_positions,daily_loss_cap_pct,allow_short,allow_long,auto_book,strategy,cooldown_minutes,max_trades_per_day,auto_close_minutes,move_to_breakeven,min_scalp_score,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,symbol_blocklist,max_sl_atr_pct,min_ev_ratio,minimum_net_profit_to_enter_pct,blocked_session_hours_ist",
         )
         .maybeSingle();
       if (error) throw error;
@@ -747,7 +761,7 @@ function SettingsPage() {
               onChange={(v) => set("ema_slow", v)}
             />
           </Row>
-          <Row label="Minimum Confidence">
+          <Row label="Scanner display threshold">
             <NumberStepper
               value={get("min_scalp_score")}
               min={0}
@@ -756,7 +770,11 @@ function SettingsPage() {
             />
           </Row>
         </div>
+        <p className="text-[11px] text-muted-foreground mt-2 px-1 leading-relaxed">
+          Controls which signals appear in the scanner. The auto-book threshold (when the bot decides to trade) is set separately in Advanced settings.
+        </p>
       </section>
+
 
       {/* Trading Style preset */}
       <section className="px-5 mt-6">
@@ -927,9 +945,54 @@ function SettingsPage() {
                 onCheckedChange={(v) => set("trailing_enabled", v)}
               />
             </Row>
+
+            <div className="pt-2 border-t mt-2">
+              <p className="text-xs font-semibold mb-1">Entry gate thresholds</p>
+              <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
+                These gates run before every trade is booked. Raising them reduces trade frequency but improves quality.
+              </p>
+              <div className="space-y-5">
+                <SliderField
+                  label="Max SL width (ATR %)"
+                  unit="%"
+                  min={0.5}
+                  max={5}
+                  step={0.1}
+                  value={get("max_sl_atr_pct")}
+                  onChange={(v) => set("max_sl_atr_pct", v)}
+                />
+                <SliderField
+                  label="Min EV ratio"
+                  unit=""
+                  min={0.5}
+                  max={2}
+                  step={0.05}
+                  value={get("min_ev_ratio")}
+                  onChange={(v) => set("min_ev_ratio", v)}
+                />
+                <SliderField
+                  label="Min net profit to enter (%)"
+                  unit="%"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={get("minimum_net_profit_to_enter_pct")}
+                  onChange={(v) => set("minimum_net_profit_to_enter_pct", v)}
+                />
+                <div className="rounded-lg border bg-muted/30 p-2.5">
+                  <p className="text-[11px] font-medium">
+                    Blocked IST hours: {(get("blocked_session_hours_ist") ?? []).length === 0
+                      ? "none"
+                      : (get("blocked_session_hours_ist") ?? []).join(", ")}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Edit via Admin panel</p>
+                </div>
+              </div>
+            </div>
           </div>
         </details>
       </section>
+
 
       <section className="px-5 mt-6">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
@@ -969,17 +1032,6 @@ function SettingsPage() {
         </div>
       </section>
 
-      <section className="px-5 mt-6">
-        <h2 className="text-sm font-semibold mb-2">Appearance</h2>
-
-        <div className="rounded-xl border bg-card p-3 flex items-center justify-between">
-          <div>
-            <div className="text-sm font-medium">Theme</div>
-            <div className="text-xs text-muted-foreground">Choice is saved on this device.</div>
-          </div>
-          <ThemeSelect />
-        </div>
-      </section>
 
       {hasChanges && (
         <div className="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-4 flex gap-3 z-50 safe-area-pb">
