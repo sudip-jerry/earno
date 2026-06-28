@@ -87,6 +87,7 @@ export type Database = {
           live_allocation_mode: string
           live_allocation_pct: number
           live_wallet_source: string
+          major_coin_confidence_floor: number
           max_auto_sl_pct: number
           max_open_positions: number
           max_sl_atr_pct: number
@@ -141,6 +142,7 @@ export type Database = {
           live_allocation_mode?: string
           live_allocation_pct?: number
           live_wallet_source?: string
+          major_coin_confidence_floor?: number
           max_auto_sl_pct?: number
           max_open_positions?: number
           max_sl_atr_pct?: number
@@ -195,6 +197,7 @@ export type Database = {
           live_allocation_mode?: string
           live_allocation_pct?: number
           live_wallet_source?: string
+          major_coin_confidence_floor?: number
           max_auto_sl_pct?: number
           max_open_positions?: number
           max_sl_atr_pct?: number

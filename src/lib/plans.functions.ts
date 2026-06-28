@@ -303,6 +303,7 @@ const editableCfgSchema = z.object({
   min_ev_ratio: z.number().min(0).max(100).optional(),
   minimum_net_profit_to_enter_pct: z.number().min(-10).max(100).optional(),
   blocked_session_hours_ist: z.array(z.number().int().min(0).max(23)).max(24).optional(),
+  major_coin_confidence_floor: z.number().min(0).max(100).optional(),
 });
 
 export const adminGetUserConfig = createServerFn({ method: "GET" })

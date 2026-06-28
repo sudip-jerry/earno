@@ -1,0 +1,1 @@
+ALTER TABLE public.bot_config ADD COLUMN IF NOT EXISTS major_coin_confidence_floor numeric NOT NULL DEFAULT 90;

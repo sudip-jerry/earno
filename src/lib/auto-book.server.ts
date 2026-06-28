@@ -193,6 +193,16 @@ export async function fetchMarketRegime(): Promise<MarketRegime | null> {
   }
 }
 
+// High-liquidity coins where EMA/VWAP signals need stronger confirmation.
+// At confidence < major_coin_confidence_floor, these are skipped.
+// At confidence >= floor they trade normally — preserving breakout participation.
+const MAJOR_COINS = new Set([
+  "B-BTC_USDT","B-ETH_USDT","B-BNB_USDT","B-SOL_USDT",
+  "B-XRP_USDT","B-ADA_USDT","B-DOGE_USDT","B-NEAR_USDT",
+  "B-SUI_USDT","B-AAVE_USDT","B-AVAX_USDT","B-LINK_USDT",
+  "B-UNI_USDT","B-DOT_USDT","B-MATIC_USDT","B-LTC_USDT",
+]);
+
 type BotConfig = {
   user_id: string;
   mode: string;
@@ -231,6 +241,7 @@ type BotConfig = {
   max_sl_atr_pct?: number | null;
   min_ev_ratio?: number | null;
   blocked_session_hours_ist?: number[] | null;
+  major_coin_confidence_floor?: number | null;
 };
 
 /** Returns the USDT capital to size positions against. Paper uses paper_equity.
@@ -339,7 +350,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,max_sl_atr_pct,min_ev_ratio,blocked_session_hours_ist",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,max_sl_atr_pct,min_ev_ratio,blocked_session_hours_ist,major_coin_confidence_floor",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -750,6 +761,23 @@ export async function runAutoBookPass(
       } else if (a.confidence_pct < autoConfThreshold) {
         rejection = `Below auto-book threshold (${a.confidence_pct} < ${autoConfThreshold})`;
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
+      }
+
+      // Major-coin confidence floor: require higher confidence on liquid coins
+      // where institutional flow overwhelms momentum signals below ~90%.
+      // Data-derived: majors at conf<90 have PF 0.14-0.24; at conf≥90 PF=1.04.
+      if (rejection == null) {
+        const majorFloor = Number(cfg.major_coin_confidence_floor ?? 90);
+        if (MAJOR_COINS.has(sym) && a.confidence_pct < majorFloor) {
+          rejection = `Major coin confidence floor: ${a.confidence_pct} < ${majorFloor} required for ${sym}`;
+          final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
+          await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+            kind: "major_coin_floor_skip",
+            symbol: a.symbol,
+            confidence_pct: a.confidence_pct,
+            major_coin_confidence_floor: majorFloor,
+          });
+        }
       }
 
       // Backend setup classification + policy gate (Futures-only, beginner-invisible).

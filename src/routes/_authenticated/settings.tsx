@@ -304,6 +304,7 @@ type Cfg = {
   max_sl_atr_pct: number;
   min_ev_ratio: number;
   minimum_net_profit_to_enter_pct: number;
+  major_coin_confidence_floor: number;
   blocked_session_hours_ist: number[];
 };
 
@@ -342,6 +343,7 @@ const DEFAULTS: Cfg = {
   max_sl_atr_pct: 2.0,
   min_ev_ratio: 1.0,
   minimum_net_profit_to_enter_pct: 0.15,
+  major_coin_confidence_floor: 90,
   blocked_session_hours_ist: [],
 };
 
@@ -398,7 +400,7 @@ function SettingsPage() {
       const { data, error } = await supabase
         .from("bot_config")
         .select(
-          "mode,ema_fast,ema_slow,timeframe,leverage,take_profit_pct,stop_loss_pct,trailing_enabled,risk_per_trade_pct,max_open_positions,daily_loss_cap_pct,allow_short,allow_long,auto_book,strategy,cooldown_minutes,max_trades_per_day,auto_close_minutes,move_to_breakeven,min_scalp_score,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,symbol_blocklist,max_sl_atr_pct,min_ev_ratio,minimum_net_profit_to_enter_pct,blocked_session_hours_ist",
+          "mode,ema_fast,ema_slow,timeframe,leverage,take_profit_pct,stop_loss_pct,trailing_enabled,risk_per_trade_pct,max_open_positions,daily_loss_cap_pct,allow_short,allow_long,auto_book,strategy,cooldown_minutes,max_trades_per_day,auto_close_minutes,move_to_breakeven,min_scalp_score,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,symbol_blocklist,max_sl_atr_pct,min_ev_ratio,minimum_net_profit_to_enter_pct,blocked_session_hours_ist,major_coin_confidence_floor",
         )
         .maybeSingle();
       if (error) throw error;
@@ -972,7 +974,18 @@ function SettingsPage() {
                   value={get("minimum_net_profit_to_enter_pct")}
                   onChange={(v) => set("minimum_net_profit_to_enter_pct", v)}
                 />
+                <SliderField
+                  label="Major coin min confidence"
+                  unit="%"
+                  min={75}
+                  max={100}
+                  step={1}
+                  value={get("major_coin_confidence_floor")}
+                  onChange={(v) => set("major_coin_confidence_floor", v)}
+                />
+                <p className="text-[11px] text-muted-foreground">BTC/ETH/SOL/XRP etc only trade at this confidence. Data shows PF 1.04 above 90%, PF 0.14 below.</p>
                 <div className="text-[11px] text-muted-foreground">
+
                   <span className="font-medium text-foreground">Blocked IST hours: </span>
                   {(get("blocked_session_hours_ist") as number[] ?? []).length > 0 ? (get("blocked_session_hours_ist") as number[]).join(", ") : "none"}
                   <span className="ml-1 opacity-60">(edit via Admin)</span>
