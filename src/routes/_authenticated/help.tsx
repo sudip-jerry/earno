@@ -401,6 +401,7 @@ const PHASES = [
 const PHASE_MS = 2200;
 
 function DemoLoop() {
+  const { fmt: fmtCur } = useCurrency();
   const [phase, setPhase] = useState(0);
   const [pnl, setPnl] = useState(0);
 
