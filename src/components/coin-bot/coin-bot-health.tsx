@@ -81,7 +81,7 @@ export function CoinBotHealth() {
           {/* Currency helper */}
           <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-200">
             <span className="font-medium">All capital fields are in USDT.</span>
-            {" "}If your budget is in {code}, divide by {symbolRate(code, rate)} to get USDT.
+            {" "}If your budget is in {code}, divide by {rate.toFixed(2)} to get USDT.
             {" "}Example: ₹50,000 ÷ {Math.round(rate)} ≈ ${Math.round(50000 / rate)} USDT.
           </div>
           <div>
