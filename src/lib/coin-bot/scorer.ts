@@ -129,14 +129,14 @@ export function scoreCoin(input: CoinScoreInput): CoinScore {
   // Default target/stop bands — tighter for intraday, wider for swing
   const isSwing = input.mode === "swing";
   const targetPct = isSwing ? 4.0 : 1.6;
-  const stopPct = isSwing ? 2.0 : 0.9;
+  const stopPct = isSwing ? 3.5 : 0.9;
 
   let action: CoinAction = "wait";
   let confidence = 40;
   let reason = "Setup forming";
 
-  const bullish = trend5 === "up" && trend30 !== "down" && mom !== "fading" && vol !== "weak";
-  const strongBullish = trend5 === "up" && trend30 === "up" && mom === "rising" && vol === "strong";
+  const bullish = isSwing ? trend30 === "up" && trend5 !== "down" && vol !== "weak" : trend5 === "up" && trend30 !== "down" && mom !== "fading" && vol !== "weak";
+  const strongBullish = isSwing ? trend30 === "up" && trend5 === "up" && vol === "strong" : trend5 === "up" && trend30 === "up" && mom === "rising" && vol === "strong";
   const bearish = trend5 === "down" && (trend30 === "down" || mom === "fading");
   const overbought = r != null && r > 78;
   const oversold = r != null && r < 25;
@@ -162,11 +162,11 @@ export function scoreCoin(input: CoinScoreInput): CoinScore {
       action = "sell";
       confidence = 74;
       reason = "30m trend reversed";
-    } else if (!waitForTrendReversal && trendBroken) {
+    } else if (!waitForTrendReversal && trendBroken && !isSwing) {
       action = "sell";
       confidence = 70;
       reason = "Trend broken";
-    } else if (!waitForTrendReversal && momFaded && pnlPct < 0.2) {
+    } else if (!waitForTrendReversal && momFaded && pnlPct < 0.2 && !isSwing) {
       action = "sell";
       confidence = 62;
       reason = "Momentum faded";
