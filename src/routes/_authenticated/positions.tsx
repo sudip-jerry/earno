@@ -720,7 +720,7 @@ function ClosedSummary({ rows }: { rows: ClosedRow[] }) {
         <p className={`text-xl font-semibold tabular-nums mt-0.5 ${total >= 0 ? "text-emerald-500" : "text-destructive"}`}>
           {fmt(total, { signed: true })}
         </p>
-        <p className="text-[10px] text-muted-foreground mt-0.5">Fees {fmt(fees)}</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5">Fees paid: {fmt(Math.abs(fees))}</p>
       </div>
       <div>
         <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Trades</p>
