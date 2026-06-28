@@ -636,6 +636,16 @@ function UserConfigEditor({
                 ))}
               </div>
 
+              <div className="rounded-md border bg-background px-2 py-1.5 text-[11px]">
+                <span className="text-muted-foreground">Blocked IST hours: </span>
+                <span className="font-medium">
+                  {(get("blocked_session_hours_ist") ?? []).length === 0
+                    ? "none"
+                    : (get("blocked_session_hours_ist") ?? []).join(", ")}
+                </span>
+              </div>
+
+
               <div className="grid grid-cols-2 gap-2">
                 {NUM_FIELDS.map((f) => {
                   const v = get(f.key);
