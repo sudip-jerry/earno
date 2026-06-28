@@ -29,6 +29,7 @@ import {
 import { TabBar } from "@/components/tab-bar";
 import { useCurrency } from "@/hooks/use-currency";
 import { RecentActivity } from "@/components/recent-activity";
+import { WealthHero } from "@/components/wealth-hero";
 import { RecommendationsPanel } from "@/components/recommendations-panel";
 import {
   AlertTriangle,
