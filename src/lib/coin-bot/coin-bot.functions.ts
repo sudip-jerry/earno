@@ -67,7 +67,7 @@ export const updateCoinConfig = createServerFn({ method: "POST" })
         min_confidence: z.number().int().min(0).max(100).optional(),
         scan_interval_min: z.number().int().min(1).max(1440).optional(),
         max_holding_days: z.number().int().min(1).max(365).optional(),
-        hold_until_trend_reversal: z.boolean().optional(),
+        universe_size: z.number().int().min(1).max(500).optional(),
         universe_size: z.number().int().min(1).max(500).optional(),
       })
       .strict()
