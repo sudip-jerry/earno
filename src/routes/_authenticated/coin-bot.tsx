@@ -269,6 +269,9 @@ function CoinBotPage() {
           {h?.open?.length ? (
             <div className="overflow-hidden rounded-2xl border bg-card">
               <table className="w-full text-xs">
+                <caption className="text-[10px] text-muted-foreground pb-1 text-left px-3 caption-bottom">
+                  Prices in USDT
+                </caption>
                 <thead className="bg-muted/40 text-muted-foreground">
                   <tr>
                     <th className="text-left px-3 py-2">Coin</th>
