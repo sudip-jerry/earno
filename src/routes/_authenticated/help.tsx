@@ -61,6 +61,7 @@ export function HelpFlow({
 }) {
   const [step, setStep] = useState(0);
   const total = STEPS.length;
+  const { fmt: fmtCur, symbol } = useCurrency();
 
   return (
     <div className="flex flex-col h-full">
