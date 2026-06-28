@@ -152,8 +152,9 @@ function BetaReportPage() {
           <section className="px-5 mt-5">
             <div className="flex items-baseline justify-between mb-2">
               <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Today (since 00:00 UTC)
+                Today (since 00:30 IST / 19:00 UTC prev day)
               </h2>
+
               <span className="text-[10px] text-muted-foreground">
                 {s.todayActiveTesters} active
               </span>
