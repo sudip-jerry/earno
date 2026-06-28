@@ -241,6 +241,7 @@ type BotConfig = {
   max_sl_atr_pct?: number | null;
   min_ev_ratio?: number | null;
   blocked_session_hours_ist?: number[] | null;
+  major_coin_confidence_floor?: number | null;
 };
 
 /** Returns the USDT capital to size positions against. Paper uses paper_equity.
