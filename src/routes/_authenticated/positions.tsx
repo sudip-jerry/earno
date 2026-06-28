@@ -233,12 +233,14 @@ function PositionsPage() {
             </div>
           </div>
         ) : (
-          <ClosedSummary rows={closedSummaryQ.data ?? []} />
-          {(closedSummaryQ.data?.length ?? 0) > 100 && (
-            <p className="text-[11px] text-muted-foreground px-1 mt-1">
-              Summary reflects all {closedSummaryQ.data?.length} trades. List shows last 100.
-            </p>
-          )}
+          <>
+            <ClosedSummary rows={closedSummaryQ.data ?? []} />
+            {(closedSummaryQ.data?.length ?? 0) > 100 && (
+              <p className="text-[11px] text-muted-foreground px-1 mt-1">
+                Summary reflects all {closedSummaryQ.data?.length} trades. List shows last 100.
+              </p>
+            )}
+          </>
         )}
       </section>
 
