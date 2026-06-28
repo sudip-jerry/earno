@@ -767,10 +767,8 @@ function SettingsPage() {
               onChange={(v) => set("min_scalp_score", v)}
             />
           </Row>
+          <p className="text-[11px] text-muted-foreground px-4 pb-2">Controls which signals appear in the scanner. The auto-book threshold is set separately in Advanced settings.</p>
         </div>
-        <p className="text-[11px] text-muted-foreground mt-2 px-1 leading-relaxed">
-          Controls which signals appear in the scanner. The auto-book threshold (when the bot decides to trade) is set separately in Advanced settings.
-        </p>
       </section>
 
 
