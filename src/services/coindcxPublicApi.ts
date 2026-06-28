@@ -17,18 +17,22 @@ const HEADERS = {
 };
 
 export type RawTicker = {
-  s?: string; pair?: string;
-  c?: string | number; ls?: string | number;
-  pc?: string | number; cp?: string | number;
-  v?: string | number; qv?: string | number;
+  s?: string;
+  pair?: string;
+  c?: string | number;
+  ls?: string | number;
+  pc?: string | number;
+  cp?: string | number;
+  v?: string | number;
+  qv?: string | number;
   // common extras
   b?: string | number; // bid
   a?: string | number; // ask
 };
 
 export type NormalizedTicker = {
-  symbol: string;        // e.g. "B-BTC_USDT"
-  display: string;       // e.g. "BTC/USDT"
+  symbol: string; // e.g. "B-BTC_USDT"
+  display: string; // e.g. "BTC/USDT"
   price: number;
   change24hPct: number;
   volume24h: number;
@@ -69,9 +73,7 @@ async function getJSON<T>(url: string, timeoutMs = 5000): Promise<T> {
 
 /** Fetch the futures real-time ticker board (all symbols in one call). */
 export async function fetchFuturesTickers(): Promise<NormalizedTicker[]> {
-  const raw = await getJSON<unknown>(
-    `${PUBLIC_BASE}/market_data/v3/current_prices/futures/rt`,
-  );
+  const raw = await getJSON<unknown>(`${PUBLIC_BASE}/market_data/v3/current_prices/futures/rt`);
 
   // The endpoint returns one of:
   //   1. [{ s, c, ... }, ...]                       (array, symbol on each row)
@@ -104,8 +106,7 @@ export async function fetchFuturesTickers(): Promise<NormalizedTicker[]> {
     if (price <= 0) continue;
     const bid = r.b != null ? num(r.b) : null;
     const ask = r.a != null ? num(r.a) : null;
-    const spreadPct =
-      bid && ask && bid > 0 ? ((ask - bid) / ((ask + bid) / 2)) * 100 : null;
+    const spreadPct = bid && ask && bid > 0 ? ((ask - bid) / ((ask + bid) / 2)) * 100 : null;
     out.push({
       symbol,
       display: prettySymbol(symbol),
@@ -120,7 +121,6 @@ export async function fetchFuturesTickers(): Promise<NormalizedTicker[]> {
   return out;
 }
 
-
 /** Fetch OHLCV candles for a single pair. */
 export async function fetchCandles(
   pair: string,
@@ -133,16 +133,23 @@ export async function fetchCandles(
     pair,
   )}&interval=${base}&limit=${limit * group}`;
   type Raw = {
-    open: number | string; close: number | string;
-    high: number | string; low: number | string;
-    volume?: number | string; time?: number;
+    open: number | string;
+    close: number | string;
+    high: number | string;
+    low: number | string;
+    volume?: number | string;
+    time?: number;
   };
   const raw = await getJSON<Raw[]>(url, 4500);
   if (!Array.isArray(raw)) return [];
   const agg = aggregateCandles(raw as any, group);
   return agg.map((k) => ({
-    open: k.open, high: k.high, low: k.low, close: k.close,
-    volume: k.volume, time: k.time,
+    open: k.open,
+    high: k.high,
+    low: k.low,
+    close: k.close,
+    volume: k.volume,
+    time: k.time,
   }));
 }
 

@@ -62,7 +62,11 @@ async function futuresMarketForSymbol(symbol: string): Promise<string | null> {
   }
 }
 
-async function fetchCoinDcxCandles(pair: string, interval: string, limit: number): Promise<ChartCandle[]> {
+async function fetchCoinDcxCandles(
+  pair: string,
+  interval: string,
+  limit: number,
+): Promise<ChartCandle[]> {
   const res = await fetch(CANDLES(pair, interval, limit), {
     headers: HEADERS,
     signal: AbortSignal.timeout(5000),
@@ -99,7 +103,11 @@ async function fetchCoinDcxCandles(pair: string, interval: string, limit: number
   return out;
 }
 
-async function fetchCoinDcxFuturesCandles(pair: string, interval: string, limit: number): Promise<ChartCandle[]> {
+async function fetchCoinDcxFuturesCandles(
+  pair: string,
+  interval: string,
+  limit: number,
+): Promise<ChartCandle[]> {
   const res = await fetch(FUTURES_CANDLES(pair, interval, limit), {
     headers: HEADERS,
     signal: AbortSignal.timeout(5000),

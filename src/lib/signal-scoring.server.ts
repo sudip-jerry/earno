@@ -18,7 +18,14 @@ const PUB_HEADERS = {
   "user-agent": "Mozilla/5.0 (compatible; Earn'O/1.0; +https://earno.lovable.app)",
 };
 
-type Candle = { open: number; high: number; low: number; close: number; volume: number; time: number };
+type Candle = {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  time: number;
+};
 
 /** Reject markets whose latest 5m candle is older than this (delisted/halted symbols
  *  like B-PHB_USDT keep returning a frozen ticker price + stale 24h % change). */
@@ -35,7 +42,11 @@ function num(x: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-async function fetchCandles(pair: string, interval: string, limit: number): Promise<Candle[] | null> {
+async function fetchCandles(
+  pair: string,
+  interval: string,
+  limit: number,
+): Promise<Candle[] | null> {
   try {
     const [base, group] = resolveInterval(interval);
     const res = await fetch(CANDLES(pair, base, limit * group), {
@@ -65,12 +76,15 @@ function ema(values: number[], period: number): number | null {
 
 function rsi(closes: number[], period = 14): number | null {
   if (closes.length < period + 1) return null;
-  let g = 0, l = 0;
+  let g = 0,
+    l = 0;
   for (let i = 1; i <= period; i++) {
     const d = closes[i] - closes[i - 1];
-    if (d >= 0) g += d; else l -= d;
+    if (d >= 0) g += d;
+    else l -= d;
   }
-  let avgG = g / period, avgL = l / period;
+  let avgG = g / period,
+    avgL = l / period;
   for (let i = period + 1; i < closes.length; i++) {
     const d = closes[i] - closes[i - 1];
     avgG = (avgG * (period - 1) + Math.max(d, 0)) / period;
@@ -82,7 +96,8 @@ function rsi(closes: number[], period = 14): number | null {
 
 function vwap(candles: Candle[]): number | null {
   if (!candles.length) return null;
-  let pv = 0, v = 0;
+  let pv = 0,
+    v = 0;
   for (const c of candles) {
     const tp = (c.high + c.low + c.close) / 3;
     pv += tp * c.volume;
@@ -115,8 +130,10 @@ function chopiness(candles: Candle[]): number {
       return a + (1 - body / range);
     }, 0) / last.length;
   let p = 0;
-  if (flips >= 4) p += 15; else if (flips >= 3) p += 8;
-  if (wickShare > 0.7) p += 10; else if (wickShare > 0.55) p += 5;
+  if (flips >= 4) p += 15;
+  else if (flips >= 3) p += 8;
+  if (wickShare > 0.7) p += 10;
+  else if (wickShare > 0.55) p += 5;
   return Math.min(25, p);
 }
 
@@ -164,14 +181,10 @@ export async function analyzeSymbol(
   const candlesRaw = await fetchCandles(symbol, interval, 60);
   // CoinDCX returns candles newest-first; sort ascending so [length-1] is the latest
   // and all downstream indicator math (EMA/RSI/VWAP/impulse) sees chronological order.
-  const candles = candlesRaw
-    ? [...candlesRaw].sort((a, b) => a.time - b.time)
-    : null;
+  const candles = candlesRaw ? [...candlesRaw].sort((a, b) => a.time - b.time) : null;
   const latestCandleTime = candles && candles.length ? candles[candles.length - 1].time : 0;
   const stale =
-    !!candles &&
-    latestCandleTime > 0 &&
-    Date.now() - latestCandleTime > STALE_CANDLE_MAX_AGE_MS;
+    !!candles && latestCandleTime > 0 && Date.now() - latestCandleTime > STALE_CANDLE_MAX_AGE_MS;
   if (!candles || candles.length < 22 || stale) {
     return {
       symbol,
@@ -252,7 +265,11 @@ export async function analyzeSymbol(
   // ── Component scoring ──────────────────────────────────────────────────
   // Trend alignment (max 20)
   const trendScore =
-    trend.dir === "flat" ? 6 : (bias !== "neutral" && bias === (trend.dir === "up" ? "long" : "short") ? 20 : 4);
+    trend.dir === "flat"
+      ? 6
+      : bias !== "neutral" && bias === (trend.dir === "up" ? "long" : "short")
+        ? 20
+        : 4;
 
   // VWAP alignment (max 15)
   let vwapScore = 0;
@@ -340,7 +357,8 @@ export async function analyzeSymbol(
 
   const choppy = chopiness(candles);
 
-  const positive = trendScore + vwapScore + emaScore + rsiScore + volScore + spreadScore + atrScore + entryScore;
+  const positive =
+    trendScore + vwapScore + emaScore + rsiScore + volScore + spreadScore + atrScore + entryScore;
   let confidence = Math.max(0, Math.min(100, Math.round(positive - overext - choppy)));
 
   // Force AVOID when bias is neutral and confidence is mediocre

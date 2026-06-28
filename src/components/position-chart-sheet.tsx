@@ -87,15 +87,38 @@ function MiniCandleChart({
     const yy = y(price);
     return (
       <g key={label}>
-        <line x1={left} x2={W - right + 4} y1={yy} y2={yy} stroke={color} strokeDasharray="4 4" strokeWidth="1" />
-        <text x={W - right + 8} y={yy + 3} fill={color} fontSize="9" fontWeight="600">{label}</text>
+        <line
+          x1={left}
+          x2={W - right + 4}
+          y1={yy}
+          y2={yy}
+          stroke={color}
+          strokeDasharray="4 4"
+          strokeWidth="1"
+        />
+        <text x={W - right + 8} y={yy + 3} fill={color} fontSize="9" fontWeight="600">
+          {label}
+        </text>
       </g>
     );
   };
   return (
-    <svg className="absolute inset-2 h-[calc(100%-1rem)] w-[calc(100%-1rem)]" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+    <svg
+      className="absolute inset-2 h-[calc(100%-1rem)] w-[calc(100%-1rem)]"
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
       {[0.25, 0.5, 0.75].map((p) => (
-        <line key={p} x1={left} x2={W - right} y1={top + plotH * p} y2={top + plotH * p} stroke="var(--border)" strokeDasharray="2 5" />
+        <line
+          key={p}
+          x1={left}
+          x2={W - right}
+          y1={top + plotH * p}
+          y2={top + plotH * p}
+          stroke="var(--border)"
+          strokeDasharray="2 5"
+        />
       ))}
       {data.map((c, i) => {
         const xx = x(i);
@@ -106,7 +129,15 @@ function MiniCandleChart({
         return (
           <g key={`${c.time}-${i}`}>
             <line x1={xx} x2={xx} y1={y(c.high)} y2={y(c.low)} stroke={color} strokeWidth="1.2" />
-            <rect x={xx - candleW / 2} y={bodyTop} width={candleW} height={Math.max(1.5, bodyBottom - bodyTop)} fill={up ? color : "#fff"} stroke={color} strokeWidth="1" />
+            <rect
+              x={xx - candleW / 2}
+              y={bodyTop}
+              width={candleW}
+              height={Math.max(1.5, bodyBottom - bodyTop)}
+              fill={up ? color : "#fff"}
+              stroke={color}
+              strokeWidth="1"
+            />
           </g>
         );
       })}
@@ -140,7 +171,8 @@ export function PositionChartSheet(props: PositionChartProps) {
   const fetchCandles = useServerFn(getChartCandles);
   const candlesQ = useQuery({
     queryKey: ["chart_candles", symbol, interval],
-    queryFn: async () => (await fetchCandles({ data: { symbol, interval, limit: 240 } })) ?? { candles: [] },
+    queryFn: async () =>
+      (await fetchCandles({ data: { symbol, interval, limit: 240 } })) ?? { candles: [] },
     enabled: open,
     refetchInterval: open && !isClosed ? 15_000 : false,
     staleTime: 10_000,
@@ -243,11 +275,20 @@ export function PositionChartSheet(props: PositionChartProps) {
 
     // Clear old price lines
     for (const l of linesRef.current) {
-      try { series.removePriceLine(l); } catch { /* noop */ }
+      try {
+        series.removePriceLine(l);
+      } catch {
+        /* noop */
+      }
     }
     linesRef.current = [];
 
-    const add = (price: number | null | undefined, color: string, title: string, style = LineStyle.Solid) => {
+    const add = (
+      price: number | null | undefined,
+      color: string,
+      title: string,
+      style = LineStyle.Solid,
+    ) => {
       if (price == null || !Number.isFinite(Number(price))) return;
       const l = series.createPriceLine({
         price: Number(price),
@@ -300,7 +341,18 @@ export function PositionChartSheet(props: PositionChartProps) {
       });
     }
     createSeriesMarkers(series, markers);
-  }, [candlesQ.data, entryPrice, takeProfit, stopLoss, exitPrice, openedAt, closedAt, side, isClosed, currentPrice]);
+  }, [
+    candlesQ.data,
+    entryPrice,
+    takeProfit,
+    stopLoss,
+    exitPrice,
+    openedAt,
+    closedAt,
+    side,
+    isClosed,
+    currentPrice,
+  ]);
 
   const reasonLabel = useMemo(() => {
     if (!exitReason) return null;
@@ -313,12 +365,13 @@ export function PositionChartSheet(props: PositionChartProps) {
       kill_switch: "Emergency Stop",
       risk_protection: "Risk Protection",
     };
-    return map[exitReason] ?? exitReason.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    return (
+      map[exitReason] ?? exitReason.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    );
   }, [exitReason]);
 
-  const sideCls = side === "long"
-    ? "bg-emerald-500/10 text-emerald-500"
-    : "bg-destructive/10 text-destructive";
+  const sideCls =
+    side === "long" ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -405,7 +458,9 @@ export function PositionChartSheet(props: PositionChartProps) {
             ) : (
               <div>
                 <p className="text-muted-foreground">Target</p>
-                <p className="tabular-nums font-medium mt-0.5 text-emerald-500">{fmtPrice(takeProfit)}</p>
+                <p className="tabular-nums font-medium mt-0.5 text-emerald-500">
+                  {fmtPrice(takeProfit)}
+                </p>
               </div>
             )}
             {isClosed ? (
@@ -416,7 +471,9 @@ export function PositionChartSheet(props: PositionChartProps) {
             ) : (
               <div className="text-right">
                 <p className="text-muted-foreground">Stop</p>
-                <p className="tabular-nums font-medium mt-0.5 text-destructive">{fmtPrice(stopLoss)}</p>
+                <p className="tabular-nums font-medium mt-0.5 text-destructive">
+                  {fmtPrice(stopLoss)}
+                </p>
               </div>
             )}
           </div>

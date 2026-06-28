@@ -43,7 +43,9 @@ export function PositionsStrip({ showMarketToggle = true }: { showMarketToggle?:
         qc.invalidateQueries({ queryKey: ["positions_strip_open"] });
       })
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, [qc]);
 
   const rows = q.data ?? [];
@@ -72,7 +74,11 @@ export function PositionsStrip({ showMarketToggle = true }: { showMarketToggle?:
             <span className="text-xs font-medium">Open {rows.length}</span>
             <span
               className={`text-sm font-semibold tabular-nums ${
-                rows.length === 0 ? "text-muted-foreground" : up ? "text-emerald-500" : "text-destructive"
+                rows.length === 0
+                  ? "text-muted-foreground"
+                  : up
+                    ? "text-emerald-500"
+                    : "text-destructive"
               }`}
             >
               {rows.length === 0 ? "—" : fmt(totalPnl, { signed: true })}
@@ -82,11 +88,15 @@ export function PositionsStrip({ showMarketToggle = true }: { showMarketToggle?:
         </Link>
 
         <button
-          onClick={() => { q.refetch(); }}
+          onClick={() => {
+            q.refetch();
+          }}
           className="size-8 grid place-items-center rounded-full border hover:bg-muted shrink-0"
           aria-label="Refresh positions"
         >
-          <RefreshCw className={`size-3.5 ${q.isFetching || pricesFetching ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`size-3.5 ${q.isFetching || pricesFetching ? "animate-spin" : ""}`}
+          />
         </button>
 
         {showMarketToggle ? (

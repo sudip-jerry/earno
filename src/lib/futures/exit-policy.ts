@@ -48,7 +48,7 @@ type Profile = {
 
 const PROFILES: Record<StyleKind, Record<StrategyKind, Profile>> = {
   aggressive: {
-    momentum: { minHoldMinutes: 8,  progressRoe: 0.6, failRoe: -1.1, minGivebackRoe: 1.7 },
+    momentum: { minHoldMinutes: 8, progressRoe: 0.6, failRoe: -1.1, minGivebackRoe: 1.7 },
     pullback: { minHoldMinutes: 10, progressRoe: 0.7, failRoe: -1.3, minGivebackRoe: 2.0 },
   },
   moderate: {

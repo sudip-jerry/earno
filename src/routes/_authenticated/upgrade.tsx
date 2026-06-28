@@ -7,16 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { getMyEntitlements, redeemCoupon } from "@/lib/plans.functions";
-import {
-  createRazorpayOrder,
-  verifyRazorpayPayment,
-} from "@/lib/razorpay.functions";
-import {
-  PLAN_FEATURES,
-  PLAN_NAME,
-  PLAN_PRICE_INR,
-  type PlanTier,
-} from "@/lib/plans";
+import { createRazorpayOrder, verifyRazorpayPayment } from "@/lib/razorpay.functions";
+import { PLAN_FEATURES, PLAN_NAME, PLAN_PRICE_INR, type PlanTier } from "@/lib/plans";
 
 export const Route = createFileRoute("/_authenticated/upgrade")({
   head: () => ({ meta: [{ title: "Upgrade — Earn'O" }] }),
@@ -123,17 +115,13 @@ function UpgradePage() {
   return (
     <div className="min-h-svh bg-background pb-16">
       <header className="px-5 pt-6 pb-4 flex items-center gap-2">
-        <Link
-          to="/"
-          className="size-9 grid place-items-center rounded-full hover:bg-muted -ml-2"
-        >
+        <Link to="/" className="size-9 grid place-items-center rounded-full hover:bg-muted -ml-2">
           <ChevronLeft className="size-5" />
         </Link>
         <div>
           <h1 className="text-xl font-semibold">Choose your plan</h1>
           <p className="text-xs text-muted-foreground">
-            Current:{" "}
-            <span className="text-foreground font-medium">{PLAN_NAME[currentTier]}</span>
+            Current: <span className="text-foreground font-medium">{PLAN_NAME[currentTier]}</span>
             {expires ? ` · until ${new Date(expires).toLocaleDateString()}` : ""}
           </p>
         </div>
@@ -152,9 +140,7 @@ function UpgradePage() {
                   <p className="text-sm text-muted-foreground">{PLAN_NAME[t]}</p>
                   <p className="text-2xl font-semibold tracking-tight">
                     ₹{PLAN_PRICE_INR[t]}
-                    <span className="text-xs text-muted-foreground font-normal">
-                      /month
-                    </span>
+                    <span className="text-xs text-muted-foreground font-normal">/month</span>
                   </p>
                 </div>
                 {isCurrent ? (
@@ -201,18 +187,15 @@ function UpgradePage() {
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="e.g. EARNO99"
             />
-            <Button
-              onClick={() => redeem.mutate()}
-              disabled={!code || redeem.isPending}
-            >
+            <Button onClick={() => redeem.mutate()} disabled={!code || redeem.isPending}>
               {redeem.isPending ? "…" : "Redeem"}
             </Button>
           </div>
         </div>
 
         <p className="text-[11px] text-muted-foreground px-1 pt-2">
-          Payments processed by Razorpay (UPI / cards / netbanking). Plans last 30 days
-          from activation. Earn'O never custodies funds.
+          Payments processed by Razorpay (UPI / cards / netbanking). Plans last 30 days from
+          activation. Earn'O never custodies funds.
         </p>
       </div>
     </div>

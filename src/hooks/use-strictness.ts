@@ -11,25 +11,58 @@ export function getStoredStrictness(): Strictness {
 
 export const STRICTNESS_PRESETS: Record<
   Strictness,
-  { label: string; autoConf: number; volRatio: number; pullbackMaxPct: number; rrMin: number; description: string }
+  {
+    label: string;
+    autoConf: number;
+    volRatio: number;
+    pullbackMaxPct: number;
+    rrMin: number;
+    description: string;
+  }
 > = {
-  less:     { label: "Less strict", autoConf: 60, volRatio: 1.2, pullbackMaxPct: 0.5,  rrMin: 1.1, description: "More setups eligible for auto-book. Higher trade frequency, more noise." },
-  moderate: { label: "Moderate",    autoConf: 70, volRatio: 1.3, pullbackMaxPct: 0.35, rrMin: 1.2, description: "Balanced. Recommended default." },
-  strict:   { label: "Strict",      autoConf: 80, volRatio: 1.5, pullbackMaxPct: 0.25, rrMin: 1.3, description: "Only the cleanest setups auto-book. Fewer trades, higher quality." },
+  less: {
+    label: "Less strict",
+    autoConf: 60,
+    volRatio: 1.2,
+    pullbackMaxPct: 0.5,
+    rrMin: 1.1,
+    description: "More setups eligible for auto-book. Higher trade frequency, more noise.",
+  },
+  moderate: {
+    label: "Moderate",
+    autoConf: 70,
+    volRatio: 1.3,
+    pullbackMaxPct: 0.35,
+    rrMin: 1.2,
+    description: "Balanced. Recommended default.",
+  },
+  strict: {
+    label: "Strict",
+    autoConf: 80,
+    volRatio: 1.5,
+    pullbackMaxPct: 0.25,
+    rrMin: 1.3,
+    description: "Only the cleanest setups auto-book. Fewer trades, higher quality.",
+  },
 };
 
 export function useStrictness() {
   const [strictness, setState] = useState<Strictness>(() => getStoredStrictness());
 
   useEffect(() => {
-    try { window.localStorage.setItem(KEY, strictness); } catch {}
+    try {
+      window.localStorage.setItem(KEY, strictness);
+    } catch {}
     // Notify same-tab listeners
     window.dispatchEvent(new CustomEvent("earno-strictness-change", { detail: strictness }));
   }, [strictness]);
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === KEY && (e.newValue === "less" || e.newValue === "moderate" || e.newValue === "strict")) {
+      if (
+        e.key === KEY &&
+        (e.newValue === "less" || e.newValue === "moderate" || e.newValue === "strict")
+      ) {
         setState(e.newValue);
       }
     };

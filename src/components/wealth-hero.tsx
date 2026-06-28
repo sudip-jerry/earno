@@ -1,4 +1,14 @@
-import { Eye, EyeOff, ArrowUpRight, Target, TrendingUp, CalendarRange, Sparkles, FlaskConical, BadgeCheck } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  ArrowUpRight,
+  Target,
+  TrendingUp,
+  CalendarRange,
+  Sparkles,
+  FlaskConical,
+  BadgeCheck,
+} from "lucide-react";
 import type { DashboardStats, EquityPoint } from "@/lib/stats.functions";
 import { useCurrency } from "@/hooks/use-currency";
 import { Switch } from "@/components/ui/switch";
@@ -40,7 +50,17 @@ function toneClass(n: number | null | undefined) {
   return n >= 0 ? "text-emerald-500" : "text-destructive";
 }
 
-export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggleHide, onToggleMode, modePending, hideModeBanner, hide30d }: Props) {
+export function WealthHero({
+  stats,
+  equityFallback,
+  isLive,
+  hideBalance,
+  onToggleHide,
+  onToggleMode,
+  modePending,
+  hideModeBanner,
+  hide30d,
+}: Props) {
   const { fmt } = useCurrency();
   const portfolio = stats?.portfolioValue ?? equityFallback;
   const hasHistory = !!stats && stats.closedAllTime > 0;
@@ -49,51 +69,58 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
     <section className="px-5 pt-5">
       {/* Mode toggle — single source of truth for paper vs live */}
       {!hideModeBanner && (
-      <>
-
-      <div
-        className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${
-          isLive
-            ? "border-emerald-500/30 bg-emerald-500/10"
-            : "border-amber-500/30 bg-amber-500/10"
-        }`}
-      >
-        <span
-          className={`inline-flex items-center justify-center size-6 rounded-full shrink-0 ${
-            isLive ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
-          }`}
-        >
-          {isLive ? <BadgeCheck className="size-3.5" /> : <FlaskConical className="size-3.5" />}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className={`text-[11px] font-semibold leading-tight ${isLive ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>
-            {isLive ? "Live — real money" : "Paper — practice mode"}
-          </p>
-          <p className="text-[10px] text-muted-foreground leading-tight">
-            All numbers below reflect this mode.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className={`text-[11px] font-semibold tracking-wider ${!isLive ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground"}`}>PAPER</span>
-          <Switch
-            checked={isLive}
-            disabled={!onToggleMode || modePending}
-            onCheckedChange={(v) => onToggleMode?.(v)}
-            aria-label="Toggle paper or live trading"
-          />
-          <span className={`text-[11px] font-semibold tracking-wider ${isLive ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground"}`}>LIVE</span>
-        </div>
-      </div>
-      </>
+        <>
+          <div
+            className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${
+              isLive
+                ? "border-emerald-500/30 bg-emerald-500/10"
+                : "border-amber-500/30 bg-amber-500/10"
+            }`}
+          >
+            <span
+              className={`inline-flex items-center justify-center size-6 rounded-full shrink-0 ${
+                isLive
+                  ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                  : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+              }`}
+            >
+              {isLive ? <BadgeCheck className="size-3.5" /> : <FlaskConical className="size-3.5" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p
+                className={`text-[11px] font-semibold leading-tight ${isLive ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}
+              >
+                {isLive ? "Live — real money" : "Paper — practice mode"}
+              </p>
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                All numbers below reflect this mode.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span
+                className={`text-[11px] font-semibold tracking-wider ${!isLive ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground"}`}
+              >
+                PAPER
+              </span>
+              <Switch
+                checked={isLive}
+                disabled={!onToggleMode || modePending}
+                onCheckedChange={(v) => onToggleMode?.(v)}
+                aria-label="Toggle paper or live trading"
+              />
+              <span
+                className={`text-[11px] font-semibold tracking-wider ${isLive ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground"}`}
+              >
+                LIVE
+              </span>
+            </div>
+          </div>
+        </>
       )}
-
-
 
       {/* Label row */}
       <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="uppercase tracking-wider text-[10px] font-medium">
-          Portfolio Value
-        </span>
+        <span className="uppercase tracking-wider text-[10px] font-medium">Portfolio Value</span>
         <button
           type="button"
           onClick={onToggleHide}
@@ -121,7 +148,9 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Realized PnL (gross)</span>
             <span className={toneClass(stats.realizedPnlAllTime + stats.realizedFeesAllTime)}>
-              {hideBalance ? masked : fmt(stats.realizedPnlAllTime + stats.realizedFeesAllTime, { signed: true })}
+              {hideBalance
+                ? masked
+                : fmt(stats.realizedPnlAllTime + stats.realizedFeesAllTime, { signed: true })}
             </span>
           </div>
           <div className="flex items-center justify-between">
@@ -145,7 +174,7 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
         <div className={`mt-3 grid gap-2 ${hide30d ? "grid-cols-2" : "grid-cols-3"}`}>
           <WealthStat
             label="Today's Change"
-            value={hideBalance ? masked : (stats ? fmt(stats.todayPnl, { signed: true }) : "—")}
+            value={hideBalance ? masked : stats ? fmt(stats.todayPnl, { signed: true }) : "—"}
             pct={stats?.todayPnlPct}
             icon={<ArrowUpRight className="size-3" />}
             sub={
@@ -156,14 +185,16 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
           />
           <WealthStat
             label="7-Day Change"
-            value={hideBalance ? masked : (stats ? fmt(stats.weekChangeAbs, { signed: true }) : "—")}
+            value={hideBalance ? masked : stats ? fmt(stats.weekChangeAbs, { signed: true }) : "—"}
             pct={stats?.weekChangePct}
             icon={<TrendingUp className="size-3" />}
           />
           {!hide30d && (
             <WealthStat
               label="30-Day Change"
-              value={hideBalance ? masked : (stats ? fmt(stats.monthlyGrowthAbs, { signed: true }) : "—")}
+              value={
+                hideBalance ? masked : stats ? fmt(stats.monthlyGrowthAbs, { signed: true }) : "—"
+              }
               pct={stats?.monthlyGrowthPct}
               icon={<CalendarRange className="size-3" />}
             />
@@ -174,17 +205,25 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
   );
 }
 
-
 export function MilestoneCard({
-  stats, equityFallback, hideBalance,
-}: { stats?: DashboardStats; equityFallback: number; hideBalance: boolean }) {
+  stats,
+  equityFallback,
+  hideBalance,
+}: {
+  stats?: DashboardStats;
+  equityFallback: number;
+  hideBalance: boolean;
+}) {
   const { rate, symbol } = useCurrency();
   const portfolio = stats?.portfolioValue ?? equityFallback;
   const displayValue = portfolio * rate;
   const { next: nextDisplay, prev: prevDisplay } = nextNiceMilestone(displayValue);
   const milestoneProgress =
     nextDisplay > prevDisplay
-      ? Math.min(100, Math.max(0, ((displayValue - prevDisplay) / (nextDisplay - prevDisplay)) * 100))
+      ? Math.min(
+          100,
+          Math.max(0, ((displayValue - prevDisplay) / (nextDisplay - prevDisplay)) * 100),
+        )
       : 0;
   const toGo = Math.max(0, nextDisplay - displayValue);
   const fmtDisplay = (v: number) => {
@@ -242,7 +281,13 @@ export function PerformanceHistoryCard({ stats }: { stats?: DashboardStats }) {
 }
 
 function WealthStat({
-  label, value, pct, icon, plain, tone, sub,
+  label,
+  value,
+  pct,
+  icon,
+  plain,
+  tone,
+  sub,
 }: {
   label: string;
   value: string;
@@ -253,7 +298,11 @@ function WealthStat({
   sub?: string;
 }) {
   const t = plain
-    ? (tone === "positive" ? "text-emerald-500" : tone === "negative" ? "text-destructive" : "text-foreground")
+    ? tone === "positive"
+      ? "text-emerald-500"
+      : tone === "negative"
+        ? "text-destructive"
+        : "text-foreground"
     : toneClass(pct);
   return (
     <div className="rounded-2xl border bg-card p-3">
@@ -273,8 +322,6 @@ function WealthStat({
     </div>
   );
 }
-
-
 
 function Sparkline({ points }: { points: EquityPoint[] }) {
   const w = 320;
@@ -308,7 +355,14 @@ function Sparkline({ points }: { points: EquityPoint[] }) {
         </linearGradient>
       </defs>
       <path d={`${path} L ${w} ${h} L 0 ${h} Z`} fill="url(#sparkfill)" />
-      <path d={path} fill="none" stroke={stroke} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d={path}
+        fill="none"
+        stroke={stroke}
+        strokeWidth={1.75}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
       <circle cx={lastX} cy={lastY} r={2.5} fill={stroke} />
     </svg>
   );

@@ -34,9 +34,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 
 export const createRazorpayOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z.object({ tier: z.enum(["reco", "auto5", "unlimited"]) }).parse(d),
-  )
+  .inputValidator((d) => z.object({ tier: z.enum(["reco", "auto5", "unlimited"]) }).parse(d))
   .handler(async ({ data, context }) => {
     const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -46,10 +44,7 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
       );
     }
     const amount = PRICE_PAISE[data.tier];
-    const receipt = `earno_${data.tier}_${context.userId.slice(0, 8)}_${Date.now()}`.slice(
-      0,
-      40,
-    );
+    const receipt = `earno_${data.tier}_${context.userId.slice(0, 8)}_${Date.now()}`.slice(0, 40);
     const auth = btoa(`${keyId}:${keySecret}`);
     const res = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",

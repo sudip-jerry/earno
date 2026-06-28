@@ -25,11 +25,7 @@ export const PLAN_TAGLINE: Record<PlanTier, string> = {
 
 export const PLAN_FEATURES: Record<PlanTier, string[]> = {
   free: ["Browse market scanner", "View live opportunities (read-only)"],
-  reco: [
-    "Daily curated recommendations",
-    "Live opportunity scanner",
-    "Watchlist & alerts",
-  ],
+  reco: ["Daily curated recommendations", "Live opportunity scanner", "Watchlist & alerts"],
   auto5: [
     "Everything in Insights",
     "Auto-book up to 5 trades per day",

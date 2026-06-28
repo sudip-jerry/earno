@@ -75,7 +75,6 @@ function AdminPage() {
     refetchInterval: 15_000,
   });
 
-
   const [couponCode, setCouponCode] = useState("");
   const [couponTier, setCouponTier] = useState<"reco" | "auto5" | "unlimited">("reco");
   const [couponDays, setCouponDays] = useState(30);
@@ -87,8 +86,7 @@ function AdminPage() {
   });
 
   const setPlan = useMutation({
-    mutationFn: (v: { userId: string; tier: PlanTier; days: number }) =>
-      setPlanFn({ data: v }),
+    mutationFn: (v: { userId: string; tier: PlanTier; days: number }) => setPlanFn({ data: v }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin_users"] });
       toast.success("Plan updated");
@@ -110,8 +108,7 @@ function AdminPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
-  if (ent.isLoading)
-    return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
+  if (ent.isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
   if (!ent.data?.isAdmin)
     return (
       <div className="p-6 text-sm">
@@ -130,10 +127,7 @@ function AdminPage() {
   return (
     <div className="min-h-svh bg-background pb-16">
       <header className="px-5 pt-6 pb-4 flex items-center gap-2">
-        <Link
-          to="/"
-          className="size-9 grid place-items-center rounded-full hover:bg-muted -ml-2"
-        >
+        <Link to="/" className="size-9 grid place-items-center rounded-full hover:bg-muted -ml-2">
           <ChevronLeft className="size-5" />
         </Link>
         <h1 className="text-xl font-semibold">Admin</h1>
@@ -181,10 +175,7 @@ function AdminPage() {
             placeholder="CODE (A-Z, 0-9)"
           />
           <div className="grid grid-cols-2 gap-2">
-            <Select
-              value={couponTier}
-              onValueChange={(v) => setCouponTier(v as typeof couponTier)}
-            >
+            <Select value={couponTier} onValueChange={(v) => setCouponTier(v as typeof couponTier)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -229,8 +220,7 @@ function AdminPage() {
                     <Copy className="size-3 opacity-60" />
                   </button>
                   <p className="text-xs text-muted-foreground">
-                    {PLAN_NAME[c.tier as PlanTier]} · {c.duration_days}d · used{" "}
-                    {c.used_count}
+                    {PLAN_NAME[c.tier as PlanTier]} · {c.duration_days}d · used {c.used_count}
                     {c.max_uses ? `/${c.max_uses}` : ""}
                   </p>
                 </div>
@@ -291,16 +281,10 @@ function AdminPage() {
                         <SelectItem value="unlimited">Unlimited (∞)</SelectItem>
                       </SelectContent>
                     </Select>
-                    {isSaving && (
-                      <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                    )}
+                    {isSaving && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
                   </div>
                 </div>
-                <UserConfigEditor
-                  userId={x.id}
-                  label={x.email ?? x.id.slice(0, 8)}
-                  allUsers={u}
-                />
+                <UserConfigEditor userId={x.id} label={x.email ?? x.id.slice(0, 8)} allUsers={u} />
               </div>
             );
           })}
@@ -312,8 +296,13 @@ function AdminPage() {
           <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             All trades ({trades.data?.length ?? 0})
           </h2>
-          <Select value={tradeStatus} onValueChange={(v) => setTradeStatus(v as typeof tradeStatus)}>
-            <SelectTrigger className="w-28 h-7 text-xs"><SelectValue /></SelectTrigger>
+          <Select
+            value={tradeStatus}
+            onValueChange={(v) => setTradeStatus(v as typeof tradeStatus)}
+          >
+            <SelectTrigger className="w-28 h-7 text-xs">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="open">Open</SelectItem>
@@ -330,7 +319,11 @@ function AdminPage() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-medium">
-                      {t.symbol} <span className={t.side === "long" ? "text-emerald-500" : "text-destructive"}>{t.side.toUpperCase()}</span> ×{t.leverage}
+                      {t.symbol}{" "}
+                      <span className={t.side === "long" ? "text-emerald-500" : "text-destructive"}>
+                        {t.side.toUpperCase()}
+                      </span>{" "}
+                      ×{t.leverage}
                       <span className="text-muted-foreground"> · {t.mode}</span>
                     </p>
                     <p className="text-[10px] text-muted-foreground truncate">
@@ -340,12 +333,19 @@ function AdminPage() {
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className={`font-medium tabular-nums ${pnl == null ? "text-muted-foreground" : pnl >= 0 ? "text-emerald-500" : "text-destructive"}`}>
-                      {pnl == null ? (t.status === "open" ? "open" : "—") : `${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}`}
+                    <p
+                      className={`font-medium tabular-nums ${pnl == null ? "text-muted-foreground" : pnl >= 0 ? "text-emerald-500" : "text-destructive"}`}
+                    >
+                      {pnl == null
+                        ? t.status === "open"
+                          ? "open"
+                          : "—"
+                        : `${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}`}
                     </p>
                     {pnlPct != null && (
                       <p className="text-[10px] text-muted-foreground tabular-nums">
-                        {pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%
+                        {pnlPct >= 0 ? "+" : ""}
+                        {pnlPct.toFixed(2)}%
                       </p>
                     )}
                   </div>
@@ -365,7 +365,9 @@ function AdminPage() {
             Event logs ({events.data?.length ?? 0})
           </h2>
           <Select value={eventLevel} onValueChange={(v) => setEventLevel(v as typeof eventLevel)}>
-            <SelectTrigger className="w-28 h-7 text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-28 h-7 text-xs">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="info">Info</SelectItem>
@@ -379,16 +381,22 @@ function AdminPage() {
         <div className="space-y-1.5">
           {(events.data ?? []).map((e) => {
             const tone =
-              e.level === "error" ? "text-destructive" :
-              e.level === "warn" ? "text-amber-500" :
-              e.level === "trade" ? "text-emerald-500" :
-              e.level === "signal" ? "text-primary" :
-              "text-muted-foreground";
+              e.level === "error"
+                ? "text-destructive"
+                : e.level === "warn"
+                  ? "text-amber-500"
+                  : e.level === "trade"
+                    ? "text-emerald-500"
+                    : e.level === "signal"
+                      ? "text-primary"
+                      : "text-muted-foreground";
             return (
               <div key={e.id} className="rounded-lg border bg-card p-2.5 text-xs">
                 <div className="flex items-start justify-between gap-2">
                   <p className="min-w-0 break-words">
-                    <span className={`uppercase text-[10px] font-medium mr-1.5 ${tone}`}>{e.level}</span>
+                    <span className={`uppercase text-[10px] font-medium mr-1.5 ${tone}`}>
+                      {e.level}
+                    </span>
                     {e.message}
                   </p>
                   <span className="text-[10px] text-muted-foreground shrink-0">
@@ -407,21 +415,17 @@ function AdminPage() {
         </div>
       </section>
     </div>
-
   );
 }
 
 function Tile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border bg-card p-3">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </p>
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="text-xl font-semibold tabular-nums mt-0.5">{value}</p>
     </div>
   );
 }
-
 
 type EditableCfg = {
   is_running: boolean;
@@ -457,7 +461,6 @@ type EditableCfg = {
   blocked_session_hours_ist: number[];
 };
 
-
 const NUM_FIELDS: { key: keyof EditableCfg; label: string; step?: number }[] = [
   { key: "leverage", label: "Leverage" },
   { key: "risk_per_trade_pct", label: "Risk/trade %", step: 0.1 },
@@ -481,7 +484,6 @@ const NUM_FIELDS: { key: keyof EditableCfg; label: string; step?: number }[] = [
   { key: "minimum_net_profit_to_enter_pct", label: "Min net profit to enter %", step: 0.01 },
   { key: "major_coin_confidence_floor", label: "Major coin conf floor %", step: 1 },
 ];
-
 
 const BOOL_FIELDS: { key: keyof EditableCfg; label: string }[] = [
   { key: "is_running", label: "Bot running" },
@@ -517,8 +519,7 @@ function UserConfigEditor({
   });
 
   const upd = useMutation({
-    mutationFn: (p: Partial<EditableCfg>) =>
-      updFn({ data: { userId, patch: p } }),
+    mutationFn: (p: Partial<EditableCfg>) => updFn({ data: { userId, patch: p } }),
     onSuccess: () => {
       toast.success("Config saved");
       setPatch({});
@@ -529,8 +530,7 @@ function UserConfigEditor({
   });
 
   const copy = useMutation({
-    mutationFn: (fromUserId: string) =>
-      copyFn({ data: { fromUserId, toUserId: userId } }),
+    mutationFn: (fromUserId: string) => copyFn({ data: { fromUserId, toUserId: userId } }),
     onSuccess: () => {
       toast.success("Config copied");
       setCopyFrom("");
@@ -607,9 +607,7 @@ function UserConfigEditor({
                   <p className="text-[10px] text-muted-foreground mb-1">Style</p>
                   <Select
                     value={(get("trading_style") ?? "balanced") as string}
-                    onValueChange={(v) =>
-                      setK("trading_style", v as EditableCfg["trading_style"])
-                    }
+                    onValueChange={(v) => setK("trading_style", v as EditableCfg["trading_style"])}
                   >
                     <SelectTrigger className="h-7 text-xs">
                       <SelectValue />
@@ -655,7 +653,9 @@ function UserConfigEditor({
                           key={h}
                           type="button"
                           onClick={() => {
-                            const next = on ? cur.filter((x) => x !== h) : [...cur, h].sort((a, b) => a - b);
+                            const next = on
+                              ? cur.filter((x) => x !== h)
+                              : [...cur, h].sort((a, b) => a - b);
                             setK("blocked_session_hours_ist", next);
                           }}
                           className={`h-6 rounded text-[10px] tabular-nums border ${
@@ -671,11 +671,11 @@ function UserConfigEditor({
                       );
                     })}
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">Tap an hour to block/allow entries during that IST hour.</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Tap an hour to block/allow entries during that IST hour.
+                  </p>
                 </div>
               </div>
-
-
 
               <div className="grid grid-cols-2 gap-2">
                 {NUM_FIELDS.map((f) => {
@@ -715,7 +715,8 @@ function UserConfigEditor({
                   disabled={Object.keys(patch).length === 0 || upd.isPending}
                   onClick={() => upd.mutate(patch)}
                 >
-                  Save {Object.keys(patch).length > 0 ? `(${Object.keys(patch).length})` : ""} for {label.split("@")[0]}
+                  Save {Object.keys(patch).length > 0 ? `(${Object.keys(patch).length})` : ""} for{" "}
+                  {label.split("@")[0]}
                 </Button>
               </div>
             </>

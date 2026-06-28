@@ -88,7 +88,9 @@ export function CopilotBeta() {
 
   const top = movers.slice(0, 3);
   const best = top[0] ?? null;
-  const autoEligible = movers.filter((m) => m.eligible && m.action !== "avoid" && m.action !== "wait");
+  const autoEligible = movers.filter(
+    (m) => m.eligible && m.action !== "avoid" && m.action !== "wait",
+  );
   const requiredConf = 80;
   const highestConfMover = movers[0] ?? null;
   const noTradeReason = !autoEligible.length;
@@ -136,7 +138,9 @@ export function CopilotBeta() {
     const wins = rows.filter((r) => Number(r.pnl ?? 0) > 0);
     const losses = rows.filter((r) => Number(r.pnl ?? 0) < 0);
     const avgWin = wins.length ? wins.reduce((a, r) => a + Number(r.pnl), 0) / wins.length : 0;
-    const avgLoss = losses.length ? losses.reduce((a, r) => a + Number(r.pnl), 0) / losses.length : 0;
+    const avgLoss = losses.length
+      ? losses.reduce((a, r) => a + Number(r.pnl), 0) / losses.length
+      : 0;
     const grossWin = wins.reduce((a, r) => a + Number(r.pnl), 0);
     const grossLoss = Math.abs(losses.reduce((a, r) => a + Number(r.pnl), 0));
     const profitFactor = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? Infinity : 0;
@@ -179,7 +183,13 @@ export function CopilotBeta() {
     }
     try {
       await bookFn({
-        data: { symbol: m.symbol, side: m.action, price: m.price, market: "futures", confidence: m.confidence },
+        data: {
+          symbol: m.symbol,
+          side: m.action,
+          price: m.price,
+          market: "futures",
+          confidence: m.confidence,
+        },
       });
       toast.success(`Paper ${m.action.toUpperCase()} ${m.display} booked.`);
     } catch (e) {
@@ -190,234 +200,288 @@ export function CopilotBeta() {
   return (
     <>
       <BetaLanding />
-    <section className="px-5 pt-5 space-y-4">
-
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <div className="size-8 rounded-xl bg-primary/10 text-primary grid place-items-center">
-          <Sparkles className="size-4" />
+      <section className="px-5 pt-5 space-y-4">
+        {/* Header */}
+        <div className="flex items-center gap-2">
+          <div className="size-8 rounded-xl bg-primary/10 text-primary grid place-items-center">
+            <Sparkles className="size-4" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Wealth Copilot</p>
+            <p className="text-[11px] text-muted-foreground">
+              AI-curated opportunities, in plain English.
+            </p>
+          </div>
+          <span className="ml-auto text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full bg-primary text-primary-foreground">
+            BETA
+          </span>
         </div>
-        <div>
-          <p className="text-sm font-semibold">Wealth Copilot</p>
-          <p className="text-[11px] text-muted-foreground">AI-curated opportunities, in plain English.</p>
-        </div>
-        <span className="ml-auto text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full bg-primary text-primary-foreground">
-          BETA
-        </span>
-      </div>
 
-      {/* 1. AI Recommendation Card */}
-      {best && best.action !== "avoid" ? (
-        <div className="rounded-2xl border bg-gradient-to-br from-primary/5 to-transparent p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Best opportunity</p>
-              <p className="text-lg font-semibold mt-0.5">{best.display}</p>
+        {/* 1. AI Recommendation Card */}
+        {best && best.action !== "avoid" ? (
+          <div className="rounded-2xl border bg-gradient-to-br from-primary/5 to-transparent p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Best opportunity
+                </p>
+                <p className="text-lg font-semibold mt-0.5">{best.display}</p>
+              </div>
+              <span
+                className={`text-xs font-semibold px-2 h-6 inline-flex items-center rounded-md border ${actionTone(actionWord(best))}`}
+              >
+                {actionWord(best)}
+              </span>
             </div>
-            <span className={`text-xs font-semibold px-2 h-6 inline-flex items-center rounded-md border ${actionTone(actionWord(best))}`}>
-              {actionWord(best)}
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-3 mt-3">
-            <Stat label="Confidence" value={`${best.confidence}%`} sub={confLevel(best.confidence)} />
-            <Stat label="Expected return" value={`${best.tpPct.toFixed(1)}%`} />
-            <Stat label="Expected duration" value={`${expectedDurationMin(best)} min`} />
-          </div>
-          <p className="text-xs text-muted-foreground mt-3 leading-relaxed">{best.decisionSentence}</p>
-          <div className="flex gap-2 mt-3">
-            <Button
-              size="sm"
-              variant="outline"
-              className="flex-1 rounded-xl"
-              onClick={() => {
-                setWhyMover(best);
-                setWhyOpen(true);
-              }}
-            >
-              <HelpCircle className="size-4 mr-1.5" />
-              Why?
-            </Button>
-            <Button
-              size="sm"
-              className="flex-1 rounded-xl"
-              onClick={() => handlePaperTrade(best)}
-              disabled={best.action !== "long" && best.action !== "short"}
-            >
-              Paper trade
-            </Button>
-          </div>
-        </div>
-      ) : (
-        /* 3. Why No Trade Card */
-        <div className="rounded-2xl border bg-card p-4">
-          <p className="text-sm font-semibold">No trade currently active</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            No setup exceeds the confidence threshold right now.
-          </p>
-          <div className="grid grid-cols-2 gap-3 mt-3">
-            <Stat
-              label="Highest confidence"
-              value={highestConfMover ? `${highestConfMover.confidence}%` : "—"}
-              sub={highestConfMover?.display ?? ""}
-            />
-            <Stat label="Required" value={`${requiredConf}%`} />
-          </div>
-        </div>
-      )}
-
-      {/* 2. Top Opportunities Preview */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Top opportunities</h3>
-          <span className="text-[11px] text-muted-foreground">{moversQ.isFetching ? "Refreshing…" : "Live"}</span>
-        </div>
-        <div className="rounded-2xl border bg-card divide-y">
-          {top.length === 0 && (
-            <p className="p-6 text-center text-xs text-muted-foreground">Scanning markets…</p>
-          )}
-          {top.map((m) => {
-            const a = actionWord(m);
-            return (
-              <button
-                key={m.symbol}
-                type="button"
+            <div className="grid grid-cols-3 gap-3 mt-3">
+              <Stat
+                label="Confidence"
+                value={`${best.confidence}%`}
+                sub={confLevel(best.confidence)}
+              />
+              <Stat label="Expected return" value={`${best.tpPct.toFixed(1)}%`} />
+              <Stat label="Expected duration" value={`${expectedDurationMin(best)} min`} />
+            </div>
+            <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+              {best.decisionSentence}
+            </p>
+            <div className="flex gap-2 mt-3">
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 rounded-xl"
                 onClick={() => {
-                  setWhyMover(m);
+                  setWhyMover(best);
                   setWhyOpen(true);
                 }}
-                className="w-full flex items-center gap-3 p-3 hover:bg-muted/40 transition text-left"
               >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">{m.display}</p>
-                  <p className="text-[11px] text-muted-foreground">{confLevel(m.confidence)} confidence</p>
-                </div>
-                <span className={`text-[10px] font-semibold px-1.5 h-5 inline-flex items-center rounded border ${actionTone(a)}`}>
-                  {a}
-                </span>
-                <span className="text-sm font-semibold tabular-nums w-12 text-right">{m.confidence}%</span>
-                {m.bias === "long" ? (
-                  <TrendingUp className="size-4 text-emerald-500" />
-                ) : m.bias === "short" ? (
-                  <TrendingDown className="size-4 text-destructive" />
-                ) : (
-                  <Minus className="size-4 text-muted-foreground" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                <HelpCircle className="size-4 mr-1.5" />
+                Why?
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 rounded-xl"
+                onClick={() => handlePaperTrade(best)}
+                disabled={best.action !== "long" && best.action !== "short"}
+              >
+                Paper trade
+              </Button>
+            </div>
+          </div>
+        ) : (
+          /* 3. Why No Trade Card */
+          <div className="rounded-2xl border bg-card p-4">
+            <p className="text-sm font-semibold">No trade currently active</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              No setup exceeds the confidence threshold right now.
+            </p>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <Stat
+                label="Highest confidence"
+                value={highestConfMover ? `${highestConfMover.confidence}%` : "—"}
+                sub={highestConfMover?.display ?? ""}
+              />
+              <Stat label="Required" value={`${requiredConf}%`} />
+            </div>
+          </div>
+        )}
 
-      {/* 4. Bot Health */}
-      <div className="rounded-2xl border bg-card p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Activity className="size-4 text-primary" />
-          <p className="text-sm font-semibold">Bot health</p>
-          <span className={`ml-auto text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full ${
-            apiOk ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive"
-          }`}>
-            {apiOk ? "Healthy" : "Degraded"}
-          </span>
+        {/* 2. Top Opportunities Preview */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Top opportunities
+            </h3>
+            <span className="text-[11px] text-muted-foreground">
+              {moversQ.isFetching ? "Refreshing…" : "Live"}
+            </span>
+          </div>
+          <div className="rounded-2xl border bg-card divide-y">
+            {top.length === 0 && (
+              <p className="p-6 text-center text-xs text-muted-foreground">Scanning markets…</p>
+            )}
+            {top.map((m) => {
+              const a = actionWord(m);
+              return (
+                <button
+                  key={m.symbol}
+                  type="button"
+                  onClick={() => {
+                    setWhyMover(m);
+                    setWhyOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 p-3 hover:bg-muted/40 transition text-left"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{m.display}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {confLevel(m.confidence)} confidence
+                    </p>
+                  </div>
+                  <span
+                    className={`text-[10px] font-semibold px-1.5 h-5 inline-flex items-center rounded border ${actionTone(a)}`}
+                  >
+                    {a}
+                  </span>
+                  <span className="text-sm font-semibold tabular-nums w-12 text-right">
+                    {m.confidence}%
+                  </span>
+                  {m.bias === "long" ? (
+                    <TrendingUp className="size-4 text-emerald-500" />
+                  ) : m.bias === "short" ? (
+                    <TrendingDown className="size-4 text-destructive" />
+                  ) : (
+                    <Minus className="size-4 text-muted-foreground" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <Stat label="Last analysis" value={lastAnalysis != null ? `${lastAnalysis}s ago` : "—"} />
-          <Stat label="Futures scanned" value={`${futuresScanned}`} />
-          <Stat label="Signals today" value={`${signalsToday}`} />
-          <Stat label="Eligible trades" value={`${eligibleCount}`} />
-          <Stat label="API status" value={apiOk ? "Connected" : "Disconnected"} />
-        </div>
-      </div>
 
-      {/* 10. Market Mood */}
-      {mood && (
+        {/* 4. Bot Health */}
         <div className="rounded-2xl border bg-card p-4">
           <div className="flex items-center gap-2 mb-3">
-            <ShieldCheck className="size-4 text-primary" />
-            <p className="text-sm font-semibold">Market mood</p>
-            <span className={`ml-auto text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full ${
-              mood.tone === "Bullish" ? "bg-emerald-500/10 text-emerald-500" :
-              mood.tone === "Bearish" ? "bg-destructive/10 text-destructive" :
-              "bg-muted text-muted-foreground"
-            }`}>
-              {mood.tone}
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Stat label="Strength" value={`${mood.strength}/100`} />
-            <Stat label="Volume" value={mood.volume} />
-            <Stat label="Risk" value={mood.risk} />
-          </div>
-        </div>
-      )}
-
-      {/* 9. Wealth Goal */}
-      <div className="rounded-2xl border bg-card p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Target className="size-4 text-primary" />
-          <p className="text-sm font-semibold">My wealth goal</p>
-        </div>
-        <GoalEditor goal={goal} setGoal={setGoal} fmt={fmt} statsTodayPnl={statsQ.data?.todayPnl ?? 0} />
-      </div>
-
-      {/* 7. Performance Summary */}
-      <div className="rounded-2xl border bg-card p-4">
-        <p className="text-sm font-semibold mb-3">Performance summary</p>
-        <div className="grid grid-cols-2 gap-3">
-          <Stat label="Total trades" value={`${perf.total}`} />
-          <Stat label="Win rate" value={perf.total ? `${Math.round(perf.winRate * 100)}%` : "—"} />
-          <Stat label="Avg winner" value={perf.total ? fmt(perf.avgWin, { signed: true }) : "—"} />
-          <Stat label="Avg loser" value={perf.total ? fmt(perf.avgLoss, { signed: true }) : "—"} />
-          <Stat label="Profit factor" value={perf.profitFactor === Infinity ? "∞" : perf.profitFactor ? perf.profitFactor.toFixed(2) : "—"} />
-          <Stat label="Best trade" value={perf.total ? fmt(perf.best, { signed: true }) : "—"} />
-          <Stat label="Longest win streak" value={`${perf.longestWinStreak}`} />
-        </div>
-      </div>
-
-      {/* 11. Ask Earn'O placeholder */}
-      <div className="rounded-2xl border border-dashed bg-card p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <MessageSquare className="size-4 text-primary" />
-          <p className="text-sm font-semibold">Ask Earn'O</p>
-          <span className="ml-auto text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full bg-muted text-muted-foreground">
-            Coming soon
-          </span>
-        </div>
-        <p className="text-xs text-muted-foreground mb-3">Chat with your copilot in plain English. Examples:</p>
-        <div className="flex flex-wrap gap-2">
-          {[
-            "Why are we not trading?",
-            "Explain my last loss",
-            "Should I increase risk?",
-            "What is today's best opportunity?",
-          ].map((q) => (
+            <Activity className="size-4 text-primary" />
+            <p className="text-sm font-semibold">Bot health</p>
             <span
-              key={q}
-              className="text-[11px] px-2.5 h-7 inline-flex items-center rounded-full bg-muted text-muted-foreground"
+              className={`ml-auto text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full ${
+                apiOk ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive"
+              }`}
             >
-              {q}
+              {apiOk ? "Healthy" : "Degraded"}
             </span>
-          ))}
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <Stat
+              label="Last analysis"
+              value={lastAnalysis != null ? `${lastAnalysis}s ago` : "—"}
+            />
+            <Stat label="Futures scanned" value={`${futuresScanned}`} />
+            <Stat label="Signals today" value={`${signalsToday}`} />
+            <Stat label="Eligible trades" value={`${eligibleCount}`} />
+            <Stat label="API status" value={apiOk ? "Connected" : "Disconnected"} />
+          </div>
         </div>
-        <Button size="sm" variant="outline" className="rounded-xl mt-3 w-full" disabled>
-          Ask a question
-          <ChevronRight className="size-4 ml-1" />
-        </Button>
-      </div>
 
-      <p className="text-[11px] text-muted-foreground text-center pt-2 pb-1">
-        This is a beta preview. Existing dashboard is unchanged on other tabs.
-      </p>
+        {/* 10. Market Mood */}
+        {mood && (
+          <div className="rounded-2xl border bg-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <ShieldCheck className="size-4 text-primary" />
+              <p className="text-sm font-semibold">Market mood</p>
+              <span
+                className={`ml-auto text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full ${
+                  mood.tone === "Bullish"
+                    ? "bg-emerald-500/10 text-emerald-500"
+                    : mood.tone === "Bearish"
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {mood.tone}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <Stat label="Strength" value={`${mood.strength}/100`} />
+              <Stat label="Volume" value={mood.volume} />
+              <Stat label="Risk" value={mood.risk} />
+            </div>
+          </div>
+        )}
 
-      <RecommendationModal
-        open={whyOpen}
-        onOpenChange={setWhyOpen}
-        mover={whyMover}
-        dailyRiskAvailable={(statsQ.data?.dailyLossUsedPct ?? 0) < 100}
-      />
-    </section>
+        {/* 9. Wealth Goal */}
+        <div className="rounded-2xl border bg-card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Target className="size-4 text-primary" />
+            <p className="text-sm font-semibold">My wealth goal</p>
+          </div>
+          <GoalEditor
+            goal={goal}
+            setGoal={setGoal}
+            fmt={fmt}
+            statsTodayPnl={statsQ.data?.todayPnl ?? 0}
+          />
+        </div>
+
+        {/* 7. Performance Summary */}
+        <div className="rounded-2xl border bg-card p-4">
+          <p className="text-sm font-semibold mb-3">Performance summary</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Stat label="Total trades" value={`${perf.total}`} />
+            <Stat
+              label="Win rate"
+              value={perf.total ? `${Math.round(perf.winRate * 100)}%` : "—"}
+            />
+            <Stat
+              label="Avg winner"
+              value={perf.total ? fmt(perf.avgWin, { signed: true }) : "—"}
+            />
+            <Stat
+              label="Avg loser"
+              value={perf.total ? fmt(perf.avgLoss, { signed: true }) : "—"}
+            />
+            <Stat
+              label="Profit factor"
+              value={
+                perf.profitFactor === Infinity
+                  ? "∞"
+                  : perf.profitFactor
+                    ? perf.profitFactor.toFixed(2)
+                    : "—"
+              }
+            />
+            <Stat label="Best trade" value={perf.total ? fmt(perf.best, { signed: true }) : "—"} />
+            <Stat label="Longest win streak" value={`${perf.longestWinStreak}`} />
+          </div>
+        </div>
+
+        {/* 11. Ask Earn'O placeholder */}
+        <div className="rounded-2xl border border-dashed bg-card p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <MessageSquare className="size-4 text-primary" />
+            <p className="text-sm font-semibold">Ask Earn'O</p>
+            <span className="ml-auto text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full bg-muted text-muted-foreground">
+              Coming soon
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Chat with your copilot in plain English. Examples:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              "Why are we not trading?",
+              "Explain my last loss",
+              "Should I increase risk?",
+              "What is today's best opportunity?",
+            ].map((q) => (
+              <span
+                key={q}
+                className="text-[11px] px-2.5 h-7 inline-flex items-center rounded-full bg-muted text-muted-foreground"
+              >
+                {q}
+              </span>
+            ))}
+          </div>
+          <Button size="sm" variant="outline" className="rounded-xl mt-3 w-full" disabled>
+            Ask a question
+            <ChevronRight className="size-4 ml-1" />
+          </Button>
+        </div>
+
+        <p className="text-[11px] text-muted-foreground text-center pt-2 pb-1">
+          This is a beta preview. Existing dashboard is unchanged on other tabs.
+        </p>
+
+        <RecommendationModal
+          open={whyOpen}
+          onOpenChange={setWhyOpen}
+          mover={whyMover}
+          dailyRiskAvailable={(statsQ.data?.dailyLossUsedPct ?? 0) < 100}
+        />
+      </section>
     </>
   );
-
 }
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -446,7 +510,8 @@ function GoalEditor({
   // Use today's PnL as a proxy "current progress" delta; goal current is a local placeholder.
   const current = Math.max(0, goal * 0.47 + statsTodayPnl); // demo math
   const progress = Math.min(100, (current / Math.max(1, goal)) * 100);
-  const monthsLeft = progress > 0 ? Math.max(0.1, ((100 - progress) / Math.max(1, progress)) * 6).toFixed(1) : "—";
+  const monthsLeft =
+    progress > 0 ? Math.max(0.1, ((100 - progress) / Math.max(1, progress)) * 6).toFixed(1) : "—";
 
   return (
     <div>

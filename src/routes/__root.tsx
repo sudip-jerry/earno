@@ -78,25 +78,52 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Earn'O" },
-      { name: "description", content: "Automate futures trading on CoinDCX with this booking application." },
+      {
+        name: "description",
+        content: "Automate futures trading on CoinDCX with this booking application.",
+      },
       { name: "author", content: "Lovable" },
       { property: "og:title", content: "Earn'O" },
-      { property: "og:description", content: "Automate futures trading on CoinDCX with this booking application." },
+      {
+        property: "og:description",
+        content: "Automate futures trading on CoinDCX with this booking application.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
       { name: "twitter:title", content: "Earn'O" },
-      { name: "twitter:description", content: "Automate futures trading on CoinDCX with this booking application." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/1140a4e2-ff74-4184-b4a6-f01fa9ad3a01/id-preview-a6f821f6--ac00ba6e-fed5-4828-ad8c-e3c81a9eacc9.lovable.app-1781290909252.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/1140a4e2-ff74-4184-b4a6-f01fa9ad3a01/id-preview-a6f821f6--ac00ba6e-fed5-4828-ad8c-e3c81a9eacc9.lovable.app-1781290909252.png" },
+      {
+        name: "twitter:description",
+        content: "Automate futures trading on CoinDCX with this booking application.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/1140a4e2-ff74-4184-b4a6-f01fa9ad3a01/id-preview-a6f821f6--ac00ba6e-fed5-4828-ad8c-e3c81a9eacc9.lovable.app-1781290909252.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/1140a4e2-ff74-4184-b4a6-f01fa9ad3a01/id-preview-a6f821f6--ac00ba6e-fed5-4828-ad8c-e3c81a9eacc9.lovable.app-1781290909252.png",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" },
-      { rel: "icon", type: "image/png", href: "/__l5e/assets-v1/6734ade2-c96d-4982-b8f9-d84b150778ff/earno-icon.png" },
-      { rel: "apple-touch-icon", href: "/__l5e/assets-v1/6734ade2-c96d-4982-b8f9-d84b150778ff/earno-icon.png" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap",
+      },
+      {
+        rel: "icon",
+        type: "image/png",
+        href: "/__l5e/assets-v1/6734ade2-c96d-4982-b8f9-d84b150778ff/earno-icon.png",
+      },
+      {
+        rel: "apple-touch-icon",
+        href: "/__l5e/assets-v1/6734ade2-c96d-4982-b8f9-d84b150778ff/earno-icon.png",
+      },
     ],
   }),
   shellComponent: RootShell,

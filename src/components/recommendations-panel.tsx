@@ -84,9 +84,7 @@ export function RecommendationsPanel() {
     if (!autoApply) return;
     const data = q.data;
     if (!data || !data.isRunning || data.overall !== "red") return;
-    const redKinds = data.recommendations
-      .filter((r) => r.severity === "red")
-      .map((r) => r.kind);
+    const redKinds = data.recommendations.filter((r) => r.severity === "red").map((r) => r.kind);
     if (redKinds.length === 0) return;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
@@ -170,9 +168,7 @@ export function RecommendationsPanel() {
           <div className="border-t bg-background/40">
             <div className="flex items-center justify-between px-4 pt-3 pb-1 gap-3">
               <div className="min-w-0">
-                <p className="text-[11px] font-medium leading-tight">
-                  Auto-apply critical changes
-                </p>
+                <p className="text-[11px] font-medium leading-tight">Auto-apply critical changes</p>
                 <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
                   Dynamic — fires whenever red alerts trigger and the bot is running.
                 </p>
@@ -225,9 +221,7 @@ export function RecommendationsPanel() {
                   <Button
                     size="sm"
                     className="h-8 text-xs flex-1"
-                    disabled={
-                      !canApply || selected.size === 0 || apply.isPending
-                    }
+                    disabled={!canApply || selected.size === 0 || apply.isPending}
                     onClick={() => apply.mutate([...selected])}
                   >
                     {apply.isPending
@@ -249,8 +243,8 @@ export function RecommendationsPanel() {
                   </Button>
                 </div>
                 <p className="px-4 pb-3 text-[10px] text-muted-foreground">
-                  Changes apply to your paper-mode settings and take effect on
-                  the next scanner cycle.
+                  Changes apply to your paper-mode settings and take effect on the next scanner
+                  cycle.
                 </p>
               </>
             )}

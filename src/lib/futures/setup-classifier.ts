@@ -11,11 +11,7 @@
  */
 
 import type { SignalAnalysis } from "@/lib/signal-scoring.server";
-import type {
-  OverlapFlag,
-  PrimarySetup,
-  SetupClassification,
-} from "./futures-policy-types";
+import type { OverlapFlag, PrimarySetup, SetupClassification } from "./futures-policy-types";
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
@@ -94,11 +90,7 @@ function scorePullback(a: SignalAnalysis): number {
   return clamp(Math.round(s), 0, 100);
 }
 
-function detectOverlaps(
-  a: SignalAnalysis,
-  momentum: number,
-  pullback: number,
-): OverlapFlag[] {
+function detectOverlaps(a: SignalAnalysis, momentum: number, pullback: number): OverlapFlag[] {
   const flags: OverlapFlag[] = [];
   if (momentum >= 40 && pullback >= 40) flags.push("trend_and_mean_revert");
   if (momentum < 25 && pullback < 25) flags.push("weak_signal");

@@ -115,7 +115,9 @@ function StrictnessControl() {
   };
 
   const handleReset = async () => {
-    const ok = window.confirm(`Reset to "${STRICTNESS_PRESETS[strictness].label}" defaults? This will undo any auto-tune improvements.`);
+    const ok = window.confirm(
+      `Reset to "${STRICTNESS_PRESETS[strictness].label}" defaults? This will undo any auto-tune improvements.`,
+    );
     if (!ok) return;
     try {
       await updateFn({ data: presetPatch(strictness) as never });
@@ -125,7 +127,6 @@ function StrictnessControl() {
       toast.error(e instanceof Error ? e.message : "Reset failed");
     }
   };
-
 
   return (
     <div className="space-y-2">
@@ -346,7 +347,6 @@ const DEFAULTS: Cfg = {
   major_coin_confidence_floor: 90,
   blocked_session_hours_ist: [],
 };
-
 
 function SettingsPage() {
   const qc = useQueryClient();
@@ -769,10 +769,12 @@ function SettingsPage() {
               onChange={(v) => set("min_scalp_score", v)}
             />
           </Row>
-          <p className="text-[11px] text-muted-foreground px-4 pb-2">Controls which signals appear in the scanner. The auto-book threshold is set separately in Advanced settings.</p>
+          <p className="text-[11px] text-muted-foreground px-4 pb-2">
+            Controls which signals appear in the scanner. The auto-book threshold is set separately
+            in Advanced settings.
+          </p>
         </div>
       </section>
-
 
       {/* Trading Style preset */}
       <section className="px-5 mt-6">
@@ -945,7 +947,9 @@ function SettingsPage() {
             </Row>
 
             <div className="pt-2 border-t mt-2">
-              <p className="text-xs font-medium text-muted-foreground mt-3 mb-1">Entry gate thresholds</p>
+              <p className="text-xs font-medium text-muted-foreground mt-3 mb-1">
+                Entry gate thresholds
+              </p>
               <div className="space-y-5">
                 <SliderField
                   label="Max SL width (ATR %)"
@@ -983,20 +987,26 @@ function SettingsPage() {
                   value={get("major_coin_confidence_floor")}
                   onChange={(v) => set("major_coin_confidence_floor", v)}
                 />
-                <p className="text-[11px] text-muted-foreground">BTC/ETH/SOL/XRP etc only trade at this confidence. Data shows PF 1.04 above 90%, PF 0.14 below.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  BTC/ETH/SOL/XRP etc only trade at this confidence. Data shows PF 1.04 above 90%,
+                  PF 0.14 below.
+                </p>
                 <div className="text-[11px] text-muted-foreground">
-
                   <span className="font-medium text-foreground">Blocked IST hours: </span>
-                  {(get("blocked_session_hours_ist") as number[] ?? []).length > 0 ? (get("blocked_session_hours_ist") as number[]).join(", ") : "none"}
+                  {((get("blocked_session_hours_ist") as number[]) ?? []).length > 0
+                    ? (get("blocked_session_hours_ist") as number[]).join(", ")
+                    : "none"}
                   <span className="ml-1 opacity-60">(edit via Admin)</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground">These gates run before every trade is booked. Raising them reduces trade frequency but improves quality.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  These gates run before every trade is booked. Raising them reduces trade frequency
+                  but improves quality.
+                </p>
               </div>
             </div>
           </div>
         </details>
       </section>
-
 
       <section className="px-5 mt-6">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
@@ -1035,7 +1045,6 @@ function SettingsPage() {
           </p>
         </div>
       </section>
-
 
       {hasChanges && (
         <div className="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-4 flex gap-3 z-50 safe-area-pb">

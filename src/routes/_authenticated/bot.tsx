@@ -25,7 +25,10 @@ export const Route = createFileRoute("/_authenticated/bot")({
   head: () => ({
     meta: [
       { title: "Bot — Earn'O" },
-      { name: "description", content: "Manage your Earn'O Wealth Engine: pause, resume, or emergency-stop the bot." },
+      {
+        name: "description",
+        content: "Manage your Earn'O Wealth Engine: pause, resume, or emergency-stop the bot.",
+      },
     ],
   }),
   component: BotPage,
@@ -122,9 +125,13 @@ function BotPage() {
       <section className="px-5 mt-2 space-y-3">
         <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <div className={`size-2.5 rounded-full shrink-0 ${isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/40"}`} />
+            <div
+              className={`size-2.5 rounded-full shrink-0 ${isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/40"}`}
+            />
             <div className="min-w-0">
-              <p className="font-medium text-sm">Wealth Engine {isRunning ? "running" : "paused"}</p>
+              <p className="font-medium text-sm">
+                Wealth Engine {isRunning ? "running" : "paused"}
+              </p>
               <p className="text-xs text-muted-foreground">
                 {isRunning ? "Auto-booking is active" : "Tap to resume auto-booking"}
               </p>
@@ -150,12 +157,12 @@ function BotPage() {
 
         {stats.data?.noTradeReason && stats.data.noTradeReason !== "Waiting for better entry." && (
           <div className="rounded-2xl border bg-muted/40 px-4 py-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Why no trade</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">
+              Why no trade
+            </p>
             <p className="text-sm">{stats.data.noTradeReason}</p>
           </div>
         )}
-
-
 
         <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
           <div className="min-w-0">
@@ -165,7 +172,11 @@ function BotPage() {
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className={`text-[11px] font-semibold tracking-wider ${!isLive ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>PAPER</span>
+            <span
+              className={`text-[11px] font-semibold tracking-wider ${!isLive ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}
+            >
+              PAPER
+            </span>
             <Switch
               checked={isLive}
               disabled={toggleMode.isPending}
@@ -175,14 +186,23 @@ function BotPage() {
               }}
               aria-label="Toggle paper or live trading"
             />
-            <span className={`text-[11px] font-semibold tracking-wider ${isLive ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>LIVE</span>
+            <span
+              className={`text-[11px] font-semibold tracking-wider ${isLive ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}
+            >
+              LIVE
+            </span>
           </div>
         </div>
 
-        <Link to="/settings" className="rounded-2xl border bg-card p-4 flex items-center justify-between hover:bg-muted/40 transition">
+        <Link
+          to="/settings"
+          className="rounded-2xl border bg-card p-4 flex items-center justify-between hover:bg-muted/40 transition"
+        >
           <div className="min-w-0">
             <p className="text-sm font-medium">Risk &amp; strategy</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Leverage, TP/SL, daily-loss cap ({dailyCap}%)</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Leverage, TP/SL, daily-loss cap ({dailyCap}%)
+            </p>
           </div>
           <ChevronRight className="size-4 text-muted-foreground" />
         </Link>
@@ -228,8 +248,8 @@ function BotPage() {
               Switch to Live trading?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Real orders will be placed on CoinDCX using your funds. Your daily-loss cap is {dailyCap}%.
-              You can switch back to Paper anytime.
+              Real orders will be placed on CoinDCX using your funds. Your daily-loss cap is{" "}
+              {dailyCap}%. You can switch back to Paper anytime.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -252,8 +272,8 @@ function BotPage() {
               Emergency Stop
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will immediately halt the bot and force-close every open position at market price.
-              This action cannot be undone.
+              This will immediately halt the bot and force-close every open position at market
+              price. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -280,7 +300,13 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function NextRunCard({ disabled, onRun }: { disabled: boolean; onRun: () => void | Promise<void> }) {
+function NextRunCard({
+  disabled,
+  onRun,
+}: {
+  disabled: boolean;
+  onRun: () => void | Promise<void>;
+}) {
   const [now, setNow] = useState(() => Date.now());
   const [pending, setPending] = useState(false);
   const [cooldownUntil, setCooldownUntil] = useState(0);

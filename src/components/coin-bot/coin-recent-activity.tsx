@@ -26,9 +26,13 @@ export function CoinRecentActivity({ limit = 8 }: { limit?: number }) {
 
   return (
     <section>
-      <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">Recent coin activity</div>
+      <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">
+        Recent coin activity
+      </div>
       {closed.length === 0 ? (
-        <div className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">No closed coin trades yet.</div>
+        <div className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
+          No closed coin trades yet.
+        </div>
       ) : (
         <ul className="rounded-2xl border bg-card divide-y">
           {closed.map((c: any) => {
@@ -38,13 +42,19 @@ export function CoinRecentActivity({ limit = 8 }: { limit?: number }) {
               <li key={c.id} className="px-3 py-2 flex items-center gap-3 text-xs">
                 <div className="min-w-0 flex-1">
                   <div className="font-medium text-sm">{c.display}</div>
-                  <div className="text-[10px] text-muted-foreground truncate">{c.exit_reason ?? "closed"} · {ago(c.closed_at)} ago</div>
+                  <div className="text-[10px] text-muted-foreground truncate">
+                    {c.exit_reason ?? "closed"} · {ago(c.closed_at)} ago
+                  </div>
                 </div>
                 <div className="text-right tabular-nums">
-                  <div className={`text-sm font-semibold ${pos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                  <div
+                    className={`text-sm font-semibold ${pos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                  >
                     {fmt(pnl, { signed: true })}
                   </div>
-                  <div className="text-[10px] text-muted-foreground">@ {fmtPrice(c.exit_price)} USDT</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    @ {fmtPrice(c.exit_price)} USDT
+                  </div>
                 </div>
               </li>
             );

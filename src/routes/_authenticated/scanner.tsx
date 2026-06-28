@@ -20,7 +20,11 @@ export const Route = createFileRoute("/_authenticated/scanner")({
   head: () => ({
     meta: [
       { title: "Market Scanner — Earn'O" },
-      { name: "description", content: "Futures pairs ranked by confidence with simple Long/Short/Wait/Avoid recommendations." },
+      {
+        name: "description",
+        content:
+          "Futures pairs ranked by confidence with simple Long/Short/Wait/Avoid recommendations.",
+      },
     ],
   }),
   component: ScannerPage,
@@ -57,14 +61,23 @@ function ScannerPage() {
 
   const book = useMutation({
     mutationFn: async (input: { m: Mover; side: "long" | "short"; tpPct: number; slPct: number }) =>
-      bookFn({ data: {
-        symbol: input.m.symbol, side: input.side, price: input.m.price, market,
-        confidence: input.m.confidence, tpPct: input.tpPct, slPct: input.slPct,
-      } }),
+      bookFn({
+        data: {
+          symbol: input.m.symbol,
+          side: input.side,
+          price: input.m.price,
+          market,
+          confidence: input.m.confidence,
+          tpPct: input.tpPct,
+          slPct: input.slPct,
+        },
+      }),
     onMutate: (v) => setPending(v.m.symbol),
     onSettled: () => setPending(null),
     onSuccess: (_d, v) => {
-      toast.success(`${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked · Target +${v.tpPct.toFixed(2)}% · Stop −${v.slPct.toFixed(2)}%`);
+      toast.success(
+        `${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked · Target +${v.tpPct.toFixed(2)}% · Stop −${v.slPct.toFixed(2)}%`,
+      );
       qc.invalidateQueries({ queryKey: ["positions_open"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Booking failed"),
@@ -82,7 +95,6 @@ function ScannerPage() {
   }, [all, tradableOnly, action, minConfidence]);
 
   const errorMsg = q.data && !q.data.ok ? q.data.error : null;
-
 
   if (market === "spot") {
     return <CoinScannerView />;
@@ -200,7 +212,9 @@ function CoinScannerView() {
           <Radar className="size-5 text-primary" />
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Coin Scanner</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Live CoinDCX coins · paper buy/sell</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Live CoinDCX coins · paper buy/sell
+            </p>
           </div>
         </div>
         <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">

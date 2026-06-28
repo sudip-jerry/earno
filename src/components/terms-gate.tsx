@@ -54,19 +54,47 @@ export function TermsGate({ children }: { children: React.ReactNode }) {
           </p>
         </div>
         <ScrollArea className="flex-1 px-5 py-4 text-sm text-muted-foreground space-y-3">
-          <p><strong className="text-foreground">You control your account.</strong> Earn'O never custodies funds. Your CoinDCX API keys stay encrypted and Futures-scoped.</p>
-          <p><strong className="text-foreground">You assume trading risk.</strong> Leveraged crypto futures can result in total loss. You're solely responsible for orders placed under your configuration.</p>
-          <p><strong className="text-foreground">No guaranteed returns.</strong> Past performance and paper results do not indicate future outcomes.</p>
-          <p><strong className="text-foreground">Automation is opt-in.</strong> Auto-book is off by default and can be paused anytime.</p>
-          <p>Earn'O provides automated strategy execution, quantitative market analysis, and user-controlled automation — not guaranteed profits, "beating the market", or risk-free trading.</p>
           <p>
-            Read the full <Link to="/terms" className="text-primary underline">Terms & Disclaimer</Link>.
+            <strong className="text-foreground">You control your account.</strong> Earn'O never
+            custodies funds. Your CoinDCX API keys stay encrypted and Futures-scoped.
+          </p>
+          <p>
+            <strong className="text-foreground">You assume trading risk.</strong> Leveraged crypto
+            futures can result in total loss. You're solely responsible for orders placed under your
+            configuration.
+          </p>
+          <p>
+            <strong className="text-foreground">No guaranteed returns.</strong> Past performance and
+            paper results do not indicate future outcomes.
+          </p>
+          <p>
+            <strong className="text-foreground">Automation is opt-in.</strong> Auto-book is off by
+            default and can be paused anytime.
+          </p>
+          <p>
+            Earn'O provides automated strategy execution, quantitative market analysis, and
+            user-controlled automation — not guaranteed profits, "beating the market", or risk-free
+            trading.
+          </p>
+          <p>
+            Read the full{" "}
+            <Link to="/terms" className="text-primary underline">
+              Terms & Disclaimer
+            </Link>
+            .
           </p>
         </ScrollArea>
         <div className="p-5 border-t space-y-3">
           <label className="flex items-start gap-2 text-sm cursor-pointer">
-            <Checkbox checked={agreed} onCheckedChange={(v) => setAgreed(v === true)} className="mt-0.5" />
-            <span>I have read and agree to the Terms & Risk Disclaimer, and I consent to Earn'O automating trades on my CoinDCX account when I enable it.</span>
+            <Checkbox
+              checked={agreed}
+              onCheckedChange={(v) => setAgreed(v === true)}
+              className="mt-0.5"
+            />
+            <span>
+              I have read and agree to the Terms & Risk Disclaimer, and I consent to Earn'O
+              automating trades on my CoinDCX account when I enable it.
+            </span>
           </label>
           <Button className="w-full" disabled={!agreed || saving} onClick={accept}>
             {saving ? "Saving…" : "Agree & continue"}

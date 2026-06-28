@@ -119,9 +119,7 @@ export const getMyRecommendations = createServerFn({ method: "GET" })
     const config = (cfg ?? null) as CfgRow | null;
     const all = (pos ?? []) as Pos[];
     const closed = all.filter((p) => p.status === "closed");
-    const today = closed.filter(
-      (p) => p.closed_at && new Date(p.closed_at) >= sinceUtc,
-    );
+    const today = closed.filter((p) => p.closed_at && new Date(p.closed_at) >= sinceUtc);
 
     const equity = Number(config?.paper_equity ?? 0) || 1000;
     const todayPnl = today.reduce((s, p) => s + Number(p.pnl ?? 0), 0);
@@ -155,8 +153,7 @@ export const getMyRecommendations = createServerFn({ method: "GET" })
         severity: "red",
         title: `Loss streak: ${streak} in a row today`,
         why: `Auto-book is compounding losses. Pause and tighten before next trade.`,
-        willDo:
-          "Raise auto-book confidence by +10, halve risk per trade, set cooldown ≥ 60 min.",
+        willDo: "Raise auto-book confidence by +10, halve risk per trade, set cooldown ≥ 60 min.",
       });
     }
 
@@ -226,8 +223,7 @@ export const getMyRecommendations = createServerFn({ method: "GET" })
         severity: "amber",
         title: `Profit factor ${pf.toFixed(2)} over last ${closed.length} trades`,
         why: `Losers outweigh winners. Current settings are net-unprofitable.`,
-        willDo:
-          "Halve risk per trade, +10 confidence threshold, cap trades/day at 8.",
+        willDo: "Halve risk per trade, +10 confidence threshold, cap trades/day at 8.",
       });
     }
 
@@ -266,8 +262,7 @@ export const getMyRecommendations = createServerFn({ method: "GET" })
         severity: "amber",
         title: "Auto-blacklist takes too long to kick in",
         why: `A symbol needs ${blThresh} losses in 24h to be auto-skipped. In a bad tape this leaks money.`,
-        willDo:
-          "Tighten auto-blacklist to 2 losses/24h and extend SL cooldown to 6h.",
+        willDo: "Tighten auto-blacklist to 2 losses/24h and extend SL cooldown to 6h.",
       });
     }
 
@@ -296,10 +291,7 @@ export const getMyRecommendations = createServerFn({ method: "GET" })
   });
 
 // ---------------- Shared patch builder ----------------
-function buildPatchForKinds(
-  kinds: string[],
-  cur: CfgRow,
-): Record<string, unknown> {
+function buildPatchForKinds(kinds: string[], cur: CfgRow): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
   const conf = cur.auto_book_confidence_threshold ?? 70;
   for (const id of kinds) {
@@ -379,15 +371,11 @@ function buildPatchForKinds(
         break;
       case "auto-blacklist-loose":
         patch.symbol_blacklist_threshold = Math.min(
-          Number(
-            patch.symbol_blacklist_threshold ?? cur.symbol_blacklist_threshold ?? 3,
-          ),
+          Number(patch.symbol_blacklist_threshold ?? cur.symbol_blacklist_threshold ?? 3),
           2,
         );
         patch.symbol_sl_cooldown_minutes = Math.max(
-          Number(
-            patch.symbol_sl_cooldown_minutes ?? cur.symbol_sl_cooldown_minutes ?? 180,
-          ),
+          Number(patch.symbol_sl_cooldown_minutes ?? cur.symbol_sl_cooldown_minutes ?? 180),
           360,
         );
         break;
@@ -517,11 +505,13 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
       .gte("closed_at", since24h);
     const recent24Rows = (recent24 ?? []) as Array<{ pnl: number | null }>;
     const pnl24h = recent24Rows.reduce((s, r) => s + Number(r.pnl ?? 0), 0);
-    const wins24h = recent24Rows.filter((r) => Number(r.pnl ?? 0) > 0).reduce((s, r) => s + Number(r.pnl ?? 0), 0);
+    const wins24h = recent24Rows
+      .filter((r) => Number(r.pnl ?? 0) > 0)
+      .reduce((s, r) => s + Number(r.pnl ?? 0), 0);
     const loss24h = recent24Rows
       .filter((r) => Number(r.pnl ?? 0) < 0)
       .reduce((s, r) => s + Math.abs(Number(r.pnl ?? 0)), 0);
-    const pf24h = loss24h > 0 ? wins24h / loss24h : (wins24h > 0 ? Infinity : 0);
+    const pf24h = loss24h > 0 ? wins24h / loss24h : wins24h > 0 ? Infinity : 0;
     const losingDay = pnl24h < 0;
 
     const skippedFields: Array<{ field: string; reason: string }> = [];
@@ -534,26 +524,50 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
 
     if (losingDay) {
       // Cap-up / risk-up / cooldown-down all forbidden on losing day.
-      if (typeof patch.risk_per_trade_pct === "number" && patch.risk_per_trade_pct > Number(cur.risk_per_trade_pct ?? 0)) {
+      if (
+        typeof patch.risk_per_trade_pct === "number" &&
+        patch.risk_per_trade_pct > Number(cur.risk_per_trade_pct ?? 0)
+      ) {
         drop("risk_per_trade_pct", "anti-thrash: losing day, cannot increase risk");
       }
-      if (typeof patch.max_trades_per_day === "number" && patch.max_trades_per_day > Number(cur.max_trades_per_day ?? 0)) {
+      if (
+        typeof patch.max_trades_per_day === "number" &&
+        patch.max_trades_per_day > Number(cur.max_trades_per_day ?? 0)
+      ) {
         drop("max_trades_per_day", "anti-thrash: losing day, cannot increase trades/day");
       }
-      if (typeof patch.cooldown_minutes === "number" && patch.cooldown_minutes < Number(cur.cooldown_minutes ?? 0)) {
+      if (
+        typeof patch.cooldown_minutes === "number" &&
+        patch.cooldown_minutes < Number(cur.cooldown_minutes ?? 0)
+      ) {
         drop("cooldown_minutes", "anti-thrash: losing day, cannot reduce cooldown");
       }
-      if (typeof patch.symbol_sl_cooldown_minutes === "number" && patch.symbol_sl_cooldown_minutes < Number(cur.symbol_sl_cooldown_minutes ?? 0)) {
-        drop("symbol_sl_cooldown_minutes", "anti-thrash: losing day, cannot reduce symbol cooldown");
+      if (
+        typeof patch.symbol_sl_cooldown_minutes === "number" &&
+        patch.symbol_sl_cooldown_minutes < Number(cur.symbol_sl_cooldown_minutes ?? 0)
+      ) {
+        drop(
+          "symbol_sl_cooldown_minutes",
+          "anti-thrash: losing day, cannot reduce symbol cooldown",
+        );
       }
-      if (typeof patch.auto_book_confidence_threshold === "number" && patch.auto_book_confidence_threshold < Number(cur.auto_book_confidence_threshold ?? 0)) {
+      if (
+        typeof patch.auto_book_confidence_threshold === "number" &&
+        patch.auto_book_confidence_threshold < Number(cur.auto_book_confidence_threshold ?? 0)
+      ) {
         drop("auto_book_confidence_threshold", "anti-thrash: losing day, cannot lower confidence");
       }
     }
     // Risk-up requires PF > 1.2 and sample >= 20 even on a positive day.
-    if (typeof patch.risk_per_trade_pct === "number" && patch.risk_per_trade_pct > Number(cur.risk_per_trade_pct ?? 0)) {
+    if (
+      typeof patch.risk_per_trade_pct === "number" &&
+      patch.risk_per_trade_pct > Number(cur.risk_per_trade_pct ?? 0)
+    ) {
       if (!(pf24h > 1.2 && recent24Rows.length >= 20)) {
-        drop("risk_per_trade_pct", `anti-thrash: risk-up needs 24h PF>1.2 (was ${pf24h.toFixed(2)}) and trades>=20 (was ${recent24Rows.length})`);
+        drop(
+          "risk_per_trade_pct",
+          `anti-thrash: risk-up needs 24h PF>1.2 (was ${pf24h.toFixed(2)}) and trades>=20 (was ${recent24Rows.length})`,
+        );
       }
     }
 
@@ -565,7 +579,9 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
       .select("field")
       .eq("user_id", userId)
       .gte("changed_at", cooldownSince);
-    const recentFields = new Set(((recentChanges ?? []) as Array<{ field: string }>).map((r) => r.field));
+    const recentFields = new Set(
+      ((recentChanges ?? []) as Array<{ field: string }>).map((r) => r.field),
+    );
     for (const f of Object.keys(patch)) {
       if (recentFields.has(f)) drop(f, "anti-thrash: field changed in last 24h");
     }
@@ -581,7 +597,6 @@ export const autoApplyCriticalRecommendations = createServerFn({ method: "POST" 
       }
       return { ok: true, skipped: "no_change" as const, applied: [] };
     }
-
 
     const { error: upErr } = await supabase
       .from("bot_config")

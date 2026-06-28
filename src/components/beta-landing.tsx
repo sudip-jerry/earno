@@ -47,9 +47,8 @@ export function BetaLanding() {
                 <span style={{ color: PRIMARY }}>Grow Better.</span>
               </h1>
               <p className="mt-5 text-sm sm:text-lg text-neutral-600 max-w-xl leading-relaxed">
-                Earn'O helps traders discover opportunities, understand market
-                conditions, test strategies, and automate execution with
-                confidence.
+                Earn'O helps traders discover opportunities, understand market conditions, test
+                strategies, and automate execution with confidence.
               </p>
               <div className="mt-7 flex flex-col sm:flex-row gap-3">
                 <Link
@@ -74,14 +73,20 @@ export function BetaLanding() {
                 aria-hidden
                 className="absolute -inset-6 -z-10 rounded-3xl"
                 style={{
-                  background:
-                    "linear-gradient(135deg, rgba(8,37,103,0.08), rgba(8,37,103,0.0))",
+                  background: "linear-gradient(135deg, rgba(8,37,103,0.08), rgba(8,37,103,0.0))",
                 }}
               />
               <div className="space-y-3">
                 <OppCard pair="BTC/USDT" side="Long" confidence={84} expReturn={0.6} risk={0.3} />
                 <OppCard pair="ETH/USDT" side="Short" confidence={81} expReturn={0.5} risk={0.25} />
-                <OppCard pair="SOL/USDT" side="Long" confidence={76} expReturn={0.8} risk={0.4} muted />
+                <OppCard
+                  pair="SOL/USDT"
+                  side="Long"
+                  confidence={76}
+                  expReturn={0.8}
+                  risk={0.4}
+                  muted
+                />
               </div>
             </div>
           </div>
@@ -90,29 +95,69 @@ export function BetaLanding() {
 
       <Section eyebrow="Why Earn'O" title="Built for serious traders, made simple.">
         <div className="grid md:grid-cols-3 gap-4">
-          <Feature icon={<Brain className="size-5" />} title="AI Market Intelligence" body="Analyze markets continuously and surface the most relevant opportunities." />
-          <Feature icon={<FlaskConical className="size-5" />} title="Paper Trading First" body="Validate ideas and strategies before risking real capital." />
-          <Feature icon={<Bot className="size-5" />} title="Automation With Control" body="Automate execution while staying in control of risk and decision-making." />
+          <Feature
+            icon={<Brain className="size-5" />}
+            title="AI Market Intelligence"
+            body="Analyze markets continuously and surface the most relevant opportunities."
+          />
+          <Feature
+            icon={<FlaskConical className="size-5" />}
+            title="Paper Trading First"
+            body="Validate ideas and strategies before risking real capital."
+          />
+          <Feature
+            icon={<Bot className="size-5" />}
+            title="Automation With Control"
+            body="Automate execution while staying in control of risk and decision-making."
+          />
         </div>
       </Section>
 
       <Section eyebrow="How it works" title="From signal to execution in three steps.">
         <div className="grid md:grid-cols-3 gap-4">
-          <Step n={1} icon={<Radar className="size-5" />} title="Scan" body="Monitor hundreds of market conditions in real time." />
-          <Step n={2} icon={<Eye className="size-5" />} title="Understand" body="See confidence, risk and rationale behind every opportunity." />
-          <Step n={3} icon={<Play className="size-5" />} title="Execute" body="Paper trade, automate, or execute manually." />
+          <Step
+            n={1}
+            icon={<Radar className="size-5" />}
+            title="Scan"
+            body="Monitor hundreds of market conditions in real time."
+          />
+          <Step
+            n={2}
+            icon={<Eye className="size-5" />}
+            title="Understand"
+            body="See confidence, risk and rationale behind every opportunity."
+          />
+          <Step
+            n={3}
+            icon={<Play className="size-5" />}
+            title="Execute"
+            body="Paper trade, automate, or execute manually."
+          />
         </div>
       </Section>
 
       <Section eyebrow="Opportunity Engine" title="Every signal comes with a reason.">
         <div className="grid md:grid-cols-2 gap-4">
-          <OppCard pair="BTC/USDT" side="Long" confidence={84} expReturn={0.6} risk={0.3} expanded />
-          <OppCard pair="ETH/USDT" side="Short" confidence={81} expReturn={0.5} risk={0.25} expanded />
+          <OppCard
+            pair="BTC/USDT"
+            side="Long"
+            confidence={84}
+            expReturn={0.6}
+            risk={0.3}
+            expanded
+          />
+          <OppCard
+            pair="ETH/USDT"
+            side="Short"
+            confidence={81}
+            expReturn={0.5}
+            risk={0.25}
+            expanded
+          />
         </div>
         <p className="mt-6 text-sm text-neutral-600 max-w-2xl">
-          Each opportunity tells you why it was identified — the trend, entry
-          quality, momentum and risk signals — so you can act with conviction
-          instead of guessing.
+          Each opportunity tells you why it was identified — the trend, entry quality, momentum and
+          risk signals — so you can act with conviction instead of guessing.
         </p>
       </Section>
 
@@ -126,8 +171,14 @@ export function BetaLanding() {
             { icon: <Layers className="size-4" />, t: "Automated safeguards" },
             { icon: <ShieldCheck className="size-4" />, t: "Capital preservation" },
           ].map((x) => (
-            <div key={x.t} className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm">
-              <span className="inline-flex items-center justify-center size-7 rounded-md" style={{ backgroundColor: "rgba(8,37,103,0.08)", color: PRIMARY }}>
+            <div
+              key={x.t}
+              className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm"
+            >
+              <span
+                className="inline-flex items-center justify-center size-7 rounded-md"
+                style={{ backgroundColor: "rgba(8,37,103,0.08)", color: PRIMARY }}
+              >
                 {x.icon}
               </span>
               <span className="font-medium text-neutral-900">{x.t}</span>
@@ -160,7 +211,9 @@ export function BetaLanding() {
                 "radial-gradient(60% 60% at 50% 0%, rgba(255,255,255,0.4), rgba(255,255,255,0) 70%)",
             }}
           />
-          <h2 className="relative text-2xl md:text-5xl font-semibold tracking-tight">Wealth, Engineered.</h2>
+          <h2 className="relative text-2xl md:text-5xl font-semibold tracking-tight">
+            Wealth, Engineered.
+          </h2>
           <p className="relative mt-4 text-white/80 max-w-xl mx-auto text-sm md:text-base">
             Discover opportunities, test ideas, and automate with confidence.
           </p>
@@ -214,7 +267,10 @@ function Section({
 function Feature({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white p-5 hover:shadow-sm transition">
-      <span className="inline-flex items-center justify-center size-10 rounded-xl" style={{ backgroundColor: "rgba(8,37,103,0.08)", color: PRIMARY }}>
+      <span
+        className="inline-flex items-center justify-center size-10 rounded-xl"
+        style={{ backgroundColor: "rgba(8,37,103,0.08)", color: PRIMARY }}
+      >
         {icon}
       </span>
       <h3 className="mt-4 text-base font-semibold text-neutral-900">{title}</h3>
@@ -223,11 +279,24 @@ function Feature({ icon, title, body }: { icon: React.ReactNode; title: string; 
   );
 }
 
-function Step({ n, icon, title, body }: { n: number; icon: React.ReactNode; title: string; body: string }) {
+function Step({
+  n,
+  icon,
+  title,
+  body,
+}: {
+  n: number;
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white p-5">
       <div className="flex items-center gap-3">
-        <span className="text-xs font-semibold rounded-full px-2 py-0.5" style={{ color: PRIMARY, backgroundColor: "rgba(8,37,103,0.08)" }}>
+        <span
+          className="text-xs font-semibold rounded-full px-2 py-0.5"
+          style={{ color: PRIMARY, backgroundColor: "rgba(8,37,103,0.08)" }}
+        >
           Step {n}
         </span>
         <span className="text-neutral-400">{icon}</span>
@@ -241,7 +310,10 @@ function Step({ n, icon, title, body }: { n: number; icon: React.ReactNode; titl
 function FeatureLite({ icon, t }: { icon: React.ReactNode; t: string }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3.5">
-      <span className="inline-flex items-center justify-center size-8 rounded-md" style={{ backgroundColor: "rgba(8,37,103,0.08)", color: PRIMARY }}>
+      <span
+        className="inline-flex items-center justify-center size-8 rounded-md"
+        style={{ backgroundColor: "rgba(8,37,103,0.08)", color: PRIMARY }}
+      >
         {icon}
       </span>
       <span className="text-sm font-medium text-neutral-900">{t}</span>
@@ -292,8 +364,12 @@ function OppCard({
           <p className="text-[11px] text-neutral-500 mt-0.5">Identified by AI</p>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-lg font-semibold tabular-nums leading-none text-neutral-900">{confidence}%</p>
-          <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-500">Confidence</p>
+          <p className="text-lg font-semibold tabular-nums leading-none text-neutral-900">
+            {confidence}%
+          </p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+            Confidence
+          </p>
         </div>
       </div>
 
@@ -305,16 +381,23 @@ function OppCard({
 
       {expanded ? (
         <p className="mt-4 text-xs text-neutral-600 leading-relaxed border-t border-neutral-100 pt-3">
-          Trend aligned across timeframes, momentum confirmed, entry near
-          structure with capped downside.
+          Trend aligned across timeframes, momentum confirmed, entry near structure with capped
+          downside.
         </p>
       ) : null}
 
       <div className="mt-4 flex items-center gap-2">
-        <button type="button" className="flex-1 h-9 rounded-lg text-white text-xs font-medium" style={{ backgroundColor: PRIMARY }}>
+        <button
+          type="button"
+          className="flex-1 h-9 rounded-lg text-white text-xs font-medium"
+          style={{ backgroundColor: PRIMARY }}
+        >
           Paper trade
         </button>
-        <button type="button" className="h-9 px-3 inline-flex items-center gap-1 rounded-lg border border-neutral-300 text-xs text-neutral-700 hover:bg-neutral-50">
+        <button
+          type="button"
+          className="h-9 px-3 inline-flex items-center gap-1 rounded-lg border border-neutral-300 text-xs text-neutral-700 hover:bg-neutral-50"
+        >
           <Info className="size-3.5" />
           Why?
         </button>

@@ -14,13 +14,16 @@ export function useMarketMode() {
   const [market, setState] = useState<MarketMode>(() => getStoredMarketMode());
 
   useEffect(() => {
-    try { window.localStorage.setItem(KEY, market); } catch {}
+    try {
+      window.localStorage.setItem(KEY, market);
+    } catch {}
     window.dispatchEvent(new CustomEvent(EVT, { detail: market }));
   }, [market]);
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === KEY && (e.newValue === "spot" || e.newValue === "futures")) setState(e.newValue);
+      if (e.key === KEY && (e.newValue === "spot" || e.newValue === "futures"))
+        setState(e.newValue);
     };
     const onCustom = (e: Event) => {
       const v = (e as CustomEvent).detail;

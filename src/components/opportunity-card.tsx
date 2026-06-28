@@ -30,20 +30,32 @@ type Props = {
 
 function actionMeta(a: Action) {
   if (a === "long")
-    return { label: "LONG", btn: "Book Paper Trade",
+    return {
+      label: "LONG",
+      btn: "Book Paper Trade",
       cls: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
-      btnCls: "bg-emerald-600 hover:bg-emerald-700" };
+      btnCls: "bg-emerald-600 hover:bg-emerald-700",
+    };
   if (a === "short")
-    return { label: "SHORT", btn: "Book Paper Trade",
+    return {
+      label: "SHORT",
+      btn: "Book Paper Trade",
       cls: "bg-destructive/10 text-destructive border-destructive/30",
-      btnCls: "bg-destructive hover:bg-destructive/90" };
+      btnCls: "bg-destructive hover:bg-destructive/90",
+    };
   if (a === "avoid")
-    return { label: "AVOID", btn: "Avoid",
+    return {
+      label: "AVOID",
+      btn: "Avoid",
       cls: "bg-destructive/10 text-destructive border-destructive/30",
-      btnCls: "bg-muted text-muted-foreground" };
-  return { label: "WAIT", btn: "Wait",
+      btnCls: "bg-muted text-muted-foreground",
+    };
+  return {
+    label: "WAIT",
+    btn: "Wait",
     cls: "bg-muted text-muted-foreground border-border",
-    btnCls: "bg-muted text-muted-foreground" };
+    btnCls: "bg-muted text-muted-foreground",
+  };
 }
 
 function labelCls(l: ConfidenceLabel): string {
@@ -55,7 +67,10 @@ function labelCls(l: ConfidenceLabel): string {
 
 function statusBadge(p: RiskPlan) {
   if (p.status === "auto_eligible")
-    return { label: "Auto-book Eligible", cls: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" };
+    return {
+      label: "Auto-book Eligible",
+      cls: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
+    };
   if (p.status === "manual_review")
     return { label: "Manual Review", cls: "bg-amber-500/10 text-amber-500 border-amber-500/30" };
   return { label: "Avoid", cls: "bg-destructive/10 text-destructive border-destructive/30" };
@@ -66,7 +81,7 @@ function formatPrice(p: number): string {
 }
 
 function presetFromMeta(meta: RiskMeta): StylePreset {
-  const base = STYLE_PRESETS[(meta.style as keyof typeof STYLE_PRESETS)] ?? STYLE_PRESETS.balanced;
+  const base = STYLE_PRESETS[meta.style as keyof typeof STYLE_PRESETS] ?? STYLE_PRESETS.balanced;
   return {
     ...base,
     riskPct: meta.riskPct,
@@ -113,20 +128,26 @@ export function OpportunityCard({
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-medium text-sm truncate">{mover.display}</p>
-            <span className={`inline-flex items-center px-2 h-5 rounded text-[10px] font-semibold border ${meta.cls}`}>
+            <span
+              className={`inline-flex items-center px-2 h-5 rounded text-[10px] font-semibold border ${meta.cls}`}
+            >
               {meta.label}
             </span>
-            <span className={`inline-flex items-center px-2 h-5 rounded text-[10px] font-semibold border ${badge.cls}`}>
+            <span
+              className={`inline-flex items-center px-2 h-5 rounded text-[10px] font-semibold border ${badge.cls}`}
+            >
               {badge.label}
             </span>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{plan.reason ?? mover.shortReason}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+            {plan.reason ?? mover.shortReason}
+          </p>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-lg font-semibold tabular-nums leading-none">
-            {mover.confidence}%
-          </p>
-          <p className={`text-[10px] font-medium uppercase tracking-wider ${labelCls(mover.confidenceLabel)}`}>
+          <p className="text-lg font-semibold tabular-nums leading-none">{mover.confidence}%</p>
+          <p
+            className={`text-[10px] font-medium uppercase tracking-wider ${labelCls(mover.confidenceLabel)}`}
+          >
             {mover.confidenceLabel}
           </p>
         </div>
@@ -153,15 +174,21 @@ export function OpportunityCard({
       <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-[11px]">
         <div>
           <p className="uppercase tracking-wider text-muted-foreground">Entry zone</p>
-          <p className="tabular-nums font-medium text-foreground mt-0.5">{lowZone}–{highZone}</p>
+          <p className="tabular-nums font-medium text-foreground mt-0.5">
+            {lowZone}–{highZone}
+          </p>
         </div>
         <div>
           <p className="uppercase tracking-wider text-muted-foreground">Target</p>
-          <p className="tabular-nums font-medium text-emerald-500 mt-0.5">+{plan.tpPct.toFixed(2)}%</p>
+          <p className="tabular-nums font-medium text-emerald-500 mt-0.5">
+            +{plan.tpPct.toFixed(2)}%
+          </p>
         </div>
         <div>
           <p className="uppercase tracking-wider text-muted-foreground">Stop</p>
-          <p className="tabular-nums font-medium text-destructive mt-0.5">−{plan.slPct.toFixed(2)}%</p>
+          <p className="tabular-nums font-medium text-destructive mt-0.5">
+            −{plan.slPct.toFixed(2)}%
+          </p>
         </div>
         <div>
           <p className="uppercase tracking-wider text-muted-foreground">Stop type</p>
@@ -173,13 +200,17 @@ export function OpportunityCard({
         </div>
         <div>
           <p className="uppercase tracking-wider text-muted-foreground">Risk-reward</p>
-          <p className={`tabular-nums font-medium mt-0.5 ${plan.rr < riskMeta.minRR ? "text-amber-500" : "text-foreground"}`}>
+          <p
+            className={`tabular-nums font-medium mt-0.5 ${plan.rr < riskMeta.minRR ? "text-amber-500" : "text-foreground"}`}
+          >
             {plan.rr > 0 ? `${plan.rr.toFixed(1)} : 1` : "—"}
           </p>
         </div>
         <div className="col-span-2">
           <p className="uppercase tracking-wider text-muted-foreground">Position size</p>
-          <p className="tabular-nums font-medium text-foreground mt-0.5">{fmt(plan.positionSize)}</p>
+          <p className="tabular-nums font-medium text-foreground mt-0.5">
+            {fmt(plan.positionSize)}
+          </p>
         </div>
       </div>
 
@@ -201,7 +232,10 @@ export function OpportunityCard({
           disabled={!canBook || booking}
           onClick={() =>
             canBook &&
-            onBook(mover.action === "short" ? "short" : "long", { tpPct: plan.tpPct, slPct: plan.slPct })
+            onBook(mover.action === "short" ? "short" : "long", {
+              tpPct: plan.tpPct,
+              slPct: plan.slPct,
+            })
           }
         >
           {booking ? "Booking…" : reviewOnly ? "Manual review" : meta.btn}

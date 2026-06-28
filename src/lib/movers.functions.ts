@@ -74,8 +74,7 @@ export type Mover = {
   atrPct: number | null;
 };
 
-const PUBLIC_FUTURES_TICKER =
-  "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
+const PUBLIC_FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
 const CANDLES = (pair: string, interval: string, limit: number) =>
   `https://public.coindcx.com/market_data/candles?pair=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
 const PUBLIC_API_HEADERS = {
@@ -84,10 +83,14 @@ const PUBLIC_API_HEADERS = {
 };
 
 type TickerRow = {
-  s?: string; pair?: string;
-  c?: string | number; ls?: string | number;
-  pc?: string | number; cp?: string | number;
-  v?: string | number; qv?: string | number;
+  s?: string;
+  pair?: string;
+  c?: string | number;
+  ls?: string | number;
+  pc?: string | number;
+  cp?: string | number;
+  v?: string | number;
+  qv?: string | number;
 };
 
 type Candle = { open: number; close: number; high: number; low: number; volume?: number };
@@ -102,7 +105,11 @@ function prettySymbol(s: string): string {
   return m ? `${m[1]}/${m[2]}` : s.replace(/^B-/, "").replace("_", "/");
 }
 
-async function fetchCandles(pair: string, interval: string, limit: number): Promise<Candle[] | null> {
+async function fetchCandles(
+  pair: string,
+  interval: string,
+  limit: number,
+): Promise<Candle[] | null> {
   try {
     const [base, group] = resolveInterval(interval);
     const res = await fetch(CANDLES(pair, base, limit * group), {
@@ -114,7 +121,11 @@ async function fetchCandles(pair: string, interval: string, limit: number): Prom
     if (!Array.isArray(json) || json.length < 1) return null;
     const agg = aggregateCandles(json as any, group);
     return agg.map((k) => ({
-      open: k.open, close: k.close, high: k.high, low: k.low, volume: k.volume,
+      open: k.open,
+      close: k.close,
+      high: k.high,
+      low: k.low,
+      volume: k.volume,
     }));
   } catch {
     return null;
@@ -132,7 +143,8 @@ function rsi14(closes: number[]): number | null {
   let losses = 0;
   for (let i = 1; i <= 14; i++) {
     const d = closes[i] - closes[i - 1];
-    if (d >= 0) gains += d; else losses -= d;
+    if (d >= 0) gains += d;
+    else losses -= d;
   }
   let avgG = gains / 14;
   let avgL = losses / 14;
@@ -185,15 +197,31 @@ function computeRecommendation(s: Signals, market: "spot" | "futures") {
   let score = 0;
 
   if (s.c1m != null) {
-    if (s.c1m > 0.03) { score += 20; reasons.push(`1m burst +${s.c1m.toFixed(2)}%`); }
-    else if (s.c1m < -0.03) { score -= 20; reasons.push(`1m drop ${s.c1m.toFixed(2)}%`); }
+    if (s.c1m > 0.03) {
+      score += 20;
+      reasons.push(`1m burst +${s.c1m.toFixed(2)}%`);
+    } else if (s.c1m < -0.03) {
+      score -= 20;
+      reasons.push(`1m drop ${s.c1m.toFixed(2)}%`);
+    }
   }
   if (s.c5m != null) {
-    if (s.c5m > 0.05) { score += 30; reasons.push(`5m up ${s.c5m.toFixed(2)}%`); }
-    else if (s.c5m < -0.05) { score -= 30; reasons.push(`5m down ${s.c5m.toFixed(2)}%`); }
+    if (s.c5m > 0.05) {
+      score += 30;
+      reasons.push(`5m up ${s.c5m.toFixed(2)}%`);
+    } else if (s.c5m < -0.05) {
+      score -= 30;
+      reasons.push(`5m down ${s.c5m.toFixed(2)}%`);
+    }
   }
   // Burst bonus: aligned 1m + 5m in same direction
-  if (s.c1m != null && s.c5m != null && Math.sign(s.c1m) === Math.sign(s.c5m) && Math.abs(s.c1m) > 0.05 && Math.abs(s.c5m) > 0.1) {
+  if (
+    s.c1m != null &&
+    s.c5m != null &&
+    Math.sign(s.c1m) === Math.sign(s.c5m) &&
+    Math.abs(s.c1m) > 0.05 &&
+    Math.abs(s.c5m) > 0.1
+  ) {
     const dir = Math.sign(s.c1m);
     score += dir * 15;
     reasons.push(`${dir > 0 ? "Up" : "Down"} burst (1m+5m aligned)`);
@@ -206,13 +234,23 @@ function computeRecommendation(s: Signals, market: "spot" | "futures") {
     last30 = last3[last3.length - 1].pct;
     const ups = last3.filter((x) => x.pct > 0).length;
     const downs = last3.filter((x) => x.pct < 0).length;
-    if (ups === 3) { trend30 = "up"; score += 25; reasons.push("30m: 3/3 green"); }
-    else if (downs === 3) {
+    if (ups === 3) {
+      trend30 = "up";
+      score += 25;
+      reasons.push("30m: 3/3 green");
+    } else if (downs === 3) {
       trend30 = "down";
       const sharpLastDrop = last30 != null && last30 < -2.0;
       const reversing = (s.c1m ?? 0) > 0.05 && (s.c5m ?? 0) > 0.05;
-      if (sharpLastDrop && reversing) { score += 20; reasons.push(`30m: 3 red but last ${last30.toFixed(2)}%, 1m/5m reversing — possible bounce`); }
-      else { score -= 25; reasons.push("30m: 3/3 red (downtrend)"); }
+      if (sharpLastDrop && reversing) {
+        score += 20;
+        reasons.push(
+          `30m: 3 red but last ${last30.toFixed(2)}%, 1m/5m reversing — possible bounce`,
+        );
+      } else {
+        score -= 25;
+        reasons.push("30m: 3/3 red (downtrend)");
+      }
     } else {
       trend30 = "mixed";
       score += (ups - downs) * 6;
@@ -220,9 +258,14 @@ function computeRecommendation(s: Signals, market: "spot" | "futures") {
     }
   }
 
-  if (s.c24h > 5) { score += 10; reasons.push(`24h strong +${s.c24h.toFixed(1)}%`); }
-  else if (s.c24h > 0) score += 5;
-  else if (s.c24h < -5) { score -= 10; reasons.push(`24h weak ${s.c24h.toFixed(1)}%`); }
+  if (s.c24h > 5) {
+    score += 10;
+    reasons.push(`24h strong +${s.c24h.toFixed(1)}%`);
+  } else if (s.c24h > 0) score += 5;
+  else if (s.c24h < -5) {
+    score -= 10;
+    reasons.push(`24h weak ${s.c24h.toFixed(1)}%`);
+  }
 
   let rec: "long" | "short" | "neutral";
   if (score >= 18) rec = "long";
@@ -282,34 +325,52 @@ function buildChecks(ci: CheckInput): ChecklistSections {
   };
 
   const emaStatus: CheckStatus =
-    ci.emaTrend === "unknown" ? "warn"
-      : dir === 0 ? "warn"
-        : (ci.emaTrend === "up" && dir > 0) || (ci.emaTrend === "down" && dir < 0) ? "pass"
-          : ci.emaTrend === "flat" ? "warn"
+    ci.emaTrend === "unknown"
+      ? "warn"
+      : dir === 0
+        ? "warn"
+        : (ci.emaTrend === "up" && dir > 0) || (ci.emaTrend === "down" && dir < 0)
+          ? "pass"
+          : ci.emaTrend === "flat"
+            ? "warn"
             : "fail";
 
   const vwapAlign: CheckStatus =
-    ci.vwapStatus === "unknown" || dir === 0 ? "warn"
-      : (ci.vwapStatus === "above" && dir > 0) || (ci.vwapStatus === "below" && dir < 0) ? "pass"
+    ci.vwapStatus === "unknown" || dir === 0
+      ? "warn"
+      : (ci.vwapStatus === "above" && dir > 0) || (ci.vwapStatus === "below" && dir < 0)
+        ? "pass"
         : "fail";
 
   const trend: Check[] = [
-    { label: `5m trend ${ci.bias === "short" ? "bearish" : "bullish"}`, status: trendStatus(ci.change5m) },
+    {
+      label: `5m trend ${ci.bias === "short" ? "bearish" : "bullish"}`,
+      status: trendStatus(ci.change5m),
+    },
     { label: "EMA alignment", status: emaStatus },
-    { label: `Price ${ci.vwapStatus === "unknown" ? "vs VWAP" : ci.vwapStatus + " VWAP"}`, status: vwapAlign },
+    {
+      label: `Price ${ci.vwapStatus === "unknown" ? "vs VWAP" : ci.vwapStatus + " VWAP"}`,
+      status: vwapAlign,
+    },
   ];
 
   // Entry quality
   const pullback: CheckStatus =
-    ci.vwapDistPct == null ? "warn"
-      : Math.abs(ci.vwapDistPct) <= 0.3 ? "pass"
-        : Math.abs(ci.vwapDistPct) <= 0.8 ? "warn"
+    ci.vwapDistPct == null
+      ? "warn"
+      : Math.abs(ci.vwapDistPct) <= 0.3
+        ? "pass"
+        : Math.abs(ci.vwapDistPct) <= 0.8
+          ? "warn"
           : "fail";
 
   const fairValue: CheckStatus =
-    ci.vwapDistPct == null ? "warn"
-      : Math.abs(ci.vwapDistPct) <= 1.0 ? "pass"
-        : Math.abs(ci.vwapDistPct) <= 2.0 ? "warn"
+    ci.vwapDistPct == null
+      ? "warn"
+      : Math.abs(ci.vwapDistPct) <= 1.0
+        ? "pass"
+        : Math.abs(ci.vwapDistPct) <= 2.0
+          ? "warn"
           : "fail";
 
   const notOverextended: CheckStatus = (() => {
@@ -371,11 +432,7 @@ function buildChecks(ci: CheckInput): ChecklistSections {
   return { trend, entry, momentum, risk };
 }
 
-function decisionSentenceFor(
-  action: Action,
-  label: ConfidenceLabel,
-  topReason: string,
-): string {
+function decisionSentenceFor(action: Action, label: ConfidenceLabel, topReason: string): string {
   if (action === "long" || action === "short") {
     const word = action === "long" ? "Long" : "Short";
     return `${word} allowed because confidence is ${label} and required risk checks passed.`;
@@ -394,9 +451,9 @@ const marketSchema = z.object({
 });
 
 const STRICT_PRESETS: Record<"less" | "moderate" | "strict", StrictPreset> = {
-  less:     { autoConf: 60, volRatio: 1.2, pullbackMaxPct: 0.5,  rrMin: 1.1 },
+  less: { autoConf: 60, volRatio: 1.2, pullbackMaxPct: 0.5, rrMin: 1.1 },
   moderate: { autoConf: 70, volRatio: 1.3, pullbackMaxPct: 0.35, rrMin: 1.2 },
-  strict:   { autoConf: 80, volRatio: 1.5, pullbackMaxPct: 0.25, rrMin: 1.3 },
+  strict: { autoConf: 80, volRatio: 1.5, pullbackMaxPct: 0.25, rrMin: 1.3 },
 };
 
 // Map context → reason label per spec.
@@ -438,7 +495,7 @@ type StrictPreset = { autoConf: number; volRatio: number; pullbackMaxPct: number
  */
 export function autoTpSlForConfidence(confidence: number): { tpPct: number; slPct: number } {
   const c = Math.max(0, Math.min(100, confidence));
-  const tpPct = +(3 + Math.max(0, c - 50) / 50 * 2).toFixed(2); // 3..5
+  const tpPct = +(3 + (Math.max(0, c - 50) / 50) * 2).toFixed(2); // 3..5
   return { tpPct, slPct: 20 };
 }
 
@@ -454,12 +511,16 @@ async function enrichMover(
   // Auto TP/SL is derived from confidence below; these are provisional defaults.
   let tpPct = 5;
   let slPct = 20;
-  const display = market === "spot" ? base.symbol.replace(/USDT$/, "/USDT") : prettySymbol(base.symbol);
+  const display =
+    market === "spot" ? base.symbol.replace(/USDT$/, "/USDT") : prettySymbol(base.symbol);
   const volumeTier = classifyVolume(base.volume24h);
   const spread = spreadFromVolume(volumeTier);
 
   if (!withCandles) {
-    const r = computeRecommendation({ c1m: null, c5m: null, c30m: null, c24h: base.change24h }, market);
+    const r = computeRecommendation(
+      { c1m: null, c5m: null, c30m: null, c24h: base.change24h },
+      market,
+    );
     const bias: Bias = r.rec === "long" ? "long" : r.rec === "short" ? "short" : "wait";
     ({ tpPct, slPct } = autoTpSlForConfidence(r.confidence));
     const tier: Tier = "avoid";
@@ -467,13 +528,29 @@ async function enrichMover(
     const confidenceLabel = confidenceLabelFor(tier);
     const shortReason = r.reasons[0] ?? "Not enough data";
     const checks = buildChecks({
-      bias, change1m: null, change5m: null, rsi: null,
-      emaTrend: "unknown", vwapStatus: "unknown", vwapDistPct: null,
-      spread, volumeSpike: false, tpPct, slPct,
+      bias,
+      change1m: null,
+      change5m: null,
+      rsi: null,
+      emaTrend: "unknown",
+      vwapStatus: "unknown",
+      vwapDistPct: null,
+      spread,
+      volumeSpike: false,
+      tpPct,
+      slPct,
     });
     const reasonLabel = deriveReasonLabel({
-      tier, spreadTier: spread, volumeTier, rsi: null, bias,
-      volumeSpike: false, vwapDistPct: null, c1m: null, c5m: null, trend30: r.trend30,
+      tier,
+      spreadTier: spread,
+      volumeTier,
+      rsi: null,
+      bias,
+      volumeSpike: false,
+      vwapDistPct: null,
+      c1m: null,
+      c5m: null,
+      trend30: r.trend30,
     });
     return {
       ...base,
@@ -515,15 +592,22 @@ async function enrichMover(
     fetchCandles(candlePair, "30m", 4),
   ]);
 
-  const c1 = c1Raw && c1Raw.length ? pctChange(c1Raw[c1Raw.length - 1].open, c1Raw[c1Raw.length - 1].close) : null;
-  const c5 = c5Raw && c5Raw.length ? pctChange(c5Raw[c5Raw.length - 1].open, c5Raw[c5Raw.length - 1].close) : null;
+  const c1 =
+    c1Raw && c1Raw.length
+      ? pctChange(c1Raw[c1Raw.length - 1].open, c1Raw[c1Raw.length - 1].close)
+      : null;
+  const c5 =
+    c5Raw && c5Raw.length
+      ? pctChange(c5Raw[c5Raw.length - 1].open, c5Raw[c5Raw.length - 1].close)
+      : null;
   const c30 = c30Raw ? c30Raw.map((k) => ({ pct: pctChange(k.open, k.close) ?? 0 })) : null;
 
   const closes5 = c5Raw?.map((k) => k.close) ?? [];
   const rsi = closes5.length >= 15 ? rsi14(closes5) : null;
   const atrPct = c5Raw ? atrPctFromCandles(c5Raw, 14) : null;
   const vwap = c5Raw ? approxVwap(c5Raw) : null;
-  const vwapStatus: Mover["vwapStatus"] = vwap == null ? "unknown" : base.price >= vwap ? "above" : "below";
+  const vwapStatus: Mover["vwapStatus"] =
+    vwap == null ? "unknown" : base.price >= vwap ? "above" : "below";
   const vwapDistPct = vwap != null && vwap > 0 ? ((base.price - vwap) / vwap) * 100 : null;
 
   let emaTrend: TrendArrow = "unknown";
@@ -550,7 +634,11 @@ async function enrichMover(
   const bias: Bias = r.rec === "long" ? "long" : r.rec === "short" ? "short" : "wait";
 
   // Watchlist allowance: 5m trend aligned with bias, 1m still forming.
-  const fiveAligned = c5 != null && bias !== "wait" && Math.sign(c5) === (bias === "long" ? 1 : -1) && Math.abs(c5) >= 0.05;
+  const fiveAligned =
+    c5 != null &&
+    bias !== "wait" &&
+    Math.sign(c5) === (bias === "long" ? 1 : -1) &&
+    Math.abs(c5) >= 0.05;
 
   // Hard reject (Avoid tier) for fundamentally unworkable setups.
   let rejectReason: string | null = null;
@@ -564,9 +652,11 @@ async function enrichMover(
   const rsiOkForAuto =
     rsi == null
       ? true
-      : bias === "long" ? rsi >= 50 && rsi <= 74
-      : bias === "short" ? rsi >= 26 && rsi <= 50
-      : true;
+      : bias === "long"
+        ? rsi >= 50 && rsi <= 74
+        : bias === "short"
+          ? rsi >= 26 && rsi <= 50
+          : true;
   const pullbackOkForAuto = vwapDistPct == null || Math.abs(vwapDistPct) <= preset.pullbackMaxPct;
   const riskOk =
     rejectReason == null &&
@@ -584,13 +674,30 @@ async function enrichMover(
   const action = actionForTier(tier, bias);
   const confidenceLabel = confidenceLabelFor(tier);
   const reasonLabel = deriveReasonLabel({
-    tier, spreadTier: spread, volumeTier, rsi, bias, volumeSpike,
-    vwapDistPct, c1m: c1, c5m: c5, trend30: r.trend30,
+    tier,
+    spreadTier: spread,
+    volumeTier,
+    rsi,
+    bias,
+    volumeSpike,
+    vwapDistPct,
+    c1m: c1,
+    c5m: c5,
+    trend30: r.trend30,
   });
   const shortReason = rejectReason ?? reasonLabel;
   const checks = buildChecks({
-    bias, change1m: c1, change5m: c5, rsi, emaTrend, vwapStatus, vwapDistPct,
-    spread, volumeSpike, tpPct, slPct,
+    bias,
+    change1m: c1,
+    change5m: c5,
+    rsi,
+    emaTrend,
+    vwapStatus,
+    vwapDistPct,
+    spread,
+    volumeSpike,
+    tpPct,
+    slPct,
   });
 
   return {
@@ -635,103 +742,158 @@ function spotToCandlePair(market: string): string {
 export const getTopMovers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => marketSchema.parse(d ?? {}))
-  .handler(async ({ data, context }): Promise<{ ok: true; movers: Mover[]; risk: { capital: number; style: string; minSL: number; atrMult: number; maxAutoSL: number; targetMult: number; minRR: number; riskPct: number } } | { ok: false; error: string }> => {
-    const market = data.market ?? "futures";
-    const preset = STRICT_PRESETS[data.strictness ?? "moderate"];
-    // Pull risk preset for the active user — used by the Scanner card to render
-    // volatility-adjusted target / stop / position size / status.
-    let stylePreset = (await import("@/lib/risk-engine")).STYLE_PRESETS.balanced;
-    let capital = 1000;
-    let tpPct = 0.6;
-    let slPct = 0.4;
-    try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data: cfg } = await supabaseAdmin
-        .from("bot_config")
-        .select("trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,risk_per_trade_pct,paper_equity,take_profit_pct,stop_loss_pct")
-        .eq("user_id", context.userId)
-        .maybeSingle();
-      if (cfg) {
-        const { presetFromConfig } = await import("@/lib/risk-engine");
-        stylePreset = presetFromConfig(cfg);
-        capital = Number(cfg.paper_equity ?? 1000);
-        tpPct = Number(cfg.take_profit_pct ?? tpPct);
-        slPct = Number(cfg.stop_loss_pct ?? slPct);
+  .handler(
+    async ({
+      data,
+      context,
+    }): Promise<
+      | {
+          ok: true;
+          movers: Mover[];
+          risk: {
+            capital: number;
+            style: string;
+            minSL: number;
+            atrMult: number;
+            maxAutoSL: number;
+            targetMult: number;
+            minRR: number;
+            riskPct: number;
+          };
+        }
+      | { ok: false; error: string }
+    > => {
+      const market = data.market ?? "futures";
+      const preset = STRICT_PRESETS[data.strictness ?? "moderate"];
+      // Pull risk preset for the active user — used by the Scanner card to render
+      // volatility-adjusted target / stop / position size / status.
+      let stylePreset = (await import("@/lib/risk-engine")).STYLE_PRESETS.balanced;
+      let capital = 1000;
+      let tpPct = 0.6;
+      let slPct = 0.4;
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: cfg } = await supabaseAdmin
+          .from("bot_config")
+          .select(
+            "trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,risk_per_trade_pct,paper_equity,take_profit_pct,stop_loss_pct",
+          )
+          .eq("user_id", context.userId)
+          .maybeSingle();
+        if (cfg) {
+          const { presetFromConfig } = await import("@/lib/risk-engine");
+          stylePreset = presetFromConfig(cfg);
+          capital = Number(cfg.paper_equity ?? 1000);
+          tpPct = Number(cfg.take_profit_pct ?? tpPct);
+          slPct = Number(cfg.stop_loss_pct ?? slPct);
+        }
+      } catch {
+        /* keep defaults */
       }
-    } catch { /* keep defaults */ }
-    const riskSummary = {
-      capital,
-      style: stylePreset.key,
-      minSL: stylePreset.minSL,
-      atrMult: stylePreset.atrMult,
-      maxAutoSL: stylePreset.maxAutoSL,
-      targetMult: stylePreset.targetMult,
-      minRR: stylePreset.minRR,
-      riskPct: stylePreset.riskPct,
-    };
-
-
-    try {
-      if (market === "spot") {
-        const res = await fetch(SPOT_TICKER, { headers: PUBLIC_API_HEADERS, signal: AbortSignal.timeout(6000) });
-        if (!res.ok) return { ok: false, error: `Spot HTTP ${res.status}` };
-        const raw = (await res.json()) as SpotRow[];
-        const rows = raw
-          .filter((r) => r.market && r.market.endsWith("USDT"))
-          .map((r) => ({ symbol: r.market, price: num(r.last_price), change24h: num(r.change_24_hour), volume24h: num(r.volume) }))
-          .filter((r) => r.price > 0);
-        rows.sort((a, b) => b.change24h - a.change24h);
-        const top = rows.slice(0, 15).map((r, i) => ({ ...r, rank24h: i + 1 }));
-        const enriched = await Promise.all(top.map((r, i) => enrichMover(r, spotToCandlePair(r.symbol), "spot", i < 10, tpPct, slPct, preset)));
-        return { ok: true, movers: enriched, risk: riskSummary };
-      }
-
-      const res = await fetch(PUBLIC_FUTURES_TICKER, { headers: PUBLIC_API_HEADERS, signal: AbortSignal.timeout(6000) });
-      if (!res.ok) return { ok: false, error: `Ticker HTTP ${res.status}` };
-      const raw = (await res.json()) as { prices: Record<string, TickerRow> } | Record<string, TickerRow> | TickerRow[];
-
-      const rows: Array<{ symbol: string; price: number; change24h: number; volume24h: number }> = [];
-      const consume = (sym: string | undefined, r: TickerRow) => {
-        const symbol = sym ?? r.s ?? r.pair;
-        if (!symbol || !symbol.startsWith("B-") || !symbol.endsWith("_USDT")) return;
-        const price = num(r.ls ?? r.c);
-        const change = num(r.cp ?? r.pc);
-        const vol = num(r.qv ?? r.v);
-        if (!price) return;
-        rows.push({ symbol, price, change24h: change, volume24h: vol });
+      const riskSummary = {
+        capital,
+        style: stylePreset.key,
+        minSL: stylePreset.minSL,
+        atrMult: stylePreset.atrMult,
+        maxAutoSL: stylePreset.maxAutoSL,
+        targetMult: stylePreset.targetMult,
+        minRR: stylePreset.minRR,
+        riskPct: stylePreset.riskPct,
       };
-      const dict = raw && typeof raw === "object" && !Array.isArray(raw) && "prices" in raw ? (raw as { prices: Record<string, TickerRow> }).prices : raw;
-      if (Array.isArray(dict)) dict.forEach((r) => consume(undefined, r));
-      else if (dict && typeof dict === "object") Object.entries(dict).forEach(([k, v]) => v && typeof v === "object" && consume(k, v as TickerRow));
 
-      // Hybrid universe: deepest pairs by volume PLUS biggest 24h movers
-      // (abs change %) with a minimum 50M quote-volume liquidity gate so
-      // small/mid-cap rockets aren't excluded by a pure volume ranking.
-      const MIN_MOVER_VOLUME = 50_000_000;
-      const byVolume = [...rows].sort((a, b) => b.volume24h - a.volume24h).slice(0, 30);
-      const byChange = [...rows]
-        .filter((r) => r.volume24h >= MIN_MOVER_VOLUME)
-        .sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h))
-        .slice(0, 20);
-      const seen = new Set<string>();
-      const merged: typeof rows = [];
-      for (const r of [...byVolume, ...byChange]) {
-        if (seen.has(r.symbol)) continue;
-        seen.add(r.symbol);
-        merged.push(r);
+      try {
+        if (market === "spot") {
+          const res = await fetch(SPOT_TICKER, {
+            headers: PUBLIC_API_HEADERS,
+            signal: AbortSignal.timeout(6000),
+          });
+          if (!res.ok) return { ok: false, error: `Spot HTTP ${res.status}` };
+          const raw = (await res.json()) as SpotRow[];
+          const rows = raw
+            .filter((r) => r.market && r.market.endsWith("USDT"))
+            .map((r) => ({
+              symbol: r.market,
+              price: num(r.last_price),
+              change24h: num(r.change_24_hour),
+              volume24h: num(r.volume),
+            }))
+            .filter((r) => r.price > 0);
+          rows.sort((a, b) => b.change24h - a.change24h);
+          const top = rows.slice(0, 15).map((r, i) => ({ ...r, rank24h: i + 1 }));
+          const enriched = await Promise.all(
+            top.map((r, i) =>
+              enrichMover(r, spotToCandlePair(r.symbol), "spot", i < 10, tpPct, slPct, preset),
+            ),
+          );
+          return { ok: true, movers: enriched, risk: riskSummary };
+        }
+
+        const res = await fetch(PUBLIC_FUTURES_TICKER, {
+          headers: PUBLIC_API_HEADERS,
+          signal: AbortSignal.timeout(6000),
+        });
+        if (!res.ok) return { ok: false, error: `Ticker HTTP ${res.status}` };
+        const raw = (await res.json()) as
+          | { prices: Record<string, TickerRow> }
+          | Record<string, TickerRow>
+          | TickerRow[];
+
+        const rows: Array<{ symbol: string; price: number; change24h: number; volume24h: number }> =
+          [];
+        const consume = (sym: string | undefined, r: TickerRow) => {
+          const symbol = sym ?? r.s ?? r.pair;
+          if (!symbol || !symbol.startsWith("B-") || !symbol.endsWith("_USDT")) return;
+          const price = num(r.ls ?? r.c);
+          const change = num(r.cp ?? r.pc);
+          const vol = num(r.qv ?? r.v);
+          if (!price) return;
+          rows.push({ symbol, price, change24h: change, volume24h: vol });
+        };
+        const dict =
+          raw && typeof raw === "object" && !Array.isArray(raw) && "prices" in raw
+            ? (raw as { prices: Record<string, TickerRow> }).prices
+            : raw;
+        if (Array.isArray(dict)) dict.forEach((r) => consume(undefined, r));
+        else if (dict && typeof dict === "object")
+          Object.entries(dict).forEach(
+            ([k, v]) => v && typeof v === "object" && consume(k, v as TickerRow),
+          );
+
+        // Hybrid universe: deepest pairs by volume PLUS biggest 24h movers
+        // (abs change %) with a minimum 50M quote-volume liquidity gate so
+        // small/mid-cap rockets aren't excluded by a pure volume ranking.
+        const MIN_MOVER_VOLUME = 50_000_000;
+        const byVolume = [...rows].sort((a, b) => b.volume24h - a.volume24h).slice(0, 30);
+        const byChange = [...rows]
+          .filter((r) => r.volume24h >= MIN_MOVER_VOLUME)
+          .sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h))
+          .slice(0, 20);
+        const seen = new Set<string>();
+        const merged: typeof rows = [];
+        for (const r of [...byVolume, ...byChange]) {
+          if (seen.has(r.symbol)) continue;
+          seen.add(r.symbol);
+          merged.push(r);
+        }
+        const top = merged.map((r, i) => ({ ...r, rank24h: i + 1 }));
+        const enriched = await Promise.all(
+          top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 30, tpPct, slPct, preset)),
+        );
+        // Sort enriched output by confidence so highest setups surface first.
+        enriched.sort((a, b) => b.confidence - a.confidence);
+        return { ok: true, movers: enriched, risk: riskSummary };
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : "fetch failed" };
       }
-      const top = merged.map((r, i) => ({ ...r, rank24h: i + 1 }));
-      const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 30, tpPct, slPct, preset)));
-      // Sort enriched output by confidence so highest setups surface first.
-      enriched.sort((a, b) => b.confidence - a.confidence);
-      return { ok: true, movers: enriched, risk: riskSummary };
-    } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : "fetch failed" };
-    }
-  });
+    },
+  );
 
 const bookSchema = z.object({
-  symbol: z.string().min(3).max(40).regex(/^[A-Z0-9_\-]+$/),
+  symbol: z
+    .string()
+    .min(3)
+    .max(40)
+    .regex(/^[A-Z0-9_\-]+$/),
   side: z.enum(["long", "short"]),
   price: z.number().positive(),
   market: z.enum(["spot", "futures"]).optional(),
@@ -749,7 +911,9 @@ export const bookManualTrade = createServerFn({ method: "POST" })
 
     const { data: cfg, error: cfgErr } = await supabaseAdmin
       .from("bot_config")
-      .select("mode,leverage,risk_per_trade_pct,paper_equity,max_open_positions,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr")
+      .select(
+        "mode,leverage,risk_per_trade_pct,paper_equity,max_open_positions,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr",
+      )
       .eq("user_id", context.userId)
       .maybeSingle();
     if (cfgErr || !cfg) throw new Error(cfgErr?.message ?? "No bot config found");
@@ -777,10 +941,10 @@ export const bookManualTrade = createServerFn({ method: "POST" })
     const notional = sl > 0 ? riskAmount / (sl / 100) : 0;
     const qty = notional / data.price;
 
-
-    const stop_loss = data.side === "long" ? data.price * (1 - sl / 100) : data.price * (1 + sl / 100);
-    const take_profit = data.side === "long" ? data.price * (1 + tp / 100) : data.price * (1 - tp / 100);
-
+    const stop_loss =
+      data.side === "long" ? data.price * (1 - sl / 100) : data.price * (1 + sl / 100);
+    const take_profit =
+      data.side === "long" ? data.price * (1 + tp / 100) : data.price * (1 - tp / 100);
 
     const instrument = data.market === "spot" ? "spot" : "futures";
     const { error } = await supabaseAdmin.from("positions").insert({
@@ -801,7 +965,10 @@ export const bookManualTrade = createServerFn({ method: "POST" })
       exchange_order_id: cfg.mode === "paper" ? `paper-manual-${Date.now()}` : null,
       source: "manual",
     });
-    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
+    if (error) {
+      console.error("DB error", error);
+      throw new Error("Operation failed. Please try again.");
+    }
 
     await supabaseAdmin.from("bot_events").insert({
       user_id: context.userId,
@@ -868,7 +1035,10 @@ export const closeManualTrade = createServerFn({ method: "POST" })
         max_adverse_excursion_pct: maeAtClose,
       } as never)
       .eq("id", pos.id);
-    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
+    if (error) {
+      console.error("DB error", error);
+      throw new Error("Operation failed. Please try again.");
+    }
 
     await supabaseAdmin.from("bot_events").insert({
       user_id: context.userId,
@@ -917,8 +1087,10 @@ export const updatePositionTpSl = createServerFn({ method: "POST" })
     if (Object.keys(patch).length === 0) return { ok: true as const };
 
     const { error } = await supabaseAdmin.from("positions").update(patch).eq("id", pos.id);
-    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
-
+    if (error) {
+      console.error("DB error", error);
+      throw new Error("Operation failed. Please try again.");
+    }
 
     await supabaseAdmin.from("bot_events").insert({
       user_id: context.userId,
@@ -928,11 +1100,17 @@ export const updatePositionTpSl = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
-
-
-
 const livePricesSchema = z.object({
-  symbols: z.array(z.string().min(1).max(40).regex(/^[A-Z0-9_\-\/]+$/)).min(1).max(50),
+  symbols: z
+    .array(
+      z
+        .string()
+        .min(1)
+        .max(40)
+        .regex(/^[A-Z0-9_\-\/]+$/),
+    )
+    .min(1)
+    .max(50),
 });
 
 export const getLivePrices = createServerFn({ method: "POST" })
@@ -942,10 +1120,21 @@ export const getLivePrices = createServerFn({ method: "POST" })
     const wanted = new Set(data.symbols);
     const out: Record<string, number> = {};
     try {
-      const res = await fetch(PUBLIC_FUTURES_TICKER, { headers: PUBLIC_API_HEADERS, cache: "no-store" });
+      const res = await fetch(PUBLIC_FUTURES_TICKER, {
+        headers: PUBLIC_API_HEADERS,
+        cache: "no-store",
+      });
       if (res.ok) {
-        const rows = (await res.json()) as { prices?: Record<string, { ls?: number | string; mp?: number | string }> } | TickerRow[];
-        const arr: TickerRow[] = Array.isArray(rows) ? rows : Object.entries(rows.prices ?? {}).map(([k, v]) => ({ s: k, ls: (v as { ls?: number | string }).ls, c: (v as { mp?: number | string }).mp }));
+        const rows = (await res.json()) as
+          | { prices?: Record<string, { ls?: number | string; mp?: number | string }> }
+          | TickerRow[];
+        const arr: TickerRow[] = Array.isArray(rows)
+          ? rows
+          : Object.entries(rows.prices ?? {}).map(([k, v]) => ({
+              s: k,
+              ls: (v as { ls?: number | string }).ls,
+              c: (v as { mp?: number | string }).mp,
+            }));
         for (const r of arr) {
           const sym = r.s ?? r.pair;
           if (!sym || !wanted.has(sym)) continue;
@@ -955,7 +1144,10 @@ export const getLivePrices = createServerFn({ method: "POST" })
       }
     } catch {}
     try {
-      const res = await fetch("https://api.coindcx.com/exchange/ticker", { headers: PUBLIC_API_HEADERS, cache: "no-store" });
+      const res = await fetch("https://api.coindcx.com/exchange/ticker", {
+        headers: PUBLIC_API_HEADERS,
+        cache: "no-store",
+      });
       if (res.ok) {
         const rows = (await res.json()) as Array<{ market?: string; last_price?: string | number }>;
         for (const r of rows) {

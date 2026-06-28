@@ -122,7 +122,6 @@ function Home() {
   const [riskOpen, setRiskOpen] = useState(false);
   const [hideBalance, setHideBalance] = useState(false);
 
-
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
 
   const cfg = useQuery({
@@ -457,7 +456,9 @@ function Home() {
           portfolioValue={Number(s?.portfolioValue ?? c?.paper_equity ?? 0)}
           todayPnl={Number(s?.todayPnl ?? 0)}
           totalPnl={Number(s?.realizedPnlAllTime ?? 0)}
-          totalPnlPct={s?.baselineEquity ? (Number(s.realizedPnlAllTime ?? 0) / s.baselineEquity) * 100 : 0}
+          totalPnlPct={
+            s?.baselineEquity ? (Number(s.realizedPnlAllTime ?? 0) / s.baselineEquity) * 100 : 0
+          }
           weekChangeAbs={Number(s?.weekChangeAbs ?? 0)}
           dailyPnl={s?.dailyPnl ?? []}
           hideBalance={hideBalance}
@@ -465,7 +466,6 @@ function Home() {
           fmt={fmt}
         />
       </div>
-
 
       {tier === "free" && (
         <Link
@@ -715,8 +715,7 @@ function PerformanceStrip({
   s: StatsExtras | undefined;
   fmt: (n: number | null | undefined, opts?: { signed?: boolean }) => string;
 }) {
-  const netValue =
-    s?.weeklyNetPnl ?? s?.totalNetPnl ?? s?.weekChangeAbs;
+  const netValue = s?.weeklyNetPnl ?? s?.totalNetPnl ?? s?.weekChangeAbs;
   const netLabel =
     s?.weeklyNetPnl != null ? "Net PnL" : s?.totalNetPnl != null ? "All time net" : "Net PnL";
 
@@ -733,19 +732,25 @@ function PerformanceStrip({
     <section className="px-5 mt-3">
       <div className="grid grid-cols-4 gap-2 rounded-2xl border bg-card px-4 py-3">
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">{netLabel}</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
+            {netLabel}
+          </p>
           <p className="mt-0.5 text-[13px] font-semibold tabular-nums truncate">
             {netValue == null ? "—" : fmt(netValue, { signed: true })}
           </p>
         </div>
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">Win rate</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
+            Win rate
+          </p>
           <p className="mt-0.5 text-[13px] font-semibold tabular-nums truncate">
             {winRate == null ? "—" : `${(winRate * 100).toFixed(0)}%`}
           </p>
         </div>
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">Profit factor</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
+            Profit factor
+          </p>
           <p
             className={`mt-0.5 text-[13px] font-semibold tabular-nums truncate ${
               pf == null
@@ -759,7 +764,9 @@ function PerformanceStrip({
           </p>
         </div>
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">Trading fees</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
+            Trading fees
+          </p>
           <p className="mt-0.5 text-[13px] font-semibold tabular-nums truncate text-foreground">
             {fees == null ? "—" : fmt(Math.abs(fees))}
           </p>
@@ -1037,9 +1044,7 @@ function DailyChart({
               return (
                 <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
                   <div
-                    className={`w-full rounded-sm ${
-                      pos ? "bg-emerald-500/80" : "bg-rose-500/80"
-                    }`}
+                    className={`w-full rounded-sm ${pos ? "bg-emerald-500/80" : "bg-rose-500/80"}`}
                     style={{ height: `${h}px` }}
                   />
                   <div className="text-[9px] text-muted-foreground tabular-nums leading-none">

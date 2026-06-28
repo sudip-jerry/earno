@@ -59,7 +59,7 @@ export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
     targetMult: 1.5,
     minRR: 3.0,
     tp1Pct: 0.55,
-    trailPct: 0.30,
+    trailPct: 0.3,
     profitFadeMinPct: 0.6,
     profitFadeGivebackPct: 0.4,
     weakProgressMinPct: 0.3,
@@ -80,7 +80,7 @@ export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
     maxAutoSL: 4,
     targetMult: 1.7,
     minRR: 1.5,
-    tp1Pct: 0.70,
+    tp1Pct: 0.7,
     trailPct: 0.42,
     profitFadeMinPct: 0.6,
     profitFadeGivebackPct: 0.4,
@@ -102,7 +102,7 @@ export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
     maxAutoSL: 5,
     targetMult: 2,
     minRR: 1.5,
-    tp1Pct: 0.90,
+    tp1Pct: 0.9,
     trailPct: 0.62,
     profitFadeMinPct: 0.6,
     profitFadeGivebackPct: 0.4,
@@ -117,15 +117,20 @@ export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
 };
 
 /** Best-effort coercion from the persisted bot_config row to a preset. */
-export function presetFromConfig(cfg: {
-  trading_style?: string | null;
-  min_sl_pct?: number | null;
-  atr_multiplier?: number | null;
-  max_auto_sl_pct?: number | null;
-  target_multiplier?: number | null;
-  min_rr?: number | null;
-  risk_per_trade_pct?: number | null;
-} | null | undefined): StylePreset {
+export function presetFromConfig(
+  cfg:
+    | {
+        trading_style?: string | null;
+        min_sl_pct?: number | null;
+        atr_multiplier?: number | null;
+        max_auto_sl_pct?: number | null;
+        target_multiplier?: number | null;
+        min_rr?: number | null;
+        risk_per_trade_pct?: number | null;
+      }
+    | null
+    | undefined,
+): StylePreset {
   const styleKey = (cfg?.trading_style as TradingStyle) ?? "balanced";
   const base = STYLE_PRESETS[styleKey] ?? STYLE_PRESETS.balanced;
   return {
@@ -178,7 +183,12 @@ export type ComputeRiskInput = {
   unsupported?: boolean;
 };
 
-export function computeRiskPlan({ atrPct, preset, capital, unsupported }: ComputeRiskInput): RiskPlan {
+export function computeRiskPlan({
+  atrPct,
+  preset,
+  capital,
+  unsupported,
+}: ComputeRiskInput): RiskPlan {
   const atrComponent = atrPct != null && atrPct > 0 ? atrPct * preset.atrMult : 0;
   const requiredSL = Math.max(preset.minSL, atrComponent);
   // Cap stop-loss for display purposes, but flag the breach via status.
@@ -271,4 +281,3 @@ export function tp1PriceFor(entry: number, tp1Pct: number, side: "long" | "short
   const sign = side === "long" ? 1 : -1;
   return entry * (1 + (sign * tp1Pct) / 100);
 }
-

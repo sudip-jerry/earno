@@ -59,10 +59,7 @@ export type ReplaySummary = {
   rows: ReplayRow[];
 };
 
-function classifyActual(p: {
-  exit_reason: string | null;
-  pnl_pct: number | null;
-}): ReplayBucket {
+function classifyActual(p: { exit_reason: string | null; pnl_pct: number | null }): ReplayBucket {
   const r = String(p.exit_reason ?? "").toLowerCase();
   if (r === "take_profit") return "take_profit";
   if (r === "stop_loss") return "hard_sl";
@@ -154,7 +151,7 @@ export const replayFuturesExitPolicy = createServerFn({ method: "POST" })
       // Keep only bars overlapping the trade window.
       const bars = candles
         .filter((c) => typeof c.time === "number" && c.time! >= openedAt && c.time! <= closedAt)
-        .sort((a, b) => (a.time! - b.time!));
+        .sort((a, b) => a.time! - b.time!);
 
       const sideMul = p.side === "long" ? 1 : -1;
       const entry = Number(p.entry_price);

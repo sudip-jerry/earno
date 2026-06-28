@@ -7,10 +7,7 @@
  * — the momentum/pullback split lives entirely behind this resolver.
  */
 
-import type {
-  BackendStrategyPolicy,
-  RiskProfile,
-} from "./futures-policy-types";
+import type { BackendStrategyPolicy, RiskProfile } from "./futures-policy-types";
 
 type PolicyConfigInput = {
   strategy: string | null | undefined;
@@ -45,9 +42,12 @@ function resolveAllowedSetups(
  */
 function resolveMinSetupConfidence(profile: RiskProfile): number {
   switch (profile) {
-    case "aggressive": return 55;
-    case "moderate":   return 45;
-    case "conservative": return 40;
+    case "aggressive":
+      return 55;
+    case "moderate":
+      return 45;
+    case "conservative":
+      return 40;
   }
 }
 
@@ -65,9 +65,7 @@ function resolveAllowAmbiguous(
   return true;
 }
 
-export function getBackendStrategyPolicy(
-  cfg: PolicyConfigInput,
-): BackendStrategyPolicy {
+export function getBackendStrategyPolicy(cfg: PolicyConfigInput): BackendStrategyPolicy {
   const riskProfile = resolveRiskProfile(cfg.trading_style);
   const allowedSetups = resolveAllowedSetups(cfg.strategy);
   const minSetupConfidence = resolveMinSetupConfidence(riskProfile);

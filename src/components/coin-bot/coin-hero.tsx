@@ -8,8 +8,16 @@ export function CoinHero() {
   const { fmt } = useCurrency();
   const portfolioFn = useServerFn(getCoinPortfolio);
   const holdingsFn = useServerFn(getCoinHoldings);
-  const portfolio = useQuery({ queryKey: ["coin_portfolio"], queryFn: () => portfolioFn(), refetchInterval: 20_000 });
-  const holdings = useQuery({ queryKey: ["coin_holdings"], queryFn: () => holdingsFn(), refetchInterval: 20_000 });
+  const portfolio = useQuery({
+    queryKey: ["coin_portfolio"],
+    queryFn: () => portfolioFn(),
+    refetchInterval: 20_000,
+  });
+  const holdings = useQuery({
+    queryKey: ["coin_holdings"],
+    queryFn: () => holdingsFn(),
+    refetchInterval: 20_000,
+  });
 
   const p = portfolio.data;
   const sum = holdings.data?.summary;
@@ -23,13 +31,17 @@ export function CoinHero() {
       <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
         <Coins className="size-3.5" />
         Coin paper equity
-        <span className={`ml-auto text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full ${p?.enabled ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+        <span
+          className={`ml-auto text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full ${p?.enabled ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
+        >
           Bot {p?.enabled ? "On" : "Off"}
         </span>
       </div>
       <div className="mt-2 flex items-end gap-3">
         <div className="text-3xl font-semibold tabular-nums">{fmt(equity)}</div>
-        <div className={`inline-flex items-center gap-1 text-sm font-medium tabular-nums mb-1 ${pnlPos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+        <div
+          className={`inline-flex items-center gap-1 text-sm font-medium tabular-nums mb-1 ${pnlPos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+        >
           {pnlPos ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
           {fmt(totalPnl, { signed: true })}
         </div>
@@ -37,15 +49,28 @@ export function CoinHero() {
       <div className="mt-4 grid grid-cols-4 gap-2 text-[11px]">
         <Tile label="Cash" value={fmt(p?.available_cash_usdt ?? 0)} />
         <Tile label="Invested" value={fmt(p?.invested_usdt ?? 0)} />
-        <Tile label="Unrealized" value={fmt(unrealized, { signed: true })} tone={unrealized >= 0 ? "pos" : "neg"} />
-        <Tile label="Today" value={fmt(Number(p?.realized_today_usdt ?? 0), { signed: true })} tone={Number(p?.realized_today_usdt ?? 0) >= 0 ? "pos" : "neg"} />
+        <Tile
+          label="Unrealized"
+          value={fmt(unrealized, { signed: true })}
+          tone={unrealized >= 0 ? "pos" : "neg"}
+        />
+        <Tile
+          label="Today"
+          value={fmt(Number(p?.realized_today_usdt ?? 0), { signed: true })}
+          tone={Number(p?.realized_today_usdt ?? 0) >= 0 ? "pos" : "neg"}
+        />
       </div>
     </section>
   );
 }
 
 function Tile({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" }) {
-  const color = tone === "pos" ? "text-emerald-600 dark:text-emerald-400" : tone === "neg" ? "text-rose-600 dark:text-rose-400" : "text-foreground";
+  const color =
+    tone === "pos"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : tone === "neg"
+        ? "text-rose-600 dark:text-rose-400"
+        : "text-foreground";
   return (
     <div className="rounded-xl bg-muted/40 p-2">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>

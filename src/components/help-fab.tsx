@@ -10,9 +10,7 @@ export function HelpFab() {
 
   // Hide on the full-page /help route and on auth/terms
   const hide =
-    pathname.startsWith("/help") ||
-    pathname.startsWith("/auth") ||
-    pathname.startsWith("/terms");
+    pathname.startsWith("/help") || pathname.startsWith("/auth") || pathname.startsWith("/terms");
 
   useEffect(() => {
     if (!open) return;

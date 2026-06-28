@@ -13,7 +13,11 @@ import { netPnl, tradeFee } from "@/lib/fees";
 import { toast } from "sonner";
 import { Briefcase, RefreshCw, HelpCircle, Pencil, Target, Shield, LineChart } from "lucide-react";
 import { useMarketMode } from "@/hooks/use-market-mode";
-import { CoinPortfolioCard, CoinHoldingsCard, CoinSignalsList } from "@/components/coin-bot/coin-panels";
+import {
+  CoinPortfolioCard,
+  CoinHoldingsCard,
+  CoinSignalsList,
+} from "@/components/coin-bot/coin-panels";
 import { CoinHero } from "@/components/coin-bot/coin-hero";
 import { CoinKpiStrip } from "@/components/coin-bot/coin-kpi-strip";
 import { CoinBotHealth } from "@/components/coin-bot/coin-bot-health";
@@ -97,7 +101,9 @@ function PositionsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("positions")
-        .select("id,symbol,side,leverage,qty,entry_price,mark_price,stop_loss,take_profit,pnl,pnl_pct,opened_at,mode,instrument,tp1_hit,tp1_roe_pct,breakeven_armed_at,breakeven_moved,peak_unrealized_pnl_pct")
+        .select(
+          "id,symbol,side,leverage,qty,entry_price,mark_price,stop_loss,take_profit,pnl,pnl_pct,opened_at,mode,instrument,tp1_hit,tp1_roe_pct,breakeven_armed_at,breakeven_moved,peak_unrealized_pnl_pct",
+        )
         .eq("status", "open")
         .order("opened_at", { ascending: false });
       if (error) throw error;
@@ -125,7 +131,9 @@ function PositionsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("positions")
-        .select("id,symbol,side,leverage,qty,entry_price,mark_price,stop_loss,take_profit,pnl,pnl_pct,opened_at,closed_at,exit_price,exit_reason,mode,instrument,tp1_hit,tp1_roe_pct,breakeven_armed_at,breakeven_moved,peak_unrealized_pnl_pct,exit_protection_reason")
+        .select(
+          "id,symbol,side,leverage,qty,entry_price,mark_price,stop_loss,take_profit,pnl,pnl_pct,opened_at,closed_at,exit_price,exit_reason,mode,instrument,tp1_hit,tp1_roe_pct,breakeven_armed_at,breakeven_moved,peak_unrealized_pnl_pct,exit_protection_reason",
+        )
         .eq("status", "closed")
         .order("closed_at", { ascending: false })
         .limit(100);
@@ -135,10 +143,13 @@ function PositionsPage() {
     enabled: tab === "closed",
   });
 
-
   const rows = q.data ?? [];
   const symbols = useMemo(() => rows.map((r) => r.symbol), [rows]);
-  const { prices, isFetching: pricesFetching, refetch: refetchPrices } = useLivePrices(symbols, rows.length > 0);
+  const {
+    prices,
+    isFetching: pricesFetching,
+    refetch: refetchPrices,
+  } = useLivePrices(symbols, rows.length > 0);
 
   useEffect(() => {
     const ch = supabase
@@ -177,244 +188,262 @@ function PositionsPage() {
     <div className="min-h-svh bg-background pb-28">
       <PositionsStrip showMarketToggle={false} />
       <MarketAwarePositionsBody>
-      <header className="px-5 pt-6 pb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Briefcase className="size-5 text-primary" />
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Positions</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Open trades with live PNL and ROE</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
-            <HelpCircle className="size-5 text-muted-foreground" />
-          </Link>
-          <button
-            onClick={() => { q.refetch(); refetchPrices(); }}
-            className="size-10 grid place-items-center rounded-full hover:bg-muted"
-            aria-label="Refresh positions"
-          >
-            <RefreshCw className={`size-4 ${q.isFetching || pricesFetching ? "animate-spin" : ""}`} />
-          </button>
-        </div>
-      </header>
-
-
-      <section className="px-5">
-        <div className="inline-flex rounded-full border bg-muted p-1 mb-3">
-          {(["open", "closed"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 h-8 text-xs font-medium rounded-full transition-colors ${
-                tab === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
-              }`}
-            >
-              {t === "open" ? "Open" : "History"}
-            </button>
-          ))}
-        </div>
-
-        {tab === "open" ? (
-          <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
+        <header className="px-5 pt-6 pb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Briefcase className="size-5 text-primary" />
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Active PNL</p>
-              <p
-                className={`text-2xl font-semibold tabular-nums mt-0.5 ${
-                  totalPnl >= 0 ? "text-emerald-500" : "text-destructive"
+              <h1 className="text-2xl font-semibold tracking-tight">Positions</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Open trades with live PNL and ROE
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <Link
+              to="/help"
+              className="size-10 grid place-items-center rounded-full hover:bg-muted"
+            >
+              <HelpCircle className="size-5 text-muted-foreground" />
+            </Link>
+            <button
+              onClick={() => {
+                q.refetch();
+                refetchPrices();
+              }}
+              className="size-10 grid place-items-center rounded-full hover:bg-muted"
+              aria-label="Refresh positions"
+            >
+              <RefreshCw
+                className={`size-4 ${q.isFetching || pricesFetching ? "animate-spin" : ""}`}
+              />
+            </button>
+          </div>
+        </header>
+
+        <section className="px-5">
+          <div className="inline-flex rounded-full border bg-muted p-1 mb-3">
+            {(["open", "closed"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-4 h-8 text-xs font-medium rounded-full transition-colors ${
+                  tab === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
                 }`}
               >
-                {fmt(totalPnl, { signed: true })}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Open</p>
-              <p className="text-2xl font-semibold tabular-nums mt-0.5">{rows.length}</p>
-            </div>
+                {t === "open" ? "Open" : "History"}
+              </button>
+            ))}
           </div>
-        ) : (
-          <>
-            <ClosedSummary rows={closedSummaryQ.data ?? []} />
-            {(closedSummaryQ.data?.length ?? 0) > 100 && (
-              <p className="text-[11px] text-muted-foreground px-1 mt-1">
-                Summary reflects all {closedSummaryQ.data?.length} trades. List shows last 100.
-              </p>
-            )}
-          </>
-        )}
-      </section>
 
-      {tab === "open" ? (
-        <ul className="px-5 mt-3 space-y-2">
-          {q.isLoading && !q.data
-            ? Array.from({ length: 3 }).map((_, i) => (
-                <li key={i} className="h-44 rounded-2xl border bg-card animate-pulse" />
-              ))
-            : null}
+          {tab === "open" ? (
+            <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Active PNL
+                </p>
+                <p
+                  className={`text-2xl font-semibold tabular-nums mt-0.5 ${
+                    totalPnl >= 0 ? "text-emerald-500" : "text-destructive"
+                  }`}
+                >
+                  {fmt(totalPnl, { signed: true })}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Open</p>
+                <p className="text-2xl font-semibold tabular-nums mt-0.5">{rows.length}</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <ClosedSummary rows={closedSummaryQ.data ?? []} />
+              {(closedSummaryQ.data?.length ?? 0) > 100 && (
+                <p className="text-[11px] text-muted-foreground px-1 mt-1">
+                  Summary reflects all {closedSummaryQ.data?.length} trades. List shows last 100.
+                </p>
+              )}
+            </>
+          )}
+        </section>
 
-          {rows.map((p) => {
-            const entry = Number(p.entry_price);
-            const live = prices[p.symbol];
-            const mark = live ?? (p.mark_price != null ? Number(p.mark_price) : entry);
-            const qty = Number(p.qty);
-            const lev = Number(p.leverage);
-            const size = qty * mark;
-            const margin = (qty * entry) / Math.max(1, lev);
-            const sideMul = p.side === "long" ? 1 : -1;
-            const pnl = (mark - entry) * qty * sideMul;
-            const roe = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul * lev : 0;
-            const up = pnl >= 0;
-            const sideCls =
-              p.side === "long"
-                ? "bg-emerald-500/10 text-emerald-500"
-                : "bg-destructive/10 text-destructive";
-            const instr = p.instrument ?? (p.symbol.startsWith("B-") ? "futures" : "spot");
-            const closing = pending === p.id;
+        {tab === "open" ? (
+          <ul className="px-5 mt-3 space-y-2">
+            {q.isLoading && !q.data
+              ? Array.from({ length: 3 }).map((_, i) => (
+                  <li key={i} className="h-44 rounded-2xl border bg-card animate-pulse" />
+                ))
+              : null}
 
-            return (
-              <li key={p.id} className="rounded-2xl border bg-card p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                    <span className="font-medium text-sm">{p.symbol}</span>
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${sideCls}`}>
-                      {p.side === "long" ? "Long" : "Short"} {lev}x
-                    </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded border text-foreground capitalize">
-                      {instr}
-                    </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">
-                      {p.mode}
-                    </span>
-                    {(p.breakeven_armed_at || p.breakeven_moved) && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-500">
-                        Protected{p.peak_unrealized_pnl_pct != null ? ` at +${Number(p.peak_unrealized_pnl_pct).toFixed(2)}% ROE` : ""}
+            {rows.map((p) => {
+              const entry = Number(p.entry_price);
+              const live = prices[p.symbol];
+              const mark = live ?? (p.mark_price != null ? Number(p.mark_price) : entry);
+              const qty = Number(p.qty);
+              const lev = Number(p.leverage);
+              const size = qty * mark;
+              const margin = (qty * entry) / Math.max(1, lev);
+              const sideMul = p.side === "long" ? 1 : -1;
+              const pnl = (mark - entry) * qty * sideMul;
+              const roe = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul * lev : 0;
+              const up = pnl >= 0;
+              const sideCls =
+                p.side === "long"
+                  ? "bg-emerald-500/10 text-emerald-500"
+                  : "bg-destructive/10 text-destructive";
+              const instr = p.instrument ?? (p.symbol.startsWith("B-") ? "futures" : "spot");
+              const closing = pending === p.id;
+
+              return (
+                <li key={p.id} className="rounded-2xl border bg-card p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                      <span className="font-medium text-sm">{p.symbol}</span>
+                      <span
+                        className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${sideCls}`}
+                      >
+                        {p.side === "long" ? "Long" : "Short"} {lev}x
                       </span>
-                    )}
-                    {p.tp1_hit && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500">
-                        TP1 hit{p.tp1_roe_pct != null ? ` +${Number(p.tp1_roe_pct).toFixed(2)}%` : ""}
+                      <span className="text-[10px] px-1.5 py-0.5 rounded border text-foreground capitalize">
+                        {instr}
                       </span>
-                    )}
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">
+                        {p.mode}
+                      </span>
+                      {(p.breakeven_armed_at || p.breakeven_moved) && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-500">
+                          Protected
+                          {p.peak_unrealized_pnl_pct != null
+                            ? ` at +${Number(p.peak_unrealized_pnl_pct).toFixed(2)}% ROE`
+                            : ""}
+                        </span>
+                      )}
+                      {p.tp1_hit && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500">
+                          TP1 hit
+                          {p.tp1_roe_pct != null ? ` +${Number(p.tp1_roe_pct).toFixed(2)}%` : ""}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
 
+                  <div className="mt-3 flex items-start justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Active PNL
+                      </p>
+                      <p
+                        className={`text-xl font-semibold tabular-nums ${
+                          up ? "text-emerald-500" : "text-destructive"
+                        }`}
+                      >
+                        {fmt(pnl, { signed: true })}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        ROE
+                      </p>
+                      <p
+                        className={`text-xl font-semibold tabular-nums ${
+                          up ? "text-emerald-500" : "text-destructive"
+                        }`}
+                      >
+                        {up ? "+" : ""}
+                        {roe.toFixed(2)}%
+                      </p>
+                    </div>
+                  </div>
 
-                <div className="mt-3 flex items-start justify-between">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Active PNL</p>
-                    <p
-                      className={`text-xl font-semibold tabular-nums ${
-                        up ? "text-emerald-500" : "text-destructive"
-                      }`}
+                  <div className="mt-3 grid grid-cols-3 gap-y-2 gap-x-3 text-[11px]">
+                    <div>
+                      <p className="text-muted-foreground">Qty</p>
+                      <p className="tabular-nums font-medium mt-0.5">{fmtNum(qty, 4)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Size</p>
+                      <p className="tabular-nums font-medium mt-0.5">{fmt(size)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-muted-foreground">Margin</p>
+                      <p className="tabular-nums font-medium mt-0.5">{fmt(margin)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Avg. Entry</p>
+                      <p className="tabular-nums font-medium mt-0.5">{fmtNum(entry, 6)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">LTP</p>
+                      <p className="tabular-nums font-medium mt-0.5">{fmtNum(mark, 6)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-muted-foreground">Leverage</p>
+                      <p className="tabular-nums font-medium mt-0.5">{lev}x</p>
+                    </div>
+                  </div>
+
+                  <TpSlEditor
+                    positionId={p.id}
+                    side={p.side}
+                    entry={entry}
+                    takeProfit={p.take_profit}
+                    stopLoss={p.stop_loss}
+                  />
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-9 rounded-lg border"
+                      onClick={() => setChartOpen(p)}
                     >
-                      {fmt(pnl, { signed: true })}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">ROE</p>
-                    <p
-                      className={`text-xl font-semibold tabular-nums ${
-                        up ? "text-emerald-500" : "text-destructive"
-                      }`}
+                      <LineChart className="size-4 mr-1" />
+                      View Chart
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-9 rounded-lg"
+                      disabled={closing || !live}
+                      onClick={() => {
+                        if (!live) return;
+                        if (
+                          confirm(
+                            `Place LIMIT close for ${p.side.toUpperCase()} ${p.symbol} at ${fmtNum(live, 6)}? (Lower fee than market.)`,
+                          )
+                        ) {
+                          close.mutate({ positionId: p.id, limitPrice: live });
+                        }
+                      }}
                     >
-                      {up ? "+" : ""}
-                      {roe.toFixed(2)}%
-                    </p>
+                      {closing
+                        ? "Submitting…"
+                        : live
+                          ? `Close @ ${fmtNum(live, 6)}`
+                          : "Waiting price…"}
+                    </Button>
                   </div>
-                </div>
+                  <p className="text-[10px] text-muted-foreground mt-1 text-center">
+                    Limit close uses lower CoinDCX fees than market.
+                  </p>
+                </li>
+              );
+            })}
 
-                <div className="mt-3 grid grid-cols-3 gap-y-2 gap-x-3 text-[11px]">
-                  <div>
-                    <p className="text-muted-foreground">Qty</p>
-                    <p className="tabular-nums font-medium mt-0.5">{fmtNum(qty, 4)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Size</p>
-                    <p className="tabular-nums font-medium mt-0.5">{fmt(size)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-muted-foreground">Margin</p>
-                    <p className="tabular-nums font-medium mt-0.5">{fmt(margin)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Avg. Entry</p>
-                    <p className="tabular-nums font-medium mt-0.5">{fmtNum(entry, 6)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">LTP</p>
-                    <p className="tabular-nums font-medium mt-0.5">{fmtNum(mark, 6)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-muted-foreground">Leverage</p>
-                    <p className="tabular-nums font-medium mt-0.5">{lev}x</p>
-                  </div>
-                </div>
-
-                <TpSlEditor
-                  positionId={p.id}
-                  side={p.side}
-                  entry={entry}
-                  takeProfit={p.take_profit}
-                  stopLoss={p.stop_loss}
-                />
-
-
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-9 rounded-lg border"
-                    onClick={() => setChartOpen(p)}
-                  >
-                    <LineChart className="size-4 mr-1" />
-                    View Chart
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-9 rounded-lg"
-                    disabled={closing || !live}
-                    onClick={() => {
-                      if (!live) return;
-                      if (
-                        confirm(
-                          `Place LIMIT close for ${p.side.toUpperCase()} ${p.symbol} at ${fmtNum(live, 6)}? (Lower fee than market.)`,
-                        )
-                      ) {
-                        close.mutate({ positionId: p.id, limitPrice: live });
-                      }
-                    }}
-                  >
-                    {closing
-                      ? "Submitting…"
-                      : live
-                      ? `Close @ ${fmtNum(live, 6)}`
-                      : "Waiting price…"}
-                  </Button>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1 text-center">
-                  Limit close uses lower CoinDCX fees than market.
+            {!q.isLoading && rows.length === 0 ? (
+              <li className="rounded-2xl border border-dashed bg-card/50 p-8 text-center">
+                <p className="text-sm text-muted-foreground">No open positions.</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Book a trade from the Dashboard or Scanner.
                 </p>
               </li>
-            );
-          })}
-
-          {!q.isLoading && rows.length === 0 ? (
-            <li className="rounded-2xl border border-dashed bg-card/50 p-8 text-center">
-              <p className="text-sm text-muted-foreground">No open positions.</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Book a trade from the Dashboard or Scanner.
-              </p>
-            </li>
-          ) : null}
-        </ul>
-      ) : (
-        <ClosedList
-          rows={closedListQ.data ?? []}
-          isLoading={closedListQ.isLoading}
-          onViewChart={(r) => setChartOpen(r)}
-        />
-      )}
-
+            ) : null}
+          </ul>
+        ) : (
+          <ClosedList
+            rows={closedListQ.data ?? []}
+            isLoading={closedListQ.isLoading}
+            onViewChart={(r) => setChartOpen(r)}
+          />
+        )}
       </MarketAwarePositionsBody>
       <CoinPositionsSection />
       <TabBar />
@@ -423,7 +452,9 @@ function PositionsPage() {
         <Suspense fallback={null}>
           <PositionChartSheet
             open={!!chartOpen}
-            onOpenChange={(o) => { if (!o) setChartOpen(null); }}
+            onOpenChange={(o) => {
+              if (!o) setChartOpen(null);
+            }}
             symbol={chartOpen.symbol}
             side={chartOpen.side}
             entryPrice={Number(chartOpen.entry_price)}
@@ -520,12 +551,14 @@ function TpSlEditor({
     onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
   });
 
-  const tpPct = takeProfit != null && entry > 0
-    ? ((takeProfit - entry) / entry) * 100 * (side === "long" ? 1 : -1)
-    : null;
-  const slPct = stopLoss != null && entry > 0
-    ? ((entry - stopLoss) / entry) * 100 * (side === "long" ? 1 : -1)
-    : null;
+  const tpPct =
+    takeProfit != null && entry > 0
+      ? ((takeProfit - entry) / entry) * 100 * (side === "long" ? 1 : -1)
+      : null;
+  const slPct =
+    stopLoss != null && entry > 0
+      ? ((entry - stopLoss) / entry) * 100 * (side === "long" ? 1 : -1)
+      : null;
 
   if (!editing) {
     const hasTp = takeProfit != null;
@@ -540,18 +573,29 @@ function TpSlEditor({
         <span className="flex items-center gap-1.5 min-w-0">
           <Target className="size-3.5 text-emerald-500 shrink-0" />
           <span className="text-muted-foreground">TP</span>
-          <span className={`tabular-nums ${hasTp ? "text-emerald-500 font-medium" : "text-muted-foreground italic"}`}>
+          <span
+            className={`tabular-nums ${hasTp ? "text-emerald-500 font-medium" : "text-muted-foreground italic"}`}
+          >
             {hasTp ? fmtNum(takeProfit, 6) : "not set"}
           </span>
-          {tpPct != null ? <span className="text-muted-foreground">({tpPct >= 0 ? "+" : ""}{tpPct.toFixed(2)}%)</span> : null}
+          {tpPct != null ? (
+            <span className="text-muted-foreground">
+              ({tpPct >= 0 ? "+" : ""}
+              {tpPct.toFixed(2)}%)
+            </span>
+          ) : null}
         </span>
         <span className="flex items-center gap-1.5 min-w-0">
           <Shield className="size-3.5 text-destructive shrink-0" />
           <span className="text-muted-foreground">SL</span>
-          <span className={`tabular-nums ${hasSl ? "text-destructive font-medium" : "text-muted-foreground italic"}`}>
+          <span
+            className={`tabular-nums ${hasSl ? "text-destructive font-medium" : "text-muted-foreground italic"}`}
+          >
             {hasSl ? fmtNum(stopLoss, 6) : "not set"}
           </span>
-          {slPct != null ? <span className="text-muted-foreground">(-{Math.abs(slPct).toFixed(2)}%)</span> : null}
+          {slPct != null ? (
+            <span className="text-muted-foreground">(-{Math.abs(slPct).toFixed(2)}%)</span>
+          ) : null}
         </span>
         <span className="flex items-center gap-1 text-primary text-[10px] font-medium shrink-0">
           <Pencil className="size-3" /> Edit
@@ -582,24 +626,34 @@ function TpSlEditor({
   const tpPrice = parseToPrice(tp, tpUnit, "tp");
   const slPrice = parseToPrice(sl, slUnit, "sl");
   const tpInvalid =
-    tpPrice != null && (Number.isNaN(tpPrice) || tpPrice <= 0 || (side === "long" ? tpPrice <= entry : tpPrice >= entry));
+    tpPrice != null &&
+    (Number.isNaN(tpPrice) ||
+      tpPrice <= 0 ||
+      (side === "long" ? tpPrice <= entry : tpPrice >= entry));
   const slInvalid =
-    slPrice != null && (Number.isNaN(slPrice) || slPrice <= 0 || (side === "long" ? slPrice >= entry : slPrice <= entry));
+    slPrice != null &&
+    (Number.isNaN(slPrice) ||
+      slPrice <= 0 ||
+      (side === "long" ? slPrice >= entry : slPrice <= entry));
 
   // Live preview for the *other* unit (helps the user understand what they typed).
-  const tpPreviewPct = tpPrice != null && !Number.isNaN(tpPrice) && entry > 0
-    ? ((tpPrice - entry) / entry) * 100 * (side === "long" ? 1 : -1)
-    : null;
-  const slPreviewPct = slPrice != null && !Number.isNaN(slPrice) && entry > 0
-    ? ((entry - slPrice) / entry) * 100 * (side === "long" ? 1 : -1)
-    : null;
+  const tpPreviewPct =
+    tpPrice != null && !Number.isNaN(tpPrice) && entry > 0
+      ? ((tpPrice - entry) / entry) * 100 * (side === "long" ? 1 : -1)
+      : null;
+  const slPreviewPct =
+    slPrice != null && !Number.isNaN(slPrice) && entry > 0
+      ? ((entry - slPrice) / entry) * 100 * (side === "long" ? 1 : -1)
+      : null;
 
   return (
     <div className="mt-3 rounded-lg border bg-muted/40 p-3 space-y-2">
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-            <span>Take Profit ({side === "long" ? ">" : "<"} {fmtNum(entry, 6)})</span>
+            <span>
+              Take Profit ({side === "long" ? ">" : "<"} {fmtNum(entry, 6)})
+            </span>
             <UnitToggle value={tpUnit} onChange={handleTpUnit} />
           </div>
           <div className="relative">
@@ -613,18 +667,26 @@ function TpSlEditor({
               className={`w-full rounded-md border bg-background pl-2 pr-7 h-8 text-xs tabular-nums ${tpInvalid ? "border-destructive" : ""}`}
             />
             {tpUnit === "pct" && (
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">%</span>
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                %
+              </span>
             )}
           </div>
           <p className="text-[10px] text-muted-foreground tabular-nums">
             {tpUnit === "pct"
-              ? tpPrice != null && !Number.isNaN(tpPrice) ? `≈ ${fmtNum(tpPrice, 6)}` : "Enter % above entry"
-              : tpPreviewPct != null ? `≈ +${tpPreviewPct.toFixed(2)}%` : "Enter price"}
+              ? tpPrice != null && !Number.isNaN(tpPrice)
+                ? `≈ ${fmtNum(tpPrice, 6)}`
+                : "Enter % above entry"
+              : tpPreviewPct != null
+                ? `≈ +${tpPreviewPct.toFixed(2)}%`
+                : "Enter price"}
           </p>
         </div>
         <div className="space-y-1">
           <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-            <span>Stop Loss ({side === "long" ? "<" : ">"} {fmtNum(entry, 6)})</span>
+            <span>
+              Stop Loss ({side === "long" ? "<" : ">"} {fmtNum(entry, 6)})
+            </span>
             <UnitToggle value={slUnit} onChange={handleSlUnit} />
           </div>
           <div className="relative">
@@ -638,13 +700,19 @@ function TpSlEditor({
               className={`w-full rounded-md border bg-background pl-2 pr-7 h-8 text-xs tabular-nums ${slInvalid ? "border-destructive" : ""}`}
             />
             {slUnit === "pct" && (
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">%</span>
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                %
+              </span>
             )}
           </div>
           <p className="text-[10px] text-muted-foreground tabular-nums">
             {slUnit === "pct"
-              ? slPrice != null && !Number.isNaN(slPrice) ? `≈ ${fmtNum(slPrice, 6)}` : "Enter % below entry"
-              : slPreviewPct != null ? `≈ −${Math.abs(slPreviewPct).toFixed(2)}%` : "Enter price"}
+              ? slPrice != null && !Number.isNaN(slPrice)
+                ? `≈ ${fmtNum(slPrice, 6)}`
+                : "Enter % below entry"
+              : slPreviewPct != null
+                ? `≈ −${Math.abs(slPreviewPct).toFixed(2)}%`
+                : "Enter price"}
           </p>
         </div>
       </div>
@@ -677,15 +745,20 @@ function TpSlEditor({
         </Button>
       </div>
       <p className="text-[10px] text-muted-foreground">
-        Switch between price and % per field. Leave blank to clear. The bot auto-closes when LTP crosses these levels.
+        Switch between price and % per field. Leave blank to clear. The bot auto-closes when LTP
+        crosses these levels.
       </p>
     </div>
   );
 }
 
 function UnitToggle({
-  value, onChange,
-}: { value: "price" | "pct"; onChange: (v: "price" | "pct") => void }) {
+  value,
+  onChange,
+}: {
+  value: "price" | "pct";
+  onChange: (v: "price" | "pct") => void;
+}) {
   return (
     <div className="inline-flex items-center rounded-md border bg-background p-0.5">
       {(["price", "pct"] as const).map((u) => (
@@ -694,7 +767,9 @@ function UnitToggle({
           type="button"
           onClick={() => onChange(u)}
           className={`h-5 px-2 text-[10px] font-medium rounded ${
-            value === u ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            value === u
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           {u === "price" ? "Price" : "%"}
@@ -703,9 +778,6 @@ function UnitToggle({
     </div>
   );
 }
-
-
-
 
 function ClosedSummary({ rows }: { rows: ClosedRow[] }) {
   const { fmt } = useCurrency();
@@ -717,7 +789,9 @@ function ClosedSummary({ rows }: { rows: ClosedRow[] }) {
     <div className="rounded-2xl border bg-card p-4 grid grid-cols-3 gap-3">
       <div>
         <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Net PNL</p>
-        <p className={`text-xl font-semibold tabular-nums mt-0.5 ${total >= 0 ? "text-emerald-500" : "text-destructive"}`}>
+        <p
+          className={`text-xl font-semibold tabular-nums mt-0.5 ${total >= 0 ? "text-emerald-500" : "text-destructive"}`}
+        >
           {fmt(total, { signed: true })}
         </p>
         <p className="text-[10px] text-muted-foreground mt-0.5">Fees paid: {fmt(Math.abs(fees))}</p>
@@ -771,24 +845,41 @@ function ClosedList({
         const fee = tradeFee(p);
         const up = pnl >= 0;
         const sideCls =
-          p.side === "long" ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive";
+          p.side === "long"
+            ? "bg-emerald-500/10 text-emerald-500"
+            : "bg-destructive/10 text-destructive";
         const reason = p.exit_reason ?? "—";
         const reasonLabel =
-          reason === "take_profit" ? "Take Profit"
-          : reason === "stop_loss" ? "Stop Loss"
-          : reason === "time_exit" ? "Time Exit"
-          : reason === "trend_invalidated" ? "Trend Invalidated"
-          : reason === "manual_limit" ? "Manual Close"
-          : reason === "kill_switch" ? "Emergency Stop"
-          : reason === "risk_protection" ? "Risk Protection"
-          : reason === "breakeven_exit" ? "Breakeven Protected"
-          : reason === "profit_protection_exit" ? "Profit Protected"
-          : reason === "profit_fade_exit" ? "Exited by Profit Fade"
-          : reason === "trailing_exit" ? "Trailing Exit"
-          : reason.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+          reason === "take_profit"
+            ? "Take Profit"
+            : reason === "stop_loss"
+              ? "Stop Loss"
+              : reason === "time_exit"
+                ? "Time Exit"
+                : reason === "trend_invalidated"
+                  ? "Trend Invalidated"
+                  : reason === "manual_limit"
+                    ? "Manual Close"
+                    : reason === "kill_switch"
+                      ? "Emergency Stop"
+                      : reason === "risk_protection"
+                        ? "Risk Protection"
+                        : reason === "breakeven_exit"
+                          ? "Breakeven Protected"
+                          : reason === "profit_protection_exit"
+                            ? "Profit Protected"
+                            : reason === "profit_fade_exit"
+                              ? "Exited by Profit Fade"
+                              : reason === "trailing_exit"
+                                ? "Trailing Exit"
+                                : reason
+                                    .replace(/_/g, " ")
+                                    .replace(/\b\w/g, (c) => c.toUpperCase());
         const peakRoe = Number(p.peak_unrealized_pnl_pct ?? 0);
         const tp1Roe = p.tp1_roe_pct != null ? Number(p.tp1_roe_pct) : null;
-        const showProtection = Boolean(p.breakeven_armed_at || p.breakeven_moved || p.tp1_hit || peakRoe > 0);
+        const showProtection = Boolean(
+          p.breakeven_armed_at || p.breakeven_moved || p.tp1_hit || peakRoe > 0,
+        );
         return (
           <li key={p.id} className="rounded-2xl border bg-card p-4">
             <div className="flex items-center justify-between">
@@ -805,7 +896,9 @@ function ClosedList({
                 </span>
               </div>
               <div className="text-right">
-                <p className={`text-lg font-semibold tabular-nums ${up ? "text-emerald-500" : "text-destructive"}`}>
+                <p
+                  className={`text-lg font-semibold tabular-nums ${up ? "text-emerald-500" : "text-destructive"}`}
+                >
                   {fmt(pnl, { signed: true })}
                 </p>
                 <p className="text-[10px] text-muted-foreground">Fee {fmt(fee)}</p>
@@ -855,14 +948,18 @@ function ClosedList({
                   </div>
                   <div>
                     <p className="text-muted-foreground">ROE</p>
-                    <p className={`tabular-nums font-medium mt-0.5 ${up ? "text-emerald-500" : "text-destructive"}`}>
+                    <p
+                      className={`tabular-nums font-medium mt-0.5 ${up ? "text-emerald-500" : "text-destructive"}`}
+                    >
                       {up ? "+" : ""}
                       {Number(p.pnl_pct ?? 0).toFixed(2)}%
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-muted-foreground">Held</p>
-                    <p className="tabular-nums font-medium mt-0.5">{fmtDuration(p.opened_at, p.closed_at)}</p>
+                    <p className="tabular-nums font-medium mt-0.5">
+                      {fmtDuration(p.opened_at, p.closed_at)}
+                    </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Qty</p>
@@ -884,7 +981,8 @@ function ClosedList({
               );
             })()}
             <p className="text-[10px] text-muted-foreground mt-2">
-              {new Date(p.opened_at).toLocaleString()} → {p.closed_at ? new Date(p.closed_at).toLocaleString() : "—"}
+              {new Date(p.opened_at).toLocaleString()} →{" "}
+              {p.closed_at ? new Date(p.closed_at).toLocaleString() : "—"}
             </p>
             <button
               type="button"
@@ -901,7 +999,6 @@ function ClosedList({
   );
 }
 
-
 function CoinPositionsSection() {
   const { market } = useMarketMode();
   if (market !== "spot") return null;
@@ -911,7 +1008,9 @@ function CoinPositionsSection() {
       <CoinKpiStrip />
       <CoinBotHealth />
       <div>
-        <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">Coin holdings</div>
+        <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">
+          Coin holdings
+        </div>
         <CoinHoldingsCard />
       </div>
       <CoinRecentActivity />

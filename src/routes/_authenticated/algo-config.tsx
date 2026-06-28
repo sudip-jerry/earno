@@ -96,8 +96,7 @@ function AlgoConfigPage() {
     );
   }, [data.data, q]);
 
-  if (ent.isLoading)
-    return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
+  if (ent.isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
   if (!ent.data?.isAdmin)
     return (
       <div className="p-6 text-sm">
@@ -130,12 +129,11 @@ function AlgoConfigPage() {
       </header>
 
       <p className="px-5 text-[11px] text-muted-foreground -mt-2 mb-3">
-        Current bot settings per user across modes. Every edit is logged in
-        the audit history below — used for tuning pattern analysis.
+        Current bot settings per user across modes. Every edit is logged in the audit history below
+        — used for tuning pattern analysis.
       </p>
 
       <PatternsPanel rows={audit.data ?? []} />
-
 
       <section className="px-5 mb-3">
         <Input
@@ -146,9 +144,7 @@ function AlgoConfigPage() {
         />
       </section>
 
-      {data.isLoading && (
-        <p className="px-5 text-xs text-muted-foreground">Loading…</p>
-      )}
+      {data.isLoading && <p className="px-5 text-xs text-muted-foreground">Loading…</p>}
 
       <section className="px-5 space-y-2">
         {filtered.map((c) => (
@@ -184,10 +180,7 @@ function AlgoConfigPage() {
                   ? "border-blue-500/30 bg-blue-500/5"
                   : "";
             return (
-              <div
-                key={a.id}
-                className={`rounded-lg border bg-card p-2 text-[11px] ${tone}`}
-              >
+              <div key={a.id} className={`rounded-lg border bg-card p-2 text-[11px] ${tone}`}>
                 <div className="flex justify-between gap-2">
                   <span className="truncate font-medium">
                     {a.user_email ?? a.user_id.slice(0, 8)}
@@ -199,9 +192,7 @@ function AlgoConfigPage() {
                 <p className="text-muted-foreground">
                   <span className="font-mono text-foreground">{a.field}</span>
                   {": "}
-                  <span className="line-through opacity-60">
-                    {a.old_value ?? "—"}
-                  </span>
+                  <span className="line-through opacity-60">{a.old_value ?? "—"}</span>
                   {" → "}
                   <span className="text-foreground">{a.new_value ?? "—"}</span>
                 </p>
@@ -226,9 +217,7 @@ function AlgoConfigPage() {
 function Kv({ k, v }: { k: string; v: string }) {
   return (
     <div className="rounded-md border bg-background p-1.5">
-      <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
-        {k}
-      </p>
+      <p className="text-[9px] uppercase tracking-wider text-muted-foreground">{k}</p>
       <p className="tabular-nums font-medium">{v}</p>
     </div>
   );
@@ -367,15 +356,29 @@ function UserConfigCard({ c }: { c: CfgRow }) {
   const buildPatch = (d: Draft): Record<string, unknown> => {
     const out: Record<string, unknown> = {};
     const numKeys: NumField[] = [
-      "leverage", "risk_per_trade_pct", "max_open_positions", "max_trades_per_day",
-      "cooldown_minutes", "auto_close_minutes", "scan_interval_minutes",
-      "daily_loss_cap_pct", "min_scalp_score", "atr_multiplier", "target_multiplier",
-      "min_sl_pct", "min_rr",
+      "leverage",
+      "risk_per_trade_pct",
+      "max_open_positions",
+      "max_trades_per_day",
+      "cooldown_minutes",
+      "auto_close_minutes",
+      "scan_interval_minutes",
+      "daily_loss_cap_pct",
+      "min_scalp_score",
+      "atr_multiplier",
+      "target_multiplier",
+      "min_sl_pct",
+      "min_rr",
     ];
     for (const k of numKeys) if (d[k] !== Number(c[k])) out[k] = d[k];
     const boolKeys: BoolField[] = [
-      "is_running", "auto_book", "allow_long", "allow_short",
-      "move_to_breakeven", "trailing_enabled", "regime_filter_enabled",
+      "is_running",
+      "auto_book",
+      "allow_long",
+      "allow_short",
+      "move_to_breakeven",
+      "trailing_enabled",
+      "regime_filter_enabled",
     ];
     for (const k of boolKeys) if (d[k] !== c[k]) out[k] = d[k];
     if (d.trading_style !== c.trading_style) out.trading_style = d.trading_style;
@@ -388,12 +391,9 @@ function UserConfigCard({ c }: { c: CfgRow }) {
     <div className="rounded-2xl border bg-card p-3">
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="min-w-0">
-          <p className="font-medium truncate text-sm">
-            {c.user_email ?? c.user_id.slice(0, 8)}
-          </p>
+          <p className="font-medium truncate text-sm">{c.user_email ?? c.user_id.slice(0, 8)}</p>
           <p className="text-[10px] text-muted-foreground">
-            {c.mode} · {c.is_running ? "running" : "stopped"} · style{" "}
-            {c.trading_style}
+            {c.mode} · {c.is_running ? "running" : "stopped"} · style {c.trading_style}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -439,13 +439,41 @@ function UserConfigCard({ c }: { c: CfgRow }) {
         <div className="space-y-4">
           {/* Toggles */}
           <div className="rounded-xl border bg-background divide-y">
-            <ToggleRow label="Bot running" value={draft.is_running} onChange={(v) => setField("is_running", v)} />
-            <ToggleRow label="Auto-book" value={draft.auto_book} onChange={(v) => setField("auto_book", v)} />
-            <ToggleRow label="Allow longs" value={draft.allow_long} onChange={(v) => setField("allow_long", v)} />
-            <ToggleRow label="Allow shorts" value={draft.allow_short} onChange={(v) => setField("allow_short", v)} />
-            <ToggleRow label="Move SL to breakeven" value={draft.move_to_breakeven} onChange={(v) => setField("move_to_breakeven", v)} />
-            <ToggleRow label="Trailing SL" value={draft.trailing_enabled} onChange={(v) => setField("trailing_enabled", v)} />
-            <ToggleRow label="Regime filter" value={draft.regime_filter_enabled} onChange={(v) => setField("regime_filter_enabled", v)} />
+            <ToggleRow
+              label="Bot running"
+              value={draft.is_running}
+              onChange={(v) => setField("is_running", v)}
+            />
+            <ToggleRow
+              label="Auto-book"
+              value={draft.auto_book}
+              onChange={(v) => setField("auto_book", v)}
+            />
+            <ToggleRow
+              label="Allow longs"
+              value={draft.allow_long}
+              onChange={(v) => setField("allow_long", v)}
+            />
+            <ToggleRow
+              label="Allow shorts"
+              value={draft.allow_short}
+              onChange={(v) => setField("allow_short", v)}
+            />
+            <ToggleRow
+              label="Move SL to breakeven"
+              value={draft.move_to_breakeven}
+              onChange={(v) => setField("move_to_breakeven", v)}
+            />
+            <ToggleRow
+              label="Trailing SL"
+              value={draft.trailing_enabled}
+              onChange={(v) => setField("trailing_enabled", v)}
+            />
+            <ToggleRow
+              label="Regime filter"
+              value={draft.regime_filter_enabled}
+              onChange={(v) => setField("regime_filter_enabled", v)}
+            />
             <div className="flex items-center justify-between px-3 py-2.5">
               <span className="text-xs">Trading style</span>
               <Select
@@ -498,36 +526,132 @@ function UserConfigCard({ c }: { c: CfgRow }) {
 
           {/* Sliders */}
           <div className="rounded-xl border bg-background p-3 space-y-4">
-            <SliderRow label="Leverage" unit="x" min={1} max={20} step={1}
-              value={draft.leverage} onChange={(v) => setField("leverage", v)} />
-            <SliderRow label="Risk per trade" unit="%" min={0.1} max={5} step={0.1}
-              value={draft.risk_per_trade_pct} onChange={(v) => setField("risk_per_trade_pct", v)} />
-            <SliderRow label="Max open positions" unit="" min={1} max={10} step={1}
-              value={draft.max_open_positions} onChange={(v) => setField("max_open_positions", v)} />
-            <SliderRow label="Max trades/day" unit="" min={1} max={100} step={1}
-              value={draft.max_trades_per_day} onChange={(v) => setField("max_trades_per_day", v)} />
-            <SliderRow label="Cooldown" unit=" min" min={0} max={240} step={5}
-              value={draft.cooldown_minutes} onChange={(v) => setField("cooldown_minutes", v)} />
-            <SliderRow label="Auto-close after" unit=" min" min={5} max={480} step={5}
-              value={draft.auto_close_minutes} onChange={(v) => setField("auto_close_minutes", v)} />
-            <SliderRow label="Scan interval" unit=" min" min={1} max={60} step={1}
-              value={draft.scan_interval_minutes} onChange={(v) => setField("scan_interval_minutes", v)} />
-            <SliderRow label="Daily loss cap" unit="%" min={1} max={30} step={1}
-              value={draft.daily_loss_cap_pct} onChange={(v) => setField("daily_loss_cap_pct", v)} />
-            <SliderRow label="Minimum confidence" unit="" min={0} max={100} step={1}
-              value={draft.min_scalp_score} onChange={(v) => setField("min_scalp_score", v)} />
-            <SliderRow label="ATR multiplier" unit="x" min={0.5} max={5} step={0.1}
-              value={draft.atr_multiplier} onChange={(v) => setField("atr_multiplier", v)} />
-            <SliderRow label="Target multiplier" unit="x" min={0.5} max={5} step={0.1}
-              value={draft.target_multiplier} onChange={(v) => setField("target_multiplier", v)} />
-            <SliderRow label="Minimum SL" unit="%" min={0.1} max={10} step={0.1}
-              value={draft.min_sl_pct} onChange={(v) => setField("min_sl_pct", v)} />
-            <SliderRow label="Minimum RR" unit=":1" min={0.5} max={5} step={0.1}
-              value={draft.min_rr} onChange={(v) => setField("min_rr", v)} />
+            <SliderRow
+              label="Leverage"
+              unit="x"
+              min={1}
+              max={20}
+              step={1}
+              value={draft.leverage}
+              onChange={(v) => setField("leverage", v)}
+            />
+            <SliderRow
+              label="Risk per trade"
+              unit="%"
+              min={0.1}
+              max={5}
+              step={0.1}
+              value={draft.risk_per_trade_pct}
+              onChange={(v) => setField("risk_per_trade_pct", v)}
+            />
+            <SliderRow
+              label="Max open positions"
+              unit=""
+              min={1}
+              max={10}
+              step={1}
+              value={draft.max_open_positions}
+              onChange={(v) => setField("max_open_positions", v)}
+            />
+            <SliderRow
+              label="Max trades/day"
+              unit=""
+              min={1}
+              max={100}
+              step={1}
+              value={draft.max_trades_per_day}
+              onChange={(v) => setField("max_trades_per_day", v)}
+            />
+            <SliderRow
+              label="Cooldown"
+              unit=" min"
+              min={0}
+              max={240}
+              step={5}
+              value={draft.cooldown_minutes}
+              onChange={(v) => setField("cooldown_minutes", v)}
+            />
+            <SliderRow
+              label="Auto-close after"
+              unit=" min"
+              min={5}
+              max={480}
+              step={5}
+              value={draft.auto_close_minutes}
+              onChange={(v) => setField("auto_close_minutes", v)}
+            />
+            <SliderRow
+              label="Scan interval"
+              unit=" min"
+              min={1}
+              max={60}
+              step={1}
+              value={draft.scan_interval_minutes}
+              onChange={(v) => setField("scan_interval_minutes", v)}
+            />
+            <SliderRow
+              label="Daily loss cap"
+              unit="%"
+              min={1}
+              max={30}
+              step={1}
+              value={draft.daily_loss_cap_pct}
+              onChange={(v) => setField("daily_loss_cap_pct", v)}
+            />
+            <SliderRow
+              label="Minimum confidence"
+              unit=""
+              min={0}
+              max={100}
+              step={1}
+              value={draft.min_scalp_score}
+              onChange={(v) => setField("min_scalp_score", v)}
+            />
+            <SliderRow
+              label="ATR multiplier"
+              unit="x"
+              min={0.5}
+              max={5}
+              step={0.1}
+              value={draft.atr_multiplier}
+              onChange={(v) => setField("atr_multiplier", v)}
+            />
+            <SliderRow
+              label="Target multiplier"
+              unit="x"
+              min={0.5}
+              max={5}
+              step={0.1}
+              value={draft.target_multiplier}
+              onChange={(v) => setField("target_multiplier", v)}
+            />
+            <SliderRow
+              label="Minimum SL"
+              unit="%"
+              min={0.1}
+              max={10}
+              step={0.1}
+              value={draft.min_sl_pct}
+              onChange={(v) => setField("min_sl_pct", v)}
+            />
+            <SliderRow
+              label="Minimum RR"
+              unit=":1"
+              min={0.5}
+              max={5}
+              step={0.1}
+              value={draft.min_rr}
+              onChange={(v) => setField("min_rr", v)}
+            />
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setEditing(false)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 text-xs"
+              onClick={() => setEditing(false)}
+            >
               Cancel
             </Button>
             <Button
@@ -553,8 +677,14 @@ function UserConfigCard({ c }: { c: CfgRow }) {
 }
 
 function ToggleRow({
-  label, value, onChange,
-}: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <div className="flex items-center justify-between px-3 py-2.5">
       <span className="text-xs">{label}</span>
@@ -564,7 +694,13 @@ function ToggleRow({
 }
 
 function SliderRow({
-  label, unit, min, max, step, value, onChange,
+  label,
+  unit,
+  min,
+  max,
+  step,
+  value,
+  onChange,
 }: {
   label: string;
   unit: string;
@@ -575,14 +711,17 @@ function SliderRow({
   onChange: (v: number) => void;
 }) {
   const [local, setLocal] = useState(value);
-  useEffect(() => { setLocal(value); }, [value]);
+  useEffect(() => {
+    setLocal(value);
+  }, [value]);
   const decimals = step < 1 ? 2 : 0;
   return (
     <div>
       <div className="flex items-baseline justify-between mb-1.5">
         <span className="text-xs">{label}</span>
         <span className="text-xs font-medium tabular-nums">
-          {Number(local).toFixed(decimals)}{unit}
+          {Number(local).toFixed(decimals)}
+          {unit}
         </span>
       </div>
       <Slider
@@ -633,8 +772,7 @@ function PatternsPanel({ rows }: { rows: AuditRow[] }) {
         fieldDirections.set(r.field, d);
       }
     }
-    const sortDesc = (m: Map<string, number>) =>
-      [...m.entries()].sort((a, b) => b[1] - a[1]);
+    const sortDesc = (m: Map<string, number>) => [...m.entries()].sort((a, b) => b[1] - a[1]);
     return {
       topFields: sortDesc(byField).slice(0, 8),
       topUsers: sortDesc(byUser).slice(0, 6),
@@ -667,8 +805,7 @@ function PatternsPanel({ rows }: { rows: AuditRow[] }) {
                     {n}
                     {d && (d.up || d.down) ? (
                       <span className="ml-1 text-[10px]">
-                        <span className="text-emerald-500">↑{d.up}</span>
-                        {" "}
+                        <span className="text-emerald-500">↑{d.up}</span>{" "}
                         <span className="text-rose-500">↓{d.down}</span>
                       </span>
                     ) : null}
@@ -687,9 +824,7 @@ function PatternsPanel({ rows }: { rows: AuditRow[] }) {
             {stats.topUsers.map(([u, n]) => (
               <li key={u} className="flex justify-between gap-2">
                 <span className="truncate">{u}</span>
-                <span className="tabular-nums text-muted-foreground shrink-0">
-                  {n}
-                </span>
+                <span className="tabular-nums text-muted-foreground shrink-0">{n}</span>
               </li>
             ))}
           </ul>
@@ -724,10 +859,9 @@ function PatternsPanel({ rows }: { rows: AuditRow[] }) {
         </div>
       </div>
       <p className="text-[10px] text-muted-foreground mt-2">
-        Up/down arrows show how often a numeric field is raised vs. lowered —
-        useful for spotting where defaults should move.
+        Up/down arrows show how often a numeric field is raised vs. lowered — useful for spotting
+        where defaults should move.
       </p>
     </section>
   );
 }
-

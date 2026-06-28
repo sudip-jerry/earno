@@ -8,7 +8,13 @@ export const CURRENCY_OPTIONS = ["INR", "USD", "EUR", "GBP", "AED", "SGD", "JPY"
 export type CurrencyCode = (typeof CURRENCY_OPTIONS)[number];
 
 export const CURRENCY_SYMBOL: Record<CurrencyCode, string> = {
-  INR: "₹", USD: "$", EUR: "€", GBP: "£", AED: "AED ", SGD: "S$", JPY: "¥",
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  AED: "AED ",
+  SGD: "S$",
+  JPY: "¥",
 };
 
 const LS_KEY = "earno_currency";
@@ -44,14 +50,19 @@ export function useCurrency() {
   const symbol = CURRENCY_SYMBOL[code];
 
   useEffect(() => {
-    try { window.localStorage.setItem(LS_KEY, code); } catch {}
+    try {
+      window.localStorage.setItem(LS_KEY, code);
+    } catch {}
   }, [code]);
 
   const mut = useMutation({
     mutationFn: async (next: CurrencyCode) => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
-      const { error } = await supabase.from("profiles").update({ currency: next }).eq("id", u.user.id);
+      const { error } = await supabase
+        .from("profiles")
+        .update({ currency: next })
+        .eq("id", u.user.id);
       if (error) throw error;
       return next;
     },
@@ -66,8 +77,12 @@ export function useCurrency() {
     (usd: number | null | undefined, opts?: { signed?: boolean; digits?: number }) => {
       if (usd == null || !Number.isFinite(Number(usd))) return "—";
       const v = Number(usd) * rate;
-      const digits = opts?.digits ?? (code === "JPY" || code === "INR" ? (Math.abs(v) >= 100 ? 0 : 2) : 2);
-      const abs = Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: digits === 0 ? 0 : 2 });
+      const digits =
+        opts?.digits ?? (code === "JPY" || code === "INR" ? (Math.abs(v) >= 100 ? 0 : 2) : 2);
+      const abs = Math.abs(v).toLocaleString(undefined, {
+        maximumFractionDigits: digits,
+        minimumFractionDigits: digits === 0 ? 0 : 2,
+      });
       if (opts?.signed) {
         const sign = v >= 0 ? "+" : "−";
         return `${sign}${symbol}${abs}`;
@@ -77,5 +92,13 @@ export function useCurrency() {
     [rate, symbol, code],
   );
 
-  return { code, symbol, rate, fmt, setCurrency, isUpdating: mut.isPending, fxFetchedAt: fx.data?.fetchedAt };
+  return {
+    code,
+    symbol,
+    rate,
+    fmt,
+    setCurrency,
+    isUpdating: mut.isPending,
+    fxFetchedAt: fx.data?.fetchedAt,
+  };
 }

@@ -19,7 +19,10 @@ export const saveCredentials = createServerFn({ method: "POST" })
       is_valid: false,
       last_checked_at: null,
     });
-    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
+    if (error) {
+      console.error("DB error", error);
+      throw new Error("Operation failed. Please try again.");
+    }
     return { ok: true };
   });
 
@@ -94,21 +97,17 @@ export const getWalletBalances = createServerFn({ method: "GET" })
         creds.api_key,
         creds.api_secret,
       ),
-      coindcxAuthedPost<Array<{ asset?: string; currency?: string; balance?: string; available_balance?: string }>>(
-        "/exchange/v1/derivatives/futures/wallets",
-        creds.api_key,
-        creds.api_secret,
-      ),
+      coindcxAuthedPost<
+        Array<{ asset?: string; currency?: string; balance?: string; available_balance?: string }>
+      >("/exchange/v1/derivatives/futures/wallets", creds.api_key, creds.api_secret),
     ]);
 
     const spot = spotRes.ok
-      ? Number((spotRes.data.find((b) => b.currency === "USDT")?.balance ?? "0")) || 0
+      ? Number(spotRes.data.find((b) => b.currency === "USDT")?.balance ?? "0") || 0
       : 0;
     const futures = futRes.ok
       ? (() => {
-          const row = (futRes.data ?? []).find(
-            (b) => (b.asset ?? b.currency) === "USDT",
-          );
+          const row = (futRes.data ?? []).find((b) => (b.asset ?? b.currency) === "USDT");
           const v = row?.available_balance ?? row?.balance ?? "0";
           return Number(v) || 0;
         })()
@@ -176,13 +175,14 @@ export const updateConfig = createServerFn({ method: "POST" })
       const paywall = settings?.paywall_enabled ?? true;
       const allowed = tier === "auto5" || tier === "unlimited";
       if (paywall && !allowed) {
-        throw new Error(
-          "PAYMENT_REQUIRED: Upgrade to Auto-Trader or Unlimited to start the bot.",
-        );
+        throw new Error("PAYMENT_REQUIRED: Upgrade to Auto-Trader or Unlimited to start the bot.");
       }
     }
     const { error } = await supabase.from("bot_config").update(data).eq("user_id", context.userId);
-    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
+    if (error) {
+      console.error("DB error", error);
+      throw new Error("Operation failed. Please try again.");
+    }
     return { ok: true };
   });
 

@@ -34,7 +34,6 @@ function AuthPage() {
     });
   }, [navigate]);
 
-
   const handleEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);

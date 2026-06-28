@@ -37,10 +37,7 @@ export function evaluateTradeEligibility(
     };
   }
 
-  if (
-    setup.primarySetup !== "ambiguous" &&
-    !policy.allowedSetups.includes(setup.primarySetup)
-  ) {
+  if (setup.primarySetup !== "ambiguous" && !policy.allowedSetups.includes(setup.primarySetup)) {
     return {
       allowed: false,
       reason: `Backend strategy does not allow ${setup.primarySetup} setups`,

@@ -83,9 +83,18 @@ describe("getBackendStrategyPolicy", () => {
 
 describe("evaluateTradeEligibility", () => {
   const moderatePolicy = getBackendStrategyPolicy({ strategy: null, trading_style: "balanced" });
-  const momentumPolicy = getBackendStrategyPolicy({ strategy: "momentum", trading_style: "balanced" });
-  const pullbackPolicy = getBackendStrategyPolicy({ strategy: "vwap_pullback", trading_style: "balanced" });
-  const conservativePolicy = getBackendStrategyPolicy({ strategy: null, trading_style: "conservative" });
+  const momentumPolicy = getBackendStrategyPolicy({
+    strategy: "momentum",
+    trading_style: "balanced",
+  });
+  const pullbackPolicy = getBackendStrategyPolicy({
+    strategy: "vwap_pullback",
+    trading_style: "balanced",
+  });
+  const conservativePolicy = getBackendStrategyPolicy({
+    strategy: null,
+    trading_style: "conservative",
+  });
 
   it("allows a strong momentum candidate under a momentum strategy", () => {
     const a = fixtures.strongMomentumLong();

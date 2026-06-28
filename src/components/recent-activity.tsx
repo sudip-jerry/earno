@@ -27,7 +27,10 @@ function prettyReason(code?: string | null): string | null {
 }
 
 function sanitize(msg: string): { text: string; reason: string | null } {
-  let text = msg.replace(/\bposition[_-][0-9a-f-]{6,}\b/gi, "").replace(/\s{2,}/g, " ").trim();
+  let text = msg
+    .replace(/\bposition[_-][0-9a-f-]{6,}\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
   let reason: string | null = null;
   const m = text.match(/\(([a-z_]+)\)\s*$/i);
   if (m) {
@@ -37,14 +40,20 @@ function sanitize(msg: string): { text: string; reason: string | null } {
   return { text, reason };
 }
 
-function classify(msg: string, meta?: ActivityMeta | null): { tag: string; tone: "positive" | "negative" | "warn" | "neutral" } {
+function classify(
+  msg: string,
+  meta?: ActivityMeta | null,
+): { tag: string; tone: "positive" | "negative" | "warn" | "neutral" } {
   const kind = meta?.kind;
   if (kind === "auto_tune" || /^Auto-tuned/i.test(msg)) return { tag: "Auto-tuned", tone: "warn" };
   if (kind === "auto_book" || /^Auto-booked/i.test(msg)) return { tag: "Opened", tone: "positive" };
-  if (kind === "session_hour_skip" || /session hour/i.test(msg)) return { tag: "Session block", tone: "warn" };
-  if (kind === "sl_width_skip" || /exceeds max_sl_atr/i.test(msg)) return { tag: "SL too wide", tone: "warn" };
+  if (kind === "session_hour_skip" || /session hour/i.test(msg))
+    return { tag: "Session block", tone: "warn" };
+  if (kind === "sl_width_skip" || /exceeds max_sl_atr/i.test(msg))
+    return { tag: "SL too wide", tone: "warn" };
   if (kind === "ev_ratio_skip" || /EV ratio/i.test(msg)) return { tag: "Low EV", tone: "warn" };
-  if (kind === "pre_entry_net_profit_skip" || /net profit at TP below/i.test(msg)) return { tag: "Fee gate", tone: "warn" };
+  if (kind === "pre_entry_net_profit_skip" || /net profit at TP below/i.test(msg))
+    return { tag: "Fee gate", tone: "warn" };
   if (kind === "skip" || /^Skipped/i.test(msg)) return { tag: "Skipped", tone: "warn" };
   if (/^Auto-closed|^Closed/i.test(msg)) return { tag: "Closed", tone: "neutral" };
   if (/paused|cap hit|limit|risk lock/i.test(msg)) return { tag: "Paused", tone: "warn" };
@@ -83,28 +92,44 @@ function friendlyChanges(
 ): string[] {
   const out: string[] = [];
   const p = patch ?? {};
-  const has = (k: string) => (k in p) || (fields ?? []).includes(k);
+  const has = (k: string) => k in p || (fields ?? []).includes(k);
   if (has("auto_book_confidence_threshold")) {
     const v = p.auto_book_confidence_threshold;
-    out.push(v != null ? `Only take stronger setups now — confidence raised to ${v}` : "Only take stronger setups now (confidence raised)");
+    out.push(
+      v != null
+        ? `Only take stronger setups now — confidence raised to ${v}`
+        : "Only take stronger setups now (confidence raised)",
+    );
   }
   if (has("risk_per_trade_pct")) {
     const v = p.risk_per_trade_pct;
-    out.push(v != null ? `Risking less per trade — now ${Number(v).toFixed(2)}% of balance` : "Risking less per trade");
+    out.push(
+      v != null
+        ? `Risking less per trade — now ${Number(v).toFixed(2)}% of balance`
+        : "Risking less per trade",
+    );
   }
   if (has("cooldown_minutes")) {
     const v = p.cooldown_minutes;
-    out.push(v != null ? `Waiting ${v} min between trades to cool off` : "Waiting longer between trades");
+    out.push(
+      v != null ? `Waiting ${v} min between trades to cool off` : "Waiting longer between trades",
+    );
   }
   if (has("max_trades_per_day")) {
     const v = p.max_trades_per_day;
     out.push(v != null ? `Capping today's trades at ${v}` : "Capping today's trade count");
   }
-  if (has("allow_short") && p.allow_short === false) out.push("Paused new short (sell) trades until the trend recovers");
-  if (has("allow_long") && p.allow_long === false) out.push("Paused new long (buy) trades until the trend recovers");
+  if (has("allow_short") && p.allow_short === false)
+    out.push("Paused new short (sell) trades until the trend recovers");
+  if (has("allow_long") && p.allow_long === false)
+    out.push("Paused new long (buy) trades until the trend recovers");
   if (has("symbol_blacklist_threshold")) {
     const v = p.symbol_blacklist_threshold;
-    out.push(v != null ? `A coin is auto-skipped after just ${v} losses in a day` : "Auto-skip bad coins sooner");
+    out.push(
+      v != null
+        ? `A coin is auto-skipped after just ${v} losses in a day`
+        : "Auto-skip bad coins sooner",
+    );
   }
   if (has("symbol_sl_cooldown_minutes")) {
     const v = p.symbol_sl_cooldown_minutes;
@@ -119,7 +144,8 @@ function friendlyChanges(
 }
 
 function KV({ label, value, tone }: { label: string; value: string; tone?: "ok" | "bad" }) {
-  const cls = tone === "ok" ? "text-emerald-500" : tone === "bad" ? "text-destructive" : "text-foreground";
+  const cls =
+    tone === "ok" ? "text-emerald-500" : tone === "bad" ? "text-destructive" : "text-foreground";
   return (
     <div className="flex items-center justify-between text-[11px]">
       <span className="text-muted-foreground">{label}</span>
@@ -162,7 +188,12 @@ function StructuredEntry({ it }: { it: ActivityItem }) {
   const { fmt } = useCurrency();
   const m = it.meta!;
 
-  const gateKinds = ["session_hour_skip", "sl_width_skip", "ev_ratio_skip", "pre_entry_net_profit_skip"];
+  const gateKinds = [
+    "session_hour_skip",
+    "sl_width_skip",
+    "ev_ratio_skip",
+    "pre_entry_net_profit_skip",
+  ];
   if (gateKinds.includes(m.kind ?? "")) {
     return <GateEntry kind={m.kind!} msg={it.message} />;
   }
@@ -191,7 +222,9 @@ function StructuredEntry({ it }: { it: ActivityItem }) {
         <p className="text-xs font-medium text-foreground">Skipped {m.symbol}</p>
         <div className="mt-1.5 space-y-1 rounded-lg bg-amber-500/5 border border-amber-500/20 px-2.5 py-1.5">
           {m.reason && <KV label="Reason" value={m.reason} tone="bad" />}
-          {m.requiredSL != null && <KV label="Required Stop" value={`${m.requiredSL.toFixed(2)}%`} />}
+          {m.requiredSL != null && (
+            <KV label="Required Stop" value={`${m.requiredSL.toFixed(2)}%`} />
+          )}
           {m.allowedSL != null && <KV label="Allowed Stop" value={`${m.allowedSL.toFixed(2)}%`} />}
           {m.rr != null && m.reason === "Risk-reward weak" && (
             <KV label="R:R" value={`${m.rr.toFixed(2)} : 1`} />
@@ -211,20 +244,28 @@ function StructuredEntry({ it }: { it: ActivityItem }) {
         <div className="mt-1.5 space-y-1.5 rounded-lg bg-amber-500/5 border border-amber-500/20 px-2.5 py-2">
           {triggers.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Why</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">
+                Why
+              </p>
               <ul className="space-y-0.5">
                 {triggers.map((t, i) => (
-                  <li key={i} className="text-[11px] text-foreground/90 leading-snug">• {t}</li>
+                  <li key={i} className="text-[11px] text-foreground/90 leading-snug">
+                    • {t}
+                  </li>
                 ))}
               </ul>
             </div>
           )}
           {changes.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">What changed</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">
+                What changed
+              </p>
               <ul className="space-y-0.5">
                 {changes.map((c, i) => (
-                  <li key={i} className="text-[11px] text-foreground/90 leading-snug">• {c}</li>
+                  <li key={i} className="text-[11px] text-foreground/90 leading-snug">
+                    • {c}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -236,9 +277,7 @@ function StructuredEntry({ it }: { it: ActivityItem }) {
       </div>
     );
   }
-  return (
-    <p className="text-xs text-foreground/90 leading-relaxed flex-1 min-w-0">{it.message}</p>
-  );
+  return <p className="text-xs text-foreground/90 leading-relaxed flex-1 min-w-0">{it.message}</p>;
 }
 
 export function RecentActivity({ items }: { items: ActivityItem[] }) {
@@ -257,7 +296,12 @@ export function RecentActivity({ items }: { items: ActivityItem[] }) {
           )}
           {items.map((it) => {
             const c = classify(it.message, it.meta);
-            const gateKinds = ["session_hour_skip", "sl_width_skip", "ev_ratio_skip", "pre_entry_net_profit_skip"];
+            const gateKinds = [
+              "session_hour_skip",
+              "sl_width_skip",
+              "ev_ratio_skip",
+              "pre_entry_net_profit_skip",
+            ];
             const structured =
               it.meta?.kind === "auto_book" ||
               it.meta?.kind === "skip" ||

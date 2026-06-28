@@ -42,7 +42,9 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
           >
             <Icon className="size-4 mr-2" />
             {label}
-            {theme === value ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
+            {theme === value ? (
+              <span className="ml-auto text-xs text-muted-foreground">✓</span>
+            ) : null}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

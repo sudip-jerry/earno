@@ -33,11 +33,16 @@ const SUPPORTED = new Set(["1m", "15m", "1h", "1d"]);
 export function resolveInterval(interval: string): [string, number] {
   if (SUPPORTED.has(interval)) return [interval, 1];
   switch (interval) {
-    case "3m": return ["1m", 3];
-    case "5m": return ["1m", 5];
-    case "30m": return ["15m", 2];
-    case "4h": return ["1h", 4];
-    default: return ["1m", 1];
+    case "3m":
+      return ["1m", 3];
+    case "5m":
+      return ["1m", 5];
+    case "30m":
+      return ["15m", 2];
+    case "4h":
+      return ["1h", 4];
+    default:
+      return ["1m", 1];
   }
 }
 
@@ -52,15 +57,21 @@ function n(x: unknown): number {
 export function aggregateCandles(raw: RawCandle[], groupSize: number): AggCandle[] {
   if (groupSize <= 1) {
     return raw.map((k) => ({
-      open: n(k.open), high: n(k.high), low: n(k.low), close: n(k.close),
-      volume: n(k.volume), time: n(k.time),
+      open: n(k.open),
+      high: n(k.high),
+      low: n(k.low),
+      close: n(k.close),
+      volume: n(k.volume),
+      time: n(k.time),
     }));
   }
   const sorted = [...raw].sort((a, b) => n(a.time) - n(b.time));
   const out: AggCandle[] = [];
   const usable = sorted.length - (sorted.length % groupSize);
   for (let i = 0; i < usable; i += groupSize) {
-    let high = -Infinity, low = Infinity, vol = 0;
+    let high = -Infinity,
+      low = Infinity,
+      vol = 0;
     for (let j = 0; j < groupSize; j++) {
       const k = sorted[i + j];
       high = Math.max(high, n(k.high));
@@ -72,7 +83,9 @@ export function aggregateCandles(raw: RawCandle[], groupSize: number): AggCandle
     out.push({
       open: n(first.open),
       close: n(last.close),
-      high, low, volume: vol,
+      high,
+      low,
+      volume: vol,
       time: n(first.time),
     });
   }

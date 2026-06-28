@@ -99,9 +99,7 @@ export const adminListUsers = createServerFn({ method: "GET" })
       roleMap.set(r.user_id, a);
     });
     const tradeMap = new Map<string, number>();
-    (tradesToday ?? []).forEach((t) =>
-      tradeMap.set(t.user_id, (tradeMap.get(t.user_id) ?? 0) + 1),
-    );
+    (tradesToday ?? []).forEach((t) => tradeMap.set(t.user_id, (tradeMap.get(t.user_id) ?? 0) + 1));
     return (profiles ?? []).map((p) => ({
       id: p.id,
       email: p.email,
@@ -191,7 +189,10 @@ export const adminCreateCoupon = createServerFn({ method: "POST" })
       max_uses: data.maxUses ?? null,
       created_by: context.userId,
     });
-    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
+    if (error) {
+      console.error("DB error", error);
+      throw new Error("Operation failed. Please try again.");
+    }
     return { ok: true };
   });
 
@@ -269,7 +270,6 @@ export const adminListEvents = createServerFn({ method: "GET" })
     return (rows ?? []).map((r) => ({ ...r, email: emailMap.get(r.user_id) ?? null }));
   });
 
-
 const editableCfgSchema = z.object({
   is_running: z.boolean().optional(),
   auto_book: z.boolean().optional(),
@@ -317,15 +317,16 @@ export const adminGetUserConfig = createServerFn({ method: "GET" })
       .select("*")
       .eq("user_id", data.userId)
       .maybeSingle();
-    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
+    if (error) {
+      console.error("DB error", error);
+      throw new Error("Operation failed. Please try again.");
+    }
     return row;
   });
 
 export const adminUpdateUserConfig = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z.object({ userId: z.string().uuid(), patch: editableCfgSchema }).parse(d),
-  )
+  .inputValidator((d) => z.object({ userId: z.string().uuid(), patch: editableCfgSchema }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
     if (Object.keys(data.patch).length === 0) return { ok: true };
@@ -334,7 +335,10 @@ export const adminUpdateUserConfig = createServerFn({ method: "POST" })
       .from("bot_config")
       .update({ ...data.patch, updated_at: new Date().toISOString() })
       .eq("user_id", data.userId);
-    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
+    if (error) {
+      console.error("DB error", error);
+      throw new Error("Operation failed. Please try again.");
+    }
     return { ok: true };
   });
 
@@ -353,7 +357,12 @@ export const adminCopyUserConfig = createServerFn({ method: "POST" })
       .maybeSingle();
     if (e1) throw new Error(e1.message);
     if (!src) throw new Error("Source user has no config");
-    const { user_id: _u, created_at: _c, updated_at: _up, ...patch } = src as Record<string, unknown>;
+    const {
+      user_id: _u,
+      created_at: _c,
+      updated_at: _up,
+      ...patch
+    } = src as Record<string, unknown>;
     const { error: e2 } = await supabaseAdmin
       .from("bot_config")
       .update({ ...patch, updated_at: new Date().toISOString() })

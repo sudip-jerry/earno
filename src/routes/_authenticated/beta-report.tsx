@@ -20,7 +20,6 @@ import {
   type BucketStats,
 } from "@/lib/beta-report.functions";
 
-
 function downloadCsv(filename: string, csv: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -59,7 +58,6 @@ function maskEmail(email: string | null | undefined): string {
   return local ?? "—";
 }
 
-
 function BetaReportPage() {
   const qc = useQueryClient();
   const entFn = useServerFn(getMyEntitlements);
@@ -84,8 +82,7 @@ function BetaReportPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
-  if (ent.isLoading)
-    return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
+  if (ent.isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
   if (!ent.data?.isAdmin)
     return (
       <div className="p-6 text-sm">
@@ -109,19 +106,17 @@ function BetaReportPage() {
         >
           <ChevronLeft className="size-5" />
         </Link>
-      <h1 className="text-xl font-semibold">Beta Report</h1>
+        <h1 className="text-xl font-semibold">Beta Report</h1>
       </header>
 
       <p className="px-5 text-[11px] text-muted-foreground -mt-2 mb-3">
-        Based on current paper-trading sample. May improve testing quality. Not a
-        guarantee of future performance.
+        Based on current paper-trading sample. May improve testing quality. Not a guarantee of
+        future performance.
       </p>
 
       <ExportBar />
 
       <TuningActionsSection actions={tuningActions} />
-
-
 
       {!s ? (
         <div className="px-5 text-sm text-muted-foreground">Loading report…</div>
@@ -139,10 +134,7 @@ function BetaReportPage() {
             <Tile label="Avg win %" value={`${fmt(s.avgWinRate, 1)}%`} />
             <Tile label="Avg PF" value={fmt(s.avgProfitFactor, 2)} />
             <Tile label="Avg DD" value={money(-Math.abs(s.avgMaxDrawdown))} tone="neg" />
-            <Tile
-              label="Best dir"
-              value={s.bestDirection ? s.bestDirection.toUpperCase() : "—"}
-            />
+            <Tile label="Best dir" value={s.bestDirection ? s.bestDirection.toUpperCase() : "—"} />
             <Tile
               label="Worst dir"
               value={s.worstDirection ? s.worstDirection.toUpperCase() : "—"}
@@ -183,11 +175,7 @@ function BetaReportPage() {
                 value={money(s.today.longPnl)}
                 tone={s.today.longPnl >= 0 ? "pos" : "neg"}
               />
-              <Tile
-                label="Best"
-                value={money(s.today.bestTrade)}
-                tone="pos"
-              />
+              <Tile label="Best" value={money(s.today.bestTrade)} tone="pos" />
               <Tile
                 label="Shorts"
                 value={`${s.today.shortTrades} · ${fmt(s.today.shortWinRate, 0)}%`}
@@ -197,11 +185,7 @@ function BetaReportPage() {
                 value={money(s.today.shortPnl)}
                 tone={s.today.shortPnl >= 0 ? "pos" : "neg"}
               />
-              <Tile
-                label="Worst"
-                value={money(s.today.worstTrade)}
-                tone="neg"
-              />
+              <Tile label="Worst" value={money(s.today.worstTrade)} tone="neg" />
               <Tile label="Avg %" value={pct(s.today.avgPnlPct)} />
               <Tile label="Top exit" value={s.today.topCloseReason ?? "—"} />
               <Tile
@@ -210,7 +194,6 @@ function BetaReportPage() {
               />
             </div>
           </section>
-
 
           <section className="px-5 mt-4 grid grid-cols-2 gap-2 text-xs">
             <Card label="Best tester">
@@ -227,11 +210,7 @@ function BetaReportPage() {
               {s.weakestTester ? (
                 <>
                   <p className="truncate">{maskEmail(s.weakestTester.email)}</p>
-                  <p
-                    className={
-                      s.weakestTester.pnl >= 0 ? "text-emerald-500" : "text-destructive"
-                    }
-                  >
+                  <p className={s.weakestTester.pnl >= 0 ? "text-emerald-500" : "text-destructive"}>
                     {money(s.weakestTester.pnl)}
                   </p>
                 </>
@@ -259,20 +238,63 @@ function BetaReportPage() {
                 Exit attribution
               </h2>
               <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                <Card label="Total PnL"><p className="tabular-nums font-medium">{money(s.exitAttribution.total_pnl)}</p></Card>
-                <Card label="Bot exits"><p className="tabular-nums">{money(s.exitAttribution.bot_exit_pnl)} <span className="text-muted-foreground">· {s.exitAttribution.bot_exit_count}</span></p></Card>
-                <Card label="Manual exits"><p className="tabular-nums">{money(s.exitAttribution.manual_exit_pnl)} <span className="text-muted-foreground">· {s.exitAttribution.manual_exit_count}</span></p></Card>
-                <Card label="Manual saved / missed"><p className="tabular-nums text-emerald-500">{money(s.exitAttribution.manual_saved_pnl)}</p><p className="tabular-nums text-destructive">{money(s.exitAttribution.manual_missed_pnl)}</p></Card>
-                <Card label="Final TP"><p className="tabular-nums">{money(s.exitAttribution.take_profit_pnl)}</p></Card>
-                <Card label="TP1"><p className="tabular-nums">{money(s.exitAttribution.tp1_pnl)}</p></Card>
-                <Card label="Stop loss"><p className="tabular-nums">{money(s.exitAttribution.stop_loss_pnl)}</p></Card>
-                <Card label="Trailing"><p className="tabular-nums">{money(s.exitAttribution.trailing_exit_pnl)}</p></Card>
-                <Card label="Profit fade"><p className="tabular-nums">{money(s.exitAttribution.profit_fade_exit_pnl)}</p></Card>
-                <Card label="Breakeven"><p className="tabular-nums">{money(s.exitAttribution.breakeven_exit_pnl)}</p></Card>
-                <Card label="Time exit"><p className="tabular-nums">{money(s.exitAttribution.time_exit_pnl)}</p></Card>
-                <Card label="TP1 hit-rate"><p className="tabular-nums">{s.exitAttribution.tp1_hit_rate.toFixed(1)}%</p></Card>
-                <Card label="Final TP hit-rate"><p className="tabular-nums">{s.exitAttribution.final_tp_hit_rate.toFixed(1)}%</p></Card>
-                <Card label="SL after positive"><p className="tabular-nums">{s.exitAttribution.sl_after_positive_count}</p></Card>
+                <Card label="Total PnL">
+                  <p className="tabular-nums font-medium">{money(s.exitAttribution.total_pnl)}</p>
+                </Card>
+                <Card label="Bot exits">
+                  <p className="tabular-nums">
+                    {money(s.exitAttribution.bot_exit_pnl)}{" "}
+                    <span className="text-muted-foreground">
+                      · {s.exitAttribution.bot_exit_count}
+                    </span>
+                  </p>
+                </Card>
+                <Card label="Manual exits">
+                  <p className="tabular-nums">
+                    {money(s.exitAttribution.manual_exit_pnl)}{" "}
+                    <span className="text-muted-foreground">
+                      · {s.exitAttribution.manual_exit_count}
+                    </span>
+                  </p>
+                </Card>
+                <Card label="Manual saved / missed">
+                  <p className="tabular-nums text-emerald-500">
+                    {money(s.exitAttribution.manual_saved_pnl)}
+                  </p>
+                  <p className="tabular-nums text-destructive">
+                    {money(s.exitAttribution.manual_missed_pnl)}
+                  </p>
+                </Card>
+                <Card label="Final TP">
+                  <p className="tabular-nums">{money(s.exitAttribution.take_profit_pnl)}</p>
+                </Card>
+                <Card label="TP1">
+                  <p className="tabular-nums">{money(s.exitAttribution.tp1_pnl)}</p>
+                </Card>
+                <Card label="Stop loss">
+                  <p className="tabular-nums">{money(s.exitAttribution.stop_loss_pnl)}</p>
+                </Card>
+                <Card label="Trailing">
+                  <p className="tabular-nums">{money(s.exitAttribution.trailing_exit_pnl)}</p>
+                </Card>
+                <Card label="Profit fade">
+                  <p className="tabular-nums">{money(s.exitAttribution.profit_fade_exit_pnl)}</p>
+                </Card>
+                <Card label="Breakeven">
+                  <p className="tabular-nums">{money(s.exitAttribution.breakeven_exit_pnl)}</p>
+                </Card>
+                <Card label="Time exit">
+                  <p className="tabular-nums">{money(s.exitAttribution.time_exit_pnl)}</p>
+                </Card>
+                <Card label="TP1 hit-rate">
+                  <p className="tabular-nums">{s.exitAttribution.tp1_hit_rate.toFixed(1)}%</p>
+                </Card>
+                <Card label="Final TP hit-rate">
+                  <p className="tabular-nums">{s.exitAttribution.final_tp_hit_rate.toFixed(1)}%</p>
+                </Card>
+                <Card label="SL after positive">
+                  <p className="tabular-nums">{s.exitAttribution.sl_after_positive_count}</p>
+                </Card>
               </div>
             </section>
           )}
@@ -301,26 +323,12 @@ function BetaReportPage() {
   );
 }
 
-function Tile({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone?: "pos" | "neg";
-}) {
+function Tile({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" }) {
   const color =
-    tone === "pos"
-      ? "text-emerald-500"
-      : tone === "neg"
-        ? "text-destructive"
-        : "text-foreground";
+    tone === "pos" ? "text-emerald-500" : tone === "neg" ? "text-destructive" : "text-foreground";
   return (
     <div className="rounded-xl border bg-card p-3">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </p>
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className={`text-base font-semibold tabular-nums mt-0.5 ${color}`}>{value}</p>
     </div>
   );
@@ -329,9 +337,7 @@ function Tile({
 function Card({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border bg-card p-3">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-        {label}
-      </p>
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
       {children}
     </div>
   );
@@ -352,8 +358,8 @@ function TesterCard({
         <div className="min-w-0">
           <p className="font-medium truncate">{maskEmail(t.email)}</p>
           <p className="text-[11px] text-muted-foreground">
-            {t.settings?.mode ?? "—"} · {t.settings?.is_running ? "running" : "stopped"}{" "}
-            · style {t.settings?.trading_style ?? "—"}
+            {t.settings?.mode ?? "—"} · {t.settings?.is_running ? "running" : "stopped"} · style{" "}
+            {t.settings?.trading_style ?? "—"}
           </p>
         </div>
         <div className="text-right shrink-0">
@@ -375,20 +381,9 @@ function TesterCard({
         <Stat k="Win %" v={`${fmt(t.winRate, 1)}%`} />
         <Stat k="Avg %" v={pct(t.avgPnlPct)} />
         <Stat k="Hold" v={`${t.avgHoldMinutes}m`} />
-        <Stat
-          k="Long PnL"
-          v={money(t.longPnl)}
-          tone={t.longPnl >= 0 ? "pos" : "neg"}
-        />
-        <Stat
-          k="Short PnL"
-          v={money(t.shortPnl)}
-          tone={t.shortPnl >= 0 ? "pos" : "neg"}
-        />
-        <Stat
-          k="L/S win"
-          v={`${fmt(t.longWinRate, 0)}/${fmt(t.shortWinRate, 0)}%`}
-        />
+        <Stat k="Long PnL" v={money(t.longPnl)} tone={t.longPnl >= 0 ? "pos" : "neg"} />
+        <Stat k="Short PnL" v={money(t.shortPnl)} tone={t.shortPnl >= 0 ? "pos" : "neg"} />
+        <Stat k="L/S win" v={`${fmt(t.longWinRate, 0)}/${fmt(t.shortWinRate, 0)}%`} />
       </div>
 
       <div className="mt-3 rounded-lg border bg-muted/40 p-2">
@@ -429,16 +424,13 @@ function TesterCard({
 
       <BucketComparisonBlock buckets={t.buckets} />
 
-
-
-
       {t.settings && (
         <div className="mt-3 rounded-lg border bg-muted/40 p-2 text-[11px] text-muted-foreground">
           <p className="font-medium text-foreground mb-0.5">Current settings</p>
           ATR {Number(t.settings.atr_multiplier).toFixed(2)} · Tgt{" "}
           {Number(t.settings.target_multiplier).toFixed(2)} · MaxOpen{" "}
-          {t.settings.max_open_positions} · AutoClose {t.settings.auto_close_minutes}m
-          · Risk {Number(t.settings.risk_per_trade_pct).toFixed(2)}% · MinScore{" "}
+          {t.settings.max_open_positions} · AutoClose {t.settings.auto_close_minutes}m · Risk{" "}
+          {Number(t.settings.risk_per_trade_pct).toFixed(2)}% · MinScore{" "}
           {t.settings.min_scalp_score} · Shorts {t.settings.allow_short ? "on" : "off"}
         </div>
       )}
@@ -464,18 +456,23 @@ function TesterCard({
                 d.status === "Healthy"
                   ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
                   : d.status === "Watch"
-                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                  : d.status === "Needs Tuning"
-                  ? "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30"
-                  : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30";
+                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                    : d.status === "Needs Tuning"
+                      ? "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30"
+                      : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30";
               return (
                 <div key={i} className="rounded-lg border bg-card p-2.5">
-                  <span className={`inline-flex items-center text-[10px] font-semibold px-2 h-5 rounded-full border ${tone}`}>
+                  <span
+                    className={`inline-flex items-center text-[10px] font-semibold px-2 h-5 rounded-full border ${tone}`}
+                  >
                     {d.status}
                   </span>
                   <p className="mt-1.5 text-xs font-medium">{d.issue}</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">{d.evidence}</p>
-                  <p className="text-[11px] mt-1"><span className="text-muted-foreground">Action: </span>{d.action}</p>
+                  <p className="text-[11px] mt-1">
+                    <span className="text-muted-foreground">Action: </span>
+                    {d.action}
+                  </p>
                 </div>
               );
             })}
@@ -506,12 +503,7 @@ function TesterCard({
                 >
                   Apply to Paper Mode
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs"
-                  asChild
-                >
+                <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
                   <Link to="/settings">Review Settings</Link>
                 </Button>
                 <Button
@@ -532,12 +524,7 @@ function TesterCard({
 }
 
 function Stat({ k, v, tone }: { k: string; v: string; tone?: "pos" | "neg" }) {
-  const color =
-    tone === "pos"
-      ? "text-emerald-500"
-      : tone === "neg"
-        ? "text-destructive"
-        : "";
+  const color = tone === "pos" ? "text-emerald-500" : tone === "neg" ? "text-destructive" : "";
   return (
     <div className="rounded-md border bg-background p-1.5">
       <p className="text-[9px] uppercase tracking-wider text-muted-foreground">{k}</p>
@@ -555,12 +542,24 @@ function BucketRow({ label, b }: { label: string; b: BucketStats }) {
     <tr className="border-t">
       <td className="px-2 py-1 font-medium">{label}</td>
       <td className="px-2 py-1 tabular-nums text-right">{b.trades}</td>
-      <td className={`px-2 py-1 tabular-nums text-right ${b.grossPnl >= 0 ? "text-emerald-500" : "text-destructive"}`}>{money(b.grossPnl)}</td>
-      <td className="px-2 py-1 tabular-nums text-right text-muted-foreground">{money(b.estimatedFees)}</td>
-      <td className={`px-2 py-1 tabular-nums text-right font-semibold ${b.netPnl >= 0 ? "text-emerald-500" : "text-destructive"}`}>{money(b.netPnl)}</td>
+      <td
+        className={`px-2 py-1 tabular-nums text-right ${b.grossPnl >= 0 ? "text-emerald-500" : "text-destructive"}`}
+      >
+        {money(b.grossPnl)}
+      </td>
+      <td className="px-2 py-1 tabular-nums text-right text-muted-foreground">
+        {money(b.estimatedFees)}
+      </td>
+      <td
+        className={`px-2 py-1 tabular-nums text-right font-semibold ${b.netPnl >= 0 ? "text-emerald-500" : "text-destructive"}`}
+      >
+        {money(b.netPnl)}
+      </td>
       <td className="px-2 py-1 tabular-nums text-right">{fmt(b.winRate, 0)}%</td>
       <td className="px-2 py-1 tabular-nums text-right">{pf(b.profitFactor)}</td>
-      <td className="px-2 py-1 tabular-nums text-right">{b.tpCount}/{b.slCount}</td>
+      <td className="px-2 py-1 tabular-nums text-right">
+        {b.tpCount}/{b.slCount}
+      </td>
       <td className="px-2 py-1 tabular-nums text-right">{b.avgHoldMinutes}m</td>
       <td className="px-2 py-1 tabular-nums text-right">{fmt(b.avgConfidence, 0)}</td>
     </tr>
@@ -571,7 +570,9 @@ function BucketComparisonBlock({ buckets }: { buckets: BucketComparison }) {
   if (buckets.totalAutoBooked === 0) {
     return (
       <div className="mt-3 rounded-lg border bg-muted/40 p-2 text-[11px] text-muted-foreground">
-        <p className="font-medium text-foreground mb-0.5">Quality buckets (today, auto-booked, max 50)</p>
+        <p className="font-medium text-foreground mb-0.5">
+          Quality buckets (today, auto-booked, max 50)
+        </p>
         No auto-booked trades today{buckets.strategy ? ` for strategy ${buckets.strategy}` : ""}.
       </div>
     );
@@ -612,8 +613,6 @@ function BucketComparisonBlock({ buckets }: { buckets: BucketComparison }) {
     </div>
   );
 }
-
-
 
 function ExportBar() {
   const tradesFn = useServerFn(exportAllTradesCsv);
@@ -703,16 +702,14 @@ function ExportBar() {
           </Button>
         </div>
         <p className="text-[10px] text-muted-foreground mt-2">
-          Trades = all positions (paper + live, open + closed) with PnL, SL/TP,
-          exit reason. Signals = one row per scanned symbol per user per scan
-          cycle, with action (LONG/SHORT/WAIT/AVOID), weighted confidence and
-          band, full indicator snapshot (trend, VWAP, EMA, RSI, volume spike,
-          spread, ATR, distances, R:R, regime), risk gates (cooldown, daily
-          loss, max positions), booked/skip/avoid decision, rejection reason,
-          plus each tester's config snapshot. Current configs = latest per-user
-          bot settings snapshot. Config history = full audit log of every
-          per-field change with old/new values, who changed it (user/admin/system)
-          and when.
+          Trades = all positions (paper + live, open + closed) with PnL, SL/TP, exit reason. Signals
+          = one row per scanned symbol per user per scan cycle, with action (LONG/SHORT/WAIT/AVOID),
+          weighted confidence and band, full indicator snapshot (trend, VWAP, EMA, RSI, volume
+          spike, spread, ATR, distances, R:R, regime), risk gates (cooldown, daily loss, max
+          positions), booked/skip/avoid decision, rejection reason, plus each tester's config
+          snapshot. Current configs = latest per-user bot settings snapshot. Config history = full
+          audit log of every per-field change with old/new values, who changed it
+          (user/admin/system) and when.
         </p>
       </div>
     </section>
@@ -751,13 +748,9 @@ function TuningActionsSection({ actions }: { actions: TuningAction[] }) {
       </div>
       <div className="px-4 pb-4 space-y-2.5">
         {actions.map((a) => {
-          const isPending =
-            applyMut.isPending && applyMut.variables?.kind === a.kind;
+          const isPending = applyMut.isPending && applyMut.variables?.kind === a.kind;
           return (
-            <div
-              key={a.id}
-              className="rounded-xl border border-primary/15 bg-card p-3"
-            >
+            <div key={a.id} className="rounded-xl border border-primary/15 bg-card p-3">
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <span
                   className={`text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full border ${pill(a.priority)}`}
@@ -775,9 +768,7 @@ function TuningActionsSection({ actions }: { actions: TuningAction[] }) {
                 <span className="text-card-foreground">{a.action}</span>
               </p>
               <div className="mt-2 flex items-center justify-between gap-2">
-                <p className="text-[10px] text-muted-foreground italic">
-                  {a.applyHint}
-                </p>
+                <p className="text-[10px] text-muted-foreground italic">{a.applyHint}</p>
                 {a.applyable && a.affectedUserIds.length > 0 ? (
                   <Button
                     size="sm"
@@ -790,14 +781,10 @@ function TuningActionsSection({ actions }: { actions: TuningAction[] }) {
                       })
                     }
                   >
-                    {isPending
-                      ? "Applying…"
-                      : `Apply to ${a.affectedUserIds.length}`}
+                    {isPending ? "Applying…" : `Apply to ${a.affectedUserIds.length}`}
                   </Button>
                 ) : (
-                  <span className="text-[10px] text-muted-foreground shrink-0">
-                    Manual only
-                  </span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">Manual only</span>
                 )}
               </div>
             </div>
@@ -805,11 +792,9 @@ function TuningActionsSection({ actions }: { actions: TuningAction[] }) {
         })}
       </div>
       <p className="px-4 pb-3 text-[10px] text-muted-foreground">
-        Applies to paper-mode config only. Changes persist and take effect on the
-        next scanner cycle (and all subsequent days).
+        Applies to paper-mode config only. Changes persist and take effect on the next scanner cycle
+        (and all subsequent days).
       </p>
     </section>
   );
 }
-
-

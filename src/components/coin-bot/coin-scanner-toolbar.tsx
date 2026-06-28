@@ -19,7 +19,10 @@ const FILTERS: { id: CoinFilter; label: string }[] = [
 ];
 
 export function CoinScannerToolbar({
-  filter, onFilter, query, onQuery,
+  filter,
+  onFilter,
+  query,
+  onQuery,
 }: {
   filter: CoinFilter;
   onFilter: (f: CoinFilter) => void;
@@ -33,7 +36,9 @@ export function CoinScannerToolbar({
     mutationFn: () => scanFn(),
     onSuccess: (r) => {
       if ((r as any)?.ok) {
-        toast.success(`Scan complete · ${(r as any).scanned} coins · ${(r as any).signals} signals`);
+        toast.success(
+          `Scan complete · ${(r as any).scanned} coins · ${(r as any).signals} signals`,
+        );
         qc.invalidateQueries({ queryKey: ["coin_signals"] });
         qc.invalidateQueries({ queryKey: ["coin_holdings"] });
         qc.invalidateQueries({ queryKey: ["coin_portfolio"] });
@@ -65,7 +70,9 @@ export function CoinScannerToolbar({
             key={f.id}
             onClick={() => onFilter(f.id)}
             className={`shrink-0 text-[11px] px-2.5 h-7 rounded-full border transition ${
-              filter === f.id ? "bg-foreground text-background border-foreground" : "bg-card text-muted-foreground hover:bg-muted"
+              filter === f.id
+                ? "bg-foreground text-background border-foreground"
+                : "bg-card text-muted-foreground hover:bg-muted"
             }`}
           >
             {f.label}

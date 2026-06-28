@@ -135,8 +135,12 @@ export function scoreCoin(input: CoinScoreInput): CoinScore {
   let confidence = 40;
   let reason = "Setup forming";
 
-  const bullish = isSwing ? trend30 === "up" && trend5 !== "down" && vol !== "weak" : trend5 === "up" && trend30 !== "down" && mom !== "fading" && vol !== "weak";
-  const strongBullish = isSwing ? trend30 === "up" && trend5 === "up" && vol === "strong" : trend5 === "up" && trend30 === "up" && mom === "rising" && vol === "strong";
+  const bullish = isSwing
+    ? trend30 === "up" && trend5 !== "down" && vol !== "weak"
+    : trend5 === "up" && trend30 !== "down" && mom !== "fading" && vol !== "weak";
+  const strongBullish = isSwing
+    ? trend30 === "up" && trend5 === "up" && vol === "strong"
+    : trend5 === "up" && trend30 === "up" && mom === "rising" && vol === "strong";
   const bearish = trend5 === "down" && (trend30 === "down" || mom === "fading");
   const overbought = r != null && r > 78;
   const oversold = r != null && r < 25;

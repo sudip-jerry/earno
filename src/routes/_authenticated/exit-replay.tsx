@@ -71,8 +71,8 @@ function ExitReplayPage() {
       <header>
         <h1 className="text-xl font-semibold">Exit Policy Replay</h1>
         <p className="text-xs text-muted-foreground mt-1">
-          Replays the pre-TP1 protective exit policy against your closed paper trades.
-          Read-only — no positions are modified.
+          Replays the pre-TP1 protective exit policy against your closed paper trades. Read-only —
+          no positions are modified.
         </p>
       </header>
 

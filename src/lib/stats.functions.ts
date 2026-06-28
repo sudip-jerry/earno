@@ -118,8 +118,7 @@ export type DashboardStats = {
 };
 
 const MILESTONES = [
-  1_000, 2_500, 5_000, 10_000, 25_000, 50_000,
-  100_000, 250_000, 500_000, 1_000_000,
+  1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000,
 ];
 
 type ScanMeta = {
@@ -141,33 +140,40 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     // Read mode first so positions queries can be scoped to the active mode.
     const { data: cfg } = await supabase
       .from("bot_config")
-      .select("daily_loss_cap_pct,paper_equity,live_allocation_amount,is_running,min_scalp_score,auto_book,mode,max_trades_per_day,max_open_positions,cooldown_minutes")
+      .select(
+        "daily_loss_cap_pct,paper_equity,live_allocation_amount,is_running,min_scalp_score,auto_book,mode,max_trades_per_day,max_open_positions,cooldown_minutes",
+      )
       .eq("user_id", context.userId)
       .maybeSingle();
 
     const mode = (cfg?.mode === "live" ? "live" : "paper") as "paper" | "live";
 
-    const [{ data: today }, { data: closedAll }, { data: openRows }, { data: events }] = await Promise.all([
-      supabase
-        .from("positions")
-        .select("pnl,closed_at,status,entry_price,exit_price,qty,exit_reason")
-        .eq("status", "closed")
-        .eq("mode", mode)
-        .gte("closed_at", startOfDay.toISOString()),
-      supabase
-        .from("positions")
-        .select("pnl,closed_at,status,entry_price,exit_price,qty,exit_reason")
-        .eq("status", "closed")
-        .eq("mode", mode)
-        .order("closed_at", { ascending: true }),
-      supabase.from("positions").select("id,pnl,entry_price,qty").eq("status", "open").eq("mode", mode),
-      supabase
-        .from("bot_events")
-        .select("id,created_at,level,message,meta")
-        .eq("user_id", context.userId)
-        .order("created_at", { ascending: false })
-        .limit(60),
-    ]);
+    const [{ data: today }, { data: closedAll }, { data: openRows }, { data: events }] =
+      await Promise.all([
+        supabase
+          .from("positions")
+          .select("pnl,closed_at,status,entry_price,exit_price,qty,exit_reason")
+          .eq("status", "closed")
+          .eq("mode", mode)
+          .gte("closed_at", startOfDay.toISOString()),
+        supabase
+          .from("positions")
+          .select("pnl,closed_at,status,entry_price,exit_price,qty,exit_reason")
+          .eq("status", "closed")
+          .eq("mode", mode)
+          .order("closed_at", { ascending: true }),
+        supabase
+          .from("positions")
+          .select("id,pnl,entry_price,qty")
+          .eq("status", "open")
+          .eq("mode", mode),
+        supabase
+          .from("bot_events")
+          .select("id,created_at,level,message,meta")
+          .eq("user_id", context.userId)
+          .order("created_at", { ascending: false })
+          .limit(60),
+      ]);
 
     const todayRows = today ?? [];
     const allRows = closedAll ?? [];
@@ -177,7 +183,9 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     const todayFees = todayRows.reduce((a, r) => a + tradeFee(r), 0);
     const todayPnl = todayGrossPnl - todayFees;
     const baselineEquity =
-      mode === "live" ? Number(cfg?.live_allocation_amount ?? 0) : Number(cfg?.paper_equity ?? 1000);
+      mode === "live"
+        ? Number(cfg?.live_allocation_amount ?? 0)
+        : Number(cfg?.paper_equity ?? 1000);
     const equity = baselineEquity;
     const todayPnlPct = equity > 0 ? (todayPnl / equity) * 100 : 0;
     const tradesToday = todayRows.length;
@@ -185,7 +193,9 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     const wins = allRows.filter((r) => netPnl(r) > 0).length;
     const winRate = allRows.length ? wins / allRows.length : 0;
 
-    let peak = 0, cum = 0, mdd = 0;
+    let peak = 0,
+      cum = 0,
+      mdd = 0;
     for (const r of allRows) {
       cum += netPnl(r);
       if (cum > peak) peak = cum;
@@ -194,7 +204,8 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     }
 
     const cap = Number(cfg?.daily_loss_cap_pct ?? 6);
-    const dailyLossUsedPct = todayPnl < 0 && cap > 0 ? Math.min(100, (Math.abs(todayPnlPct) / cap) * 100) : 0;
+    const dailyLossUsedPct =
+      todayPnl < 0 && cap > 0 ? Math.min(100, (Math.abs(todayPnlPct) / cap) * 100) : 0;
 
     let streak = 0;
     for (let i = allRows.length - 1; i >= 0; i--) {
@@ -241,11 +252,13 @@ export const getDashboardStats = createServerFn({ method: "GET" })
 
     const nextMilestone =
       MILESTONES.find((m) => m > portfolioValue) ?? Math.max(portfolioValue * 2, 1000);
-    const prevMilestone =
-      [...MILESTONES].reverse().find((m) => m <= portfolioValue) ?? 0;
+    const prevMilestone = [...MILESTONES].reverse().find((m) => m <= portfolioValue) ?? 0;
     const milestoneProgressPct =
       nextMilestone > prevMilestone
-        ? Math.min(100, Math.max(0, ((portfolioValue - prevMilestone) / (nextMilestone - prevMilestone)) * 100))
+        ? Math.min(
+            100,
+            Math.max(0, ((portfolioValue - prevMilestone) / (nextMilestone - prevMilestone)) * 100),
+          )
         : 0;
 
     // Equity curve
@@ -276,8 +289,14 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       return meta?.kind === "scan" && new Date(e.created_at).getTime() >= todayStartMs;
     });
 
-    const marketsScannedToday = scanEventsToday.reduce((a, e) => a + Number((e.meta as ScanMeta)?.scanned ?? 0), 0);
-    const opportunitiesFoundToday = scanEventsToday.reduce((a, e) => a + Number((e.meta as ScanMeta)?.opportunities ?? 0), 0);
+    const marketsScannedToday = scanEventsToday.reduce(
+      (a, e) => a + Number((e.meta as ScanMeta)?.scanned ?? 0),
+      0,
+    );
+    const opportunitiesFoundToday = scanEventsToday.reduce(
+      (a, e) => a + Number((e.meta as ScanMeta)?.opportunities ?? 0),
+      0,
+    );
     const topConfidenceToday = scanEventsToday.reduce((a, e) => {
       const c = Number((e.meta as ScanMeta)?.top_confidence ?? 0);
       return c > a ? c : a;
@@ -291,7 +310,9 @@ export const getDashboardStats = createServerFn({ method: "GET" })
 
     // Cooldown detection — recent "paused" event within last 15 minutes
     const recentPause = allEvents.find(
-      (e) => e.level === "warn" && /pause|cooldown|cap hit|limit/i.test(e.message) &&
+      (e) =>
+        e.level === "warn" &&
+        /pause|cooldown|cap hit|limit/i.test(e.message) &&
         now - new Date(e.created_at).getTime() < 15 * 60_000,
     );
 
@@ -303,14 +324,14 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       riskReason = recentPause.message;
     }
 
-    const riskHealthy =
-      dailyLossUsedPct < 80 && streak < 3 && engineStatus !== "cooldown";
+    const riskHealthy = dailyLossUsedPct < 80 && streak < 3 && engineStatus !== "cooldown";
 
     // No-trade reason (user-facing copy)
     let noTradeReason = "Waiting for better entry.";
     if (!isRunning) noTradeReason = "Bot is paused.";
     else if (engineStatus === "cooldown") noTradeReason = "Bot is in cooldown after recent trades.";
-    else if (dailyLossUsedPct >= 80) noTradeReason = "Risk limit is active — protecting your capital.";
+    else if (dailyLossUsedPct >= 80)
+      noTradeReason = "Risk limit is active — protecting your capital.";
     else if (topConfidenceToday > 0 && topConfidenceToday < minConfidenceRequired)
       noTradeReason = "No setup is above minimum confidence yet.";
     else if (opportunitiesFoundToday === 0 && marketsScannedToday > 0)
@@ -318,11 +339,17 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     else if (marketsScannedToday === 0) noTradeReason = "Waiting for next scan cycle.";
 
     // Health pills
-    const scanFresh = lastSuccessfulScanAt && now - new Date(lastSuccessfulScanAt).getTime() < 10 * 60_000;
+    const scanFresh =
+      lastSuccessfulScanAt && now - new Date(lastSuccessfulScanAt).getTime() < 10 * 60_000;
     const scannerHealth: HealthState = !isRunning ? "paused" : scanFresh ? "healthy" : "monitoring";
     const dataFeedHealth: HealthState = scanFresh ? "healthy" : "monitoring";
-    const riskEngineHealth: HealthState = engineStatus === "cooldown" ? "cooldown" : riskHealthy ? "healthy" : "monitoring";
-    const automationHealth: HealthState = isRunning ? (engineStatus === "cooldown" ? "cooldown" : "healthy") : "paused";
+    const riskEngineHealth: HealthState =
+      engineStatus === "cooldown" ? "cooldown" : riskHealthy ? "healthy" : "monitoring";
+    const automationHealth: HealthState = isRunning
+      ? engineStatus === "cooldown"
+        ? "cooldown"
+        : "healthy"
+      : "paused";
 
     // Recent activity (cap to 12 for the feed)
     const recentActivity: ActivityItem[] = allEvents.slice(0, 12).map((e) => ({
@@ -338,16 +365,30 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       .sort((a, b) => a.date.localeCompare(b.date));
 
     return {
-      todayPnl, todayPnlPct, todayGrossPnl, todayFees, tradesToday,
+      todayPnl,
+      todayPnlPct,
+      todayGrossPnl,
+      todayFees,
+      tradesToday,
       winRateAllTime: winRate,
       closedAllTime: allRows.length,
       maxDrawdown: mdd,
       dailyLossUsedPct,
       openCount: openRows?.length ?? 0,
-      openPnl: (openRows ?? []).reduce((a, r) => a + Number((r as { pnl?: number | null }).pnl ?? 0), 0),
+      openPnl: (openRows ?? []).reduce(
+        (a, r) => a + Number((r as { pnl?: number | null }).pnl ?? 0),
+        0,
+      ),
       openPnlPct: (() => {
-        const rows = (openRows ?? []) as Array<{ pnl?: number | null; entry_price?: number | null; qty?: number | null }>;
-        const notional = rows.reduce((a, r) => a + Number(r.entry_price ?? 0) * Number(r.qty ?? 0), 0);
+        const rows = (openRows ?? []) as Array<{
+          pnl?: number | null;
+          entry_price?: number | null;
+          qty?: number | null;
+        }>;
+        const notional = rows.reduce(
+          (a, r) => a + Number(r.entry_price ?? 0) * Number(r.qty ?? 0),
+          0,
+        );
         const pnl = rows.reduce((a, r) => a + Number(r.pnl ?? 0), 0);
         return notional > 0 ? (pnl / notional) * 100 : 0;
       })(),
@@ -356,17 +397,24 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       realizedFeesAllTime,
       baselineEquity,
       portfolioValue,
-      weekChangeAbs, weekChangePct,
-      monthlyGrowthPct, monthlyGrowthAbs,
-      consistencyPct, tradingDays30d,
-      nextMilestone, prevMilestone, milestoneProgressPct,
+      weekChangeAbs,
+      weekChangePct,
+      monthlyGrowthPct,
+      monthlyGrowthAbs,
+      consistencyPct,
+      tradingDays30d,
+      nextMilestone,
+      prevMilestone,
+      milestoneProgressPct,
       equityCurve,
-      engineStatus, isRunning,
+      engineStatus,
+      isRunning,
       marketsScannedToday,
       opportunitiesFoundToday,
       tradesExecutedToday: tradesToday,
       lastAnalysisAt,
-      riskHealthy, riskReason,
+      riskHealthy,
+      riskReason,
       dailyLossCapPct: cap,
       maxTradesPerDay: Number(cfg?.max_trades_per_day ?? 50),
       maxOpenPositions: Number(cfg?.max_open_positions ?? 2),
@@ -374,7 +422,10 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       topConfidenceToday,
       minConfidenceRequired,
       noTradeReason,
-      scannerHealth, dataFeedHealth, riskEngineHealth, automationHealth,
+      scannerHealth,
+      dataFeedHealth,
+      riskEngineHealth,
+      automationHealth,
       lastSuccessfulScanAt,
       recentActivity,
       dailyPnl,

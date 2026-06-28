@@ -65,9 +65,9 @@ function extractOrderId(raw: CoindcxOrderResponse): string | null {
 /** Place a market entry order on CoinDCX Futures. */
 export async function placeLiveEntry(args: {
   creds: LiveCreds;
-  symbol: string;          // e.g. "B-BTC_USDT"
+  symbol: string; // e.g. "B-BTC_USDT"
   side: LiveOrderSide;
-  qty: number;             // contract qty
+  qty: number; // contract qty
   leverage: number;
 }): Promise<LiveOrderResult> {
   const { creds, symbol, side, qty, leverage } = args;
@@ -99,7 +99,7 @@ export async function placeLiveEntry(args: {
 export async function placeLiveExit(args: {
   creds: LiveCreds;
   symbol: string;
-  side: LiveOrderSide;     // original side; helper inverts internally
+  side: LiveOrderSide; // original side; helper inverts internally
   qty: number;
 }): Promise<LiveOrderResult> {
   const { creds, symbol, side, qty } = args;

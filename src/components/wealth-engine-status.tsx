@@ -1,7 +1,18 @@
 import type { DashboardStats } from "@/lib/stats.functions";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Activity, Radar, Target, CheckCircle2, ShieldAlert, ShieldCheck, Briefcase, Clock, HelpCircle, ChevronRight } from "lucide-react";
+import {
+  Activity,
+  Radar,
+  Target,
+  CheckCircle2,
+  ShieldAlert,
+  ShieldCheck,
+  Briefcase,
+  Clock,
+  HelpCircle,
+  ChevronRight,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -51,13 +62,14 @@ export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
           ? "Bot is paused. Tap Start Bot to resume scanning."
           : (stats?.noTradeReason ?? "Bot is running and scanning markets for setups.");
 
-  const riskLabel = status === "risk_locked"
-    ? "Locked"
-    : stats?.riskHealthy
-      ? "Active"
-      : status === "cooldown"
-        ? "Engaged"
-        : "Limit reached";
+  const riskLabel =
+    status === "risk_locked"
+      ? "Locked"
+      : stats?.riskHealthy
+        ? "Active"
+        : status === "cooldown"
+          ? "Engaged"
+          : "Limit reached";
 
   return (
     <section className="px-5 mt-5">
@@ -77,7 +89,9 @@ export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
 
         {/* Always-on reason block */}
         <div className="mt-3 rounded-xl bg-muted/40 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Reason</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+            Reason
+          </p>
           <p className="mt-0.5 text-xs text-foreground leading-relaxed">{reason}</p>
         </div>
 
@@ -207,10 +221,7 @@ export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
               value={`${stats?.minConfidenceRequired ?? 0}`}
               sub={`Top today: ${stats?.topConfidenceToday ?? 0}`}
             />
-            <RiskRow
-              label="Cooldown after loss"
-              value={`${stats?.cooldownMinutes ?? 0} min`}
-            />
+            <RiskRow label="Cooldown after loss" value={`${stats?.cooldownMinutes ?? 0} min`} />
           </div>
 
           <Link
@@ -228,8 +239,16 @@ export function WealthEngineStatus({ stats }: { stats?: DashboardStats }) {
 }
 
 function RiskRow({
-  label, value, sub, warn,
-}: { label: string; value: string; sub?: string; warn?: boolean }) {
+  label,
+  value,
+  sub,
+  warn,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  warn?: boolean;
+}) {
   return (
     <div className="flex items-center justify-between rounded-lg border bg-background/40 px-3 py-2">
       <div>
@@ -248,7 +267,14 @@ function RiskRow({
 }
 
 function Cell({
-  icon, label, value, tone, hint, to, onClick, trailingIcon,
+  icon,
+  label,
+  value,
+  tone,
+  hint,
+  to,
+  onClick,
+  trailingIcon,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -260,9 +286,11 @@ function Cell({
   trailingIcon?: React.ReactNode;
 }) {
   const valueCls =
-    tone === "positive" ? "text-emerald-600 dark:text-emerald-400" :
-    tone === "warn" ? "text-amber-600 dark:text-amber-400" :
-    "text-foreground";
+    tone === "positive"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : tone === "warn"
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-foreground";
 
   const body = (
     <>
@@ -280,7 +308,8 @@ function Cell({
     </>
   );
 
-  const cls = "rounded-xl border bg-background/40 p-2.5 text-left transition hover:bg-muted/40 hover:border-primary/30";
+  const cls =
+    "rounded-xl border bg-background/40 p-2.5 text-left transition hover:bg-muted/40 hover:border-primary/30";
 
   if (to) {
     return (
