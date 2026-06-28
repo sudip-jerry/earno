@@ -73,6 +73,7 @@ export type Database = {
           auto_book: boolean
           auto_book_confidence_threshold: number
           auto_close_minutes: number
+          blocked_session_hours_ist: number[]
           cooldown_minutes: number
           created_at: string
           daily_loss_cap_pct: number
@@ -88,7 +89,9 @@ export type Database = {
           live_wallet_source: string
           max_auto_sl_pct: number
           max_open_positions: number
+          max_sl_atr_pct: number
           max_trades_per_day: number
+          min_ev_ratio: number
           min_rr: number
           min_scalp_score: number
           min_sl_pct: number
@@ -124,6 +127,7 @@ export type Database = {
           auto_book?: boolean
           auto_book_confidence_threshold?: number
           auto_close_minutes?: number
+          blocked_session_hours_ist?: number[]
           cooldown_minutes?: number
           created_at?: string
           daily_loss_cap_pct?: number
@@ -139,7 +143,9 @@ export type Database = {
           live_wallet_source?: string
           max_auto_sl_pct?: number
           max_open_positions?: number
+          max_sl_atr_pct?: number
           max_trades_per_day?: number
+          min_ev_ratio?: number
           min_rr?: number
           min_scalp_score?: number
           min_sl_pct?: number
@@ -175,6 +181,7 @@ export type Database = {
           auto_book?: boolean
           auto_book_confidence_threshold?: number
           auto_close_minutes?: number
+          blocked_session_hours_ist?: number[]
           cooldown_minutes?: number
           created_at?: string
           daily_loss_cap_pct?: number
@@ -190,7 +197,9 @@ export type Database = {
           live_wallet_source?: string
           max_auto_sl_pct?: number
           max_open_positions?: number
+          max_sl_atr_pct?: number
           max_trades_per_day?: number
+          min_ev_ratio?: number
           min_rr?: number
           min_scalp_score?: number
           min_sl_pct?: number

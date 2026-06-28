@@ -1,81 +1,56 @@
+## Confirmations
 
-## Goal 1 — Make "conservative" a first-class style + add pre-entry net-profit gate
+**(a) Where SL/TP/confidence are available at gate time** (`src/lib/auto-book.server.ts`):
+- `plan.slPct` and `plan.tpPct` are computed by `computeRiskPlan(...)` (via `presetFromConfig`) earlier in the loop and exist by the time we reach the booking block around line ~771.
+- `a.confidence_pct` is the analyzed confidence score (already used at line 748 against `auto_book_confidence_threshold`).
+- ATR%-based SL distance = `plan.slPct` (already factors `atr_multiplier`, `min_sl_pct`, and is hard-capped by `max_auto_sl_pct` → "manual_review"). The new `max_sl_atr_pct` is a separate, stricter REJECT-only ceiling that runs before the EV / session checks.
 
-### Where `trading_style` is currently read (audit)
-Already 3-style aware — no missing branches found:
-- `src/lib/risk-engine.ts` → `STYLE_PRESETS` has `conservative`, `balanced`, `aggressive` (sizing, SL/TP caps, TP1, trail, caps, cooldown).
-- `src/lib/futures/strategy-policy.ts` → `resolveRiskProfile` already maps `conserv*` → `conservative` (min-confidence 40, ambiguous forbidden).
-- `src/lib/futures/exit-policy.ts` → only splits "aggressive" vs "moderate"; `conservative` correctly folds into the looser `moderate` exit profile. Intentional, leave as is.
-- `src/lib/auto-book.server.ts` mark-pass → `ROE_HARD` and `RUNNER_PROT` tables both have all 3 styles already.
-- `src/lib/futures-exit-replay.functions.ts` → passes raw `trading_style` through to `evaluateFuturesExit`, which normalises. Fine.
-- UI: `settings.tsx`, `algo-config.tsx`, `admin.tsx` already expose Conservative in selects.
-- Zod schemas in `bot.functions.ts`, `plans.functions.ts`, `beta-report.functions.ts` already accept `"conservative"`.
+All three new gates fit cleanly into the existing `rejection`-string pattern, get logged via `logEvent` + written into `bot_signals.rejection_reason` by the existing insert path (no new logging plumbing).
 
-Conclusion: no code path silently assumes only 2 styles. Conservative is wired everywhere it matters. The remaining work is the new field + tuning conservative's preset to the requested numbers + the data update.
+**(b) Column type for `blocked_session_hours_ist`**: use Postgres `integer[]` (`int4[]`) with default `'{}'`. Reasons:
+- Native array, no JSON parsing in TS, trivially queryable with `= ANY(...)` if ever needed.
+- supabase-js types it as `number[] | null` — no casts at call site.
+- bot_config already uses `text[]` for `symbol_blocklist`, so `integer[]` is consistent with existing schema style (no new tables, no JSONB needed).
 
-### Schema change (one migration)
-
-Add a generic per-config pre-entry net-profit floor, mirroring the existing exit-side field:
+**(c) Proposed migration** (one statement, additive, no backfill of defaults beyond column default):
 
 ```sql
 ALTER TABLE public.bot_config
-  ADD COLUMN IF NOT EXISTS minimum_net_profit_to_enter_pct numeric NOT NULL DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS max_sl_atr_pct numeric NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS min_ev_ratio numeric NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS blocked_session_hours_ist integer[] NOT NULL DEFAULT '{}';
 
-COMMENT ON COLUMN public.bot_config.minimum_net_profit_to_enter_pct IS
-  'Pre-entry gate: required projected net profit (after entry+exit fees + GST) at the planned TP, expressed as % of entry notional. 0 disables the gate.';
+COMMENT ON COLUMN public.bot_config.max_sl_atr_pct IS
+  'Hard reject ceiling on ATR-derived SL%. 0 = disabled.';
+COMMENT ON COLUMN public.bot_config.min_ev_ratio IS
+  'Min EV proxy = (p*tp)/((1-p)*sl) where p=confidence/100. 0 = disabled.';
+COMMENT ON COLUMN public.bot_config.blocked_session_hours_ist IS
+  'IST hours (0-23) where auto-book is blocked. Empty = no block.';
 ```
 
-No new table, no RLS change (existing `bot_config` policies cover it), no GRANT change (table already granted). Field is generic — every style can use it; only the 2 conservative users get a non-zero default in the data update.
+No new GRANTs/policies needed — additive columns inherit the existing `bot_config` RLS/grants.
 
-**Default value rationale (proposed):** with the current `taker_taker_with_gst` model, round-trip fee on notional ≈ 0.118%. Conservative's `targetMult = 1.5` and `minSL = 1.5` give TP ≈ 2.25% on notional, so a fee-aware floor of **0.50%** (net profit at TP, on notional) easily passes clean setups but blocks marginal high-fee/low-RR ones. We will set conservative users to **0.50**, and leave aggressive/balanced at **0** (no behavior change). Final value is a one-line tweak after we see live data.
+## Implementation steps (after approval)
 
-### Code change (one file, narrow)
+1. **Migration** — the SQL above.
+2. **Data seed** (`supabase--insert`, 6 `UPDATE` statements scoped by `user_id` resolved from `auth.users.email`):
+   - Conservative (robinm379, shambhutiwary1): `max_sl_atr_pct=1.5, min_ev_ratio=1.2, blocked_session_hours_ist='{10,11,13,14,18,19}'`
+   - Balanced (yashy05, akshay.bsg): `max_sl_atr_pct=2.0, min_ev_ratio=1.0, blocked_session_hours_ist='{11,19}'`
+   - Aggressive (sudip.gupta.87, hellokushbajpai): `max_sl_atr_pct=2.5, min_ev_ratio=0.9, blocked_session_hours_ist='{19}'`
+3. **`src/lib/auto-book.server.ts`**:
+   - Extend `BotConfig` type with the three fields; add them to the `select(...)` column list at line ~339.
+   - Insert three new gate blocks **after** the existing pre-conditions and **before** the booking block (~line 771), in this order so the cheapest checks short-circuit first:
+     - **Session gate**: compute IST hour via `new Date().toLocaleString("en-GB", { hour: "2-digit", hour12: false, timeZone: "Asia/Kolkata" })` → parseInt; reject if included in array.
+     - **SL-width gate**: if `max_sl_atr_pct > 0 && plan.slPct > max_sl_atr_pct` → reject.
+     - **EV gate**: `p = a.confidence_pct / 100; ev = (p * plan.tpPct) / ((1 - p) * plan.slPct)`; guard div-by-zero (`p < 1 && plan.slPct > 0`); reject if below threshold.
+   - Each gate sets `rejection = "..."`, `final = "skip"`, calls `logEvent(..., "info", ..., { kind: "<gate>_skip", ... })` mirroring the `pre_entry_net_profit_skip` pattern. The downstream `bot_signals` insert path already records `rejection_reason`, so analytics UI picks them up automatically.
+4. **Type sync** — `src/integrations/supabase/types.ts` is auto-regenerated after migration approval; add the three fields to the `BotConfig` interface used in `auto-book.server.ts`. No UI changes (out of scope per request).
+5. **Typecheck** — run `tsgo` to confirm green.
 
-`src/lib/auto-book.server.ts`:
-1. Add `minimum_net_profit_to_enter_pct` to the `BotConfig` type and to the `select(...)` column list in `runAutoBookPass`.
-2. After `plan` is computed and **before** the `bot_signals` insert / position booking, compute:
-   - `entryNotional = plan.positionSize` (already qty×price equivalent)
-   - `exitNotionalAtTp = qty × tpPrice`
-   - `fees = (entryNotional × entry_fee_pct + exitNotionalAtTp × exit_fee_pct) × (1 + gst_pct/100) / 100`
-   - `grossAtTp = qty × |tpPrice − entry|`
-   - `netPctAtTp = (grossAtTp − fees) / entryNotional × 100`
-   - If `cfg.minimum_net_profit_to_enter_pct > 0` and `netPctAtTp < cfg.minimum_net_profit_to_enter_pct`: set `rejection = "Projected net profit at TP below minimum_net_profit_to_enter_pct"`, `final = "skip"`, log a `pre_entry_net_profit_skip` event with the computed numbers. Uses `feeModelRates(DEFAULT_FEE_MODEL)` from `src/lib/fees.ts` — same fee model already used on the exit side.
+## What is explicitly NOT changing
 
-No new module, no second exit system, no scoring change. Pure pre-entry gate, config-driven, applies uniformly across all styles.
-
-### Conservative preset tuning
-
-Update `STYLE_PRESETS.conservative` in `src/lib/risk-engine.ts` to match the requested numbers where they belong in the preset (the rest live on `bot_config`):
-- `riskPct: 0.35` (was 0.5)
-- `minRR: 3.0` (was 1.5)
-- `maxTradesPerDay: 10` (was 9)
-- Other preset fields (SL floor, ATR mult, TP1, trail, weak-progress, profit-fade) unchanged — these aren't in the request and the existing values are already the "conservative" shape.
-
-Per-user fields (`timeframe`, `leverage`, `auto_book_confidence_threshold`, `cooldown_minutes`, `max_trades_per_day`, `min_rr`, `risk_per_trade_pct`, new `minimum_net_profit_to_enter_pct`) are set in the data update below, not in code — per the "no hardcoded user groups" rule.
-
-## Goal 2 — Reassign 6 users into 3 style groups (data only)
-
-Single `UPDATE` against `bot_config`, joined via `profiles.email`. No code path changes; behavior follows from the config values.
-
-| Email | trading_style | timeframe | leverage | risk_per_trade_pct | min_rr | auto_book_confidence_threshold | max_trades_per_day | cooldown_minutes | minimum_net_profit_to_enter_pct |
-|---|---|---|---|---|---|---|---|---|---|
-| sudip.gupta.87@gmail.com | aggressive | unchanged | unchanged | unchanged | unchanged | unchanged | unchanged | unchanged | unchanged (0) |
-| hellokushbajpai@gmail.com | aggressive | unchanged | unchanged | unchanged | unchanged | unchanged | unchanged | unchanged | unchanged (0) |
-| yashy05@gmail.com | balanced | unchanged | unchanged | unchanged | unchanged | unchanged | unchanged | unchanged | unchanged (0) |
-| akshay.bsg@gmail.com | balanced | unchanged | unchanged | unchanged | unchanged | unchanged | unchanged | unchanged | unchanged (0) |
-| robinm379@gmail.com | conservative | 15m | 2 | 0.35 | 3.0 | 88 | 10 | 90 | 0.50 |
-| shambhutiwary1@gmail.com | conservative | 15m | 2 | 0.35 | 3.0 | 88 | 10 | 90 | 0.50 |
-
-Current DB confirms `robinm379` and `shambhutiwary1` are presently `aggressive/3m` and `balanced/15m` respectively — both will be moved to the new conservative group.
-
-## Execution order
-
-1. Migration: add `minimum_net_profit_to_enter_pct` column (default 0).
-2. After migration approval + types regen: edit `src/lib/auto-book.server.ts` (select list + pre-entry gate) and `src/lib/risk-engine.ts` (conservative preset numbers).
-3. Data update via insert tool: set the 2 conservative users' bot_config rows to the values in the table. Aggressive/balanced rows untouched.
-4. Typecheck.
-
-## Open questions before I proceed
-
-- **Net-profit floor default of 0.50% on notional** for conservative — OK, or do you want it expressed/tuned differently (e.g. as ROE on margin, which at 2× leverage would be 1.0%)?
-- **Aggressive and balanced users**: keep at `minimum_net_profit_to_enter_pct = 0` (gate disabled), or seed a small floor (e.g. 0.15%) so the field is exercised on those groups too from day one?
+- No exit-layer changes (BE / TP1 / trailing / profit-fade / time-exit untouched).
+- No new tables, no JSONB, no schema bloat.
+- No user-id branches or hardcoded style logic in code — all behaviour reads from `bot_config`.
+- Coin/spot module untouched.
+- `max_auto_sl_pct` (manual-review path) left intact; `max_sl_atr_pct` is the new strict reject lane and operates independently.
