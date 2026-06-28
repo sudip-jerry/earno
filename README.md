@@ -22,9 +22,9 @@ Signal Engine → Risk Engine → Execution Engine → Learning Engine → Recom
 
 - Profit Factor > 1 is the primary success metric
 - Fewer high-quality trades beat many low-quality trades
-- Net PnL after fees is the real scoreboard (gross PnL is irrelevant)
-- The system learns from thousands of trades and converges toward better config automatically
-- Exit protection is solved first; entry quality is the current focus
+- Net PnL after fees is the real scoreboard — gross PnL is irrelevant
+- The system learns from trade history and converges toward better configuration automatically
+- Exit protection is designed and validated first; entry quality is the current focus
 
 ---
 
@@ -34,288 +34,154 @@ Signal Engine → Risk Engine → Execution Engine → Learning Engine → Recom
 Browser (React 19 + TanStack Router)
   └── TanStack Start SSR + createServerFn handlers
        ├── Supabase Auth + PostgreSQL
-       ├── Auto-book cron  (/api/public/hooks/auto-book)
-       ├── Mark-positions cron  (/api/public/hooks/mark-positions)
-       └── Coin-scan cron  (/api/public/hooks/coin-scan)
+       ├── Auto-book cron   /api/public/hooks/auto-book
+       ├── Mark-positions cron   /api/public/hooks/mark-positions
+       └── Coin-scan cron   /api/public/hooks/coin-scan
 
-Market Data (all public, no API key required for paper mode)
-  ├── CoinDCX futures ticker: /market_data/v3/current_prices/futures/rt
-  ├── CoinDCX spot ticker:    /exchange/ticker
-  └── CoinDCX candles:        /market_data/candles
+Market Data (public endpoints, no API key required for paper mode)
+  ├── CoinDCX futures ticker
+  ├── CoinDCX spot ticker
+  └── CoinDCX OHLCV candles
 
 Execution (live mode only)
-  └── CoinDCX signed order APIs (balance / wallet / place order)
+  └── CoinDCX signed order APIs
 ```
 
-**Stack**: TanStack Start 1.167+ · React 19 · Nitro/Cloudflare Workers · Supabase PostgreSQL · TypeScript 5.8+ · Tailwind CSS 4 · Radix UI · TanStack Query 5
+**Stack**: TanStack Start · React 19 · Nitro / Cloudflare Workers · Supabase PostgreSQL · TypeScript 5.8+ · Tailwind CSS 4 · Radix UI · TanStack Query 5
 
 ---
 
 ## Trading Modules
 
 ### Futures Bot
+
 Automated scalp trading on CoinDCX perpetual futures (USDT pairs).
 
-**Signal layer**: 1m/5m/30m/1h candles · RSI · VWAP · EMA stack (9/21) · ATR · volume spike ratio · spread proxy · market regime detection (bullish/bearish/neutral per 24h change).
+**Signal layer**
+- Multi-timeframe candles: 1m, 5m, 30m, 1h
+- Indicators: RSI, VWAP, EMA stack (9/21), ATR, volume spike ratio, spread proxy
+- Market regime detection: bullish / bearish / neutral derived from 24h price change
+- Confidence score 0–100. Bias is long or short only when ≥ 2 of (trend, VWAP, EMA) agree
 
-**Scoring**: 0–100 confidence. HIGH ≥ 80, MEDIUM ≥ 65, LOW ≥ 55, AVOID < 55. Bias is long or short only when ≥ 2 of (trend, VWAP, EMA) agree. Regime mismatch (e.g. short in bullish regime) is filtered at auto-book gate.
+**Exit stack** — implemented and validated; do not duplicate
+- Stop loss · Take profit
+- TP1 on 50% size with breakeven arming
+- Move to breakeven · Trailing stop
+- Profit fade exit · Profit protection exit
+- Weak-progress time exit · Pre-TP1 failed momentum exit
 
-**Exit stack** (implemented, not to be duplicated):
-- Stop loss · Take profit · TP1 (50% size at TP1 price, arms breakeven)
-- Move to breakeven · Trailing stop · Profit fade exit
-- Profit protection exit · Weak-progress time exit
-- Pre-TP1 failed momentum exit
-
-**Key confirmed finding**: SL-after-BE = 0, SL-after-TP1 = 0 across 1,688 closed trades. Exit protection is solved. Current bottleneck is **entry quality**.
+**Validated finding**: SL-after-BE = 0 and SL-after-TP1 = 0 across the full trade history. Exit protection is solved. Current bottleneck is entry quality.
 
 ### Coin (Spot) Bot
-Automated spot trading on CoinDCX. Portfolio-style: holds multiple assets and waits for breakouts. Uses 1m/5m/30m signals. Scores: buy / sell / hold / wait / avoid.
 
-**Key confirmed finding**: Coin bot performs best with 5+ concurrent holdings (profit factor 1.009 vs 0.22–0.43 at lower counts). This is the opposite of futures — spot requires diversification, futures requires concentration.
+Automated spot trading on CoinDCX. Portfolio-style: holds multiple assets simultaneously and waits for breakouts. Uses 1m/5m/30m signals. Produces: buy / sell / hold / wait / avoid.
 
----
-
-## User Config Groups (Paper Phase)
-
-All behaviour derives from config fields. No hardcoded group logic in code.
-
-| Field | Aggressive | Balanced | Conservative |
-|---|---|---|---|
-| trading_style | aggressive | balanced | conservative |
-| timeframe | 3m | 15m | 15m |
-| leverage | 3 | 3 | 2 |
-| risk_per_trade_pct | 0.5% | 0.5% | 0.35% |
-| min_rr | 1.8 | 2.5 | 3.0 |
-| auto_book_confidence_threshold | 85 | 80 | 88 |
-| max_trades_per_day | 20 | 25 | 10 |
-| cooldown_minutes | 40 | 60 | 90 |
-| **max_open_positions** | **2** | **2** | **1** |
-| min_ev_ratio | 0.9 | 1.0 | 1.2 |
-| max_sl_atr_pct | 2.5% | 2.0% | 1.5% |
-| minimum_net_profit_to_enter_pct | 0.15% | 0.15% | 0.50% |
-| minimum_net_profit_to_exit_pct | 0.18% | 0.18% | 0.18% |
-
-**Profit protection ROE thresholds** (exit layer):
-- Conservative: BE 1.0% · TP1 1.2% · Hard 1.6%
-- Balanced: BE 1.1% · TP1 1.4% · Hard 1.8%
-- Aggressive: BE 1.2% · TP1 1.5% · Hard 2.0%
+**Validated finding**: coin bot performance scales with the number of concurrent holdings. Fewer holdings produces worse outcomes because spot trading requires diversification — winners carry the flat positions. This is the opposite of futures.
 
 ---
 
 ## Entry Quality Gates (Auto-Book)
 
-Seven gates fire sequentially before a position is opened. Any rejection skips the trade and logs to `bot_signals` with a structured reason.
+Gates fire sequentially before a position is opened. Any rejection skips the trade and logs to `bot_signals` with a structured reason visible in the activity feed.
 
-| Gate | Field | What it blocks |
-|---|---|---|
-| Regime filter | regime_filter_enabled | Shorts in bullish regime, longs in bearish regime |
-| Confidence threshold | auto_book_confidence_threshold | Weak signals below style floor |
-| Session hour block | blocked_session_hours_ist | High-noise transition windows (11 IST, 19 IST worst) |
-| SL width cap | max_sl_atr_pct | ATR-derived stop too wide for the style cap |
-| EV ratio | min_ev_ratio | (confidence × TP%) / ((1−confidence) × SL%) below floor |
-| Fee gate (entry) | minimum_net_profit_to_enter_pct | Projected net at TP doesn't clear fees + GST |
-| Fee gate (exit) | minimum_net_profit_to_exit_pct | Realised net too small to exit profitably |
+| Gate | What it blocks |
+|---|---|
+| Regime filter | Shorts in bullish regime; longs in bearish regime |
+| Confidence threshold | Signals below the configured minimum |
+| Session hour block | High-noise market transition windows (configurable by style) |
+| SL width cap | ATR-derived stop distance exceeds the per-style hard cap |
+| EV ratio | `(confidence × TP%) / ((1 − confidence) × SL%)` below minimum |
+| Pre-entry fee gate | Projected net PnL at TP does not clear entry + exit fees + GST |
+| Pre-exit fee gate | Realised net too small to exit profitably |
 
-**Session hours blocked per style (IST)**:
-- Conservative: 10, 11, 13, 14, 18, 19
-- Balanced: 11, 19
-- Aggressive: 19
+**Why session blocking**: market transition hours produce significantly more false breakouts than mid-session hours. The system blocks auto-booking during identified high-noise windows and allows it during historically higher-quality windows.
 
-**Why session blocking**: historical data showed 11 IST (pre-US open) cost -₹190 total at 41% win rate; 19 IST (US open) cost -₹84 at 36% win rate. Only profitable hour across history: 15 IST at 76% win rate.
+**Why EV ratio**: a trade can pass the confidence threshold but still have negative expected value if the stop is wide relative to the target. The EV gate catches this before booking.
+
+**Why the fee gate**: with taker fees and GST, round-trip cost on notional is approximately 0.12%. Setups with small targets are gross winners but net losers after fees. The fee gate rejects these at entry, not at exit.
 
 ---
 
-## Concurrency Rules (Data-Derived)
+## Concurrency Architecture
 
-### Futures: fewer is better
-Analysis across 868 closed trades:
+### Futures: concentrate, do not diversify
 
-| Concurrent positions | Profit factor | Win rate |
-|---|---|---|
-| 0–2 | **0.91** | 64.7% |
-| 3+ | 0.33 | 52.3% |
+Multiple concurrent futures positions entered in the same market regime are positively correlated — when one fails, they all fail. Data confirms profit factor degrades sharply beyond 2 concurrent positions. The system queues signals rather than piling in.
 
-**Config**: max_open_positions = 2 (aggressive/balanced), 1 (conservative).
+**Design principle**: max 1–2 open futures positions at any time, varying by style.
 
-Multiple concurrent futures positions correlate their losses — when one setup fails in a given regime, all others opened in the same regime fail too. The bot now queues signals instead of piling in.
+### Coins: diversify, do not concentrate
 
-### Coins: more is better
-Analysis across 170 closed coin positions:
+Spot coin holdings are negatively correlated in outcome — any one holding may go flat, but the basket as a whole benefits when a breakout occurs. Data confirms profit factor approaches 1.0 only at 5+ concurrent holdings.
 
-| Concurrent holdings | Profit factor | Win rate |
-|---|---|---|
-| 1 | 0.37 | 40% |
-| 2 | 0.22 | 20% |
-| 3–4 | 0.43 | 33% |
-| **5+** | **1.009** | 33% |
-
-**Config**: max_holdings = 8 (unchanged). Spot requires portfolio diversification — winners carry the flat positions.
+**Design principle**: max holdings should be high (configured at 8), not low.
 
 ---
 
 ## Symbol Management
 
-### Futures symbol cooldown
-Direction-specific cooldown: `(symbol, side)` pairs cool independently. A symbol on SHORT cooldown remains available for LONG (and vice versa). Triggered after 2+ hard SLs from any user within 6 hours.
+### Direction-specific cooldown (futures)
+`(symbol, side)` pairs cool independently after repeated hard stop-losses. A symbol on short cooldown remains available for long entries and vice versa. Cooldowns are user-cross (triggered by any user's losses on the symbol).
 
-### Futures symbol blocklist
-Global `symbol_blocklist` on `bot_config`. B-PHB_USDT permanently blocked.
-
-### Coin symbol blocklist
-`symbol_blocklist` on `coin_bot_config`. Currently blocked: B-PUMP_USDT, B-HEI_USDT, B-ARK_USDT, B-BEL_USDT, B-NEAR_USDT (all 0% win rate across ≥ 4 trades).
+### Symbol blocklist (futures + coins)
+Persistent per-user blocklists stored on config. Symbols with statistically poor win rates in a given direction are added and reviewed periodically.
 
 ---
 
-## Coin Bot Configuration
+## Coin Bot: Swing vs Intraday
 
-| Field | Value |
-|---|---|
-| min_confidence | 78 (raised from 65) |
-| max_holdings | 8 |
-| scan_interval_min | 3 (intraday) / 30+ (swing) |
-| symbol_blocklist | 5 symbols |
+The coin scorer differentiates behaviour by mode:
 
-**Swing mode fixes (scorer.ts)**:
-- Stop distance widened from 2.0% → 3.5% (swing needs room to breathe)
-- Trend-broken and momentum-faded exits gated `&& !isSwing` (5m noise no longer closes swing trades)
-- Swing buy signals now require 30m trend alignment as primary (not 5m)
+- **Intraday**: primary signal from 5m trend; tight stop; momentum-fade exits enabled; frequent scans
+- **Swing**: primary signal from 30m trend; wider stop to absorb intraday noise; momentum-fade and trend-break exits suppressed (5m signals do not close a swing position); less frequent scans
 
 ---
 
 ## Learning & Recommendation Engine
 
-- RAG status (red/amber/green) computed from recent trade patterns
-- Auto-apply critical recommendations when bot is running and status is red
-- Plain-English trigger explanations ("Several losing trades in a row today")
-- Plain-English change descriptions ("Risking less per trade — now 0.35% of balance")
-- All recommendations are config patches, not code branches
+- RAG status (red / amber / green) computed continuously from recent trade patterns
+- Critical recommendations auto-applied when the bot is running and status is red
+- All recommendations are config field patches — no code branches per user
+- Plain-English explanations for every trigger and every change surfaced in the UI
 
-**Auto-tune triggers**: loss-streak · daily-bleed · sl-dominated · shorts-bleeding · longs-bleeding · low-pf · overtrading · wide-net · auto-blacklist-loose
-
----
-
-## Dashboard (Beginner-First Design)
-
-The home screen is built around one question: **"Is my bot making money and is it getting better?"**
-
-**Section order**:
-1. Header + mode toggle pill
-2. Paper/Live mode banner
-3. Open positions banner (conditional)
-4. Portfolio card — value · today's P&L · 14-day bar chart (green/red by day) · total P&L · % return
-5. Recommendations panel (RAG)
-6. Quick actions: Scanner (primary) · Positions · Bot Panel
-7. Wealth Engine status card with inline risk strip (always visible, not tap-to-reveal)
-8. Safety controls (Pause / Emergency Stop)
-9. Recent activity feed
-
-**Recent activity feed** handles structured display for: auto_book · skip · auto_tune · session_hour_skip · sl_width_skip · ev_ratio_skip · pre_entry_net_profit_skip. Each gate rejection shows a plain-English explanation of why the trade was blocked.
-
-**Removed from home screen**: raw fee totals · SL rate metrics · profit factor number · milestone cards · performance history card · "Today's insight" duplicate box.
+Auto-tune triggers: loss-streak · daily-bleed · sl-dominated · shorts-bleeding · longs-bleeding · low-profit-factor · overtrading · wide-net · slow-blocklist
 
 ---
 
-## Key Database Tables
+## Dashboard Design Principles
 
-| Table | Purpose |
-|---|---|
-| positions | Futures open/closed positions with full exit metadata |
-| bot_config | Per-user futures config (all style/risk/gate fields) |
-| bot_signals | Signal scan log with rejection reasons |
-| bot_events | Activity feed (auto_book, skip, auto_tune, gate events) |
-| coin_positions | Spot open/closed holdings |
-| coin_bot_config | Per-user coin config (confidence, holdings, blocklist) |
-| coin_signals | Coin scan signals |
-| plans | User plan entitlements |
-| profiles | User profile |
+Built around one question for a beginner: **"Is my bot making money and is it getting better?"**
 
-### Notable bot_config fields added in current phase
-
-```sql
--- Entry quality gates
-max_sl_atr_pct              numeric   -- hard cap on ATR-derived SL width; reject trade if exceeded
-min_ev_ratio                numeric   -- EV proxy gate: (p×tp)/((1-p)×sl) must exceed this
-blocked_session_hours_ist   int[]     -- IST hours where auto-book is suppressed
-minimum_net_profit_to_enter_pct numeric -- pre-entry fee gate (mirrors exit-side field)
-
--- Exit protection (earlier phase, now confirmed working)
-breakeven_armed_at          timestamptz
-tp1_roe_pct                 numeric
-exit_protection_reason      text
-profit_protection_active    boolean
-```
+- Hero: portfolio value + today's P&L + 14-day daily bar chart (green/red per day) + total P&L + % return on capital
+- Bot status: running / paused / cooldown + reason in plain English
+- Recommendations: RAG panel with one-tap apply
+- Activity feed: every auto-book, skip, and gate rejection shown with a plain-English explanation — not raw system codes
+- No jargon on the home screen: no SL rate, no confidence scores, no fee breakdowns, no profit factor number
 
 ---
 
-## Success Metrics
+## Architecture Constraints
 
-| Metric | Target | Current status |
-|---|---|---|
-| SL-after-BE | 0 | ✅ Confirmed 0 across 1,688 trades |
-| SL-after-TP1 | 0 | ✅ Confirmed 0 |
-| Profit Factor | > 1.0 | 🔴 0.33 (crowded) → 0.91 (solo/pair) |
-| Net PnL | Positive | 🔴 Negative (entry quality phase) |
-| Avg SL MFE | > 1% | 🔴 0.47% (trades go straight to stop) |
-| Coin PF (5+ holdings) | > 1.0 | ✅ 1.009 |
+These must not be violated when extending the system:
 
-**Current bottleneck**: Entry quality. 89% of stop-loss trades had MFE < 1% — the trade was wrong from bar 1. The session block, SL width cap, and EV ratio gates are designed to address this directly.
-
----
-
-## Roadmap
-
-### Current phase — Entry Quality
-- [x] Session-aware auto-book gate
-- [x] SL width hard cap per style
-- [x] EV ratio pre-entry gate
-- [x] Fee-aware pre-entry gate
-- [x] Max open positions reduced to 1–2 (data-derived)
-- [x] Direction-specific symbol cooldown
-- [x] Conservative style as third group
-- [x] Coin scorer swing fixes
-
-### Next phase — Signal Quality
-- [ ] Regime-based target_multiplier relaxation (neutral regime: 1.5× instead of 2.2–3.0×)
-- [ ] Per-symbol direction auto-blocklist (weekly learning job)
-- [ ] Funding rate as regime modifier (negative funding → suppress longs system-wide)
-- [ ] Profit factor gate at entry (EV proxy already covers this partially)
-
-### Strategy evolution
-- [ ] Multiple strategies + shared risk engine (VWAP pullback · Supertrend · Bollinger mean reversion · Breakout + volume spike)
-- [ ] EarnO as strategy orchestrator, not single-algorithm system
-
----
-
-## Paper Users (Current)
-
-| User | Style | Timeframe | Max positions |
-|---|---|---|---|
-| Sudip Gupta | Aggressive | 3m | 2 |
-| Kush Bajpayee | Aggressive | 3m | 2 |
-| Yashwanth Kumar | Balanced | 15m | 2 |
-| Akshay Sharma | Balanced | 15m | 2 |
-| Robin Mathew | Conservative | 15m | 1 |
-| Shambhu Tiwary | Conservative | 15m | 1 |
+1. **No hardcoded user groups** — all behaviour derives from config field values; no branching on user identity in code
+2. **No second exit system** — the existing exit stack is the only exit system; do not add parallel exit logic
+3. **No schema bloat** — extend existing fields before adding new tables
+4. **No strategy rewrites from a single bad day** — diagnose from aggregated data first
+5. **No manual config tweaking as the primary adaptation mechanism** — the recommendation engine owns adaptation
+6. **Futures and coin modules are independent** — they do not share execution paths
 
 ---
 
 ## Development
 
 ```bash
-# Install
 bun install
-
-# Dev server
-bun run dev         # http://localhost:5173
-
-# Typecheck
-bunx tsgo --noEmit
-
-# Build
+bun run dev        # http://localhost:5173
+bunx tsgo --noEmit # typecheck
 bun run build
 ```
 
-### Environment
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_anon_key
@@ -324,21 +190,10 @@ CRON_SECRET=your_cron_secret
 
 ---
 
-## Constraints (Do Not Violate)
-
-1. **No hardcoded user groups** — all behaviour derives from config fields, never from user_id or name branches in code
-2. **No second exit system** — the existing SL/TP/BE/trailing/profit-fade/time-exit stack is the only exit system
-3. **No schema bloat** — extend existing fields before adding new tables
-4. **No full strategy rewrites from a bad day** — diagnose from data first
-5. **No constant manual config tweaking** — the recommendation engine handles adaptation
-6. **Coin module is separate** — futures and coin logic never share execution paths
-
----
-
 ## Disclaimer
 
-EarnO is a paper-trading optimisation platform. All live trading carries substantial risk. Never invest more than you can afford to lose. The developers assume no liability for financial losses. Always start with paper mode.
+EarnO is a paper-trading optimisation platform. All live trading carries substantial financial risk. The developers assume no liability for trading losses. Always validate with paper mode before enabling live trading.
 
 ---
 
-*Last updated: June 2026 · Phase: Paper trading optimisation · Focus: Entry quality*
+*Last updated: June 2026 · Current phase: Entry quality optimisation*
