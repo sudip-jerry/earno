@@ -17,6 +17,7 @@ import mascotHappy from "@/assets/earney-happy.png.asset.json";
 import mascotAnalyzing from "@/assets/earney-analyzing.png.asset.json";
 import mascotThinking from "@/assets/earney-thinking.png.asset.json";
 import mascotConfident from "@/assets/earney-confident.png.asset.json";
+import { useCurrency } from "@/hooks/use-currency";
 
 const PRIMARY = "#082567";
 
