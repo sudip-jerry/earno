@@ -737,15 +737,15 @@ function TuningActionsSection({ actions }: { actions: TuningAction[] }) {
 
   if (actions.length === 0) return null;
   const pill = (p: TuningAction["priority"]) => {
-    if (p === "High") return "bg-[#0F52BA] text-white border-[#0F52BA]";
-    if (p === "Medium") return "bg-[#E8F0FB] text-[#0F52BA] border-[#0F52BA]/40";
-    return "bg-white text-[#0F52BA] border-[#0F52BA]/30";
+    if (p === "High") return "bg-primary text-primary-foreground border-primary";
+    if (p === "Medium") return "bg-primary/10 text-primary border-primary/40";
+    return "bg-card text-primary border-primary/30";
   };
   return (
-    <section className="mx-5 mt-2 mb-4 rounded-2xl bg-white text-black border border-[#0F52BA]/20 shadow-sm">
+    <section className="mx-5 mt-2 mb-4 rounded-2xl bg-card text-card-foreground border border-primary/20 shadow-sm">
       <div className="px-4 pt-4 pb-2 flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold text-black">Tuning Actions</h2>
-        <span className="text-[10px] uppercase tracking-wider text-[#0F52BA] font-semibold">
+        <h2 className="text-sm font-semibold text-card-foreground">Tuning Actions</h2>
+        <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">
           {actions.length} recommendation{actions.length === 1 ? "" : "s"}
         </span>
       </div>
@@ -756,7 +756,7 @@ function TuningActionsSection({ actions }: { actions: TuningAction[] }) {
           return (
             <div
               key={a.id}
-              className="rounded-xl border border-[#0F52BA]/15 bg-white p-3"
+              className="rounded-xl border border-primary/15 bg-card p-3"
             >
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <span
@@ -764,24 +764,24 @@ function TuningActionsSection({ actions }: { actions: TuningAction[] }) {
                 >
                   {a.priority} priority
                 </span>
-                <span className="text-[10px] text-black/50 truncate max-w-[55%] text-right">
+                <span className="text-[10px] text-muted-foreground truncate max-w-[55%] text-right">
                   {a.affected}
                 </span>
               </div>
-              <p className="text-xs font-semibold text-black">{a.issue}</p>
-              <p className="text-[11px] text-black/70 mt-1">{a.evidence}</p>
+              <p className="text-xs font-semibold text-card-foreground">{a.issue}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">{a.evidence}</p>
               <p className="text-[11px] mt-1.5">
-                <span className="text-[#0F52BA] font-semibold">Action: </span>
-                <span className="text-black">{a.action}</span>
+                <span className="text-primary font-semibold">Action: </span>
+                <span className="text-card-foreground">{a.action}</span>
               </p>
               <div className="mt-2 flex items-center justify-between gap-2">
-                <p className="text-[10px] text-black/55 italic">
+                <p className="text-[10px] text-muted-foreground italic">
                   {a.applyHint}
                 </p>
                 {a.applyable && a.affectedUserIds.length > 0 ? (
                   <Button
                     size="sm"
-                    className="h-7 text-xs bg-[#0F52BA] hover:bg-[#0F52BA]/90 text-white shrink-0"
+                    className="h-7 text-xs bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
                     disabled={applyMut.isPending}
                     onClick={() =>
                       applyMut.mutate({
@@ -795,7 +795,7 @@ function TuningActionsSection({ actions }: { actions: TuningAction[] }) {
                       : `Apply to ${a.affectedUserIds.length}`}
                   </Button>
                 ) : (
-                  <span className="text-[10px] text-black/40 shrink-0">
+                  <span className="text-[10px] text-muted-foreground shrink-0">
                     Manual only
                   </span>
                 )}
@@ -804,11 +804,12 @@ function TuningActionsSection({ actions }: { actions: TuningAction[] }) {
           );
         })}
       </div>
-      <p className="px-4 pb-3 text-[10px] text-black/50">
+      <p className="px-4 pb-3 text-[10px] text-muted-foreground">
         Applies to paper-mode config only. Changes persist and take effect on the
         next scanner cycle (and all subsequent days).
       </p>
     </section>
   );
 }
+
 
