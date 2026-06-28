@@ -453,6 +453,7 @@ type EditableCfg = {
   max_sl_atr_pct: number;
   min_ev_ratio: number;
   minimum_net_profit_to_enter_pct: number;
+  major_coin_confidence_floor: number;
   blocked_session_hours_ist: number[];
 };
 
