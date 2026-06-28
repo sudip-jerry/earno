@@ -193,6 +193,16 @@ export async function fetchMarketRegime(): Promise<MarketRegime | null> {
   }
 }
 
+// High-liquidity coins where EMA/VWAP signals need stronger confirmation.
+// At confidence < major_coin_confidence_floor, these are skipped.
+// At confidence >= floor they trade normally — preserving breakout participation.
+const MAJOR_COINS = new Set([
+  "B-BTC_USDT","B-ETH_USDT","B-BNB_USDT","B-SOL_USDT",
+  "B-XRP_USDT","B-ADA_USDT","B-DOGE_USDT","B-NEAR_USDT",
+  "B-SUI_USDT","B-AAVE_USDT","B-AVAX_USDT","B-LINK_USDT",
+  "B-UNI_USDT","B-DOT_USDT","B-MATIC_USDT","B-LTC_USDT",
+]);
+
 type BotConfig = {
   user_id: string;
   mode: string;
