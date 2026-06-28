@@ -767,7 +767,66 @@ export async function runAutoBookPass(
         }
       }
 
+      // Entry-quality gates (config-driven, all skip-only, none touch exit/sizing).
+      // Order: cheapest first so we short-circuit before EV math.
+      if (rejection == null) {
+        const blockedHours = (cfg.blocked_session_hours_ist ?? []) as number[];
+        if (blockedHours.length > 0) {
+          const istHourStr = new Date().toLocaleString("en-GB", {
+            hour: "2-digit",
+            hour12: false,
+            timeZone: "Asia/Kolkata",
+          });
+          const istHour = parseInt(istHourStr, 10);
+          if (Number.isFinite(istHour) && blockedHours.includes(istHour)) {
+            rejection = `Auto-book blocked: session hour ${istHour} IST in blocked_session_hours_ist`;
+            final = "skip";
+            await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+              kind: "session_hour_skip",
+              symbol: a.symbol,
+              ist_hour: istHour,
+              blocked_hours: blockedHours,
+            });
+          }
+        }
+      }
 
+      if (rejection == null) {
+        const maxSlAtr = Number(cfg.max_sl_atr_pct ?? 0);
+        if (maxSlAtr > 0 && plan.slPct > maxSlAtr) {
+          rejection = `SL width ${plan.slPct.toFixed(2)}% exceeds max_sl_atr_pct ${maxSlAtr}%`;
+          final = "skip";
+          await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+            kind: "sl_width_skip",
+            symbol: a.symbol,
+            sl_pct: plan.slPct,
+            max_sl_atr_pct: maxSlAtr,
+          });
+        }
+      }
+
+      if (rejection == null) {
+        const minEv = Number(cfg.min_ev_ratio ?? 0);
+        if (minEv > 0 && plan.slPct > 0) {
+          const p = a.confidence_pct / 100;
+          if (p > 0 && p < 1) {
+            const evRatio = (p * plan.tpPct) / ((1 - p) * plan.slPct);
+            if (evRatio < minEv) {
+              rejection = `EV ratio ${evRatio.toFixed(3)} below min_ev_ratio ${minEv} (conf=${a.confidence_pct}%, tp=${plan.tpPct}%, sl=${plan.slPct}%)`;
+              final = "skip";
+              await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+                kind: "ev_ratio_skip",
+                symbol: a.symbol,
+                ev_ratio: Number(evRatio.toFixed(4)),
+                min_ev_ratio: minEv,
+                confidence_pct: a.confidence_pct,
+                tp_pct: plan.tpPct,
+                sl_pct: plan.slPct,
+              });
+            }
+          }
+        }
+      }
 
       let bookedTradeId: string | null = null;
 
