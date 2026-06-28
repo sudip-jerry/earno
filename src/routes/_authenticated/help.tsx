@@ -154,6 +154,8 @@ export function HelpFlow({
 /* ---------------- Steps ---------------- */
 
 function StepWelcome() {
+  const { fmt: fmtCur } = useCurrency();
+
   return (
     <section>
       <div className="flex items-end gap-3">
