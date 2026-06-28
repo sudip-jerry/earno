@@ -299,6 +299,10 @@ const editableCfgSchema = z.object({
   regime_filter_enabled: z.boolean().optional(),
   symbol_blacklist_threshold: z.number().int().min(0).max(20).optional(),
   symbol_sl_cooldown_minutes: z.number().int().min(0).max(10080).optional(),
+  max_sl_atr_pct: z.number().min(0).max(100).optional(),
+  min_ev_ratio: z.number().min(0).max(100).optional(),
+  minimum_net_profit_to_enter_pct: z.number().min(-10).max(100).optional(),
+  blocked_session_hours_ist: z.array(z.number().int().min(0).max(23)).max(24).optional(),
 });
 
 export const adminGetUserConfig = createServerFn({ method: "GET" })
