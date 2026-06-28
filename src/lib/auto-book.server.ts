@@ -228,6 +228,9 @@ type BotConfig = {
   live_allocation_pct?: number | null;
   timeframe?: string | null;
   minimum_net_profit_to_enter_pct?: number | null;
+  max_sl_atr_pct?: number | null;
+  min_ev_ratio?: number | null;
+  blocked_session_hours_ist?: number[] | null;
 };
 
 /** Returns the USDT capital to size positions against. Paper uses paper_equity.
@@ -336,7 +339,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,max_sl_atr_pct,min_ev_ratio,blocked_session_hours_ist",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -764,7 +767,66 @@ export async function runAutoBookPass(
         }
       }
 
+      // Entry-quality gates (config-driven, all skip-only, none touch exit/sizing).
+      // Order: cheapest first so we short-circuit before EV math.
+      if (rejection == null) {
+        const blockedHours = (cfg.blocked_session_hours_ist ?? []) as number[];
+        if (blockedHours.length > 0) {
+          const istHourStr = new Date().toLocaleString("en-GB", {
+            hour: "2-digit",
+            hour12: false,
+            timeZone: "Asia/Kolkata",
+          });
+          const istHour = parseInt(istHourStr, 10);
+          if (Number.isFinite(istHour) && blockedHours.includes(istHour)) {
+            rejection = `Auto-book blocked: session hour ${istHour} IST in blocked_session_hours_ist`;
+            final = "skip";
+            await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+              kind: "session_hour_skip",
+              symbol: a.symbol,
+              ist_hour: istHour,
+              blocked_hours: blockedHours,
+            });
+          }
+        }
+      }
 
+      if (rejection == null) {
+        const maxSlAtr = Number(cfg.max_sl_atr_pct ?? 0);
+        if (maxSlAtr > 0 && plan.slPct > maxSlAtr) {
+          rejection = `SL width ${plan.slPct.toFixed(2)}% exceeds max_sl_atr_pct ${maxSlAtr}%`;
+          final = "skip";
+          await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+            kind: "sl_width_skip",
+            symbol: a.symbol,
+            sl_pct: plan.slPct,
+            max_sl_atr_pct: maxSlAtr,
+          });
+        }
+      }
+
+      if (rejection == null) {
+        const minEv = Number(cfg.min_ev_ratio ?? 0);
+        if (minEv > 0 && plan.slPct > 0) {
+          const p = a.confidence_pct / 100;
+          if (p > 0 && p < 1) {
+            const evRatio = (p * plan.tpPct) / ((1 - p) * plan.slPct);
+            if (evRatio < minEv) {
+              rejection = `EV ratio ${evRatio.toFixed(3)} below min_ev_ratio ${minEv} (conf=${a.confidence_pct}%, tp=${plan.tpPct}%, sl=${plan.slPct}%)`;
+              final = "skip";
+              await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+                kind: "ev_ratio_skip",
+                symbol: a.symbol,
+                ev_ratio: Number(evRatio.toFixed(4)),
+                min_ev_ratio: minEv,
+                confidence_pct: a.confidence_pct,
+                tp_pct: plan.tpPct,
+                sl_pct: plan.slPct,
+              });
+            }
+          }
+        }
+      }
 
       let bookedTradeId: string | null = null;
 
