@@ -112,6 +112,9 @@ export type DashboardStats = {
 
   // Recent activity
   recentActivity: ActivityItem[];
+
+  // Daily PnL buckets (last 30 days)
+  dailyPnl: { date: string; pnl: number }[];
 };
 
 const MILESTONES = [
