@@ -106,7 +106,21 @@ function PositionsPage() {
     refetchInterval: 5_000,
   });
 
-  const closedQ = useQuery({
+  const closedSummaryQ = useQuery({
+    queryKey: ["positions_closed_summary"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("positions")
+        .select("pnl,entry_price,exit_price,qty,exit_reason")
+        .eq("status", "closed")
+        .order("closed_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ClosedRow[];
+    },
+    enabled: tab === "closed",
+  });
+
+  const closedListQ = useQuery({
     queryKey: ["positions_closed"],
     queryFn: async () => {
       const { data, error } = await supabase
