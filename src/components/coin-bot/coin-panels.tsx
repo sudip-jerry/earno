@@ -116,11 +116,11 @@ export function CoinHoldingsCard() {
             return (
               <tr key={row.id} className="border-t">
                 <td className="px-3 py-2 font-medium">{row.display}</td>
-                <td className="text-right px-2 py-2">{fmt(row.qty, 6)}</td>
-                <td className="text-right px-2 py-2">{fmt(row.avg_buy_price, 6)}</td>
-                <td className="text-right px-2 py-2">{fmt(row.last_price, 6)}</td>
+                <td className="text-right px-2 py-2">{fmtRaw(row.qty, 6)}</td>
+                <td className="text-right px-2 py-2">{fmtRaw(row.avg_buy_price, 6)}</td>
+                <td className="text-right px-2 py-2">{fmtRaw(row.last_price, 6)}</td>
                 <td className={`text-right px-2 py-2 ${pnlPct >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                  {fmt(pnlPct)}%
+                  {fmtRaw(pnlPct)}%
                 </td>
                 <td className="px-2 py-2 text-right">
                   <Button size="sm" variant="outline" onClick={() => sell.mutate({ positionId: row.id, price: row.last_price ?? row.avg_buy_price })}>
