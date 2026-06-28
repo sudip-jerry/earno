@@ -787,6 +787,48 @@ export async function runAutoBookPass(
           const tp1PctRaw = Math.min(preset.tp1Pct, Math.max(0.1, tpPct * 0.6));
           const tp1_price = tp1PriceFor(a.price, tp1PctRaw, side);
 
+          // Pre-entry net-profit floor (config-driven, generic across styles).
+          // Projects gross PnL at the planned TP, subtracts entry+exit fees + GST
+          // using the same fee model as the exit-side check, and skips the trade
+          // if the projected net% (on entry notional) is below the configured floor.
+          const minNetEnterPct = Number(cfg.minimum_net_profit_to_enter_pct ?? 0);
+          if (minNetEnterPct > 0) {
+            const fees = feeModelRates(DEFAULT_FEE_MODEL);
+            const entryNotional = qty * a.price;
+            const exitNotionalAtTp = qty * take_profit;
+            const grossAtTp = qty * Math.abs(take_profit - a.price);
+            const feesAtTp =
+              ((entryNotional * fees.entry_fee_pct) / 100 +
+                (exitNotionalAtTp * fees.exit_fee_pct) / 100) *
+              (1 + fees.gst_pct / 100);
+            const netPctAtTp =
+              entryNotional > 0 ? ((grossAtTp - feesAtTp) / entryNotional) * 100 : 0;
+            if (netPctAtTp < minNetEnterPct) {
+              rejection = `Projected net profit at TP ${netPctAtTp.toFixed(3)}% < min ${minNetEnterPct}%`;
+              final = "skip";
+              await logEvent(
+                supabase,
+                cfg.user_id,
+                "info",
+                `Auto-book skipped ${a.symbol}: ${rejection}`,
+                {
+                  kind: "pre_entry_net_profit_skip",
+                  symbol: a.symbol,
+                  tp_pct: tpPct,
+                  projected_net_pct: Number(netPctAtTp.toFixed(4)),
+                  min_net_profit_to_enter_pct: minNetEnterPct,
+                  fees_at_tp: Number(feesAtTp.toFixed(4)),
+                  gross_at_tp: Number(grossAtTp.toFixed(4)),
+                },
+              );
+            }
+          }
+
+          if (rejection != null) {
+            // fall through to signal-row write below records the skip reason.
+          }
+
+
           // FK requires the signal row to exist first.
           const { error: sigErr } = await supabase.from("bot_signals").insert({
             id: signalId,
