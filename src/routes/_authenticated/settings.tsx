@@ -1032,17 +1032,6 @@ function SettingsPage() {
         </div>
       </section>
 
-      <section className="px-5 mt-6">
-        <h2 className="text-sm font-semibold mb-2">Appearance</h2>
-
-        <div className="rounded-xl border bg-card p-3 flex items-center justify-between">
-          <div>
-            <div className="text-sm font-medium">Theme</div>
-            <div className="text-xs text-muted-foreground">Choice is saved on this device.</div>
-          </div>
-          <ThemeSelect />
-        </div>
-      </section>
 
       {hasChanges && (
         <div className="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-4 flex gap-3 z-50 safe-area-pb">
