@@ -993,6 +993,34 @@ function DailyChart({
         </button>
       </div>
 
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-xl border bg-background/60 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total P&L</p>
+          <p
+            className={`mt-0.5 text-[14px] font-semibold tabular-nums ${
+              totalPnl >= 0
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400"
+            }`}
+          >
+            {fmt(totalPnl, { signed: true })}
+          </p>
+        </div>
+        <div className="rounded-xl border bg-background/60 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Return</p>
+          <p
+            className={`mt-0.5 text-[14px] font-semibold tabular-nums ${
+              totalPnlPct >= 0
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400"
+            }`}
+          >
+            {totalPnlPct >= 0 ? "+" : "−"}
+            {Math.abs(totalPnlPct).toFixed(1)}%
+          </p>
+        </div>
+      </div>
+
       <div className="mt-4">
         {series.length < 3 ? (
           <div className="h-[64px] grid place-items-center text-[12px] text-muted-foreground">
