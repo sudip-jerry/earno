@@ -303,6 +303,10 @@ type Cfg = {
   live_allocation_amount: number;
   live_allocation_pct: number;
   symbol_blocklist: string[];
+  max_sl_atr_pct: number;
+  min_ev_ratio: number;
+  minimum_net_profit_to_enter_pct: number;
+  blocked_session_hours_ist: number[];
 };
 
 const DEFAULTS: Cfg = {
@@ -337,7 +341,12 @@ const DEFAULTS: Cfg = {
   live_allocation_amount: 0,
   live_allocation_pct: 100,
   symbol_blocklist: [],
+  max_sl_atr_pct: 2.0,
+  min_ev_ratio: 1.0,
+  minimum_net_profit_to_enter_pct: 0.15,
+  blocked_session_hours_ist: [],
 };
+
 
 function SettingsPage() {
   const qc = useQueryClient();
