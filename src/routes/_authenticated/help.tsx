@@ -239,6 +239,8 @@ function StepFlow() {
 }
 
 function StepPaper() {
+  const { fmt: fmtCur } = useCurrency();
+
   return (
     <section>
       <div className="flex items-end gap-3">
