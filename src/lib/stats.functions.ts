@@ -377,5 +377,6 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       scannerHealth, dataFeedHealth, riskEngineHealth, automationHealth,
       lastSuccessfulScanAt,
       recentActivity,
+      dailyPnl,
     };
   });
