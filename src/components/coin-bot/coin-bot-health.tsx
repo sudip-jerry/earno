@@ -7,6 +7,7 @@ import { Activity, Settings as Cog } from "lucide-react";
 import { getCoinConfig, updateCoinConfig } from "@/lib/coin-bot/coin-bot.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useCurrency } from "@/hooks/use-currency";
 
 export function CoinBotHealth() {
   const qc = useQueryClient();
