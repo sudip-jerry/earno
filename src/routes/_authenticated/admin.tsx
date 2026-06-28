@@ -450,7 +450,12 @@ type EditableCfg = {
   regime_filter_enabled: boolean;
   symbol_blacklist_threshold: number;
   symbol_sl_cooldown_minutes: number;
+  max_sl_atr_pct: number;
+  min_ev_ratio: number;
+  minimum_net_profit_to_enter_pct: number;
+  blocked_session_hours_ist: number[];
 };
+
 
 const NUM_FIELDS: { key: keyof EditableCfg; label: string; step?: number }[] = [
   { key: "leverage", label: "Leverage" },
