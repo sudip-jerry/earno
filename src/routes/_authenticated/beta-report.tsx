@@ -226,7 +226,7 @@ function BetaReportPage() {
             <Card label="Weakest tester">
               {s.weakestTester ? (
                 <>
-                  <p className="truncate">{s.weakestTester.email ?? "—"}</p>
+                  <p className="truncate">{maskEmail(s.weakestTester.email)}</p>
                   <p
                     className={
                       s.weakestTester.pnl >= 0 ? "text-emerald-500" : "text-destructive"
