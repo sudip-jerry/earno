@@ -61,8 +61,8 @@ export function CoinPortfolioCard() {
       </div>
       {h?.summary && (
         <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
-          <div>Best: <span className="text-foreground">{h.summary.best_symbol ?? "—"} {h.summary.best_pnl_pct != null ? `(${fmt(h.summary.best_pnl_pct)}%)` : ""}</span></div>
-          <div>Worst: <span className="text-foreground">{h.summary.worst_symbol ?? "—"} {h.summary.worst_pnl_pct != null ? `(${fmt(h.summary.worst_pnl_pct)}%)` : ""}</span></div>
+          <div>Best: <span className="text-foreground">{h.summary.best_symbol ?? "—"} {h.summary.best_pnl_pct != null ? `(${fmtRaw(h.summary.best_pnl_pct)}%)` : ""}</span></div>
+          <div>Worst: <span className="text-foreground">{h.summary.worst_symbol ?? "—"} {h.summary.worst_pnl_pct != null ? `(${fmtRaw(h.summary.worst_pnl_pct)}%)` : ""}</span></div>
         </div>
       )}
     </section>
