@@ -21,7 +21,6 @@ type CoinConfigRow = {
   min_confidence: number;
   scan_interval_min: number;
   max_holding_days: number;
-  hold_until_trend_reversal: boolean;
   universe_size: number;
 };
 
