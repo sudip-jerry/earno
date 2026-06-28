@@ -115,9 +115,7 @@ function StrictnessControl() {
   };
 
   const handleReset = async () => {
-    const ok = window.confirm(
-      `This will reset your confidence threshold, cooldown, and risk % back to the '${STRICTNESS_PRESETS[strictness].label}' defaults — undoing any auto-tune improvements. Continue?`,
-    );
+    const ok = window.confirm(`Reset to "${STRICTNESS_PRESETS[strictness].label}" defaults? This will undo any auto-tune improvements.`);
     if (!ok) return;
     try {
       await updateFn({ data: presetPatch(strictness) as never });
@@ -769,10 +767,8 @@ function SettingsPage() {
               onChange={(v) => set("min_scalp_score", v)}
             />
           </Row>
+          <p className="text-[11px] text-muted-foreground px-4 pb-2">Controls which signals appear in the scanner. The auto-book threshold is set separately in Advanced settings.</p>
         </div>
-        <p className="text-[11px] text-muted-foreground mt-2 px-1 leading-relaxed">
-          Controls which signals appear in the scanner. The auto-book threshold (when the bot decides to trade) is set separately in Advanced settings.
-        </p>
       </section>
 
 
@@ -947,10 +943,7 @@ function SettingsPage() {
             </Row>
 
             <div className="pt-2 border-t mt-2">
-              <p className="text-xs font-semibold mb-1">Entry gate thresholds</p>
-              <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
-                These gates run before every trade is booked. Raising them reduces trade frequency but improves quality.
-              </p>
+              <p className="text-xs font-medium text-muted-foreground mt-3 mb-1">Entry gate thresholds</p>
               <div className="space-y-5">
                 <SliderField
                   label="Max SL width (ATR %)"
@@ -979,14 +972,12 @@ function SettingsPage() {
                   value={get("minimum_net_profit_to_enter_pct")}
                   onChange={(v) => set("minimum_net_profit_to_enter_pct", v)}
                 />
-                <div className="rounded-lg border bg-muted/30 p-2.5">
-                  <p className="text-[11px] font-medium">
-                    Blocked IST hours: {(get("blocked_session_hours_ist") ?? []).length === 0
-                      ? "none"
-                      : (get("blocked_session_hours_ist") ?? []).join(", ")}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Edit via Admin panel</p>
+                <div className="text-[11px] text-muted-foreground">
+                  <span className="font-medium text-foreground">Blocked IST hours: </span>
+                  {(get("blocked_session_hours_ist") as number[] ?? []).length > 0 ? (get("blocked_session_hours_ist") as number[]).join(", ") : "none"}
+                  <span className="ml-1 opacity-60">(edit via Admin)</span>
                 </div>
+                <p className="text-[11px] text-muted-foreground">These gates run before every trade is booked. Raising them reduces trade frequency but improves quality.</p>
               </div>
             </div>
           </div>
