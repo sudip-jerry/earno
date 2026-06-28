@@ -52,7 +52,10 @@ export function useCurrency() {
   useEffect(() => {
     try {
       window.localStorage.setItem(LS_KEY, code);
-    } catch {}
+    } catch (e) {
+      // Non-fatal: localStorage may be unavailable (private mode / quota).
+      console.warn("[use-currency] could not persist currency preference:", e);
+    }
   }, [code]);
 
   const mut = useMutation({

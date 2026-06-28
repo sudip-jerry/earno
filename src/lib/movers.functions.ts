@@ -893,7 +893,7 @@ const bookSchema = z.object({
     .string()
     .min(3)
     .max(40)
-    .regex(/^[A-Z0-9_\-]+$/),
+    .regex(/^[A-Z0-9_-]+$/),
   side: z.enum(["long", "short"]),
   price: z.number().positive(),
   market: z.enum(["spot", "futures"]).optional(),
@@ -1107,7 +1107,7 @@ const livePricesSchema = z.object({
         .string()
         .min(1)
         .max(40)
-        .regex(/^[A-Z0-9_\-\/]+$/),
+        .regex(/^[A-Z0-9_/-]+$/),
     )
     .min(1)
     .max(50),
@@ -1142,7 +1142,11 @@ export const getLivePrices = createServerFn({ method: "POST" })
           if (p > 0) out[sym] = p;
         }
       }
-    } catch {}
+    } catch (e) {
+      // Non-fatal: futures ticker is one of two price sources; the spot
+      // ticker below may still populate prices. Log so silent gaps surface.
+      console.warn("[live-prices] futures ticker fetch failed:", e);
+    }
     try {
       const res = await fetch("https://api.coindcx.com/exchange/ticker", {
         headers: PUBLIC_API_HEADERS,
@@ -1164,6 +1168,10 @@ export const getLivePrices = createServerFn({ method: "POST" })
           }
         }
       }
-    } catch {}
+    } catch (e) {
+      // Non-fatal: spot ticker is the fallback price source. Log so a
+      // failure here doesn't silently leave prices empty.
+      console.warn("[live-prices] spot ticker fetch failed:", e);
+    }
     return { ok: true as const, prices: out };
   });

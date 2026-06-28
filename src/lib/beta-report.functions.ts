@@ -260,7 +260,11 @@ function topMode(arr: (string | null)[]): string | null {
   }
   let best: string | null = null;
   let bestN = 0;
-  for (const [k, n] of m) if (n > bestN) ((best = k), (bestN = n));
+  for (const [k, n] of m)
+    if (n > bestN) {
+      best = k;
+      bestN = n;
+    }
   return best;
 }
 
@@ -718,8 +722,14 @@ export const getBetaReport = createServerFn({ method: "GET" })
       bestPairPnl = -Infinity,
       worstPairPnl = Infinity;
     for (const [s, p] of bySymbol) {
-      if (p > bestPairPnl) ((bestPair = s), (bestPairPnl = p));
-      if (p < worstPairPnl) ((worstPair = s), (worstPairPnl = p));
+      if (p > bestPairPnl) {
+        bestPair = s;
+        bestPairPnl = p;
+      }
+      if (p < worstPairPnl) {
+        worstPair = s;
+        worstPairPnl = p;
+      }
     }
 
     const skipReasons = (skips ?? [])
@@ -747,8 +757,14 @@ export const getBetaReport = createServerFn({ method: "GET" })
       tbp = -Infinity,
       twp = Infinity;
     for (const [s, p] of todayBySymbol) {
-      if (p > tbp) ((todayBestPair = s), (tbp = p));
-      if (p < twp) ((todayWorstPair = s), (twp = p));
+      if (p > tbp) {
+        todayBestPair = s;
+        tbp = p;
+      }
+      if (p < twp) {
+        todayWorstPair = s;
+        twp = p;
+      }
     }
     const todayActiveTesters = testers.filter((t) => t.today.closed > 0 || t.today.open > 0).length;
 

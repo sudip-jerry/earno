@@ -7,26 +7,28 @@ import {
   type ReplayBucket,
 } from "@/lib/futures-exit-replay.functions";
 
+function ExitReplayError({ error, reset }: { error: Error; reset: () => void }) {
+  const router = useRouter();
+  return (
+    <div className="p-6 text-sm">
+      <p className="text-destructive">{error.message}</p>
+      <button
+        className="mt-3 rounded border px-3 py-1.5"
+        onClick={() => {
+          router.invalidate();
+          reset();
+        }}
+      >
+        Retry
+      </button>
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/_authenticated/exit-replay")({
   component: ExitReplayPage,
   head: () => ({ meta: [{ title: "Exit Policy Replay" }] }),
-  errorComponent: ({ error, reset }) => {
-    const router = useRouter();
-    return (
-      <div className="p-6 text-sm">
-        <p className="text-destructive">{error.message}</p>
-        <button
-          className="mt-3 rounded border px-3 py-1.5"
-          onClick={() => {
-            router.invalidate();
-            reset();
-          }}
-        >
-          Retry
-        </button>
-      </div>
-    );
-  },
+  errorComponent: ExitReplayError,
   notFoundComponent: () => <div className="p-6">Not found</div>,
 });
 

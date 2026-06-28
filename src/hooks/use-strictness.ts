@@ -52,7 +52,10 @@ export function useStrictness() {
   useEffect(() => {
     try {
       window.localStorage.setItem(KEY, strictness);
-    } catch {}
+    } catch (e) {
+      // Non-fatal: localStorage may be unavailable (private mode / quota).
+      console.warn("[use-strictness] could not persist strictness preference:", e);
+    }
     // Notify same-tab listeners
     window.dispatchEvent(new CustomEvent("earno-strictness-change", { detail: strictness }));
   }, [strictness]);

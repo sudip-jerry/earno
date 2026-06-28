@@ -28,7 +28,10 @@ export function useTheme() {
     applyTheme(theme);
     try {
       window.localStorage.setItem(KEY, theme);
-    } catch {}
+    } catch (e) {
+      // Non-fatal: localStorage may be unavailable (private mode / quota).
+      console.warn("[use-theme] could not persist theme preference:", e);
+    }
   }, [theme]);
 
   useEffect(() => {

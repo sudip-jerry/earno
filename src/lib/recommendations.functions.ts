@@ -85,7 +85,11 @@ function topMode<T>(arr: (T | null | undefined)[]): T | null {
   for (const v of arr) if (v != null) m.set(v, (m.get(v) ?? 0) + 1);
   let best: T | null = null;
   let bc = 0;
-  for (const [k, c] of m) if (c > bc) ((best = k), (bc = c));
+  for (const [k, c] of m)
+    if (c > bc) {
+      best = k;
+      bc = c;
+    }
   return best;
 }
 

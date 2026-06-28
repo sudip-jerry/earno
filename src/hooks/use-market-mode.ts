@@ -16,7 +16,10 @@ export function useMarketMode() {
   useEffect(() => {
     try {
       window.localStorage.setItem(KEY, market);
-    } catch {}
+    } catch (e) {
+      // Non-fatal: localStorage may be unavailable (private mode / quota).
+      console.warn("[use-market-mode] could not persist market mode:", e);
+    }
     window.dispatchEvent(new CustomEvent(EVT, { detail: market }));
   }, [market]);
 
