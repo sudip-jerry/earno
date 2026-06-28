@@ -78,7 +78,35 @@ export function CoinBotHealth() {
 
       {open && (
         <div className="mt-4 space-y-3 border-t pt-3">
-          <Field label="Allocated capital (USDT)" value={allocated} onChange={setAllocated} onSave={() => upd.mutate({ allocated_capital_usdt: Number(allocated) })} />
+          {/* Currency helper */}
+          <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-200">
+            <span className="font-medium">All capital fields are in USDT.</span>
+            {" "}If your budget is in {code}, divide by {symbolRate(code, rate)} to get USDT.
+            {" "}Example: ₹50,000 ÷ {Math.round(rate)} ≈ ${Math.round(50000 / rate)} USDT.
+          </div>
+          <div>
+            <Field
+              label="Capital allocated (USDT)"
+              value={allocated}
+              onChange={setAllocated}
+              onSave={() => upd.mutate({ allocated_capital_usdt: Number(allocated) })}
+            />
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              ≈ {fmt(Number(allocated) || 0)} in {code} · Enter amount in USDT
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              This is in USDT, not INR. ₹50,000 ≈ ${Math.round(50000 / rate)} USDT at current rate.
+            </p>
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground flex-1">Available cash (USDT)</label>
+              <span className="text-xs font-medium w-24 text-right">{c.available_cash_usdt}</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              ≈ {fmt(Number(c.available_cash_usdt) || 0)} in {code} · Auto-managed by bot
+            </p>
+          </div>
           <Field label="Max holdings" value={maxHoldings} onChange={setMaxHoldings} onSave={() => upd.mutate({ max_holdings: Number(maxHoldings) })} />
           <Field label="Min confidence (%)" value={minConf} onChange={setMinConf} onSave={() => upd.mutate({ min_confidence: Number(minConf) })} />
           <Field label="Scan interval (min)" value={scanMin} onChange={setScanMin} onSave={() => upd.mutate({ scan_interval_min: Number(scanMin) })} />
