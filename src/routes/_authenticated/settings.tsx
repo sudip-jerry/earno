@@ -115,6 +115,10 @@ function StrictnessControl() {
   };
 
   const handleReset = async () => {
+    const ok = window.confirm(
+      `This will reset your confidence threshold, cooldown, and risk % back to the '${STRICTNESS_PRESETS[strictness].label}' defaults — undoing any auto-tune improvements. Continue?`,
+    );
+    if (!ok) return;
     try {
       await updateFn({ data: presetPatch(strictness) as never });
       toast.success(`Reset auto-tuned values to "${STRICTNESS_PRESETS[strictness].label}"`);
@@ -123,6 +127,7 @@ function StrictnessControl() {
       toast.error(e instanceof Error ? e.message : "Reset failed");
     }
   };
+
 
   return (
     <div className="space-y-2">
