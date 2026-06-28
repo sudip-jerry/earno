@@ -227,6 +227,7 @@ type BotConfig = {
   live_allocation_amount?: number | null;
   live_allocation_pct?: number | null;
   timeframe?: string | null;
+  minimum_net_profit_to_enter_pct?: number | null;
 };
 
 /** Returns the USDT capital to size positions against. Paper uses paper_equity.
@@ -335,7 +336,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -786,6 +787,47 @@ export async function runAutoBookPass(
           const tp1PctRaw = Math.min(preset.tp1Pct, Math.max(0.1, tpPct * 0.6));
           const tp1_price = tp1PriceFor(a.price, tp1PctRaw, side);
 
+          // Pre-entry net-profit floor (config-driven, generic across styles).
+          // Projects gross PnL at the planned TP, subtracts entry+exit fees + GST
+          // using the same fee model as the exit-side check, and skips the trade
+          // if the projected net% (on entry notional) is below the configured floor.
+          const minNetEnterPct = Number(cfg.minimum_net_profit_to_enter_pct ?? 0);
+          if (minNetEnterPct > 0) {
+            const fees = feeModelRates(DEFAULT_FEE_MODEL);
+            const entryNotional = qty * a.price;
+            const exitNotionalAtTp = qty * take_profit;
+            const grossAtTp = qty * Math.abs(take_profit - a.price);
+            const feesAtTp =
+              ((entryNotional * fees.entry_fee_pct) / 100 +
+                (exitNotionalAtTp * fees.exit_fee_pct) / 100) *
+              (1 + fees.gst_pct / 100);
+            const netPctAtTp =
+              entryNotional > 0 ? ((grossAtTp - feesAtTp) / entryNotional) * 100 : 0;
+            if (netPctAtTp < minNetEnterPct) {
+              rejection = `Projected net profit at TP ${netPctAtTp.toFixed(3)}% < min ${minNetEnterPct}%`;
+              final = "skip";
+              await logEvent(
+                supabase,
+                cfg.user_id,
+                "info",
+                `Auto-book skipped ${a.symbol}: ${rejection}`,
+                {
+                  kind: "pre_entry_net_profit_skip",
+                  symbol: a.symbol,
+                  tp_pct: tpPct,
+                  projected_net_pct: Number(netPctAtTp.toFixed(4)),
+                  min_net_profit_to_enter_pct: minNetEnterPct,
+                  fees_at_tp: Number(feesAtTp.toFixed(4)),
+                  gross_at_tp: Number(grossAtTp.toFixed(4)),
+                },
+              );
+            }
+          }
+
+
+
+
+
           // FK requires the signal row to exist first.
           const { error: sigErr } = await supabase.from("bot_signals").insert({
             id: signalId,
@@ -864,7 +906,12 @@ export async function runAutoBookPass(
           }
 
           if (rejection != null) {
-            // live execution failed — fall through past the position insert.
+            // live execution or pre-entry gate failed — record skip on the
+            // signal row and fall through past the position insert.
+            await supabase
+              .from("bot_signals")
+              .update({ final_decision: "skip", rejection_reason: rejection })
+              .eq("id", signalId);
           } else {
           const { data: inserted, error } = await supabase
             .from("positions")

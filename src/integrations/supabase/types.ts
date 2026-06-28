@@ -94,6 +94,7 @@ export type Database = {
           min_sl_pct: number
           minimum_gross_profit_before_profit_fade_exit_pct: number
           minimum_gross_profit_before_weak_progress_exit_pct: number
+          minimum_net_profit_to_enter_pct: number
           minimum_net_profit_to_exit_pct: number
           mode: string
           move_to_breakeven: boolean
@@ -144,6 +145,7 @@ export type Database = {
           min_sl_pct?: number
           minimum_gross_profit_before_profit_fade_exit_pct?: number
           minimum_gross_profit_before_weak_progress_exit_pct?: number
+          minimum_net_profit_to_enter_pct?: number
           minimum_net_profit_to_exit_pct?: number
           mode?: string
           move_to_breakeven?: boolean
@@ -194,6 +196,7 @@ export type Database = {
           min_sl_pct?: number
           minimum_gross_profit_before_profit_fade_exit_pct?: number
           minimum_gross_profit_before_weak_progress_exit_pct?: number
+          minimum_net_profit_to_enter_pct?: number
           minimum_net_profit_to_exit_pct?: number
           mode?: string
           move_to_breakeven?: boolean
