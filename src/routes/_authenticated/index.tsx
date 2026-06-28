@@ -450,6 +450,17 @@ function Home() {
         </div>
       )}
 
+      {/* ===== Portfolio summary card ===== */}
+      <WealthHero
+        stats={stats.data}
+        equityFallback={Number(c?.paper_equity ?? 0)}
+        isLive={isLive}
+        hideBalance={hideBalance}
+        onToggleHide={() => setHideBalance((v) => !v)}
+        hideModeBanner
+        hide30d={!stats.data || stats.data.closedAllTime < 30}
+      />
+
       {tier === "free" && (
         <Link
           to="/upgrade"
