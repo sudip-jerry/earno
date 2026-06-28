@@ -510,7 +510,7 @@ function DemoLoop() {
                 P&L
               </p>
               <p className="text-sm font-semibold tabular-nums text-emerald-600">
-                +₹{pnl.toFixed(0)}
+                {fmtCur(pnl / 84, { signed: true })}
               </p>
             </div>
           </div>
