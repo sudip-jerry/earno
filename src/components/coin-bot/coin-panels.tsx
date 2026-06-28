@@ -71,6 +71,7 @@ export function CoinPortfolioCard() {
 
 export function CoinHoldingsCard() {
   const qc = useQueryClient();
+  const { code, symbol, fmt: fmtCur } = useCurrency();
   const { holdings } = useCoinQueries();
   const sellFn = useServerFn(paperSellCoin);
   const sell = useMutation({
@@ -96,6 +97,9 @@ export function CoinHoldingsCard() {
   return (
     <div className="overflow-hidden rounded-2xl border bg-card">
       <table className="w-full text-xs">
+        <caption className="text-[10px] text-muted-foreground pb-1 text-left px-3">
+          Prices in USDT · P&L in {code} via {symbol}1 = {fmtCur(1)}
+        </caption>
         <thead className="bg-muted/40 text-muted-foreground">
           <tr>
             <th className="text-left px-3 py-2">Coin</th>
