@@ -343,6 +343,7 @@ const DEFAULTS: Cfg = {
   max_sl_atr_pct: 2.0,
   min_ev_ratio: 1.0,
   minimum_net_profit_to_enter_pct: 0.15,
+  major_coin_confidence_floor: 90,
   blocked_session_hours_ist: [],
 };
 
