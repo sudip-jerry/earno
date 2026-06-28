@@ -456,6 +456,8 @@ function Home() {
         <DailyChart
           portfolioValue={Number(s?.portfolioValue ?? c?.paper_equity ?? 0)}
           todayPnl={Number(s?.todayPnl ?? 0)}
+          totalPnl={Number(s?.realizedPnlAllTime ?? 0)}
+          totalPnlPct={s?.baselineEquity ? (Number(s.realizedPnlAllTime ?? 0) / s.baselineEquity) * 100 : 0}
           weekChangeAbs={Number(s?.weekChangeAbs ?? 0)}
           dailyPnl={s?.dailyPnl ?? []}
           hideBalance={hideBalance}
