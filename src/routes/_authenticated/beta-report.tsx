@@ -53,6 +53,12 @@ function money(n: number) {
   const sign = n >= 0 ? "+" : "";
   return `${sign}$${fmt(Math.abs(n), 2).replace("-", "")}`.replace("$-", "-$");
 }
+function maskEmail(email: string | null | undefined): string {
+  if (!email) return "—";
+  const [local] = email.split("@");
+  return local ?? "—";
+}
+
 
 function BetaReportPage() {
   const qc = useQueryClient();
