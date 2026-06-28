@@ -773,9 +773,8 @@ function SettingsPage() {
         <p className="text-[11px] text-muted-foreground mt-2 px-1 leading-relaxed">
           Controls which signals appear in the scanner. The auto-book threshold (when the bot decides to trade) is set separately in Advanced settings.
         </p>
-
-        </div>
       </section>
+
 
       {/* Trading Style preset */}
       <section className="px-5 mt-6">
