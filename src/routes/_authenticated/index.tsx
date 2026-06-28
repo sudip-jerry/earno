@@ -29,6 +29,7 @@ import {
 import { TabBar } from "@/components/tab-bar";
 import { useCurrency } from "@/hooks/use-currency";
 import { RecentActivity } from "@/components/recent-activity";
+import { WealthHero } from "@/components/wealth-hero";
 import { RecommendationsPanel } from "@/components/recommendations-panel";
 import {
   AlertTriangle,
@@ -118,6 +119,8 @@ function Home() {
   const [confirmLive, setConfirmLive] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
   const [riskOpen, setRiskOpen] = useState(false);
+  const [hideBalance, setHideBalance] = useState(false);
+
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
 
@@ -446,6 +449,17 @@ function Home() {
           </Link>
         </div>
       )}
+
+      {/* ===== Portfolio summary card ===== */}
+      <WealthHero
+        stats={stats.data}
+        equityFallback={Number(c?.paper_equity ?? 0)}
+        isLive={isLive}
+        hideBalance={hideBalance}
+        onToggleHide={() => setHideBalance((v) => !v)}
+        hideModeBanner
+        hide30d={!stats.data || stats.data.closedAllTime < 30}
+      />
 
       {tier === "free" && (
         <Link
