@@ -479,6 +479,7 @@ const NUM_FIELDS: { key: keyof EditableCfg; label: string; step?: number }[] = [
   { key: "max_sl_atr_pct", label: "Max SL ATR %", step: 0.1 },
   { key: "min_ev_ratio", label: "Min EV ratio", step: 0.05 },
   { key: "minimum_net_profit_to_enter_pct", label: "Min net profit to enter %", step: 0.01 },
+  { key: "major_coin_confidence_floor", label: "Major coin conf floor %", step: 1 },
 ];
 
 
