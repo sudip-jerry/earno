@@ -824,9 +824,8 @@ export async function runAutoBookPass(
             }
           }
 
-          if (rejection != null) {
-            // fall through to signal-row write below records the skip reason.
-          }
+
+
 
 
           // FK requires the signal row to exist first.
