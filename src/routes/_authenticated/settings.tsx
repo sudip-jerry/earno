@@ -974,7 +974,18 @@ function SettingsPage() {
                   value={get("minimum_net_profit_to_enter_pct")}
                   onChange={(v) => set("minimum_net_profit_to_enter_pct", v)}
                 />
+                <SliderField
+                  label="Major coin min confidence"
+                  unit="%"
+                  min={75}
+                  max={100}
+                  step={1}
+                  value={get("major_coin_confidence_floor")}
+                  onChange={(v) => set("major_coin_confidence_floor", v)}
+                />
+                <p className="text-[11px] text-muted-foreground">BTC/ETH/SOL/XRP etc only trade at this confidence. Data shows PF 1.04 above 90%, PF 0.14 below.</p>
                 <div className="text-[11px] text-muted-foreground">
+
                   <span className="font-medium text-foreground">Blocked IST hours: </span>
                   {(get("blocked_session_hours_ist") as number[] ?? []).length > 0 ? (get("blocked_session_hours_ist") as number[]).join(", ") : "none"}
                   <span className="ml-1 opacity-60">(edit via Admin)</span>
