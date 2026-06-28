@@ -106,7 +106,21 @@ function PositionsPage() {
     refetchInterval: 5_000,
   });
 
-  const closedQ = useQuery({
+  const closedSummaryQ = useQuery({
+    queryKey: ["positions_closed_summary"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("positions")
+        .select("pnl,entry_price,exit_price,qty,exit_reason")
+        .eq("status", "closed")
+        .order("closed_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ClosedRow[];
+    },
+    enabled: tab === "closed",
+  });
+
+  const closedListQ = useQuery({
     queryKey: ["positions_closed"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -219,7 +233,14 @@ function PositionsPage() {
             </div>
           </div>
         ) : (
-          <ClosedSummary rows={closedQ.data ?? []} />
+          <>
+            <ClosedSummary rows={closedSummaryQ.data ?? []} />
+            {(closedSummaryQ.data?.length ?? 0) > 100 && (
+              <p className="text-[11px] text-muted-foreground px-1 mt-1">
+                Summary reflects all {closedSummaryQ.data?.length} trades. List shows last 100.
+              </p>
+            )}
+          </>
         )}
       </section>
 
@@ -388,8 +409,8 @@ function PositionsPage() {
         </ul>
       ) : (
         <ClosedList
-          rows={closedQ.data ?? []}
-          isLoading={closedQ.isLoading}
+          rows={closedListQ.data ?? []}
+          isLoading={closedListQ.isLoading}
           onViewChart={(r) => setChartOpen(r)}
         />
       )}
@@ -699,7 +720,7 @@ function ClosedSummary({ rows }: { rows: ClosedRow[] }) {
         <p className={`text-xl font-semibold tabular-nums mt-0.5 ${total >= 0 ? "text-emerald-500" : "text-destructive"}`}>
           {fmt(total, { signed: true })}
         </p>
-        <p className="text-[10px] text-muted-foreground mt-0.5">Fees {fmt(fees)}</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5">Fees paid: {fmt(Math.abs(fees))}</p>
       </div>
       <div>
         <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Trades</p>

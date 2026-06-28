@@ -759,10 +759,11 @@ function PerformanceStrip({
           </p>
         </div>
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">Fees</p>
-          <p className="mt-0.5 text-[13px] font-semibold tabular-nums truncate text-rose-600 dark:text-rose-400">
-            {fees == null ? "—" : fmt(-Math.abs(fees), { signed: true })}
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">Trading fees</p>
+          <p className="mt-0.5 text-[13px] font-semibold tabular-nums truncate text-foreground">
+            {fees == null ? "—" : fmt(Math.abs(fees))}
           </p>
+          <p className="text-[10px] text-muted-foreground truncate">paid to exchange</p>
         </div>
       </div>
     </section>
