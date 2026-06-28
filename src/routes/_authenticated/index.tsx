@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { killAll, updateConfig } from "@/lib/bot.functions";
-import { getDashboardStats } from "@/lib/stats.functions";
+import { getDashboardStats, type DashboardStats } from "@/lib/stats.functions";
 import { getMyEntitlements } from "@/lib/plans.functions";
 import { PLAN_NAME, type PlanTier } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TabBar } from "@/components/tab-bar";
-import { WealthHero, MilestoneCard, PerformanceHistoryCard } from "@/components/wealth-hero";
 import { useCurrency } from "@/hooks/use-currency";
 import { RecentActivity } from "@/components/recent-activity";
 import { RecommendationsPanel } from "@/components/recommendations-panel";
@@ -36,8 +35,6 @@ import {
   ChevronRight,
   ShieldCheck,
   Activity,
-  Sparkles,
-  MessageCircle,
   Crown,
   Settings as Cog,
   RefreshCw,
@@ -86,6 +83,16 @@ type ConfigRow = {
   daily_loss_cap_pct: number;
 };
 
+type StatsExtras = DashboardStats & {
+  weeklyNetPnl?: number;
+  totalNetPnl?: number;
+  winRate?: number;
+  totalWins?: number;
+  totalClosed?: number;
+  profitFactor?: number;
+  totalFees?: number;
+};
+
 function timeAgo(iso: string | null): string {
   if (!iso) return "—";
   const ms = Date.now() - new Date(iso).getTime();
@@ -108,7 +115,6 @@ function Home() {
   const entFn = useServerFn(getMyEntitlements);
   const { fmt } = useCurrency();
 
-  const [hideBalance, setHideBalance] = useState(false);
   const [confirmLive, setConfirmLive] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
   const [riskOpen, setRiskOpen] = useState(false);
@@ -186,8 +192,7 @@ function Home() {
   const c = cfg.data;
   const isLive = c?.mode === "live";
   const isRunning = c?.is_running ?? false;
-  const equity = Number(c?.paper_equity ?? 0);
-  const s = stats.data;
+  const s = stats.data as StatsExtras | undefined;
   const openCount = s?.openCount ?? 0;
 
   const statusLabel = !isRunning
@@ -455,16 +460,8 @@ function Home() {
         </Link>
       )}
 
-      {/* ===== Portfolio hero (banner suppressed — own banner above) ===== */}
-      <WealthHero
-        stats={s}
-        equityFallback={equity}
-        isLive={isLive}
-        hideBalance={hideBalance}
-        onToggleHide={() => setHideBalance((v) => !v)}
-        hideModeBanner
-        hide30d={!s || s.closedAllTime < 30}
-      />
+      {/* ===== Weekly performance strip ===== */}
+      <PerformanceStrip s={s} fmt={fmt} />
 
       {/* ===== Personalized recommendations (RAG) ===== */}
       <RecommendationsPanel />
@@ -472,14 +469,14 @@ function Home() {
       {/* ===== Quick actions ===== */}
       <section className="px-5 mt-6">
         <div className="grid grid-cols-3 gap-2.5">
-          <QuickAction to="/bot" label="Bot Panel" icon={<BotIcon className="size-5" />} accent />
-          <QuickAction to="/scanner" label="Scanner" icon={<Radar className="size-5" />} />
+          <QuickAction to="/scanner" label="Scanner" icon={<Radar className="size-5" />} accent />
           <QuickAction
             to="/positions"
             label="Positions"
             icon={<Briefcase className="size-5" />}
             badge={openCount > 0 ? openCount : undefined}
           />
+          <QuickAction to="/bot" label="Bot Panel" icon={<BotIcon className="size-5" />} />
         </div>
       </section>
 
@@ -498,24 +495,42 @@ function Home() {
             </div>
           </div>
 
-          <dl className="mt-4 grid grid-cols-4 gap-3">
-            <Metric label="Trades today" value={`${s?.tradesToday ?? 0}`} />
-            <Metric label="Open" value={`${openCount}`} />
-            <button type="button" onClick={() => setRiskOpen(true)} className="text-left">
-              <dt className="text-[10px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-0.5">
-                Risk <Info className="size-2.5 opacity-60" />
-              </dt>
-              <dd className="mt-1 text-[13px] font-semibold tabular-nums inline-flex items-center gap-1">
-                {(s?.riskHealthy ?? true) ? (
-                  <ShieldCheck className="size-3 text-emerald-500" />
-                ) : (
-                  <AlertTriangle className="size-3 text-amber-500" />
-                )}
-                {(s?.riskHealthy ?? true) ? "Active" : "Warning"}
-              </dd>
-            </button>
-            <Metric label="Last scan" value={timeAgo(s?.lastAnalysisAt ?? null)} />
-          </dl>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <CompactRiskRow
+              label="Daily loss used"
+              value={`${(s?.dailyLossUsedPct ?? 0).toFixed(0)}% of cap`}
+              warn={(s?.dailyLossUsedPct ?? 0) >= 80}
+            />
+            <CompactRiskRow
+              label="Trades today"
+              value={`${s?.tradesExecutedToday ?? 0} / ${s?.maxTradesPerDay ?? 0}`}
+              warn={(s?.tradesExecutedToday ?? 0) >= (s?.maxTradesPerDay ?? 999)}
+            />
+            <CompactRiskRow
+              label="Open positions"
+              value={`${s?.openCount ?? 0} / ${s?.maxOpenPositions ?? 0}`}
+              warn={(s?.openCount ?? 0) >= (s?.maxOpenPositions ?? 999)}
+            />
+            <CompactRiskRow
+              label="Consecutive losses"
+              value={`${s?.consecutiveLosses ?? 0}`}
+              warn={(s?.consecutiveLosses ?? 0) >= 3}
+            />
+            <CompactRiskRow label="Last scan" value={timeAgo(s?.lastAnalysisAt ?? null)} />
+            <CompactRiskRow
+              label="Min confidence"
+              value={`${s?.minConfidenceRequired ?? 0}`}
+              sub={`Top today: ${s?.topConfidenceToday ?? 0}`}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setRiskOpen(true)}
+            className="mt-3 text-[11px] font-medium text-primary hover:underline"
+          >
+            Full risk details →
+          </button>
 
           <Button
             variant="outline"
@@ -525,26 +540,6 @@ function Home() {
             View Bot Details
             <ChevronRight className="size-4 ml-1" />
           </Button>
-        </div>
-      </section>
-
-      {/* ===== Today's insight ===== */}
-      <section className="px-5 mt-4">
-        <div className="rounded-2xl bg-primary/5 border border-primary/10 p-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="size-4 text-primary" />
-            <p className="text-[11px] uppercase tracking-wider font-semibold text-primary">
-              Today's insight
-            </p>
-            <Link
-              to="/help"
-              className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
-            >
-              <MessageCircle className="size-3" />
-              Ask earn'O
-            </Link>
-          </div>
-          <p className="mt-2 text-[13px] text-foreground leading-relaxed">{reason}</p>
         </div>
       </section>
 
@@ -577,19 +572,8 @@ function Home() {
         </p>
       </section>
 
-      {/* ===== Secondary content ===== */}
-      <div className="mt-7 space-y-2">
-        <p className="px-5 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
-          Progress
-        </p>
-        <MilestoneCard stats={s} equityFallback={equity} hideBalance={hideBalance} />
-        <PerformanceHistoryCard stats={s} />
-      </div>
-
-      <div className="mt-6 space-y-2">
-        <p className="px-5 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
-          Activity
-        </p>
+      {/* ===== Recent activity ===== */}
+      <div className="mt-6">
         <RecentActivity items={s?.recentActivity ?? []} />
       </div>
 
@@ -700,6 +684,95 @@ function Home() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function PerformanceStrip({
+  s,
+  fmt,
+}: {
+  s: StatsExtras | undefined;
+  fmt: (n: number | null | undefined, opts?: { signed?: boolean }) => string;
+}) {
+  const netValue =
+    s?.weeklyNetPnl ?? s?.totalNetPnl ?? s?.weekChangeAbs;
+  const netLabel =
+    s?.weeklyNetPnl != null ? "Net PnL" : s?.totalNetPnl != null ? "All time net" : "Net PnL";
+
+  const computedWinRate =
+    s?.totalWins != null && s?.totalClosed != null && s.totalClosed > 0
+      ? s.totalWins / s.totalClosed
+      : undefined;
+  const winRate = s?.winRate ?? computedWinRate;
+
+  const pf = s?.profitFactor;
+  const fees = s?.totalFees ?? s?.realizedFeesAllTime;
+
+  return (
+    <section className="px-5 mt-3">
+      <div className="grid grid-cols-4 gap-2 rounded-2xl border bg-card px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">{netLabel}</p>
+          <p className="mt-0.5 text-[13px] font-semibold tabular-nums truncate">
+            {netValue == null ? "—" : fmt(netValue, { signed: true })}
+          </p>
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">Win rate</p>
+          <p className="mt-0.5 text-[13px] font-semibold tabular-nums truncate">
+            {winRate == null ? "—" : `${(winRate * 100).toFixed(0)}%`}
+          </p>
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">Profit factor</p>
+          <p
+            className={`mt-0.5 text-[13px] font-semibold tabular-nums truncate ${
+              pf == null
+                ? ""
+                : pf > 1
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-rose-600 dark:text-rose-400"
+            }`}
+          >
+            {pf == null ? "—" : pf.toFixed(2)}
+          </p>
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">Fees</p>
+          <p className="mt-0.5 text-[13px] font-semibold tabular-nums truncate text-rose-600 dark:text-rose-400">
+            {fees == null ? "—" : fmt(-Math.abs(fees), { signed: true })}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CompactRiskRow({
+  label,
+  value,
+  sub,
+  warn,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  warn?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border bg-background/40 px-3 py-2">
+      <div className="min-w-0">
+        <p className="text-[11px] font-medium truncate">{label}</p>
+        {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
+      </div>
+      <span
+        className={`text-[12px] font-semibold tabular-nums shrink-0 ml-2 ${
+          warn ? "text-amber-600 dark:text-amber-400" : "text-foreground"
+        }`}
+      >
+        {value}
+      </span>
     </div>
   );
 }
