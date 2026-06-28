@@ -412,6 +412,7 @@ export type Database = {
           min_confidence: number
           mode: string
           scan_interval_min: number
+          symbol_blocklist: string[]
           universe_size: number
           updated_at: string
           user_id: string
@@ -426,6 +427,7 @@ export type Database = {
           min_confidence?: number
           mode?: string
           scan_interval_min?: number
+          symbol_blocklist?: string[]
           universe_size?: number
           updated_at?: string
           user_id: string
@@ -440,6 +442,7 @@ export type Database = {
           min_confidence?: number
           mode?: string
           scan_interval_min?: number
+          symbol_blocklist?: string[]
           universe_size?: number
           updated_at?: string
           user_id?: string

@@ -26,6 +26,7 @@ export type CoinCfg = {
   max_holding_days: number;
   hold_until_trend_reversal: boolean;
   universe_size: number;
+  symbol_blocklist?: string[];
 };
 
 export type ScanResult =
@@ -165,9 +166,14 @@ export async function runCoinScanFor(
   // Auto-open buys
   let autoOpened = 0;
   if (cfg.enabled) {
+    const blocklist = new Set(cfg.symbol_blocklist ?? []);
     const buys = signalsToInsert
       .filter(
-        (s) => s.action === "buy" && s.confidence >= cfg.min_confidence && !holdings.has(s.symbol),
+        (s) =>
+          s.action === "buy" &&
+          s.confidence >= cfg.min_confidence &&
+          !holdings.has(s.symbol) &&
+          !blocklist.has(s.symbol),
       )
       .sort((a, b) => b.confidence - a.confidence);
 
