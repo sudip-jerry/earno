@@ -57,6 +57,7 @@ function fmt(n: number | null | undefined, d = 2) {
 
 function CoinBotPage() {
   const qc = useQueryClient();
+  const { fmt: fmtCur } = useCurrency();
   const portfolioFn = useServerFn(getCoinPortfolio);
   const signalsFn = useServerFn(getCoinSignals);
   const holdingsFn = useServerFn(getCoinHoldings);
