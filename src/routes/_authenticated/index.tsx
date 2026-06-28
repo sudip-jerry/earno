@@ -927,6 +927,8 @@ function MarketTogglePill() {
 function DailyChart({
   portfolioValue,
   todayPnl,
+  totalPnl,
+  totalPnlPct,
   weekChangeAbs,
   dailyPnl,
   hideBalance,
@@ -935,6 +937,8 @@ function DailyChart({
 }: {
   portfolioValue: number;
   todayPnl: number;
+  totalPnl: number;
+  totalPnlPct: number;
   weekChangeAbs: number;
   dailyPnl: { date: string; pnl: number }[];
   hideBalance: boolean;
