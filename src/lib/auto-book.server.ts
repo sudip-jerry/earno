@@ -763,6 +763,23 @@ export async function runAutoBookPass(
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
       }
 
+      // Major-coin confidence floor: require higher confidence on liquid coins
+      // where institutional flow overwhelms momentum signals below ~90%.
+      // Data-derived: majors at conf<90 have PF 0.14-0.24; at conf≥90 PF=1.04.
+      if (rejection == null) {
+        const majorFloor = Number(cfg.major_coin_confidence_floor ?? 90);
+        if (MAJOR_COINS.has(sym) && a.confidence_pct < majorFloor) {
+          rejection = `Major coin confidence floor: ${a.confidence_pct} < ${majorFloor} required for ${sym}`;
+          final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
+          await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+            kind: "major_coin_floor_skip",
+            symbol: a.symbol,
+            confidence_pct: a.confidence_pct,
+            major_coin_confidence_floor: majorFloor,
+          });
+        }
+      }
+
       // Backend setup classification + policy gate (Futures-only, beginner-invisible).
       const setup = classifySetup(a);
       if (rejection == null) {
