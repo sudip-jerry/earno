@@ -634,15 +634,45 @@ function UserConfigEditor({
                     />
                   </label>
                 ))}
-                <div className="rounded-md border bg-muted/30 px-2 py-1.5 text-[11px] col-span-2">
-                  <span className="text-muted-foreground">Blocked IST hours: </span>
-                  <span className="font-medium">
-                    {Array.isArray((c as Record<string, unknown>)?.blocked_session_hours_ist) && ((c as Record<string, unknown>).blocked_session_hours_ist as number[]).length > 0
-                      ? ((c as Record<string, unknown>).blocked_session_hours_ist as number[]).join(", ")
-                      : "none"}
-                  </span>
+                <div className="rounded-md border bg-muted/30 px-2 py-2 text-[11px] col-span-2">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-muted-foreground">Blocked IST hours</span>
+                    <span className="font-medium tabular-nums">
+                      {(() => {
+                        const cur = (get("blocked_session_hours_ist") ?? []) as number[];
+                        return cur.length > 0 ? [...cur].sort((a, b) => a - b).join(", ") : "none";
+                      })()}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-12 gap-1">
+                    {Array.from({ length: 24 }, (_, h) => {
+                      const cur = (get("blocked_session_hours_ist") ?? []) as number[];
+                      const on = cur.includes(h);
+                      return (
+                        <button
+                          key={h}
+                          type="button"
+                          onClick={() => {
+                            const next = on ? cur.filter((x) => x !== h) : [...cur, h].sort((a, b) => a - b);
+                            setK("blocked_session_hours_ist", next);
+                          }}
+                          className={`h-6 rounded text-[10px] tabular-nums border ${
+                            on
+                              ? "bg-destructive text-destructive-foreground border-destructive"
+                              : "bg-background hover:bg-muted border-border"
+                          }`}
+                          aria-pressed={on}
+                          aria-label={`Hour ${h} IST ${on ? "blocked" : "allowed"}`}
+                        >
+                          {h}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">Tap an hour to block/allow entries during that IST hour.</p>
                 </div>
               </div>
+
 
 
               <div className="grid grid-cols-2 gap-2">
