@@ -260,14 +260,14 @@ function StepPaper() {
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-2">
-        <StatCard label="Starting capital" value="₹1,00,000" />
-        <StatCard label="Risk to wallet" value="₹0" tone="positive" />
+        <StatCard label="Starting capital" value={fmtCur(1190)} />
+        <StatCard label="Risk to wallet" value={fmtCur(0)} tone="positive" />
         <StatCard label="Signal quality" value="Same as live" />
         <StatCard label="Setup time" value="None" />
       </div>
 
       <ul className="mt-5 rounded-2xl border bg-card p-4 space-y-3">
-        <Bullet>Virtual ₹1,00,000 portfolio to start.</Bullet>
+        <Bullet>Virtual {fmtCur(1190)} portfolio to start.</Bullet>
         <Bullet>Same live signals, same confidence scores.</Bullet>
         <Bullet>Full P&amp;L tracking — today and all-time.</Bullet>
       </ul>
