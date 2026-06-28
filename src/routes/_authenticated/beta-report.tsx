@@ -216,7 +216,7 @@ function BetaReportPage() {
             <Card label="Best tester">
               {s.bestTester ? (
                 <>
-                  <p className="truncate">{s.bestTester.email ?? "—"}</p>
+                  <p className="truncate">{maskEmail(s.bestTester.email)}</p>
                   <p className="text-emerald-500">{money(s.bestTester.pnl)}</p>
                 </>
               ) : (
