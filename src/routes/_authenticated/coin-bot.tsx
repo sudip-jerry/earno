@@ -256,23 +256,6 @@ function CoinBotPage() {
               overnight if trend valid. Swing: holds across days, max {c.max_holding_days} days. No
               forced time-based exits.
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <div>
-                <div>Hold through bounce-backs</div>
-                <div className="text-xs text-muted-foreground">
-                  Held coins wait for a 30m downtrend before early trend exits.
-                </div>
-              </div>
-              <Button
-                size="sm"
-                variant={c.hold_until_trend_reversal ? "default" : "outline"}
-                onClick={() =>
-                  updCfg.mutate({ hold_until_trend_reversal: !c.hold_until_trend_reversal })
-                }
-              >
-                {c.hold_until_trend_reversal ? "On" : "Off"}
-              </Button>
-            </div>
           </section>
         )}
 
