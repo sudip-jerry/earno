@@ -350,7 +350,7 @@ function TesterCard({
     <div className="rounded-2xl border bg-card p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-medium truncate">{t.email ?? t.userId.slice(0, 8)}</p>
+          <p className="font-medium truncate">{maskEmail(t.email) !== "—" ? maskEmail(t.email) : t.userId.slice(0, 8)}</p>
           <p className="text-[11px] text-muted-foreground">
             {t.settings?.mode ?? "—"} · {t.settings?.is_running ? "running" : "stopped"}{" "}
             · style {t.settings?.trading_style ?? "—"}
