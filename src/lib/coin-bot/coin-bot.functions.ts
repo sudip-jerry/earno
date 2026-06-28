@@ -33,7 +33,6 @@ const DEFAULT_CFG: Omit<CoinConfigRow, "user_id"> = {
   min_confidence: 65,
   scan_interval_min: 3,
   max_holding_days: 7,
-  hold_until_trend_reversal: true,
   universe_size: 50,
 };
 
