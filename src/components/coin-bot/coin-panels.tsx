@@ -27,7 +27,7 @@ const ACTION_PILL: Record<Action, string> = {
 };
 const ACTION_LABEL: Record<Action, string> = { buy: "Buy", sell: "Sell", hold: "Hold", wait: "Wait", avoid: "Avoid" };
 
-function fmt(n: number | null | undefined, d = 2) {
+function fmtRaw(n: number | null | undefined, d = 2) {
   if (n == null || !Number.isFinite(Number(n))) return "—";
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: d });
 }
