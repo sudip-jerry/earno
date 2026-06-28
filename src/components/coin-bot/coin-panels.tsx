@@ -27,7 +27,7 @@ const ACTION_PILL: Record<Action, string> = {
 };
 const ACTION_LABEL: Record<Action, string> = { buy: "Buy", sell: "Sell", hold: "Hold", wait: "Wait", avoid: "Avoid" };
 
-function fmt(n: number | null | undefined, d = 2) {
+function fmtRaw(n: number | null | undefined, d = 2) {
   if (n == null || !Number.isFinite(Number(n))) return "—";
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: d });
 }
@@ -61,8 +61,8 @@ export function CoinPortfolioCard() {
       </div>
       {h?.summary && (
         <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
-          <div>Best: <span className="text-foreground">{h.summary.best_symbol ?? "—"} {h.summary.best_pnl_pct != null ? `(${fmt(h.summary.best_pnl_pct)}%)` : ""}</span></div>
-          <div>Worst: <span className="text-foreground">{h.summary.worst_symbol ?? "—"} {h.summary.worst_pnl_pct != null ? `(${fmt(h.summary.worst_pnl_pct)}%)` : ""}</span></div>
+          <div>Best: <span className="text-foreground">{h.summary.best_symbol ?? "—"} {h.summary.best_pnl_pct != null ? `(${fmtRaw(h.summary.best_pnl_pct)}%)` : ""}</span></div>
+          <div>Worst: <span className="text-foreground">{h.summary.worst_symbol ?? "—"} {h.summary.worst_pnl_pct != null ? `(${fmtRaw(h.summary.worst_pnl_pct)}%)` : ""}</span></div>
         </div>
       )}
     </section>
@@ -116,11 +116,11 @@ export function CoinHoldingsCard() {
             return (
               <tr key={row.id} className="border-t">
                 <td className="px-3 py-2 font-medium">{row.display}</td>
-                <td className="text-right px-2 py-2">{fmt(row.qty, 6)}</td>
-                <td className="text-right px-2 py-2">{fmt(row.avg_buy_price, 6)}</td>
-                <td className="text-right px-2 py-2">{fmt(row.last_price, 6)}</td>
+                <td className="text-right px-2 py-2">{fmtRaw(row.qty, 6)}</td>
+                <td className="text-right px-2 py-2">{fmtRaw(row.avg_buy_price, 6)}</td>
+                <td className="text-right px-2 py-2">{fmtRaw(row.last_price, 6)}</td>
                 <td className={`text-right px-2 py-2 ${pnlPct >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                  {fmt(pnlPct)}%
+                  {fmtRaw(pnlPct)}%
                 </td>
                 <td className="px-2 py-2 text-right">
                   <Button size="sm" variant="outline" onClick={() => sell.mutate({ positionId: row.id, price: row.last_price ?? row.avg_buy_price })}>
@@ -224,9 +224,9 @@ export function CoinSignalsList({
                 </Button>
               </div>
               <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] text-muted-foreground">
-                <div>Price <span className="text-foreground">{fmt(s.price, 6)}</span> <span className="text-[9px]">USDT</span></div>
-                <div>Target <span className="text-foreground">{fmt(s.target, 6)}</span> <span className="text-[9px]">USDT</span></div>
-                <div>Stop <span className="text-foreground">{fmt(s.stop, 6)}</span> <span className="text-[9px]">USDT</span></div>
+                <div>Price <span className="text-foreground">{fmtRaw(s.price, 6)}</span> <span className="text-[9px]">USDT</span></div>
+                <div>Target <span className="text-foreground">{fmtRaw(s.target, 6)}</span> <span className="text-[9px]">USDT</span></div>
+                <div>Stop <span className="text-foreground">{fmtRaw(s.stop, 6)}</span> <span className="text-[9px]">USDT</span></div>
               </div>
               <div className="mt-1 text-xs">{s.reason_short}</div>
               {whyOpen === s.id && s.reason_detail?.pills && (

@@ -2,10 +2,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { getCoinHoldings } from "@/lib/coin-bot/coin-bot.functions";
 
-function fmt(n: number | null | undefined, d = 2) {
-  if (n == null || !Number.isFinite(Number(n))) return "—";
-  return Number(n).toLocaleString(undefined, { maximumFractionDigits: d });
-}
 
 export function CoinKpiStrip() {
   const holdingsFn = useServerFn(getCoinHoldings);
@@ -20,10 +16,10 @@ export function CoinKpiStrip() {
 
   return (
     <section className="grid grid-cols-4 gap-2">
-      <Kpi label="Win rate" value={winRate == null ? "—" : `${fmt(winRate, 0)}%`} />
+      <Kpi label="Win rate" value={winRate == null ? "—" : `${Math.round(winRate)}%`} />
       <Kpi label="Closed today" value={String(closedToday.length)} />
-      <Kpi label="Best" value={sum?.best_pnl_pct != null ? `${fmt(sum.best_pnl_pct, 1)}%` : "—"} sub={sum?.best_symbol ?? undefined} tone="pos" />
-      <Kpi label="Worst" value={sum?.worst_pnl_pct != null ? `${fmt(sum.worst_pnl_pct, 1)}%` : "—"} sub={sum?.worst_symbol ?? undefined} tone="neg" />
+      <Kpi label="Best" value={sum?.best_pnl_pct != null ? `${Number(sum.best_pnl_pct).toFixed(1)}%` : "—"} sub={sum?.best_symbol ?? undefined} tone="pos" />
+      <Kpi label="Worst" value={sum?.worst_pnl_pct != null ? `${Number(sum.worst_pnl_pct).toFixed(1)}%` : "—"} sub={sum?.worst_symbol ?? undefined} tone="neg" />
     </section>
   );
 }
