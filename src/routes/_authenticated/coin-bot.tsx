@@ -17,6 +17,7 @@ import {
 } from "@/lib/coin-bot/coin-bot.functions";
 import { Button } from "@/components/ui/button";
 import { TabBar } from "@/components/tab-bar";
+import { useCurrency } from "@/hooks/use-currency";
 
 export const Route = createFileRoute("/_authenticated/coin-bot")({
   head: () => ({
@@ -56,6 +57,7 @@ function fmt(n: number | null | undefined, d = 2) {
 
 function CoinBotPage() {
   const qc = useQueryClient();
+  const { fmt: fmtCur } = useCurrency();
   const portfolioFn = useServerFn(getCoinPortfolio);
   const signalsFn = useServerFn(getCoinSignals);
   const holdingsFn = useServerFn(getCoinHoldings);
@@ -192,11 +194,11 @@ function CoinBotPage() {
             Coin portfolio
           </div>
           <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
-            <Stat label="Allocated" value={`$${fmt(p?.allocated_capital_usdt)}`} />
-            <Stat label="Available cash" value={`$${fmt(p?.available_cash_usdt)}`} />
-            <Stat label="Invested" value={`$${fmt(p?.invested_usdt)}`} />
+            <Stat label="Allocated" value={fmtCur(p?.allocated_capital_usdt)} />
+            <Stat label="Available cash" value={fmtCur(p?.available_cash_usdt)} />
+            <Stat label="Invested" value={fmtCur(p?.invested_usdt)} />
             <Stat label="Active holdings" value={String(p?.active_holdings ?? 0)} />
-            <Stat label="Realized today" value={`$${fmt(p?.realized_today_usdt)}`} />
+            <Stat label="Realized today" value={fmtCur(p?.realized_today_usdt, { signed: true })} />
             <Stat label="Bot" value={p?.enabled ? "On" : "Off"} />
           </div>
           {h?.summary && (
@@ -267,6 +269,9 @@ function CoinBotPage() {
           {h?.open?.length ? (
             <div className="overflow-hidden rounded-2xl border bg-card">
               <table className="w-full text-xs">
+                <caption className="text-[10px] text-muted-foreground pb-1 text-left px-3 caption-bottom">
+                  Prices in USDT
+                </caption>
                 <thead className="bg-muted/40 text-muted-foreground">
                   <tr>
                     <th className="text-left px-3 py-2">Coin</th>

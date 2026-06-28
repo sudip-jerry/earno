@@ -17,6 +17,7 @@ import mascotHappy from "@/assets/earney-happy.png.asset.json";
 import mascotAnalyzing from "@/assets/earney-analyzing.png.asset.json";
 import mascotThinking from "@/assets/earney-thinking.png.asset.json";
 import mascotConfident from "@/assets/earney-confident.png.asset.json";
+import { useCurrency } from "@/hooks/use-currency";
 
 const PRIMARY = "#082567";
 
@@ -153,6 +154,8 @@ export function HelpFlow({
 /* ---------------- Steps ---------------- */
 
 function StepWelcome() {
+  const { fmt: fmtCur } = useCurrency();
+
   return (
     <section>
       <div className="flex items-end gap-3">
@@ -195,7 +198,7 @@ function StepWelcome() {
           <div className="min-w-0">
             <p className="text-xs opacity-80">Live demo</p>
             <p className="font-semibold mt-0.5">See your virtual portfolio</p>
-            <p className="text-xs opacity-80 mt-0.5">No setup. Start with ₹1,00,000 paper capital.</p>
+            <p className="text-xs opacity-80 mt-0.5">No setup. Start with {fmtCur(1190)} paper capital.</p>
           </div>
           <ArrowRight className="size-5 shrink-0" />
         </div>
@@ -236,6 +239,8 @@ function StepFlow() {
 }
 
 function StepPaper() {
+  const { fmt: fmtCur } = useCurrency();
+
   return (
     <section>
       <div className="flex items-end gap-3">
@@ -255,14 +260,14 @@ function StepPaper() {
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-2">
-        <StatCard label="Starting capital" value="₹1,00,000" />
-        <StatCard label="Risk to wallet" value="₹0" tone="positive" />
+        <StatCard label="Starting capital" value={fmtCur(1190)} />
+        <StatCard label="Risk to wallet" value={fmtCur(0)} tone="positive" />
         <StatCard label="Signal quality" value="Same as live" />
         <StatCard label="Setup time" value="None" />
       </div>
 
       <ul className="mt-5 rounded-2xl border bg-card p-4 space-y-3">
-        <Bullet>Virtual ₹1,00,000 portfolio to start.</Bullet>
+        <Bullet>Virtual {fmtCur(1190)} portfolio to start.</Bullet>
         <Bullet>Same live signals, same confidence scores.</Bullet>
         <Bullet>Full P&amp;L tracking — today and all-time.</Bullet>
       </ul>
@@ -396,6 +401,7 @@ const PHASES = [
 const PHASE_MS = 2200;
 
 function DemoLoop() {
+  const { fmt: fmtCur } = useCurrency();
   const [phase, setPhase] = useState(0);
   const [pnl, setPnl] = useState(0);
 
@@ -504,7 +510,7 @@ function DemoLoop() {
                 P&L
               </p>
               <p className="text-sm font-semibold tabular-nums text-emerald-600">
-                +₹{pnl.toFixed(0)}
+                {fmtCur(pnl / 84, { signed: true })}
               </p>
             </div>
           </div>
