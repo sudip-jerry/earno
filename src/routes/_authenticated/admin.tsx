@@ -27,6 +27,7 @@ import {
   adminUpdateUserConfig,
   adminCopyUserConfig,
 } from "@/lib/plans.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 import { PLAN_NAME, type PlanTier } from "@/lib/plans";
 
@@ -74,6 +75,21 @@ function AdminPage() {
     enabled: !!ent.data?.isAdmin,
     refetchInterval: 15_000,
   });
+
+  const coinPositions = useQuery({
+    queryKey: ["admin_coin_positions"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("coin_positions")
+        .select("user_id, status, realized_pnl_usdt, closed_at")
+        .gte("closed_at", new Date(Date.now() - 24 * 3600_000).toISOString());
+      return data ?? [];
+    },
+    enabled: !!ent.data?.isAdmin,
+    refetchInterval: 30_000,
+  });
+
+
 
 
   const [couponCode, setCouponCode] = useState("");
@@ -126,6 +142,8 @@ function AdminPage() {
   const totalTradesToday = u.reduce((s, x) => s + x.tradesToday, 0);
   const activeBots = u.filter((x) => x.isRunning).length;
   const paying = u.filter((x) => x.tier !== "free").length;
+  const coinTradesToday = coinPositions.data?.filter((p) => p.status === "closed").length ?? 0;
+  const coinPnlToday = coinPositions.data?.reduce((s, p) => s + Number(p.realized_pnl_usdt ?? 0), 0) ?? 0;
 
   return (
     <div className="min-h-svh bg-background pb-16">
@@ -145,12 +163,15 @@ function AdminPage() {
         </Link>
       </header>
 
-      <section className="px-5 grid grid-cols-4 gap-2">
+      <section className="px-5 grid grid-cols-3 gap-2">
         <Tile label="Users" value={`${u.length}`} />
-        <Tile label="Paying" value={`${paying}`} />
         <Tile label="Bots on" value={`${activeBots}`} />
-        <Tile label="Trades/24h" value={`${totalTradesToday}`} />
+        <Tile label="Futures/24h" value={`${totalTradesToday}`} />
+        <Tile label="Coin trades/24h" value={`${coinTradesToday}`} />
+        <Tile label="Coin PnL today" value={`${coinPnlToday >= 0 ? "+" : ""}$${Math.abs(coinPnlToday).toFixed(2)}`} />
+        <Tile label="Paying" value={`${paying}`} />
       </section>
+
 
       <section className="px-5 mt-6">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
@@ -716,6 +737,119 @@ function UserConfigEditor({
                   onClick={() => upd.mutate(patch)}
                 >
                   Save {Object.keys(patch).length > 0 ? `(${Object.keys(patch).length})` : ""} for {label.split("@")[0]}
+                </Button>
+              </div>
+              <CoinConfigEditor userId={userId} label={label} />
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CoinConfigEditor({ userId, label }: { userId: string; label: string }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [patch, setPatch] = useState<Record<string, unknown>>({});
+
+  const cfg = useQuery({
+    queryKey: ["admin_coin_cfg", userId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("coin_bot_config")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: open,
+  });
+
+  const upd = useMutation({
+    mutationFn: async (p: Record<string, unknown>) => {
+      const { error } = await supabase
+        .from("coin_bot_config")
+        .update(p as never)
+        .eq("user_id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Coin config saved");
+      setPatch({});
+      qc.invalidateQueries({ queryKey: ["admin_coin_cfg", userId] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  const c = (cfg.data ?? {}) as Record<string, unknown>;
+  const get = (k: string) => (patch[k] ?? c[k]);
+  const setK = (k: string, v: unknown) => setPatch((p) => ({ ...p, [k]: v }));
+
+  return (
+    <div className="mt-2 border-t pt-2">
+      <button type="button" className="text-[11px] text-primary hover:underline"
+        onClick={() => setOpen((o) => !o)}>
+        {open ? "Hide coin config ▴" : "Edit coin config ▾"}
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          {cfg.isLoading ? <p className="text-xs text-muted-foreground">Loading…</p> : (
+            <>
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <label className="flex items-center justify-between rounded-md border bg-background px-2 py-1.5">
+                  <span>Enabled</span>
+                  <Switch checked={!!get("enabled")} onCheckedChange={(v) => setK("enabled", v)} />
+                </label>
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1">Mode</p>
+                  <Select value={String(get("mode") ?? "swing")} onValueChange={(v) => setK("mode", v)}>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="swing">Swing</SelectItem>
+                      <SelectItem value="intraday">Intraday</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { k: "allocated_capital_usdt", label: "Capital (USDT)", step: 10 },
+                  { k: "max_holdings", label: "Max holdings", step: 1 },
+                  { k: "min_confidence", label: "Min confidence %", step: 1 },
+                  { k: "max_holding_days", label: "Max holding days", step: 1 },
+                  { k: "scan_interval_min", label: "Scan interval (min)", step: 1 },
+                ].map((f) => (
+                  <label key={f.k} className="text-[11px]">
+                    <span className="text-muted-foreground">{f.label}</span>
+                    <Input type="number" step={f.step} className="h-7 text-xs mt-0.5"
+                      value={get(f.k) == null ? "" : String(get(f.k))}
+                      onChange={(e) => {
+                        const n = e.target.value === "" ? undefined : Number(e.target.value);
+                        if (n === undefined || Number.isNaN(n)) return;
+                        setK(f.k, n);
+                      }} />
+                  </label>
+                ))}
+              </div>
+              <div className="text-[11px] rounded-md border bg-muted/30 px-2 py-1.5">
+                <span className="text-muted-foreground">Blocklist: </span>
+                <span className="font-medium">
+                  {Array.isArray(c.symbol_blocklist) && (c.symbol_blocklist as string[]).length > 0
+                    ? (c.symbol_blocklist as string[]).join(", ")
+                    : "none"}
+                </span>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Edit blocklist via DB query</p>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" variant="outline" className="h-7 text-xs"
+                  disabled={Object.keys(patch).length === 0} onClick={() => setPatch({})}>
+                  Discard
+                </Button>
+                <Button size="sm" className="h-7 text-xs flex-1"
+                  disabled={Object.keys(patch).length === 0 || upd.isPending}
+                  onClick={() => upd.mutate(patch)}>
+                  Save coin config for {label.split("@")[0]}
                 </Button>
               </div>
             </>

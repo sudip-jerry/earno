@@ -19,6 +19,7 @@ import {
   type BucketComparison,
   type BucketStats,
 } from "@/lib/beta-report.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 
 function downloadCsv(filename: string, csv: string) {
@@ -74,6 +75,30 @@ function BetaReportPage() {
     refetchInterval: 60_000,
   });
 
+  const coinStats = useQuery({
+    queryKey: ["beta_coin_stats"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("coin_positions")
+        .select("user_id, status, realized_pnl_usdt, closed_at, opened_at")
+        .gte("opened_at", new Date(Date.now() - 7 * 24 * 3600_000).toISOString());
+      return data ?? [];
+    },
+    enabled: !!ent.data?.isAdmin,
+    refetchInterval: 60_000,
+  });
+
+  const coinCfg = useQuery({
+    queryKey: ["beta_coin_cfg"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("coin_bot_config")
+        .select("user_id, enabled, mode, allocated_capital_usdt, min_confidence, max_holdings");
+      return data ?? [];
+    },
+    enabled: !!ent.data?.isAdmin,
+  });
+
   const apply = useMutation({
     mutationFn: (v: { userId: string; patch: TuneSuggestion["patch"] }) =>
       applyFn({ data: v as never }),
@@ -122,7 +147,11 @@ function BetaReportPage() {
       ) : (
         <>
           <section className="px-5 mb-3">
-            <UserStatusGrid testers={testers} />
+            <UserStatusGrid
+              testers={testers}
+              coinCfgs={coinCfg.data ?? []}
+              coinData={coinStats.data ?? []}
+            />
           </section>
 
           <section className="px-5 mb-3">
@@ -761,7 +790,15 @@ function TuningActionsSection({ actions }: { actions: TuningAction[] }) {
 }
 
 
-function UserStatusGrid({ testers }: { testers: TesterReport[] }) {
+function UserStatusGrid({
+  testers,
+  coinCfgs,
+  coinData,
+}: {
+  testers: TesterReport[];
+  coinCfgs: Array<{ user_id: string; enabled: boolean; mode: string; allocated_capital_usdt: number; min_confidence: number; max_holdings: number }>;
+  coinData: Array<{ user_id: string; status: string; realized_pnl_usdt: number | null; closed_at: string | null; opened_at: string }>;
+}) {
   if (testers.length === 0) {
     return (
       <div className="rounded-2xl border bg-card p-4 text-xs text-muted-foreground">
@@ -837,6 +874,62 @@ function UserStatusGrid({ testers }: { testers: TesterReport[] }) {
             })}
           </tbody>
         </table>
+      </div>
+      <div className="mt-3 border-t pt-3">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground px-3 pb-1">Coin bot</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px]">
+            <thead>
+              <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b">
+                <th className="px-2 py-1 text-left font-normal">User</th>
+                <th className="px-2 py-1 text-left font-normal">Mode</th>
+                <th className="px-2 py-1 text-left font-normal">Status</th>
+                <th className="px-2 py-1 text-right font-normal">Today PnL</th>
+                <th className="px-2 py-1 text-right font-normal">Today trades</th>
+                <th className="px-2 py-1 text-right font-normal">Open</th>
+                <th className="px-2 py-1 text-right font-normal">7d PnL</th>
+                <th className="px-2 py-1 text-right font-normal">Capital</th>
+              </tr>
+            </thead>
+            <tbody>
+              {coinCfgs.map((cfg, i) => {
+                const userPositions = coinData.filter((p) => p.user_id === cfg.user_id);
+                const todayIST = new Date();
+                todayIST.setHours(0, 0, 0, 0);
+                const todayClosed = userPositions.filter(
+                  (p) => p.status === "closed" && p.closed_at && new Date(p.closed_at) >= todayIST,
+                );
+                const openNow = userPositions.filter((p) => p.status === "open");
+                const todayPnl = todayClosed.reduce((s, p) => s + Number(p.realized_pnl_usdt ?? 0), 0);
+                const sevenDayPnl = userPositions
+                  .filter((p) => p.status === "closed")
+                  .reduce((s, p) => s + Number(p.realized_pnl_usdt ?? 0), 0);
+                const testerEmail = testers.find((t) => t.userId === cfg.user_id)?.email;
+                return (
+                  <tr key={cfg.user_id} className={`border-t ${i % 2 === 1 ? "bg-muted/20" : ""}`}>
+                    <td className="px-2 py-1.5 truncate max-w-[120px]">{maskEmail(testerEmail)}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground">{cfg.mode}</td>
+                    <td className="px-2 py-1.5">
+                      <span className="inline-flex items-center gap-1">
+                        <span className={`size-1.5 rounded-full ${cfg.enabled ? "bg-emerald-500" : "bg-muted-foreground"}`} />
+                        {cfg.enabled ? "" : <span className="text-muted-foreground">off</span>}
+                      </span>
+                    </td>
+                    <td className={`px-2 py-1.5 text-right tabular-nums ${todayPnl >= 0 ? "text-emerald-500" : "text-destructive"}`}>
+                      {todayPnl >= 0 ? "+" : ""}${Math.abs(todayPnl).toFixed(2)}
+                    </td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{todayClosed.length}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">{openNow.length}</td>
+                    <td className={`px-2 py-1.5 text-right tabular-nums ${sevenDayPnl >= 0 ? "text-emerald-500" : "text-destructive"}`}>
+                      {sevenDayPnl >= 0 ? "+" : ""}${Math.abs(sevenDayPnl).toFixed(2)}
+                    </td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">${cfg.allocated_capital_usdt}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
