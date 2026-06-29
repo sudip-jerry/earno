@@ -201,7 +201,21 @@ export async function runCoinScanFor(
       .eq("id", row.id);
     cashDelta += proceeds;
     autoClosed += 1;
+    await logCoinEvent(
+      supabase,
+      userId,
+      "info",
+      "auto_sell",
+      `Auto-sold ${row.symbol} · reason: ${sig.reason_short} · realized: ${realized.toFixed(4)} USDT`,
+      {
+        symbol: row.symbol,
+        realized_pnl_usdt: realized,
+        exit_reason: sig.reason_short,
+        price: sig.price,
+      },
+    );
   }
+
 
   // Auto-open buys
   let autoOpened = 0;
