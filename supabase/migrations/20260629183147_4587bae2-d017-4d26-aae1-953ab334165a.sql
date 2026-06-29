@@ -1,0 +1,1 @@
+ALTER TABLE public.coin_bot_config ADD COLUMN IF NOT EXISTS live_mode boolean NOT NULL DEFAULT false;
