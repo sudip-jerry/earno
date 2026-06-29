@@ -710,35 +710,7 @@ export async function runAutoBookPass(
       ) {
         rejection = `Rolling cooldown (${preset.lossesBeforeSymbolCooldown}+ losses in 24h, style=${preset.key})`;
         final = "skip";
-      } else if (
-        // Market regime guard.
-        marketRegime === "strong_bullish" &&
-        a.side_bias === "short" &&
-        a.confidence_pct < 90
-      ) {
-        rejection = "Regime guard: shorts blocked in strong-bullish";
-        final = "skip";
-      } else if (
-        marketRegime === "strong_bearish" &&
-        a.side_bias === "long" &&
-        a.confidence_pct < 90
-      ) {
-        rejection = "Regime guard: longs blocked in strong-bearish";
-        final = "skip";
-      } else if (
-        marketRegime === "bullish" &&
-        a.side_bias === "short" &&
-        a.confidence_pct < autoConfThreshold + 5
-      ) {
-        rejection = "Regime: bullish — stricter short confirmation required";
-        final = "skip";
-      } else if (
-        marketRegime === "bearish" &&
-        a.side_bias === "long" &&
-        a.confidence_pct < autoConfThreshold + 5
-      ) {
-        rejection = "Regime: bearish — stricter long confirmation required";
-        final = "skip";
+      // (Regime-aware direction gate moved below as a standalone check.)
       } else if (a.spread_pct != null && a.spread_pct > HARD_SPREAD_BLOCK_PCT) {
         rejection = `Spread too high (${a.spread_pct.toFixed(2)}%)`;
         final = "skip";
