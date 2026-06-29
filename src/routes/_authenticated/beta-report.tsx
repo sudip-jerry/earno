@@ -67,8 +67,7 @@ function BetaReportPage() {
   const entFn = useServerFn(getMyEntitlements);
   const reportFn = useServerFn(getBetaReport);
   const applyFn = useServerFn(adminApplyTune);
-  const listCoinPosFn = useServerFn(adminListCoinPositions);
-  const listCoinCfgFn = useServerFn(adminListCoinConfigs);
+  const coinFn = useServerFn(adminGetCoinStats);
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
   const rep = useQuery({
@@ -78,18 +77,13 @@ function BetaReportPage() {
     refetchInterval: 60_000,
   });
 
-  const coinStats = useQuery({
-    queryKey: ["beta_coin_stats"],
-    queryFn: () => listCoinPosFn({ data: { sinceHours: 7 * 24 } }),
+  const coinReport = useQuery({
+    queryKey: ["beta_coin_report"],
+    queryFn: () => coinFn(),
     enabled: !!ent.data?.isAdmin,
     refetchInterval: 60_000,
   });
 
-  const coinCfg = useQuery({
-    queryKey: ["beta_coin_cfg"],
-    queryFn: () => listCoinCfgFn(),
-    enabled: !!ent.data?.isAdmin,
-  });
 
   const apply = useMutation({
     mutationFn: (v: { userId: string; patch: TuneSuggestion["patch"] }) =>
