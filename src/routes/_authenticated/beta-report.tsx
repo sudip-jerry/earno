@@ -295,7 +295,7 @@ function TesterCard({
   isApplying: boolean;
 }) {
   return (
-    <div className="rounded-2xl border bg-card p-4">
+    <div className="rounded-2xl border bg-card p-4" id={`user-${t.userId.slice(0, 8)}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-medium truncate">{maskEmail(t.email)}</p>
