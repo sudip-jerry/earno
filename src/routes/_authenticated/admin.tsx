@@ -770,7 +770,7 @@ function CoinConfigEditor({ userId, label }: { userId: string; label: string }) 
     mutationFn: async (p: Record<string, unknown>) => {
       const { error } = await supabase
         .from("coin_bot_config")
-        .update(p)
+        .update(p as never)
         .eq("user_id", userId);
       if (error) throw error;
     },
