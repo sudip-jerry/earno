@@ -64,6 +64,7 @@ import { CoinKpiStrip } from "@/components/coin-bot/coin-kpi-strip";
 import { CoinBotHealth } from "@/components/coin-bot/coin-bot-health";
 import { CoinRecentActivity } from "@/components/coin-bot/coin-recent-activity";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
+import { getCoinPortfolio, getCoinHoldings } from "@/lib/coin-bot/coin-bot.functions";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -145,6 +146,23 @@ function Home() {
     refetchInterval: 15_000,
   });
 
+  const coinPortfolioFn = useServerFn(getCoinPortfolio);
+  const coinHoldingsFn = useServerFn(getCoinHoldings);
+
+  const coinPortfolio = useQuery({
+    queryKey: ["coin_portfolio"],
+    queryFn: () => coinPortfolioFn(),
+    enabled: market === "all",
+    refetchInterval: 20_000,
+  });
+
+  const coinHoldings = useQuery({
+    queryKey: ["coin_holdings"],
+    queryFn: () => coinHoldingsFn(),
+    enabled: market === "all",
+    refetchInterval: 20_000,
+  });
+
   useEffect(() => {
     const ch = supabase
       .channel("home")
@@ -218,7 +236,195 @@ function Home() {
     return s?.noTradeReason?.trim() || "Scanning markets calmly.";
   }, [isRunning, s, openCount]);
 
-  const { market } = useMarketMode();
+  const { market, setMarket } = useMarketMode();
+
+  if (market === "all") {
+    const futuresValue = Number(s?.portfolioValue ?? c?.paper_equity ?? 0);
+    const coinEquity =
+      Number(coinPortfolio.data?.available_cash_usdt ?? 0) +
+      Number((coinHoldings.data as { summary?: { current_value_usdt?: number } } | undefined)?.summary?.current_value_usdt ?? 0);
+    const totalValue = futuresValue + coinEquity;
+    const futuresTodayPnl = Number(s?.todayPnl ?? 0);
+    const coinTodayPnl =
+      Number(coinPortfolio.data?.realized_today_usdt ?? 0) +
+      Number((coinHoldings.data as { summary?: { unrealized_pnl_usdt?: number } } | undefined)?.summary?.unrealized_pnl_usdt ?? 0);
+    const totalTodayPnl = futuresTodayPnl + coinTodayPnl;
+    const totalPos = totalTodayPnl >= 0;
+
+    return (
+      <div className="min-h-svh bg-background pb-28">
+        <header className="px-5 pt-5">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/about" })}
+              aria-label="About earn'O"
+              className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <img src={earnoStacked.url} alt="earn'O" className="h-11 w-auto select-none" draggable={false} />
+            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <MarketTogglePill />
+              {isAdmin && (
+                <IconBtn ariaLabel="Admin" onClick={() => navigate({ to: "/admin" })}>
+                  <Crown className="size-4 text-primary" />
+                </IconBtn>
+              )}
+              <IconBtn ariaLabel="Settings" onClick={() => navigate({ to: "/settings" })}>
+                <Cog className="size-4" />
+              </IconBtn>
+            </div>
+          </div>
+        </header>
+
+        {/* Mode banner */}
+        <div className="px-5 mt-4">
+          <button
+            type="button"
+            onClick={() => { if (isLive) toggleMode.mutate(false); else setConfirmLive(true); }}
+            className={`w-full text-left flex items-center gap-3 rounded-2xl border px-4 py-3 transition ${isLive ? "border-destructive/30 bg-destructive/5 hover:bg-destructive/10" : "border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/15"}`}
+            aria-label="Toggle paper or live trading"
+          >
+            <span className={`inline-flex items-center justify-center size-9 rounded-full shrink-0 ${isLive ? "bg-destructive/15 text-destructive" : "bg-amber-500/20 text-amber-600 dark:text-amber-400"}`}>
+              {isLive ? <BadgeCheck className="size-4" /> : <FlaskConical className="size-4" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className={`text-[13px] font-semibold leading-tight ${isLive ? "text-destructive" : "text-amber-700 dark:text-amber-300"}`}>
+                {isLive ? "LIVE trading active" : "PAPER — practice mode"}
+              </p>
+              <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                {isLive ? "Real funds are at risk. Tap to switch back to Paper." : "All numbers reflect simulated trading. Tap to go Live."}
+              </p>
+            </div>
+            <span className={`text-[10px] font-semibold tracking-wider px-2 h-6 inline-flex items-center rounded-full ${isLive ? "bg-destructive text-destructive-foreground" : "bg-amber-500 text-white"}`}>
+              {isLive ? "LIVE" : "PAPER"}
+            </span>
+          </button>
+        </div>
+
+        {/* Aggregate hero */}
+        <div className="px-5 mt-3">
+          <section className="rounded-2xl border bg-card px-5 py-4">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Your money · all</div>
+            <div className="mt-1 flex items-baseline gap-2 flex-wrap">
+              <div className="text-3xl font-semibold tabular-nums">{fmt(totalValue)}</div>
+              <div className={`text-[13px] font-medium tabular-nums ${totalPos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                {fmt(totalTodayPnl, { signed: true })} today
+              </div>
+            </div>
+
+            {/* Breakdown */}
+            <div className="mt-4 divide-y divide-border rounded-xl border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => { setMarket("futures"); }}
+                className="w-full flex items-center justify-between px-4 py-3 bg-background/60 hover:bg-muted/40 transition text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="size-2 rounded-sm bg-primary inline-block" />
+                  <span className="text-[12.5px] font-medium">Futures</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-[13px] font-semibold tabular-nums">{fmt(futuresValue)}</div>
+                  <div className={`text-[11px] tabular-nums ${futuresTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                    {fmt(futuresTodayPnl, { signed: true })} today
+                  </div>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMarket("spot"); }}
+                className="w-full flex items-center justify-between px-4 py-3 bg-background/60 hover:bg-muted/40 transition text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="size-2 rounded-sm bg-accent inline-block" />
+                  <span className="text-[12.5px] font-medium">Coins</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-[13px] font-semibold tabular-nums">{fmt(coinEquity)}</div>
+                  <div className={`text-[11px] tabular-nums ${coinTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                    {fmt(coinTodayPnl, { signed: true })} today
+                  </div>
+                </div>
+              </button>
+            </div>
+            <p className="mt-2 text-[10.5px] text-muted-foreground">Tap a row to see that view in detail.</p>
+          </section>
+        </div>
+
+        {/* Safety status */}
+        <div className="px-5 mt-3">
+          <div className="rounded-2xl border bg-card p-4 flex items-center gap-3">
+            <span className={`size-8 grid place-items-center rounded-full shrink-0 ${statusTone}`}>
+              <Activity className="size-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-semibold">Wealth Engine · {statusLabel}</p>
+              <p className="text-[11px] text-muted-foreground">{reason}</p>
+            </div>
+            <span className={`text-[9.5px] font-semibold tracking-wider px-2 h-5 inline-flex items-center rounded-full ${statusLabel === "Running" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+              {statusLabel}
+            </span>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <section className="px-5 mt-3">
+          <div className="grid grid-cols-2 gap-2.5">
+            <Button variant="outline" className="h-12 rounded-xl" onClick={() => togglePause.mutate(!isRunning)} disabled={togglePause.isPending}>
+              {isRunning ? <Pause className="size-4 mr-1.5" /> : <Play className="size-4 mr-1.5" />}
+              {isRunning ? "Pause Bot" : "Resume Bot"}
+            </Button>
+            <Button variant="outline" className={`h-12 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive ${isLive ? "bg-destructive/5" : ""}`} onClick={() => setConfirmStop(true)} disabled={kill.isPending}>
+              <AlertTriangle className="size-4 mr-1.5" />
+              Emergency Stop
+            </Button>
+          </div>
+        </section>
+
+        {/* Recent activity */}
+        <div className="mt-6">
+          <RecentActivity items={s?.recentActivity ?? []} />
+        </div>
+
+        <TabBar />
+
+        <AlertDialog open={confirmLive} onOpenChange={setConfirmLive}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="size-5 text-destructive" /> Switch to Live trading?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Real orders will be placed on CoinDCX using your funds. Your daily-loss cap is {Number(c?.daily_loss_cap_pct ?? 6)}%. You can switch back to Paper anytime.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Stay on Paper</AlertDialogCancel>
+              <AlertDialogAction onClick={() => toggleMode.mutate(true)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Go Live</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={confirmStop} onOpenChange={setConfirmStop}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="size-5 text-destructive" /> Emergency Stop
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This will immediately halt the bot and force-close every open position at market price. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => kill.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Stop &amp; close all</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    );
+  }
 
   if (market === "spot") {
     return (
@@ -887,6 +1093,7 @@ function Metric({ label, value, icon }: { label: string; value: string; icon?: R
 function MarketTogglePill() {
   const { market, setMarket } = useMarketMode();
   const opts: { v: MarketMode; label: string }[] = [
+    { v: "all", label: "All" },
     { v: "futures", label: "Futures" },
     { v: "spot", label: "Coins" },
   ];

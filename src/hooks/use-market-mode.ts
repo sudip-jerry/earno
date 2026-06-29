@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 
-export type MarketMode = "futures" | "spot";
+export type MarketMode = "all" | "futures" | "spot";
 const KEY = "earno_market_mode";
 const EVT = "earno-market-mode-change";
 
 export function getStoredMarketMode(): MarketMode {
-  if (typeof window === "undefined") return "futures";
+  if (typeof window === "undefined") return "all";
   const v = window.localStorage.getItem(KEY);
-  return v === "spot" || v === "futures" ? v : "futures";
+  return v === "spot" || v === "futures" || v === "all" ? v : "all";
 }
 
 export function useMarketMode() {
@@ -20,11 +20,11 @@ export function useMarketMode() {
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === KEY && (e.newValue === "spot" || e.newValue === "futures")) setState(e.newValue);
+      if (e.key === KEY && (e.newValue === "spot" || e.newValue === "futures" || e.newValue === "all")) setState(e.newValue as MarketMode);
     };
     const onCustom = (e: Event) => {
       const v = (e as CustomEvent).detail;
-      if (v === "spot" || v === "futures") setState(v);
+      if (v === "spot" || v === "futures" || v === "all") setState(v as MarketMode);
     };
     window.addEventListener("storage", onStorage);
     window.addEventListener(EVT, onCustom as EventListener);
