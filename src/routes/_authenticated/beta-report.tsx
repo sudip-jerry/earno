@@ -790,7 +790,15 @@ function TuningActionsSection({ actions }: { actions: TuningAction[] }) {
 }
 
 
-function UserStatusGrid({ testers }: { testers: TesterReport[] }) {
+function UserStatusGrid({
+  testers,
+  coinCfgs,
+  coinData,
+}: {
+  testers: TesterReport[];
+  coinCfgs: Array<{ user_id: string; enabled: boolean; mode: string; allocated_capital_usdt: number; min_confidence: number; max_holdings: number }>;
+  coinData: Array<{ user_id: string; status: string; realized_pnl_usdt: number | null; closed_at: string | null; opened_at: string }>;
+}) {
   if (testers.length === 0) {
     return (
       <div className="rounded-2xl border bg-card p-4 text-xs text-muted-foreground">
