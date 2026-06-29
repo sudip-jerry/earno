@@ -18,6 +18,7 @@ export type CoinCfg = {
   user_id: string;
   enabled: boolean;
   mode: CoinMode;
+  trading_style?: string;
   allocated_capital_usdt: number;
   available_cash_usdt: number;
   max_holdings: number;
@@ -28,6 +29,28 @@ export type CoinCfg = {
   universe_size: number;
   symbol_blocklist?: string[];
 };
+
+async function logCoinEvent(
+  supabase: SupabaseClient,
+  userId: string,
+  level: "info" | "warn" | "error",
+  kind: string,
+  message: string,
+  meta?: Record<string, unknown>,
+) {
+  try {
+    await supabase.from("coin_bot_events").insert({
+      user_id: userId,
+      level,
+      kind,
+      message,
+      meta: meta ?? {},
+    });
+  } catch {
+    // never throw from logging
+  }
+}
+
 
 export type ScanResult =
   | {
