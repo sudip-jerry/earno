@@ -19,7 +19,7 @@ import {
   type BucketComparison,
   type BucketStats,
 } from "@/lib/beta-report.functions";
-import { supabase } from "@/integrations/supabase/client";
+import { adminListCoinPositions, adminListCoinConfigs } from "@/lib/plans.functions";
 
 
 function downloadCsv(filename: string, csv: string) {
