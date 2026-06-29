@@ -140,6 +140,8 @@ function Home() {
 
   const currentMode = (cfg.data?.mode ?? "paper") as "paper" | "live";
 
+  const { market, setMarket } = useMarketMode();
+
   const stats = useQuery({
     queryKey: ["dashboard_stats", currentMode],
     queryFn: () => statsFn({ data: undefined }),
