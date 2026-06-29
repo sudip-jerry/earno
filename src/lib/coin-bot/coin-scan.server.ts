@@ -201,6 +201,7 @@ export async function runCoinScanFor(
       .eq("id", row.id);
     cashDelta += proceeds;
     autoClosed += 1;
+    holdings.delete(sig.symbol);
     await logCoinEvent(
       supabase,
       userId,
@@ -215,6 +216,84 @@ export async function runCoinScanFor(
       },
     );
   }
+
+  // --- Stop-loss and target-price enforcement ---
+  // Runs for ALL held positions regardless of signal direction.
+  // This is the safety net that sell signals alone cannot provide.
+  for (const [sym, held] of holdings) {
+    if (!holdings.has(sym)) continue;
+    const ticker = universe.find((u) => u.symbol === sym);
+    const currentPrice = ticker?.price ?? null;
+    if (!currentPrice) continue;
+
+    const { data: row } = await supabase
+      .from("coin_positions")
+      .select("*")
+      .eq("id", held.id)
+      .maybeSingle();
+    if (!row || row.status !== "open") continue;
+
+    const stopPrice = row.stop_price != null ? Number(row.stop_price) : null;
+    const targetPrice = row.target_price != null ? Number(row.target_price) : null;
+    const investedUsdt = Number(row.invested_usdt);
+    const qty = Number(row.qty);
+    const proceeds = qty * currentPrice;
+    const realized = proceeds - investedUsdt;
+
+    let exitReason: string | null = null;
+    if (stopPrice !== null && currentPrice <= stopPrice) {
+      exitReason = "bot:Stop level reached";
+    } else if (targetPrice !== null && currentPrice >= targetPrice) {
+      exitReason = "bot:Target reached";
+    } else if (
+      row.max_holding_until &&
+      new Date(row.max_holding_until) <= new Date()
+    ) {
+      exitReason = "bot:Max holding time reached";
+    }
+
+    if (!exitReason) continue;
+
+    await supabase
+      .from("coin_positions")
+      .update({
+        status: "closed",
+        closed_at: new Date().toISOString(),
+        exit_price: currentPrice,
+        exit_reason: exitReason,
+        last_price: currentPrice,
+        current_value_usdt: proceeds,
+        realized_pnl_usdt: realized,
+        unrealized_pnl_usdt: 0,
+      })
+      .eq("id", row.id);
+
+    cashDelta += proceeds;
+    autoClosed += 1;
+    holdings.delete(sym);
+
+    await logCoinEvent(
+      supabase,
+      userId,
+      realized >= 0 ? "info" : "warn",
+      exitReason.startsWith("bot:Stop")
+        ? "stop_hit"
+        : exitReason.startsWith("bot:Target")
+          ? "target_hit"
+          : "time_exit",
+      `${exitReason.replace("bot:", "")} ${sym} @ ${currentPrice} · realized: ${realized.toFixed(4)} USDT`,
+      {
+        symbol: sym,
+        realized_pnl_usdt: realized,
+        exit_reason: exitReason,
+        price: currentPrice,
+        stop_price: stopPrice,
+        target_price: targetPrice,
+      },
+    );
+  }
+
+
 
 
   // Auto-open buys
@@ -312,9 +391,30 @@ export async function runCoinScanFor(
 }
 
 export async function runCoinScanAll(supabase: SupabaseClient) {
-  const { data: cfgs } = await supabase.from("coin_bot_config").select("*").eq("enabled", true);
+  const { data: cfgs } = await supabase
+    .from("coin_bot_config")
+    .select("*")
+    .eq("enabled", true);
+
+  const now = Date.now();
   const results: Array<{ user_id: string } & ScanResult> = [];
+
   for (const cfg of (cfgs ?? []) as CoinCfg[]) {
+    const intervalMs = Math.max(1, cfg.scan_interval_min ?? 5) * 60_000;
+    const { data: lastScanRow } = await supabase
+      .from("coin_bot_events")
+      .select("created_at")
+      .eq("user_id", cfg.user_id)
+      .eq("kind", "scan")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastScanRow?.created_at) {
+      const lastScanMs = new Date(lastScanRow.created_at).getTime();
+      if (now - lastScanMs < intervalMs) continue;
+    }
+
     try {
       const r = await runCoinScanFor(supabase, cfg.user_id, cfg);
       results.push({ user_id: cfg.user_id, ...r });
@@ -328,3 +428,29 @@ export async function runCoinScanAll(supabase: SupabaseClient) {
   }
   return { users: results.length, results };
 }
+
+/**
+ * Write a coin_bot_config_audit row for each changed field.
+ * Call this from adminUpdateCoinConfig in plans.functions.ts after applying a patch.
+ */
+export async function auditCoinConfigChange(
+  supabase: SupabaseClient,
+  userId: string,
+  oldCfg: Record<string, unknown>,
+  patch: Record<string, unknown>,
+  changedBy: "user" | "admin" | "system" = "admin",
+) {
+  const rows = Object.entries(patch)
+    .filter(([k, v]) => oldCfg[k] !== v)
+    .map(([field, newVal]) => ({
+      user_id: userId,
+      field,
+      old_value: oldCfg[field] != null ? String(oldCfg[field]) : null,
+      new_value: newVal != null ? String(newVal) : null,
+      changed_by: changedBy,
+    }));
+
+  if (rows.length === 0) return;
+  await supabase.from("coin_bot_config_audit").insert(rows);
+}
+
