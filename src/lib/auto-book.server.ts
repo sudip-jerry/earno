@@ -777,75 +777,94 @@ export async function runAutoBookPass(
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
       }
 
-      // Regime-aware direction gate (data-derived thresholds)
-      // strong_bullish: shorts need 95+, longs need 88+
-      // bullish:        shorts need 92+, longs need 90+
-      // neutral:        both need autoConfThreshold (now 90 globally)
-      // bearish:        longs need 92+, shorts need 88+
-      // strong_bearish: longs need 95+, shorts need 88+
+      // Regime-aware direction gate — style-aware thresholds
+      // Aggressive: willing to trade on weaker signals (lower floor)
+      // Conservative: only trades on strongest signals (higher floor)
+      // With-trend trades get lower floors, counter-trend get much higher floors
       if (rejection == null) {
         const isShort = a.side_bias === "short";
         const isLong = a.side_bias === "long";
         const conf = a.confidence_pct;
+        const style = (cfg.trading_style ?? "balanced").toLowerCase();
+
+        // Base floor per style (with-trend direction)
+        const withTrendFloor =
+          style === "aggressive" ? 85 :
+          style === "conservative" ? 92 :
+          88; // balanced default
+
+        // Counter-trend requires much stronger confirmation
+        const counterTrendFloor =
+          style === "aggressive" ? 92 :
+          style === "conservative" ? 96 :
+          94; // balanced
+
+        // Neutral: no clear trend, require base confidence + small premium
+        const neutralFloor =
+          style === "aggressive" ? autoConfThreshold :
+          style === "conservative" ? autoConfThreshold + 3 :
+          autoConfThreshold + 1;
 
         let regimeFloor: number | null = null;
         let regimeReason: string | null = null;
 
         if (marketRegime === "strong_bullish") {
-          if (isShort && conf < 95) {
-            regimeFloor = 95;
-            regimeReason = "Regime: strong_bullish — shorts need 95+ confidence";
-          } else if (isLong && conf < 88) {
-            regimeFloor = 88;
-            regimeReason = "Regime: strong_bullish — longs need 88+ confidence";
+          if (isShort) {
+            regimeFloor = counterTrendFloor + 3; // hardest counter-trend
+            regimeReason = `Regime: strong_bullish — ${style} shorts need ${regimeFloor}+`;
+          } else if (isLong && conf < withTrendFloor) {
+            regimeFloor = withTrendFloor;
+            regimeReason = `Regime: strong_bullish — ${style} longs need ${withTrendFloor}+`;
           }
         } else if (marketRegime === "bullish") {
-          if (isShort && conf < 92) {
-            regimeFloor = 92;
-            regimeReason = "Regime: bullish — counter-trend shorts need 92+";
-          } else if (isLong && conf < autoConfThreshold) {
-            regimeFloor = autoConfThreshold;
-            regimeReason = "Regime: bullish — longs need autoConfThreshold";
+          if (isShort && conf < counterTrendFloor) {
+            regimeFloor = counterTrendFloor;
+            regimeReason = `Regime: bullish — ${style} counter-trend shorts need ${counterTrendFloor}+`;
+          } else if (isLong && conf < withTrendFloor) {
+            regimeFloor = withTrendFloor;
+            regimeReason = `Regime: bullish — ${style} longs need ${withTrendFloor}+`;
           }
         } else if (marketRegime === "neutral" || marketRegime == null) {
-          if (isShort && conf < autoConfThreshold + 3) {
-            regimeFloor = autoConfThreshold + 3;
-            regimeReason = "Regime: neutral — shorts need autoConfThreshold+3";
-          } else if (isLong && conf < autoConfThreshold) {
-            regimeFloor = autoConfThreshold;
-            regimeReason = "Regime: neutral — longs need autoConfThreshold";
+          if (isShort && conf < neutralFloor + 3) {
+            regimeFloor = neutralFloor + 3;
+            regimeReason = `Regime: neutral — ${style} shorts need ${neutralFloor + 3}+`;
+          } else if (isLong && conf < neutralFloor) {
+            regimeFloor = neutralFloor;
+            regimeReason = `Regime: neutral — ${style} longs need ${neutralFloor}+`;
           }
         } else if (marketRegime === "bearish") {
-          if (isLong && conf < 92) {
-            regimeFloor = 92;
-            regimeReason = "Regime: bearish — counter-trend longs need 92+";
-          } else if (isShort && conf < 88) {
-            regimeFloor = 88;
-            regimeReason = "Regime: bearish — shorts need 88+";
+          if (isLong && conf < counterTrendFloor) {
+            regimeFloor = counterTrendFloor;
+            regimeReason = `Regime: bearish — ${style} counter-trend longs need ${counterTrendFloor}+`;
+          } else if (isShort && conf < withTrendFloor) {
+            regimeFloor = withTrendFloor;
+            regimeReason = `Regime: bearish — ${style} shorts need ${withTrendFloor}+`;
           }
         } else if (marketRegime === "strong_bearish") {
-          if (isLong && conf < 95) {
-            regimeFloor = 95;
-            regimeReason = "Regime: strong_bearish — longs need 95+ confidence";
-          } else if (isShort && conf < 88) {
-            regimeFloor = 88;
-            regimeReason = "Regime: strong_bearish — shorts need 88+";
+          if (isLong) {
+            regimeFloor = counterTrendFloor + 3;
+            regimeReason = `Regime: strong_bearish — ${style} longs need ${regimeFloor}+`;
+          } else if (isShort && conf < withTrendFloor) {
+            regimeFloor = withTrendFloor;
+            regimeReason = `Regime: strong_bearish — ${style} shorts need ${withTrendFloor}+`;
           }
         }
 
-        if (regimeFloor !== null && regimeReason !== null) {
+        if (regimeFloor !== null && conf < regimeFloor && regimeReason !== null) {
           rejection = regimeReason;
-          final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
+          final = conf >= displayConfThreshold ? "display" : "skip";
           await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
             kind: "regime_gate_skip",
             symbol: a.symbol,
             market_regime: marketRegime,
             side: a.side_bias,
-            confidence_pct: a.confidence_pct,
+            confidence_pct: conf,
             regime_floor: regimeFloor,
+            trading_style: style,
           });
         }
       }
+
 
       // Major-coin confidence floor: require higher confidence on liquid coins
       // where institutional flow overwhelms momentum signals below ~90%.
