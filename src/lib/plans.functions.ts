@@ -399,13 +399,27 @@ export const adminUpdateCoinConfig = createServerFn({ method: "POST" })
     await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
     if (Object.keys(data.patch).length === 0) return { ok: true };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: oldCfg } = await supabaseAdmin
+      .from("coin_bot_config")
+      .select("*")
+      .eq("user_id", data.userId)
+      .maybeSingle();
     const { error } = await supabaseAdmin
       .from("coin_bot_config")
       .update({ ...data.patch, updated_at: new Date().toISOString() })
       .eq("user_id", data.userId);
     if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
+    const { auditCoinConfigChange } = await import("@/lib/coin-bot/coin-scan.server");
+    await auditCoinConfigChange(
+      supabaseAdmin as never,
+      data.userId,
+      (oldCfg ?? {}) as Record<string, unknown>,
+      data.patch as Record<string, unknown>,
+      "admin",
+    );
     return { ok: true };
   });
+
 
 export const adminListCoinPositions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
