@@ -1481,7 +1481,7 @@ export async function runMarkPass(
       !tp1Hit && !tp1JustHit && ageMin >= 30 && peakRoe >= 1.0 && currentRoe <= -2.0;
 
     // 5c) Hard profit-protection fallback: unprotected trade that hit the ROE hard cap.
-    const hitHardProfitExit = !profitProtected && currentRoe >= roeHard;
+    const hitHardProfitExit = postTp1 && !profitProtected && currentRoe >= roeHard;
 
     // 6) Weak progress flag.
     let newWeakProgress: { weak_progress: boolean; weak_progress_marked_at: string } | null = null;
