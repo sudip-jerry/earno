@@ -135,8 +135,9 @@ function BetaReportPage() {
           <section className="px-5 mb-3">
             <UserStatusGrid
               testers={testers}
-              coinCfgs={coinCfg.data ?? []}
-              coinData={coinStats.data ?? []}
+              coinCfgs={coinReport.data?.configs ?? []}
+              coinData={coinReport.data?.positions ?? []}
+
             />
           </section>
 
