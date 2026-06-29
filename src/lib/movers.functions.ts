@@ -754,6 +754,25 @@ export const bookManualTrade = createServerFn({ method: "POST" })
       .maybeSingle();
     if (cfgErr || !cfg) throw new Error(cfgErr?.message ?? "No bot config found");
 
+    // Enforce plan tier for live-mode inserts (RLS is bypassed by service role).
+    if (cfg.mode === "live") {
+      const { data: tier } = await supabaseAdmin.rpc("current_plan_tier", {
+        _user_id: context.userId,
+      });
+      const { data: settings } = await supabaseAdmin
+        .from("app_settings")
+        .select("paywall_enabled")
+        .eq("id", 1)
+        .maybeSingle();
+      const paywall = settings?.paywall_enabled ?? true;
+      const allowed = tier === "auto5" || tier === "unlimited";
+      if (paywall && !allowed) {
+        throw new Error(
+          "PAYMENT_REQUIRED: Upgrade to Auto-Trader or Unlimited to book live trades.",
+        );
+      }
+    }
+
     const { count } = await supabaseAdmin
       .from("positions")
       .select("id", { count: "exact", head: true })
