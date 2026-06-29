@@ -157,6 +157,21 @@ export async function runCoinScanFor(
     await supabase.from("coin_signals").insert(signalsToInsert);
   }
 
+  await logCoinEvent(
+    supabase,
+    userId,
+    "info",
+    "scan",
+    `Scan complete: ${universe.length} coins, ${signalsToInsert.length} signals`,
+    {
+      scanned: universe.length,
+      signals: signalsToInsert.length,
+      mode: cfg.mode,
+      trading_style: cfg.trading_style,
+    },
+  );
+
+
   // Auto-close on sell signals for held symbols
   let autoClosed = 0;
   let cashDelta = 0;
