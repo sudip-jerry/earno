@@ -1781,3 +1781,49 @@ export const exportAlgoAuditCsv = createServerFn({ method: "GET" })
 
     return { csv: toCsv(rows), count: rows.length };
   });
+
+// ---------- Coin bot admin report (cross-user, RLS-bypass via service role) ----------
+
+export const adminGetCoinStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
+    const oneDayAgo = new Date(Date.now() - 24 * 3600_000).toISOString();
+
+    const [
+      { data: positions, error: e1 },
+      { data: configs, error: e2 },
+      { data: events, error: e3 },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("coin_positions")
+        .select(
+          "user_id, status, realized_pnl_usdt, closed_at, opened_at, symbol, exit_reason",
+        )
+        .gte("opened_at", sevenDaysAgo),
+      supabaseAdmin
+        .from("coin_bot_config")
+        .select(
+          "user_id, enabled, mode, trading_style, allocated_capital_usdt, min_confidence, max_holdings, available_cash_usdt",
+        ),
+      supabaseAdmin
+        .from("coin_bot_events")
+        .select("user_id, level, kind, message, created_at, meta")
+        .gte("created_at", oneDayAgo)
+        .order("created_at", { ascending: false })
+        .limit(200),
+    ]);
+
+    if (e1) { console.error("DB error", e1); throw new Error("Operation failed. Please try again."); }
+    if (e2) { console.error("DB error", e2); throw new Error("Operation failed. Please try again."); }
+    if (e3) { console.error("DB error", e3); throw new Error("Operation failed. Please try again."); }
+
+    return {
+      positions: positions ?? [],
+      configs: configs ?? [],
+      events: events ?? [],
+    };
+  });
