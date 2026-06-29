@@ -185,7 +185,9 @@ export async function runCoinScanFor(
       .maybeSingle();
     if (!row || row.status !== "open") continue;
     const proceeds = Number(row.qty) * Number(sig.price);
-    const realized = proceeds - Number(row.invested_usdt);
+    const buyFee = Number(row.invested_usdt) * 0.001;
+    const sellFee = proceeds * 0.001;
+    const realized = proceeds - Number(row.invested_usdt) - buyFee - sellFee;
     await supabase
       .from("coin_positions")
       .update({
@@ -238,7 +240,9 @@ export async function runCoinScanFor(
     const investedUsdt = Number(row.invested_usdt);
     const qty = Number(row.qty);
     const proceeds = qty * currentPrice;
-    const realized = proceeds - investedUsdt;
+    const buyFee = investedUsdt * 0.001;
+    const sellFee = proceeds * 0.001;
+    const realized = proceeds - investedUsdt - buyFee - sellFee;
 
     let exitReason: string | null = null;
     if (stopPrice !== null && currentPrice <= stopPrice) {
@@ -359,7 +363,9 @@ export async function runCoinScanFor(
         );
         break;
       }
-      const qty = perTradeUsdt / Number(s.price);
+      const buyFee = perTradeUsdt * 0.001;
+      const investedAfterFee = perTradeUsdt - buyFee;
+      const qty = investedAfterFee / Number(s.price);
       const maxHoldUntil =
         cfg.mode === "swing"
           ? new Date(Date.now() + cfg.max_holding_days * 24 * 60 * 60 * 1000).toISOString()
