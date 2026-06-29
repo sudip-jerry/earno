@@ -76,6 +76,21 @@ function AdminPage() {
     refetchInterval: 15_000,
   });
 
+  const coinPositions = useQuery({
+    queryKey: ["admin_coin_positions"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("coin_positions")
+        .select("user_id, status, realized_pnl_usdt, closed_at")
+        .gte("closed_at", new Date(Date.now() - 24 * 3600_000).toISOString());
+      return data ?? [];
+    },
+    enabled: !!ent.data?.isAdmin,
+    refetchInterval: 30_000,
+  });
+
+
+
 
   const [couponCode, setCouponCode] = useState("");
   const [couponTier, setCouponTier] = useState<"reco" | "auto5" | "unlimited">("reco");
