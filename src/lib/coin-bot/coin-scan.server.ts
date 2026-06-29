@@ -72,8 +72,10 @@ export async function runCoinScanFor(
   try {
     tickers = await fetchFuturesTickers();
   } catch {
+    await logCoinEvent(supabase, userId, "error", "scan_error", "Public market data unavailable");
     return { ok: false, error: "Public market data unavailable" };
   }
+
 
   const universe = tickers
     .filter((t) => t.symbol.endsWith("_USDT"))
