@@ -238,8 +238,6 @@ function Home() {
     return s?.noTradeReason?.trim() || "Scanning markets calmly.";
   }, [isRunning, s, openCount]);
 
-  const { market, setMarket } = useMarketMode();
-
   if (market === "all") {
     const futuresValue = Number(s?.portfolioValue ?? c?.paper_equity ?? 0);
     const coinEquity =
