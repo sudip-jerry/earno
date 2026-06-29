@@ -19,6 +19,7 @@ import {
   type BucketComparison,
   type BucketStats,
 } from "@/lib/beta-report.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 
 function downloadCsv(filename: string, csv: string) {
