@@ -287,7 +287,7 @@ function PositionsPage() {
                     </span>
                     {(p.breakeven_armed_at || p.breakeven_moved) && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-500">
-                        Protected{p.peak_unrealized_pnl_pct != null ? ` at +${Number(p.peak_unrealized_pnl_pct).toFixed(2)}% ROE` : ""}
+                        SL → breakeven{p.peak_unrealized_pnl_pct != null ? ` · Peak +${Number(p.peak_unrealized_pnl_pct).toFixed(2)}%` : ""}
                       </span>
                     )}
                     {p.tp1_hit && (
