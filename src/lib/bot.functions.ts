@@ -168,7 +168,7 @@ export const updateConfig = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     // Gate auto-trading features behind the user's plan.
-    if (data.is_running === true || data.auto_book === true) {
+    if (data.is_running === true || data.auto_book === true || data.mode === "live") {
       const [{ data: tier }, { data: settings }] = await Promise.all([
         supabase.rpc("current_plan_tier", { _user_id: context.userId }),
         supabase.from("app_settings").select("paywall_enabled").eq("id", 1).maybeSingle(),
@@ -177,7 +177,7 @@ export const updateConfig = createServerFn({ method: "POST" })
       const allowed = tier === "auto5" || tier === "unlimited";
       if (paywall && !allowed) {
         throw new Error(
-          "PAYMENT_REQUIRED: Upgrade to Auto-Trader or Unlimited to start the bot.",
+          "PAYMENT_REQUIRED: Upgrade to Auto-Trader or Unlimited to enable live mode.",
         );
       }
     }
