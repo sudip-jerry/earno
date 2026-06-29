@@ -162,6 +162,28 @@ function ema(values: number[], period: number): number | null {
   return e;
 }
 
+async function fetch15mMomentum(): Promise<"bullish_lean" | "bearish_lean" | "flat"> {
+  try {
+    const res = await fetch(CANDLES("B-BTC_USDT", "15m", 20), {
+      headers: PUB_HEADERS,
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) return "flat";
+    const raw = (await res.json()) as Array<{ close: number | string }>;
+    if (!Array.isArray(raw) || raw.length < 10) return "flat";
+    const closes = raw.map((k) => num(k.close));
+    const ema9 = ema(closes.slice(-12), 9);
+    const last = closes[closes.length - 1];
+    if (!ema9 || !last) return "flat";
+    const dist = (last - ema9) / ema9;
+    if (dist > 0.004) return "bullish_lean";
+    if (dist < -0.004) return "bearish_lean";
+    return "flat";
+  } catch {
+    return "flat";
+  }
+}
+
 export async function fetchMarketRegime(): Promise<MarketRegime | null> {
   try {
     const res = await fetch(CANDLES("B-BTC_USDT", "1h", 60), {
@@ -183,11 +205,20 @@ export async function fetchMarketRegime(): Promise<MarketRegime | null> {
     if (!last || !ema21 || !ema50) return null;
     const slope = ema21 / closes[closes.length - 7] - 1; // 6h slope
     const distEma50Pct = (last - ema50) / ema50;
-    if (distEma50Pct > 0.04 && slope > 0.01) return "strong_bullish";
-    if (distEma50Pct < -0.04 && slope < -0.01) return "strong_bearish";
-    if (distEma50Pct > 0.012) return "bullish";
-    if (distEma50Pct < -0.012) return "bearish";
-    return "neutral";
+    let regime: MarketRegime;
+    if (distEma50Pct > 0.04 && slope > 0.01) regime = "strong_bullish";
+    else if (distEma50Pct < -0.04 && slope < -0.01) regime = "strong_bearish";
+    else if (distEma50Pct > 0.012) regime = "bullish";
+    else if (distEma50Pct < -0.012) regime = "bearish";
+    else regime = "neutral";
+
+    // Multi-timeframe: if 1h says neutral, use 15m to detect faster regime shifts
+    if (regime === "neutral") {
+      const momentum15m = await fetch15mMomentum();
+      if (momentum15m === "bullish_lean") return "bullish";
+      if (momentum15m === "bearish_lean") return "bearish";
+    }
+    return regime;
   } catch {
     return null;
   }
@@ -710,35 +741,7 @@ export async function runAutoBookPass(
       ) {
         rejection = `Rolling cooldown (${preset.lossesBeforeSymbolCooldown}+ losses in 24h, style=${preset.key})`;
         final = "skip";
-      } else if (
-        // Market regime guard.
-        marketRegime === "strong_bullish" &&
-        a.side_bias === "short" &&
-        a.confidence_pct < 90
-      ) {
-        rejection = "Regime guard: shorts blocked in strong-bullish";
-        final = "skip";
-      } else if (
-        marketRegime === "strong_bearish" &&
-        a.side_bias === "long" &&
-        a.confidence_pct < 90
-      ) {
-        rejection = "Regime guard: longs blocked in strong-bearish";
-        final = "skip";
-      } else if (
-        marketRegime === "bullish" &&
-        a.side_bias === "short" &&
-        a.confidence_pct < autoConfThreshold + 5
-      ) {
-        rejection = "Regime: bullish — stricter short confirmation required";
-        final = "skip";
-      } else if (
-        marketRegime === "bearish" &&
-        a.side_bias === "long" &&
-        a.confidence_pct < autoConfThreshold + 5
-      ) {
-        rejection = "Regime: bearish — stricter long confirmation required";
-        final = "skip";
+      // (Regime-aware direction gate moved below as a standalone check.)
       } else if (a.spread_pct != null && a.spread_pct > HARD_SPREAD_BLOCK_PCT) {
         rejection = `Spread too high (${a.spread_pct.toFixed(2)}%)`;
         final = "skip";
@@ -763,6 +766,76 @@ export async function runAutoBookPass(
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
       }
 
+      // Regime-aware direction gate (data-derived thresholds)
+      // strong_bullish: shorts need 95+, longs need 88+
+      // bullish:        shorts need 92+, longs need 90+
+      // neutral:        both need autoConfThreshold (now 90 globally)
+      // bearish:        longs need 92+, shorts need 88+
+      // strong_bearish: longs need 95+, shorts need 88+
+      if (rejection == null) {
+        const isShort = a.side_bias === "short";
+        const isLong = a.side_bias === "long";
+        const conf = a.confidence_pct;
+
+        let regimeFloor: number | null = null;
+        let regimeReason: string | null = null;
+
+        if (marketRegime === "strong_bullish") {
+          if (isShort && conf < 95) {
+            regimeFloor = 95;
+            regimeReason = "Regime: strong_bullish — shorts need 95+ confidence";
+          } else if (isLong && conf < 88) {
+            regimeFloor = 88;
+            regimeReason = "Regime: strong_bullish — longs need 88+ confidence";
+          }
+        } else if (marketRegime === "bullish") {
+          if (isShort && conf < 92) {
+            regimeFloor = 92;
+            regimeReason = "Regime: bullish — counter-trend shorts need 92+";
+          } else if (isLong && conf < autoConfThreshold) {
+            regimeFloor = autoConfThreshold;
+            regimeReason = "Regime: bullish — longs need autoConfThreshold";
+          }
+        } else if (marketRegime === "neutral" || marketRegime == null) {
+          if (isShort && conf < autoConfThreshold + 3) {
+            regimeFloor = autoConfThreshold + 3;
+            regimeReason = "Regime: neutral — shorts need autoConfThreshold+3";
+          } else if (isLong && conf < autoConfThreshold) {
+            regimeFloor = autoConfThreshold;
+            regimeReason = "Regime: neutral — longs need autoConfThreshold";
+          }
+        } else if (marketRegime === "bearish") {
+          if (isLong && conf < 92) {
+            regimeFloor = 92;
+            regimeReason = "Regime: bearish — counter-trend longs need 92+";
+          } else if (isShort && conf < 88) {
+            regimeFloor = 88;
+            regimeReason = "Regime: bearish — shorts need 88+";
+          }
+        } else if (marketRegime === "strong_bearish") {
+          if (isLong && conf < 95) {
+            regimeFloor = 95;
+            regimeReason = "Regime: strong_bearish — longs need 95+ confidence";
+          } else if (isShort && conf < 88) {
+            regimeFloor = 88;
+            regimeReason = "Regime: strong_bearish — shorts need 88+";
+          }
+        }
+
+        if (regimeFloor !== null && regimeReason !== null) {
+          rejection = regimeReason;
+          final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
+          await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+            kind: "regime_gate_skip",
+            symbol: a.symbol,
+            market_regime: marketRegime,
+            side: a.side_bias,
+            confidence_pct: a.confidence_pct,
+            regime_floor: regimeFloor,
+          });
+        }
+      }
+
       // Major-coin confidence floor: require higher confidence on liquid coins
       // where institutional flow overwhelms momentum signals below ~90%.
       // Data-derived: majors at conf<90 have PF 0.14-0.24; at conf≥90 PF=1.04.
@@ -776,6 +849,31 @@ export async function runAutoBookPass(
             symbol: a.symbol,
             confidence_pct: a.confidence_pct,
             major_coin_confidence_floor: majorFloor,
+          });
+        }
+      }
+
+      // Phase 3: Momentum confirmation — require the signal's own momentum indicators
+      // to be aligned before booking. Prevents entries at exhaustion.
+      if (rejection == null) {
+        const rsi = a.rsi ?? 50;
+        const volSpike = a.volume_spike_ratio ?? 1.0;
+        const isShort = a.side_bias === "short";
+        const isLong = a.side_bias === "long";
+
+        const momentumExhausted =
+          (isLong && rsi > 72 && volSpike < 1.2) ||
+          (isShort && rsi < 28 && volSpike < 1.2);
+
+        if (momentumExhausted) {
+          rejection = `Momentum exhaustion: RSI ${rsi.toFixed(1)} extended for ${a.side_bias} with weak volume (${volSpike.toFixed(2)}x)`;
+          final = "skip";
+          await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+            kind: "momentum_exhaustion_skip",
+            symbol: a.symbol,
+            side: a.side_bias,
+            rsi: a.rsi,
+            volume_spike_ratio: a.volume_spike_ratio,
           });
         }
       }
