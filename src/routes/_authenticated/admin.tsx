@@ -26,8 +26,11 @@ import {
   adminGetUserConfig,
   adminUpdateUserConfig,
   adminCopyUserConfig,
+  adminGetCoinConfig,
+  adminUpdateCoinConfig,
+  adminListCoinPositions,
 } from "@/lib/plans.functions";
-import { supabase } from "@/integrations/supabase/client";
+
 
 import { PLAN_NAME, type PlanTier } from "@/lib/plans";
 
@@ -46,6 +49,7 @@ function AdminPage() {
   const listCouponsFn = useServerFn(adminListCoupons);
   const listTradesFn = useServerFn(adminListTrades);
   const listEventsFn = useServerFn(adminListEvents);
+  const listCoinPositionsFn = useServerFn(adminListCoinPositions);
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
   const users = useQuery({
@@ -78,13 +82,7 @@ function AdminPage() {
 
   const coinPositions = useQuery({
     queryKey: ["admin_coin_positions"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("coin_positions")
-        .select("user_id, status, realized_pnl_usdt, closed_at")
-        .gte("closed_at", new Date(Date.now() - 24 * 3600_000).toISOString());
-      return data ?? [];
-    },
+    queryFn: () => listCoinPositionsFn({ data: { sinceHours: 24 } }),
     enabled: !!ent.data?.isAdmin,
     refetchInterval: 30_000,
   });
@@ -752,28 +750,18 @@ function CoinConfigEditor({ userId, label }: { userId: string; label: string }) 
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [patch, setPatch] = useState<Record<string, unknown>>({});
+  const getCoinFn = useServerFn(adminGetCoinConfig);
+  const updCoinFn = useServerFn(adminUpdateCoinConfig);
 
   const cfg = useQuery({
     queryKey: ["admin_coin_cfg", userId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("coin_bot_config")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
-      return data;
-    },
+    queryFn: () => getCoinFn({ data: { userId } }),
     enabled: open,
   });
 
   const upd = useMutation({
-    mutationFn: async (p: Record<string, unknown>) => {
-      const { error } = await supabase
-        .from("coin_bot_config")
-        .update(p as never)
-        .eq("user_id", userId);
-      if (error) throw error;
-    },
+    mutationFn: (p: Record<string, unknown>) =>
+      updCoinFn({ data: { userId, patch: p as never } }),
     onSuccess: () => {
       toast.success("Coin config saved");
       setPatch({});

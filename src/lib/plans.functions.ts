@@ -361,3 +361,77 @@ export const adminCopyUserConfig = createServerFn({ method: "POST" })
     if (e2) throw new Error(e2.message);
     return { ok: true };
   });
+
+const coinCfgPatchSchema = z.object({
+  enabled: z.boolean().optional(),
+  mode: z.string().min(1).max(32).optional(),
+  allocated_capital_usdt: z.number().min(0).max(10_000_000).optional(),
+  available_cash_usdt: z.number().min(0).max(10_000_000).optional(),
+  max_holdings: z.number().int().min(0).max(1000).optional(),
+  min_confidence: z.number().min(0).max(100).optional(),
+  max_holding_days: z.number().int().min(0).max(3650).optional(),
+  scan_interval_min: z.number().int().min(1).max(1440).optional(),
+  universe_size: z.number().int().min(0).max(10000).optional(),
+  symbol_blocklist: z.array(z.string()).max(1000).optional(),
+});
+
+export const adminGetCoinConfig = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ userId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row, error } = await supabaseAdmin
+      .from("coin_bot_config")
+      .select("*")
+      .eq("user_id", data.userId)
+      .maybeSingle();
+    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
+    return row;
+  });
+
+export const adminUpdateCoinConfig = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({ userId: z.string().uuid(), patch: coinCfgPatchSchema }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    if (Object.keys(data.patch).length === 0) return { ok: true };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("coin_bot_config")
+      .update({ ...data.patch, updated_at: new Date().toISOString() })
+      .eq("user_id", data.userId);
+    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
+    return { ok: true };
+  });
+
+export const adminListCoinPositions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({ sinceHours: z.number().int().min(1).max(24 * 365).default(24) }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const since = new Date(Date.now() - data.sinceHours * 3600_000).toISOString();
+    const { data: rows, error } = await supabaseAdmin
+      .from("coin_positions")
+      .select("user_id, status, realized_pnl_usdt, closed_at, opened_at")
+      .or(`opened_at.gte.${since},closed_at.gte.${since}`);
+    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
+    return rows ?? [];
+  });
+
+export const adminListCoinConfigs = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("coin_bot_config")
+      .select("user_id, enabled, mode, allocated_capital_usdt, min_confidence, max_holdings");
+    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
+    return rows ?? [];
+  });
