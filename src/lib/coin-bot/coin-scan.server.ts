@@ -28,6 +28,7 @@ export type CoinCfg = {
   hold_until_trend_reversal: boolean;
   universe_size: number;
   symbol_blocklist?: string[];
+  symbol_stop_cooldown_minutes?: number;
 };
 
 async function logCoinEvent(
@@ -331,20 +332,63 @@ export async function runCoinScanFor(
   }
   await Promise.all(markUpdates);
 
+  // --- Symbol stop cooldown: track recent stop hits to prevent re-entry ---
+  const stopCooldownMs = Math.max(60, Number(cfg.symbol_stop_cooldown_minutes ?? 120)) * 60_000;
+  const cooldownSince = new Date(Date.now() - stopCooldownMs).toISOString();
+  const { data: recentStops } = await supabase
+    .from("coin_positions")
+    .select("symbol, closed_at")
+    .eq("user_id", userId)
+    .eq("exit_reason", "bot:Stop level reached")
+    .gte("closed_at", cooldownSince)
+    .order("closed_at", { ascending: false });
+
+  const stopHitCount = new Map<string, number>();
+  for (const row of recentStops ?? []) {
+    const sym = row.symbol as string;
+    stopHitCount.set(sym, (stopHitCount.get(sym) ?? 0) + 1);
+  }
+
   // Auto-open buys
 
   let autoOpened = 0;
   if (cfg.enabled) {
     const blocklist = new Set(cfg.symbol_blocklist ?? []);
+    const MAX_STOPS_BEFORE_COOLDOWN = 2;
     const buys = signalsToInsert
       .filter(
         (s) =>
           s.action === "buy" &&
           s.confidence >= cfg.min_confidence &&
           !holdings.has(s.symbol) &&
-          !blocklist.has(s.symbol),
+          !blocklist.has(s.symbol) &&
+          (stopHitCount.get(s.symbol) ?? 0) < MAX_STOPS_BEFORE_COOLDOWN,
       )
       .sort((a, b) => b.confidence - a.confidence);
+
+    // Log symbols skipped due to stop cooldown
+    for (const s of signalsToInsert.filter(
+      (s) =>
+        s.action === "buy" &&
+        s.confidence >= cfg.min_confidence &&
+        !holdings.has(s.symbol) &&
+        !blocklist.has(s.symbol) &&
+        (stopHitCount.get(s.symbol) ?? 0) >= MAX_STOPS_BEFORE_COOLDOWN,
+    )) {
+      await logCoinEvent(
+        supabase,
+        userId,
+        "warn",
+        "stop_cooldown_skip",
+        `Skipped ${s.symbol}: ${stopHitCount.get(s.symbol)} stop(s) in last ${Math.round(stopCooldownMs / 60_000)}min cooldown window`,
+        {
+          symbol: s.symbol,
+          stop_count: stopHitCount.get(s.symbol),
+          cooldown_minutes: Math.round(stopCooldownMs / 60_000),
+        },
+      );
+    }
+
 
     const currentlyOpen = (openRows ?? []).length - autoClosed;
     const slots = Math.max(0, cfg.max_holdings - currentlyOpen);
