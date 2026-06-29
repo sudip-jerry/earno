@@ -162,6 +162,28 @@ function ema(values: number[], period: number): number | null {
   return e;
 }
 
+async function fetch15mMomentum(): Promise<"bullish_lean" | "bearish_lean" | "flat"> {
+  try {
+    const res = await fetch(CANDLES("B-BTC_USDT", "15m", 20), {
+      headers: PUB_HEADERS,
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) return "flat";
+    const raw = (await res.json()) as Array<{ close: number | string }>;
+    if (!Array.isArray(raw) || raw.length < 10) return "flat";
+    const closes = raw.map((k) => num(k.close));
+    const ema9 = ema(closes.slice(-12), 9);
+    const last = closes[closes.length - 1];
+    if (!ema9 || !last) return "flat";
+    const dist = (last - ema9) / ema9;
+    if (dist > 0.004) return "bullish_lean";
+    if (dist < -0.004) return "bearish_lean";
+    return "flat";
+  } catch {
+    return "flat";
+  }
+}
+
 export async function fetchMarketRegime(): Promise<MarketRegime | null> {
   try {
     const res = await fetch(CANDLES("B-BTC_USDT", "1h", 60), {
@@ -183,11 +205,20 @@ export async function fetchMarketRegime(): Promise<MarketRegime | null> {
     if (!last || !ema21 || !ema50) return null;
     const slope = ema21 / closes[closes.length - 7] - 1; // 6h slope
     const distEma50Pct = (last - ema50) / ema50;
-    if (distEma50Pct > 0.04 && slope > 0.01) return "strong_bullish";
-    if (distEma50Pct < -0.04 && slope < -0.01) return "strong_bearish";
-    if (distEma50Pct > 0.012) return "bullish";
-    if (distEma50Pct < -0.012) return "bearish";
-    return "neutral";
+    let regime: MarketRegime;
+    if (distEma50Pct > 0.04 && slope > 0.01) regime = "strong_bullish";
+    else if (distEma50Pct < -0.04 && slope < -0.01) regime = "strong_bearish";
+    else if (distEma50Pct > 0.012) regime = "bullish";
+    else if (distEma50Pct < -0.012) regime = "bearish";
+    else regime = "neutral";
+
+    // Multi-timeframe: if 1h says neutral, use 15m to detect faster regime shifts
+    if (regime === "neutral") {
+      const momentum15m = await fetch15mMomentum();
+      if (momentum15m === "bullish_lean") return "bullish";
+      if (momentum15m === "bearish_lean") return "bearish";
+    }
+    return regime;
   } catch {
     return null;
   }
