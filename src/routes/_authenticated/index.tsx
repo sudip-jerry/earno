@@ -539,14 +539,6 @@ function Home() {
             Full risk details →
           </button>
 
-          <Button
-            variant="outline"
-            className="w-full h-10 mt-4 rounded-xl"
-            onClick={() => navigate({ to: "/bot" })}
-          >
-            View Bot Details
-            <ChevronRight className="size-4 ml-1" />
-          </Button>
         </div>
       </section>
 
@@ -728,7 +720,9 @@ function PerformanceStrip({
         <div className="min-w-0">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">Win rate</p>
           <p className="mt-0.5 text-[13px] font-semibold tabular-nums truncate">
-            {winRate == null ? "—" : `${(winRate * 100).toFixed(0)}%`}
+            {winRate == null ? (
+              <span className="text-[11px] text-muted-foreground font-normal">Not yet</span>
+            ) : `${(winRate * 100).toFixed(0)}%`}
           </p>
         </div>
         <div className="min-w-0">
@@ -742,7 +736,9 @@ function PerformanceStrip({
                   : "text-rose-600 dark:text-rose-400"
             }`}
           >
-            {pf == null ? "—" : pf.toFixed(2)}
+            {pf == null ? (
+              <span className="text-[11px] text-muted-foreground font-normal">Not yet</span>
+            ) : pf.toFixed(2)}
           </p>
         </div>
         <div className="min-w-0">
@@ -753,6 +749,11 @@ function PerformanceStrip({
           <p className="text-[10px] text-muted-foreground truncate">paid to exchange</p>
         </div>
       </div>
+      {winRate == null && pf == null && (
+        <p className="mt-2 text-[10.5px] text-muted-foreground px-1">
+          Win rate and profit factor appear after ~30 closed positions.
+        </p>
+      )}
     </section>
   );
 }
