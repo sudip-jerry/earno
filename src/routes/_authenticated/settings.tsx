@@ -640,8 +640,20 @@ function SettingsPage() {
               Enable <span className="font-medium">Futures</span> permissions on your CoinDCX API
               key. Keys are stored encrypted and never sent to the browser.
             </p>
+            <p className="text-[11px] text-muted-foreground">
+              For <span className="font-medium">Coin live trading</span>, enable both{" "}
+              <span className="font-medium">Spot Trade</span> permissions on your API key.
+              The same key works for futures and coins.
+            </p>
           </div>
         </div>
+      </section>
+
+      <section className="px-5 mt-6">
+        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+          Coin Bot Mode
+        </h2>
+        <CoinLiveModeToggle hasCreds={!!status.data?.hasCredentials} />
       </section>
 
       {/* Auto Book */}
@@ -1379,5 +1391,68 @@ function AccountRow({
       </div>
       <ChevronRight className="size-4 text-muted-foreground shrink-0" />
     </Link>
+  );
+}
+
+function CoinLiveModeToggle({ hasCreds }: { hasCreds: boolean }) {
+  const qc = useQueryClient();
+  const coinCfg = useQuery({
+    queryKey: ["coin_bot_cfg_mode"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("coin_bot_config")
+        .select("live_mode, mode, allocated_capital_usdt")
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  const toggle = useMutation({
+    mutationFn: async (live: boolean) => {
+      const { error } = await supabase
+        .from("coin_bot_config")
+        .update({ live_mode: live });
+      if (error) throw error;
+    },
+    onSuccess: (_, live) => {
+      toast.success(live ? "Coin bot switched to LIVE — real spot orders will be placed" : "Coin bot switched to Paper");
+      qc.invalidateQueries({ queryKey: ["coin_bot_cfg_mode"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  const isLive = (coinCfg.data as { live_mode?: boolean } | null)?.live_mode ?? false;
+  const capital = Number((coinCfg.data as { allocated_capital_usdt?: number } | null)?.allocated_capital_usdt ?? 500);
+
+  return (
+    <div className="rounded-2xl border bg-card divide-y">
+      <div className="flex items-center justify-between px-4 py-3">
+        <div>
+          <p className="text-sm font-medium">Coin bot live trading</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {isLive ? `Live — real spot buys/sells from your CoinDCX wallet` : "Paper — simulated only, no real orders"}
+          </p>
+        </div>
+        <Switch
+          checked={isLive}
+          disabled={!hasCreds || toggle.isPending}
+          onCheckedChange={(v) => {
+            if (v && !confirm(`Switch Coin bot to LIVE? It will place real spot orders up to $${capital} USDT from your CoinDCX spot wallet. Cannot be undone mid-trade.`)) return;
+            toggle.mutate(v);
+          }}
+        />
+      </div>
+      {isLive && (
+        <div className="px-4 py-3 flex gap-2 text-xs text-destructive bg-destructive/5">
+          <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+          <p>Live mode active. The coin bot will buy and sell real coins from your CoinDCX spot wallet. Ensure you have USDT available in your <strong>spot/trade wallet</strong> (not futures margin).</p>
+        </div>
+      )}
+      {!hasCreds && (
+        <div className="px-4 py-3 text-[11px] text-muted-foreground">
+          Save your CoinDCX API key above to enable live mode.
+        </div>
+      )}
+    </div>
   );
 }

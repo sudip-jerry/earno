@@ -29,6 +29,7 @@ export type CoinCfg = {
   universe_size: number;
   symbol_blocklist?: string[];
   symbol_stop_cooldown_minutes?: number;
+  live_mode?: boolean;
 };
 
 async function logCoinEvent(
@@ -218,6 +219,31 @@ export async function runCoinScanFor(
         price: sig.price,
       },
     );
+
+    // Live execution for sell
+    if (cfg.live_mode) {
+      const { loadCoinLiveCreds, placeCoinLiveSell, toSpotPair } = await import("./coin-live-execution.server");
+      const creds = await loadCoinLiveCreds(supabase, userId);
+      if (creds) {
+        const exec = await placeCoinLiveSell({
+          creds,
+          pair: toSpotPair(row.symbol as string),
+          totalQuantity: Number(row.qty),
+        });
+        if (!exec.ok) {
+          await logCoinEvent(supabase, userId, "error", "live_sell_failed",
+            `Live sell failed for ${row.symbol}: ${exec.error}`,
+            { symbol: row.symbol, error: exec.error });
+        } else {
+          await logCoinEvent(supabase, userId, "info", "live_sell",
+            `Live sell placed for ${row.symbol} · order: ${exec.orderId}`,
+            { symbol: row.symbol, order_id: exec.orderId });
+        }
+      } else {
+        await logCoinEvent(supabase, userId, "warn", "live_sell_no_creds",
+          `Live mode enabled but no API credentials for ${userId}`);
+      }
+    }
   }
 
   // --- Stop-loss and target-price enforcement ---
@@ -296,6 +322,31 @@ export async function runCoinScanFor(
         target_price: targetPrice,
       },
     );
+
+    // Live execution for sell
+    if (cfg.live_mode) {
+      const { loadCoinLiveCreds, placeCoinLiveSell, toSpotPair } = await import("./coin-live-execution.server");
+      const creds = await loadCoinLiveCreds(supabase, userId);
+      if (creds) {
+        const exec = await placeCoinLiveSell({
+          creds,
+          pair: toSpotPair(sym),
+          totalQuantity: qty,
+        });
+        if (!exec.ok) {
+          await logCoinEvent(supabase, userId, "error", "live_sell_failed",
+            `Live sell failed for ${sym}: ${exec.error}`,
+            { symbol: sym, error: exec.error });
+        } else {
+          await logCoinEvent(supabase, userId, "info", "live_sell",
+            `Live sell placed for ${sym} · order: ${exec.orderId}`,
+            { symbol: sym, order_id: exec.orderId });
+        }
+      } else {
+        await logCoinEvent(supabase, userId, "warn", "live_sell_no_creds",
+          `Live mode enabled but no API credentials for ${userId}`);
+      }
+    }
   }
   // --- Mark-to-market: write live prices back to DB for remaining open positions ---
   const markUpdates: Promise<unknown>[] = [];
@@ -449,6 +500,31 @@ export async function runCoinScanFor(
           mode: cfg.mode,
         },
       );
+
+      // Live execution for buy
+      if (cfg.live_mode) {
+        const { loadCoinLiveCreds, placeCoinLiveBuy, toSpotPair } = await import("./coin-live-execution.server");
+        const creds = await loadCoinLiveCreds(supabase, userId);
+        if (creds) {
+          const exec = await placeCoinLiveBuy({
+            creds,
+            pair: toSpotPair(s.symbol),
+            totalQuantity: qty,
+          });
+          if (!exec.ok) {
+            await logCoinEvent(supabase, userId, "error", "live_buy_failed",
+              `Live buy failed for ${s.symbol}: ${exec.error}`,
+              { symbol: s.symbol, error: exec.error });
+          } else {
+            await logCoinEvent(supabase, userId, "info", "live_buy",
+              `Live buy placed for ${s.symbol} · order: ${exec.orderId}`,
+              { symbol: s.symbol, order_id: exec.orderId, qty });
+          }
+        } else {
+          await logCoinEvent(supabase, userId, "warn", "live_buy_no_creds",
+            `Live mode enabled but no API credentials for ${userId}`);
+        }
+      }
     }
 
   }

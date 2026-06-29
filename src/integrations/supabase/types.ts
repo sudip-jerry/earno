@@ -410,6 +410,7 @@ export type Database = {
           available_cash_usdt: number
           created_at: string
           enabled: boolean
+          live_mode: boolean
           max_holding_days: number
           max_holdings: number
           min_confidence: number
@@ -426,6 +427,7 @@ export type Database = {
           available_cash_usdt?: number
           created_at?: string
           enabled?: boolean
+          live_mode?: boolean
           max_holding_days?: number
           max_holdings?: number
           min_confidence?: number
@@ -442,6 +444,7 @@ export type Database = {
           available_cash_usdt?: number
           created_at?: string
           enabled?: boolean
+          live_mode?: boolean
           max_holding_days?: number
           max_holdings?: number
           min_confidence?: number
