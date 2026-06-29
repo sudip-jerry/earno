@@ -739,6 +739,7 @@ function UserConfigEditor({
                   Save {Object.keys(patch).length > 0 ? `(${Object.keys(patch).length})` : ""} for {label.split("@")[0]}
                 </Button>
               </div>
+              <CoinConfigEditor userId={userId} label={label} />
             </>
           )}
         </div>
