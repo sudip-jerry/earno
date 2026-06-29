@@ -66,6 +66,8 @@ function BetaReportPage() {
   const entFn = useServerFn(getMyEntitlements);
   const reportFn = useServerFn(getBetaReport);
   const applyFn = useServerFn(adminApplyTune);
+  const listCoinPosFn = useServerFn(adminListCoinPositions);
+  const listCoinCfgFn = useServerFn(adminListCoinConfigs);
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
   const rep = useQuery({
@@ -77,25 +79,14 @@ function BetaReportPage() {
 
   const coinStats = useQuery({
     queryKey: ["beta_coin_stats"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("coin_positions")
-        .select("user_id, status, realized_pnl_usdt, closed_at, opened_at")
-        .gte("opened_at", new Date(Date.now() - 7 * 24 * 3600_000).toISOString());
-      return data ?? [];
-    },
+    queryFn: () => listCoinPosFn({ data: { sinceHours: 7 * 24 } }),
     enabled: !!ent.data?.isAdmin,
     refetchInterval: 60_000,
   });
 
   const coinCfg = useQuery({
     queryKey: ["beta_coin_cfg"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("coin_bot_config")
-        .select("user_id, enabled, mode, allocated_capital_usdt, min_confidence, max_holdings");
-      return data ?? [];
-    },
+    queryFn: () => listCoinCfgFn(),
     enabled: !!ent.data?.isAdmin,
   });
 
