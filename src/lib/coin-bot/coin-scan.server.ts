@@ -185,7 +185,9 @@ export async function runCoinScanFor(
       .maybeSingle();
     if (!row || row.status !== "open") continue;
     const proceeds = Number(row.qty) * Number(sig.price);
-    const realized = proceeds - Number(row.invested_usdt);
+    const buyFee = Number(row.invested_usdt) * 0.001;
+    const sellFee = proceeds * 0.001;
+    const realized = proceeds - Number(row.invested_usdt) - buyFee - sellFee;
     await supabase
       .from("coin_positions")
       .update({
