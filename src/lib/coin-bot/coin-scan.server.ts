@@ -237,7 +237,17 @@ export async function runCoinScanFor(
 
     let cash = Number(cfg.available_cash_usdt) + cashDelta;
     for (const s of buys.slice(0, slots)) {
-      if (cash < perTradeUsdt) break;
+      if (cash < perTradeUsdt) {
+        await logCoinEvent(
+          supabase,
+          userId,
+          "warn",
+          "skip",
+          `Skipped ${s.symbol}: insufficient cash (${cash.toFixed(2)} < ${perTradeUsdt.toFixed(2)} USDT)`,
+          { symbol: s.symbol, available_cash: cash, required: perTradeUsdt },
+        );
+        break;
+      }
       const qty = perTradeUsdt / Number(s.price);
       const maxHoldUntil =
         cfg.mode === "swing"
@@ -263,7 +273,23 @@ export async function runCoinScanFor(
       cash -= perTradeUsdt;
       cashDelta -= perTradeUsdt;
       autoOpened += 1;
+      await logCoinEvent(
+        supabase,
+        userId,
+        "info",
+        "auto_buy",
+        `Auto-bought ${s.symbol} · ${qty.toFixed(6)} units @ ${s.price} · invested: ${perTradeUsdt.toFixed(2)} USDT`,
+        {
+          symbol: s.symbol,
+          qty,
+          price: s.price,
+          invested_usdt: perTradeUsdt,
+          confidence: s.confidence,
+          mode: cfg.mode,
+        },
+      );
     }
+
   }
 
   if (cashDelta !== 0) {
