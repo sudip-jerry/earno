@@ -75,6 +75,30 @@ function BetaReportPage() {
     refetchInterval: 60_000,
   });
 
+  const coinStats = useQuery({
+    queryKey: ["beta_coin_stats"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("coin_positions")
+        .select("user_id, status, realized_pnl_usdt, closed_at, opened_at")
+        .gte("opened_at", new Date(Date.now() - 7 * 24 * 3600_000).toISOString());
+      return data ?? [];
+    },
+    enabled: !!ent.data?.isAdmin,
+    refetchInterval: 60_000,
+  });
+
+  const coinCfg = useQuery({
+    queryKey: ["beta_coin_cfg"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("coin_bot_config")
+        .select("user_id, enabled, mode, allocated_capital_usdt, min_confidence, max_holdings");
+      return data ?? [];
+    },
+    enabled: !!ent.data?.isAdmin,
+  });
+
   const apply = useMutation({
     mutationFn: (v: { userId: string; patch: TuneSuggestion["patch"] }) =>
       applyFn({ data: v as never }),
