@@ -292,11 +292,41 @@ export async function runCoinScanFor(
       },
     );
   }
+  // --- Mark-to-market: write live prices back to DB for remaining open positions ---
+  const markUpdates: Promise<unknown>[] = [];
+  for (const [sym, held] of holdings) {
+    const ticker = universe.find((u) => u.symbol === sym);
+    const currentPrice = ticker?.price;
+    if (!currentPrice) continue;
 
+    const { data: row } = await supabase
+      .from("coin_positions")
+      .select("qty, invested_usdt, avg_buy_price")
+      .eq("id", held.id)
+      .maybeSingle();
+    if (!row || !row.qty) continue;
 
+    const qty = Number(row.qty);
+    const invested = Number(row.invested_usdt);
+    const currentValue = qty * currentPrice;
+    const unrealized = currentValue - invested;
 
+    markUpdates.push(
+      supabase
+        .from("coin_positions")
+        .update({
+          last_price: currentPrice,
+          current_value_usdt: currentValue,
+          unrealized_pnl_usdt: unrealized,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", held.id)
+    );
+  }
+  await Promise.all(markUpdates);
 
   // Auto-open buys
+
   let autoOpened = 0;
   if (cfg.enabled) {
     const blocklist = new Set(cfg.symbol_blocklist ?? []);
