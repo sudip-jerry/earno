@@ -82,13 +82,7 @@ function AdminPage() {
 
   const coinPositions = useQuery({
     queryKey: ["admin_coin_positions"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("coin_positions")
-        .select("user_id, status, realized_pnl_usdt, closed_at")
-        .gte("closed_at", new Date(Date.now() - 24 * 3600_000).toISOString());
-      return data ?? [];
-    },
+    queryFn: () => listCoinPositionsFn({ data: { sinceHours: 24 } }),
     enabled: !!ent.data?.isAdmin,
     refetchInterval: 30_000,
   });
