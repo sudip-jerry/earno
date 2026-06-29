@@ -640,8 +640,20 @@ function SettingsPage() {
               Enable <span className="font-medium">Futures</span> permissions on your CoinDCX API
               key. Keys are stored encrypted and never sent to the browser.
             </p>
+            <p className="text-[11px] text-muted-foreground">
+              For <span className="font-medium">Coin live trading</span>, enable both{" "}
+              <span className="font-medium">Spot Trade</span> permissions on your API key.
+              The same key works for futures and coins.
+            </p>
           </div>
         </div>
+      </section>
+
+      <section className="px-5 mt-6">
+        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+          Coin Bot Mode
+        </h2>
+        <CoinLiveModeToggle hasCreds={!!status.data?.hasCredentials} />
       </section>
 
       {/* Auto Book */}
