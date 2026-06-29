@@ -750,28 +750,18 @@ function CoinConfigEditor({ userId, label }: { userId: string; label: string }) 
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [patch, setPatch] = useState<Record<string, unknown>>({});
+  const getCoinFn = useServerFn(adminGetCoinConfig);
+  const updCoinFn = useServerFn(adminUpdateCoinConfig);
 
   const cfg = useQuery({
     queryKey: ["admin_coin_cfg", userId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("coin_bot_config")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
-      return data;
-    },
+    queryFn: () => getCoinFn({ data: { userId } }),
     enabled: open,
   });
 
   const upd = useMutation({
-    mutationFn: async (p: Record<string, unknown>) => {
-      const { error } = await supabase
-        .from("coin_bot_config")
-        .update(p as never)
-        .eq("user_id", userId);
-      if (error) throw error;
-    },
+    mutationFn: (p: Record<string, unknown>) =>
+      updCoinFn({ data: { userId, patch: p as never } }),
     onSuccess: () => {
       toast.success("Coin config saved");
       setPatch({});
