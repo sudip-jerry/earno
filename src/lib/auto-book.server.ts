@@ -735,6 +735,76 @@ export async function runAutoBookPass(
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
       }
 
+      // Regime-aware direction gate (data-derived thresholds)
+      // strong_bullish: shorts need 95+, longs need 88+
+      // bullish:        shorts need 92+, longs need 90+
+      // neutral:        both need autoConfThreshold (now 90 globally)
+      // bearish:        longs need 92+, shorts need 88+
+      // strong_bearish: longs need 95+, shorts need 88+
+      if (rejection == null) {
+        const isShort = a.side_bias === "short";
+        const isLong = a.side_bias === "long";
+        const conf = a.confidence_pct;
+
+        let regimeFloor: number | null = null;
+        let regimeReason: string | null = null;
+
+        if (marketRegime === "strong_bullish") {
+          if (isShort && conf < 95) {
+            regimeFloor = 95;
+            regimeReason = "Regime: strong_bullish — shorts need 95+ confidence";
+          } else if (isLong && conf < 88) {
+            regimeFloor = 88;
+            regimeReason = "Regime: strong_bullish — longs need 88+ confidence";
+          }
+        } else if (marketRegime === "bullish") {
+          if (isShort && conf < 92) {
+            regimeFloor = 92;
+            regimeReason = "Regime: bullish — counter-trend shorts need 92+";
+          } else if (isLong && conf < autoConfThreshold) {
+            regimeFloor = autoConfThreshold;
+            regimeReason = "Regime: bullish — longs need autoConfThreshold";
+          }
+        } else if (marketRegime === "neutral" || marketRegime == null) {
+          if (isShort && conf < autoConfThreshold + 3) {
+            regimeFloor = autoConfThreshold + 3;
+            regimeReason = "Regime: neutral — shorts need autoConfThreshold+3";
+          } else if (isLong && conf < autoConfThreshold) {
+            regimeFloor = autoConfThreshold;
+            regimeReason = "Regime: neutral — longs need autoConfThreshold";
+          }
+        } else if (marketRegime === "bearish") {
+          if (isLong && conf < 92) {
+            regimeFloor = 92;
+            regimeReason = "Regime: bearish — counter-trend longs need 92+";
+          } else if (isShort && conf < 88) {
+            regimeFloor = 88;
+            regimeReason = "Regime: bearish — shorts need 88+";
+          }
+        } else if (marketRegime === "strong_bearish") {
+          if (isLong && conf < 95) {
+            regimeFloor = 95;
+            regimeReason = "Regime: strong_bearish — longs need 95+ confidence";
+          } else if (isShort && conf < 88) {
+            regimeFloor = 88;
+            regimeReason = "Regime: strong_bearish — shorts need 88+";
+          }
+        }
+
+        if (regimeFloor !== null && regimeReason !== null) {
+          rejection = regimeReason;
+          final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
+          await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+            kind: "regime_gate_skip",
+            symbol: a.symbol,
+            market_regime: marketRegime,
+            side: a.side_bias,
+            confidence_pct: a.confidence_pct,
+            regime_floor: regimeFloor,
+          });
+        }
+      }
+
       // Major-coin confidence floor: require higher confidence on liquid coins
       // where institutional flow overwhelms momentum signals below ~90%.
       // Data-derived: majors at conf<90 have PF 0.14-0.24; at conf≥90 PF=1.04.
