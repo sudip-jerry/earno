@@ -142,6 +142,8 @@ function AdminPage() {
   const totalTradesToday = u.reduce((s, x) => s + x.tradesToday, 0);
   const activeBots = u.filter((x) => x.isRunning).length;
   const paying = u.filter((x) => x.tier !== "free").length;
+  const coinTradesToday = coinPositions.data?.filter((p) => p.status === "closed").length ?? 0;
+  const coinPnlToday = coinPositions.data?.reduce((s, p) => s + Number(p.realized_pnl_usdt ?? 0), 0) ?? 0;
 
   return (
     <div className="min-h-svh bg-background pb-16">
