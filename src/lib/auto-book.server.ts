@@ -822,6 +822,31 @@ export async function runAutoBookPass(
         }
       }
 
+      // Phase 3: Momentum confirmation — require the signal's own momentum indicators
+      // to be aligned before booking. Prevents entries at exhaustion.
+      if (rejection == null) {
+        const rsi = a.rsi ?? 50;
+        const volSpike = a.volume_spike_ratio ?? 1.0;
+        const isShort = a.side_bias === "short";
+        const isLong = a.side_bias === "long";
+
+        const momentumExhausted =
+          (isLong && rsi > 72 && volSpike < 1.2) ||
+          (isShort && rsi < 28 && volSpike < 1.2);
+
+        if (momentumExhausted) {
+          rejection = `Momentum exhaustion: RSI ${rsi.toFixed(1)} extended for ${a.side_bias} with weak volume (${volSpike.toFixed(2)}x)`;
+          final = "skip";
+          await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+            kind: "momentum_exhaustion_skip",
+            symbol: a.symbol,
+            side: a.side_bias,
+            rsi: a.rsi,
+            volume_spike_ratio: a.volume_spike_ratio,
+          });
+        }
+      }
+
       // Backend setup classification + policy gate (Futures-only, beginner-invisible).
       const setup = classifySetup(a);
       if (rejection == null) {
