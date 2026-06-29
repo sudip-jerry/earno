@@ -368,19 +368,6 @@ function Home() {
           </div>
         </div>
 
-        {/* Controls */}
-        <section className="px-5 mt-3">
-          <div className="grid grid-cols-2 gap-2.5">
-            <Button variant="outline" className="h-12 rounded-xl" onClick={() => togglePause.mutate(!isRunning)} disabled={togglePause.isPending}>
-              {isRunning ? <Pause className="size-4 mr-1.5" /> : <Play className="size-4 mr-1.5" />}
-              {isRunning ? "Pause Bot" : "Resume Bot"}
-            </Button>
-            <Button variant="outline" className={`h-12 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive ${isLive ? "bg-destructive/5" : ""}`} onClick={() => setConfirmStop(true)} disabled={kill.isPending}>
-              <AlertTriangle className="size-4 mr-1.5" />
-              Emergency Stop
-            </Button>
-          </div>
-        </section>
 
         {/* Recent activity */}
         <div className="mt-6">
