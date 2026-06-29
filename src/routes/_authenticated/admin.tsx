@@ -26,6 +26,9 @@ import {
   adminGetUserConfig,
   adminUpdateUserConfig,
   adminCopyUserConfig,
+  adminGetCoinConfig,
+  adminUpdateCoinConfig,
+  adminListCoinPositions,
 } from "@/lib/plans.functions";
 import { supabase } from "@/integrations/supabase/client";
 
