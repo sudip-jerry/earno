@@ -49,6 +49,7 @@ function AdminPage() {
   const listCouponsFn = useServerFn(adminListCoupons);
   const listTradesFn = useServerFn(adminListTrades);
   const listEventsFn = useServerFn(adminListEvents);
+  const listCoinPositionsFn = useServerFn(adminListCoinPositions);
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
   const users = useQuery({
