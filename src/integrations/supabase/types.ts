@@ -455,6 +455,36 @@ export type Database = {
         }
         Relationships: []
       }
+      coin_bot_config_audit: {
+        Row: {
+          changed_at: string
+          changed_by: string
+          field: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          user_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string
+          field: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          user_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string
+          field?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       coin_bot_events: {
         Row: {
           created_at: string
