@@ -240,7 +240,9 @@ export async function runCoinScanFor(
     const investedUsdt = Number(row.invested_usdt);
     const qty = Number(row.qty);
     const proceeds = qty * currentPrice;
-    const realized = proceeds - investedUsdt;
+    const buyFee = investedUsdt * 0.001;
+    const sellFee = proceeds * 0.001;
+    const realized = proceeds - investedUsdt - buyFee - sellFee;
 
     let exitReason: string | null = null;
     if (stopPrice !== null && currentPrice <= stopPrice) {
