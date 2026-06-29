@@ -875,6 +875,62 @@ function UserStatusGrid({
           </tbody>
         </table>
       </div>
+      <div className="mt-3 border-t pt-3">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground px-3 pb-1">Coin bot</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px]">
+            <thead>
+              <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b">
+                <th className="px-2 py-1 text-left font-normal">User</th>
+                <th className="px-2 py-1 text-left font-normal">Mode</th>
+                <th className="px-2 py-1 text-left font-normal">Status</th>
+                <th className="px-2 py-1 text-right font-normal">Today PnL</th>
+                <th className="px-2 py-1 text-right font-normal">Today trades</th>
+                <th className="px-2 py-1 text-right font-normal">Open</th>
+                <th className="px-2 py-1 text-right font-normal">7d PnL</th>
+                <th className="px-2 py-1 text-right font-normal">Capital</th>
+              </tr>
+            </thead>
+            <tbody>
+              {coinCfgs.map((cfg, i) => {
+                const userPositions = coinData.filter((p) => p.user_id === cfg.user_id);
+                const todayIST = new Date();
+                todayIST.setHours(0, 0, 0, 0);
+                const todayClosed = userPositions.filter(
+                  (p) => p.status === "closed" && p.closed_at && new Date(p.closed_at) >= todayIST,
+                );
+                const openNow = userPositions.filter((p) => p.status === "open");
+                const todayPnl = todayClosed.reduce((s, p) => s + Number(p.realized_pnl_usdt ?? 0), 0);
+                const sevenDayPnl = userPositions
+                  .filter((p) => p.status === "closed")
+                  .reduce((s, p) => s + Number(p.realized_pnl_usdt ?? 0), 0);
+                const testerEmail = testers.find((t) => t.userId === cfg.user_id)?.email;
+                return (
+                  <tr key={cfg.user_id} className={`border-t ${i % 2 === 1 ? "bg-muted/20" : ""}`}>
+                    <td className="px-2 py-1.5 truncate max-w-[120px]">{maskEmail(testerEmail)}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground">{cfg.mode}</td>
+                    <td className="px-2 py-1.5">
+                      <span className="inline-flex items-center gap-1">
+                        <span className={`size-1.5 rounded-full ${cfg.enabled ? "bg-emerald-500" : "bg-muted-foreground"}`} />
+                        {cfg.enabled ? "" : <span className="text-muted-foreground">off</span>}
+                      </span>
+                    </td>
+                    <td className={`px-2 py-1.5 text-right tabular-nums ${todayPnl >= 0 ? "text-emerald-500" : "text-destructive"}`}>
+                      {todayPnl >= 0 ? "+" : ""}${Math.abs(todayPnl).toFixed(2)}
+                    </td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{todayClosed.length}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">{openNow.length}</td>
+                    <td className={`px-2 py-1.5 text-right tabular-nums ${sevenDayPnl >= 0 ? "text-emerald-500" : "text-destructive"}`}>
+                      {sevenDayPnl >= 0 ? "+" : ""}${Math.abs(sevenDayPnl).toFixed(2)}
+                    </td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">${cfg.allocated_capital_usdt}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
