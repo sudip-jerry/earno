@@ -761,3 +761,84 @@ function TuningActionsSection({ actions }: { actions: TuningAction[] }) {
 }
 
 
+function UserStatusGrid({ testers }: { testers: TesterReport[] }) {
+  if (testers.length === 0) {
+    return (
+      <div className="rounded-2xl border bg-card p-4 text-xs text-muted-foreground">
+        No testers yet.
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-2xl border bg-card overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b">
+              <th className="px-2 py-2 text-left font-normal">User</th>
+              <th className="px-2 py-2 text-left font-normal">Style</th>
+              <th className="px-2 py-2 text-left font-normal">Status</th>
+              <th className="px-2 py-2 text-right font-normal">Today PnL</th>
+              <th className="px-2 py-2 text-right font-normal">Trades</th>
+              <th className="px-2 py-2 text-right font-normal">Win%</th>
+              <th className="px-2 py-2 text-right font-normal">PF</th>
+              <th className="px-2 py-2 text-right font-normal">All PnL</th>
+            </tr>
+          </thead>
+          <tbody>
+            {testers.map((t, i) => {
+              const running = !!t.settings?.is_running;
+              const style = (t.settings?.trading_style ?? "—").slice(0, 4);
+              const todayPos = t.today.pnl >= 0;
+              const allPos = t.realizedPnl >= 0;
+              const pfGood = Number.isFinite(t.profitFactor) && t.profitFactor > 1;
+              return (
+                <tr
+                  key={t.userId}
+                  className={`border-t cursor-pointer hover:bg-muted/40 ${i % 2 === 1 ? "bg-muted/20" : ""}`}
+                  onClick={() => {
+                    const el = document.getElementById(`user-${t.userId.slice(0, 8)}`);
+                    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                >
+                  <td className="px-2 py-1.5 truncate max-w-[120px]">{maskEmail(t.email)}</td>
+                  <td className="px-2 py-1.5">{style}</td>
+                  <td className="px-2 py-1.5">
+                    <span className="inline-flex items-center gap-1">
+                      <span
+                        className={`size-1.5 rounded-full ${running ? "bg-emerald-500" : "bg-destructive"}`}
+                      />
+                      {running ? "" : <span className="text-muted-foreground">paused</span>}
+                    </span>
+                  </td>
+                  <td
+                    className={`px-2 py-1.5 text-right tabular-nums ${todayPos ? "text-emerald-500" : "text-destructive"}`}
+                  >
+                    {money(t.today.pnl)}
+                  </td>
+                  <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">
+                    {t.today.closed}c {t.today.open}o
+                  </td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">
+                    {fmt(t.today.winRate, 0)}%
+                  </td>
+                  <td
+                    className={`px-2 py-1.5 text-right tabular-nums ${pfGood ? "text-emerald-500" : "text-destructive"}`}
+                  >
+                    {fmt(t.profitFactor, 2)}
+                  </td>
+                  <td
+                    className={`px-2 py-1.5 text-right tabular-nums ${allPos ? "text-emerald-500" : "text-destructive"}`}
+                  >
+                    {money(t.realizedPnl)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
