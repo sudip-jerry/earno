@@ -486,19 +486,6 @@ function Home() {
       {/* ===== Personalized recommendations (RAG) ===== */}
       <RecommendationsPanel />
 
-      {/* ===== Quick actions ===== */}
-      <section className="px-5 mt-6">
-        <div className="grid grid-cols-3 gap-2.5">
-          <QuickAction to="/scanner" label="Scanner" icon={<Radar className="size-5" />} accent />
-          <QuickAction
-            to="/positions"
-            label="Positions"
-            icon={<Briefcase className="size-5" />}
-            badge={openCount > 0 ? openCount : undefined}
-          />
-          <QuickAction to="/bot" label="Bot Panel" icon={<BotIcon className="size-5" />} />
-        </div>
-      </section>
 
       {/* ===== Wealth Engine status ===== */}
       <section className="px-5 mt-5">
