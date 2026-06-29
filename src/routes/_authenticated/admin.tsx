@@ -27,6 +27,7 @@ import {
   adminUpdateUserConfig,
   adminCopyUserConfig,
 } from "@/lib/plans.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 import { PLAN_NAME, type PlanTier } from "@/lib/plans";
 
