@@ -391,9 +391,30 @@ export async function runCoinScanFor(
 }
 
 export async function runCoinScanAll(supabase: SupabaseClient) {
-  const { data: cfgs } = await supabase.from("coin_bot_config").select("*").eq("enabled", true);
+  const { data: cfgs } = await supabase
+    .from("coin_bot_config")
+    .select("*")
+    .eq("enabled", true);
+
+  const now = Date.now();
   const results: Array<{ user_id: string } & ScanResult> = [];
+
   for (const cfg of (cfgs ?? []) as CoinCfg[]) {
+    const intervalMs = Math.max(1, cfg.scan_interval_min ?? 5) * 60_000;
+    const { data: lastScanRow } = await supabase
+      .from("coin_bot_events")
+      .select("created_at")
+      .eq("user_id", cfg.user_id)
+      .eq("kind", "scan")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastScanRow?.created_at) {
+      const lastScanMs = new Date(lastScanRow.created_at).getTime();
+      if (now - lastScanMs < intervalMs) continue;
+    }
+
     try {
       const r = await runCoinScanFor(supabase, cfg.user_id, cfg);
       results.push({ user_id: cfg.user_id, ...r });
@@ -407,3 +428,29 @@ export async function runCoinScanAll(supabase: SupabaseClient) {
   }
   return { users: results.length, results };
 }
+
+/**
+ * Write a coin_bot_config_audit row for each changed field.
+ * Call this from adminUpdateCoinConfig in plans.functions.ts after applying a patch.
+ */
+export async function auditCoinConfigChange(
+  supabase: SupabaseClient,
+  userId: string,
+  oldCfg: Record<string, unknown>,
+  patch: Record<string, unknown>,
+  changedBy: "user" | "admin" | "system" = "admin",
+) {
+  const rows = Object.entries(patch)
+    .filter(([k, v]) => oldCfg[k] !== v)
+    .map(([field, newVal]) => ({
+      user_id: userId,
+      field,
+      old_value: oldCfg[field] != null ? String(oldCfg[field]) : null,
+      new_value: newVal != null ? String(newVal) : null,
+      changed_by: changedBy,
+    }));
+
+  if (rows.length === 0) return;
+  await supabase.from("coin_bot_config_audit").insert(rows);
+}
+
