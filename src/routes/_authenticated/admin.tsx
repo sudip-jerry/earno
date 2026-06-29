@@ -163,12 +163,15 @@ function AdminPage() {
         </Link>
       </header>
 
-      <section className="px-5 grid grid-cols-4 gap-2">
+      <section className="px-5 grid grid-cols-3 gap-2">
         <Tile label="Users" value={`${u.length}`} />
-        <Tile label="Paying" value={`${paying}`} />
         <Tile label="Bots on" value={`${activeBots}`} />
-        <Tile label="Trades/24h" value={`${totalTradesToday}`} />
+        <Tile label="Futures/24h" value={`${totalTradesToday}`} />
+        <Tile label="Coin trades/24h" value={`${coinTradesToday}`} />
+        <Tile label="Coin PnL today" value={`${coinPnlToday >= 0 ? "+" : ""}$${Math.abs(coinPnlToday).toFixed(2)}`} />
+        <Tile label="Paying" value={`${paying}`} />
       </section>
+
 
       <section className="px-5 mt-6">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
