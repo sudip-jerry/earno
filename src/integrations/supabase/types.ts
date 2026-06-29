@@ -416,6 +416,7 @@ export type Database = {
           mode: string
           scan_interval_min: number
           symbol_blocklist: string[]
+          trading_style: string
           universe_size: number
           updated_at: string
           user_id: string
@@ -431,6 +432,7 @@ export type Database = {
           mode?: string
           scan_interval_min?: number
           symbol_blocklist?: string[]
+          trading_style?: string
           universe_size?: number
           updated_at?: string
           user_id: string
@@ -446,8 +448,39 @@ export type Database = {
           mode?: string
           scan_interval_min?: number
           symbol_blocklist?: string[]
+          trading_style?: string
           universe_size?: number
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      coin_bot_events: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string | null
+          level: string
+          message: string
+          meta: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string | null
+          level?: string
+          message: string
+          meta?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string | null
+          level?: string
+          message?: string
+          meta?: Json | null
           user_id?: string
         }
         Relationships: []

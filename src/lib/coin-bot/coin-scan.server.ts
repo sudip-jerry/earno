@@ -18,6 +18,7 @@ export type CoinCfg = {
   user_id: string;
   enabled: boolean;
   mode: CoinMode;
+  trading_style?: string;
   allocated_capital_usdt: number;
   available_cash_usdt: number;
   max_holdings: number;
@@ -28,6 +29,28 @@ export type CoinCfg = {
   universe_size: number;
   symbol_blocklist?: string[];
 };
+
+async function logCoinEvent(
+  supabase: SupabaseClient,
+  userId: string,
+  level: "info" | "warn" | "error",
+  kind: string,
+  message: string,
+  meta?: Record<string, unknown>,
+) {
+  try {
+    await supabase.from("coin_bot_events").insert({
+      user_id: userId,
+      level,
+      kind,
+      message,
+      meta: meta ?? {},
+    });
+  } catch {
+    // never throw from logging
+  }
+}
+
 
 export type ScanResult =
   | {
@@ -49,8 +72,10 @@ export async function runCoinScanFor(
   try {
     tickers = await fetchFuturesTickers();
   } catch {
+    await logCoinEvent(supabase, userId, "error", "scan_error", "Public market data unavailable");
     return { ok: false, error: "Public market data unavailable" };
   }
+
 
   const universe = tickers
     .filter((t) => t.symbol.endsWith("_USDT"))
@@ -132,6 +157,21 @@ export async function runCoinScanFor(
     await supabase.from("coin_signals").insert(signalsToInsert);
   }
 
+  await logCoinEvent(
+    supabase,
+    userId,
+    "info",
+    "scan",
+    `Scan complete: ${universe.length} coins, ${signalsToInsert.length} signals`,
+    {
+      scanned: universe.length,
+      signals: signalsToInsert.length,
+      mode: cfg.mode,
+      trading_style: cfg.trading_style,
+    },
+  );
+
+
   // Auto-close on sell signals for held symbols
   let autoClosed = 0;
   let cashDelta = 0;
@@ -161,7 +201,21 @@ export async function runCoinScanFor(
       .eq("id", row.id);
     cashDelta += proceeds;
     autoClosed += 1;
+    await logCoinEvent(
+      supabase,
+      userId,
+      "info",
+      "auto_sell",
+      `Auto-sold ${row.symbol} · reason: ${sig.reason_short} · realized: ${realized.toFixed(4)} USDT`,
+      {
+        symbol: row.symbol,
+        realized_pnl_usdt: realized,
+        exit_reason: sig.reason_short,
+        price: sig.price,
+      },
+    );
   }
+
 
   // Auto-open buys
   let autoOpened = 0;
@@ -183,7 +237,17 @@ export async function runCoinScanFor(
 
     let cash = Number(cfg.available_cash_usdt) + cashDelta;
     for (const s of buys.slice(0, slots)) {
-      if (cash < perTradeUsdt) break;
+      if (cash < perTradeUsdt) {
+        await logCoinEvent(
+          supabase,
+          userId,
+          "warn",
+          "skip",
+          `Skipped ${s.symbol}: insufficient cash (${cash.toFixed(2)} < ${perTradeUsdt.toFixed(2)} USDT)`,
+          { symbol: s.symbol, available_cash: cash, required: perTradeUsdt },
+        );
+        break;
+      }
       const qty = perTradeUsdt / Number(s.price);
       const maxHoldUntil =
         cfg.mode === "swing"
@@ -209,7 +273,23 @@ export async function runCoinScanFor(
       cash -= perTradeUsdt;
       cashDelta -= perTradeUsdt;
       autoOpened += 1;
+      await logCoinEvent(
+        supabase,
+        userId,
+        "info",
+        "auto_buy",
+        `Auto-bought ${s.symbol} · ${qty.toFixed(6)} units @ ${s.price} · invested: ${perTradeUsdt.toFixed(2)} USDT`,
+        {
+          symbol: s.symbol,
+          qty,
+          price: s.price,
+          invested_usdt: perTradeUsdt,
+          confidence: s.confidence,
+          mode: cfg.mode,
+        },
+      );
     }
+
   }
 
   if (cashDelta !== 0) {

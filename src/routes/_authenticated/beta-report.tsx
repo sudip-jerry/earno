@@ -13,13 +13,14 @@ import {
   exportSignalsCsv,
   exportAlgoConfigsCsv,
   exportAlgoAuditCsv,
+  adminGetCoinStats,
   type TesterReport,
   type TuneSuggestion,
   type TuningAction,
   type BucketComparison,
   type BucketStats,
 } from "@/lib/beta-report.functions";
-import { adminListCoinPositions, adminListCoinConfigs } from "@/lib/plans.functions";
+
 
 
 function downloadCsv(filename: string, csv: string) {
@@ -66,8 +67,7 @@ function BetaReportPage() {
   const entFn = useServerFn(getMyEntitlements);
   const reportFn = useServerFn(getBetaReport);
   const applyFn = useServerFn(adminApplyTune);
-  const listCoinPosFn = useServerFn(adminListCoinPositions);
-  const listCoinCfgFn = useServerFn(adminListCoinConfigs);
+  const coinFn = useServerFn(adminGetCoinStats);
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
   const rep = useQuery({
@@ -77,18 +77,13 @@ function BetaReportPage() {
     refetchInterval: 60_000,
   });
 
-  const coinStats = useQuery({
-    queryKey: ["beta_coin_stats"],
-    queryFn: () => listCoinPosFn({ data: { sinceHours: 7 * 24 } }),
+  const coinReport = useQuery({
+    queryKey: ["beta_coin_report"],
+    queryFn: () => coinFn(),
     enabled: !!ent.data?.isAdmin,
     refetchInterval: 60_000,
   });
 
-  const coinCfg = useQuery({
-    queryKey: ["beta_coin_cfg"],
-    queryFn: () => listCoinCfgFn(),
-    enabled: !!ent.data?.isAdmin,
-  });
 
   const apply = useMutation({
     mutationFn: (v: { userId: string; patch: TuneSuggestion["patch"] }) =>
@@ -140,8 +135,9 @@ function BetaReportPage() {
           <section className="px-5 mb-3">
             <UserStatusGrid
               testers={testers}
-              coinCfgs={coinCfg.data ?? []}
-              coinData={coinStats.data ?? []}
+              coinCfgs={coinReport.data?.configs ?? []}
+              coinData={coinReport.data?.positions ?? []}
+
             />
           </section>
 
