@@ -536,8 +536,19 @@ export async function runAutoBookPass(
     const planDailyLimit = AUTO_PLAN_DAILY_LIMIT[planTier];
 
     // Daily loss cap check.
-    const startOfDay = new Date();
-    startOfDay.setUTCHours(0, 0, 0, 0);
+    // IST = UTC+5:30. IST midnight = UTC 18:30 the previous day.
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // 5h30m in ms
+    const istNow = new Date(now.getTime() + istOffset);
+    const istMidnight = new Date(
+      Date.UTC(
+        istNow.getUTCFullYear(),
+        istNow.getUTCMonth(),
+        istNow.getUTCDate(),
+        0, 0, 0, 0
+      ) - istOffset
+    );
+    const startOfDay = istMidnight;
     const { data: todayPos } = await supabase
       .from("positions")
       .select("pnl,status,opened_at,exchange_order_id")
