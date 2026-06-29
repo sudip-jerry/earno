@@ -363,7 +363,9 @@ export async function runCoinScanFor(
         );
         break;
       }
-      const qty = perTradeUsdt / Number(s.price);
+      const buyFee = perTradeUsdt * 0.001;
+      const investedAfterFee = perTradeUsdt - buyFee;
+      const qty = investedAfterFee / Number(s.price);
       const maxHoldUntil =
         cfg.mode === "swing"
           ? new Date(Date.now() + cfg.max_holding_days * 24 * 60 * 60 * 1000).toISOString()
