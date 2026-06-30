@@ -796,8 +796,8 @@ export async function runAutoBookPass(
         // Counter-trend requires much stronger confirmation
         const counterTrendFloor =
           style === "aggressive" ? 92 :
-          style === "conservative" ? 96 :
-          94; // balanced
+          style === "conservative" ? 93 :
+          91; // balanced
 
         // Neutral: no clear trend, require base confidence + small premium
         const neutralFloor =
