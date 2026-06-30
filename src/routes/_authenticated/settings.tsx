@@ -11,6 +11,7 @@ import {
   getWalletBalances,
 } from "@/lib/bot.functions";
 import { getMyEntitlements } from "@/lib/plans.functions";
+import { getCoinConfig, updateCoinConfig } from "@/lib/coin-bot/coin-bot.functions";
 import { PLAN_NAME, type PlanTier } from "@/lib/plans";
 import { AppVersionDialog } from "@/components/AppVersionDialog";
 import { Button } from "@/components/ui/button";
