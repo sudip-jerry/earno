@@ -465,6 +465,18 @@ export async function runAutoBookPass(
     globalHardSlCount.set(sym, (globalHardSlCount.get(sym) ?? 0) + 1);
   }
 
+  const { data: floorRows } = await supabase
+    .from("regime_confidence_floors")
+    .select("trading_style, with_trend_floor, counter_trend_floor, neutral_floor_offset");
+  const regimeFloorsByStyle = new Map(
+    (floorRows ?? []).map((r) => [r.trading_style, r]),
+  );
+  const DEFAULT_REGIME_FLOORS = {
+    with_trend_floor: 88,
+    counter_trend_floor: 91,
+    neutral_floor_offset: 1,
+  };
+
   for (const cfg of users) {
     let opened = 0;
     let skipped = 0;
@@ -787,23 +799,11 @@ export async function runAutoBookPass(
         const conf = a.confidence_pct;
         const style = (cfg.trading_style ?? "balanced").toLowerCase();
 
-        // Base floor per style (with-trend direction)
-        const withTrendFloor =
-          style === "aggressive" ? 85 :
-          style === "conservative" ? 92 :
-          88; // balanced default
-
-        // Counter-trend requires much stronger confirmation
-        const counterTrendFloor =
-          style === "aggressive" ? 92 :
-          style === "conservative" ? 93 :
-          91; // balanced
-
-        // Neutral: no clear trend, require base confidence + small premium
-        const neutralFloor =
-          style === "aggressive" ? autoConfThreshold :
-          style === "conservative" ? autoConfThreshold + 3 :
-          autoConfThreshold + 1;
+        // DB-backed floors per style (with-trend, counter-trend, neutral offset)
+        const floors = regimeFloorsByStyle.get(style) ?? DEFAULT_REGIME_FLOORS;
+        const withTrendFloor = floors.with_trend_floor;
+        const counterTrendFloor = floors.counter_trend_floor;
+        const neutralFloor = autoConfThreshold + floors.neutral_floor_offset;
 
         let regimeFloor: number | null = null;
         let regimeReason: string | null = null;
