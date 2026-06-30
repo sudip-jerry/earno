@@ -1566,22 +1566,29 @@ export async function runMarkPass(
     } else if (hitTrail) {
       finalExitReason = "trailing_exit";
     } else if (hitProfitFade) {
-      if (feeAwareEnabled && (grossPctPrice < minGrossFadePct || netPctPrice < minNetExitPct)) {
+      const isActuallyLosing = grossPctPrice < 0;
+      if (!isActuallyLosing && feeAwareEnabled && (grossPctPrice < minGrossFadePct || netPctPrice < minNetExitPct)) {
         originalExitReason = "profit_fade_exit";
         exitBlockedReason = "fee_blocked_profit_fade";
       } else {
         finalExitReason = "profit_fade_exit";
       }
+
     } else if (hitPreTp1FailedMomentum) {
       finalExitReason = "profit_fade_exit";
       exitProtectionReason = "pre_tp1_failed_momentum";
     } else if (weakNegative) {
-      if (feeAwareEnabled && (grossPctPrice < minGrossWeakPct || netPctPrice < minNetExitPct)) {
+      // Fee-blocking must only delay exits on a small PROFIT that fees would erase.
+      // Never delay an exit on a position that is already at a loss — that traps
+      // a deteriorating trade open while the loss grows toward full stop loss.
+      const isActuallyLosing = grossPctPrice < 0;
+      if (!isActuallyLosing && feeAwareEnabled && (grossPctPrice < minGrossWeakPct || netPctPrice < minNetExitPct)) {
         originalExitReason = "weak_progress_time_exit";
         exitBlockedReason = "fee_blocked_weak_progress";
       } else {
         finalExitReason = "weak_progress_time_exit";
       }
+
     } else if (hitTimeExit) {
       finalExitReason = "time_exit";
     }
