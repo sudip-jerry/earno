@@ -465,6 +465,18 @@ export async function runAutoBookPass(
     globalHardSlCount.set(sym, (globalHardSlCount.get(sym) ?? 0) + 1);
   }
 
+  const { data: floorRows } = await supabase
+    .from("regime_confidence_floors")
+    .select("trading_style, with_trend_floor, counter_trend_floor, neutral_floor_offset");
+  const regimeFloorsByStyle = new Map(
+    (floorRows ?? []).map((r) => [r.trading_style, r]),
+  );
+  const DEFAULT_REGIME_FLOORS = {
+    with_trend_floor: 88,
+    counter_trend_floor: 91,
+    neutral_floor_offset: 1,
+  };
+
   for (const cfg of users) {
     let opened = 0;
     let skipped = 0;
