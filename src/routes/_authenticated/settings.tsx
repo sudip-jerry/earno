@@ -11,6 +11,7 @@ import {
   getWalletBalances,
 } from "@/lib/bot.functions";
 import { getMyEntitlements } from "@/lib/plans.functions";
+import { getCoinConfig, updateCoinConfig } from "@/lib/coin-bot/coin-bot.functions";
 import { PLAN_NAME, type PlanTier } from "@/lib/plans";
 import { AppVersionDialog } from "@/components/AppVersionDialog";
 import { Button } from "@/components/ui/button";
@@ -1396,29 +1397,30 @@ function AccountRow({
 
 function CoinLiveModeToggle({ hasCreds }: { hasCreds: boolean }) {
   const qc = useQueryClient();
+  const getCfgFn = useServerFn(getCoinConfig);
+  const updCfgFn = useServerFn(updateCoinConfig);
   const coinCfg = useQuery({
     queryKey: ["coin_bot_cfg_mode"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("coin_bot_config")
-        .select("live_mode, mode, allocated_capital_usdt")
-        .maybeSingle();
-      return data;
-    },
+    queryFn: () => getCfgFn(),
   });
 
   const toggle = useMutation({
     mutationFn: async (live: boolean) => {
-      const { error } = await supabase
-        .from("coin_bot_config")
-        .update({ live_mode: live });
-      if (error) throw error;
+      await updCfgFn({ data: { live_mode: live } });
     },
     onSuccess: (_, live) => {
       toast.success(live ? "Coin bot switched to LIVE — real spot orders will be placed" : "Coin bot switched to Paper");
       qc.invalidateQueries({ queryKey: ["coin_bot_cfg_mode"] });
+      qc.invalidateQueries({ queryKey: ["coin_cfg"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    onError: (e) => {
+      const msg = e instanceof Error ? e.message : "Failed";
+      if (msg.startsWith("PAYMENT_REQUIRED:")) {
+        toast.error(msg.replace("PAYMENT_REQUIRED:", "").trim());
+      } else {
+        toast.error(msg);
+      }
+    },
   });
 
   const isLive = (coinCfg.data as { live_mode?: boolean } | null)?.live_mode ?? false;

@@ -22,6 +22,7 @@ type CoinConfigRow = {
   scan_interval_min: number;
   max_holding_days: number;
   universe_size: number;
+  live_mode?: boolean;
 };
 
 const DEFAULT_CFG: Omit<CoinConfigRow, "user_id"> = {
@@ -68,12 +69,29 @@ export const updateCoinConfig = createServerFn({ method: "POST" })
         scan_interval_min: z.number().int().min(1).max(1440).optional(),
         max_holding_days: z.number().int().min(1).max(365).optional(),
         universe_size: z.number().int().min(1).max(500).optional(),
+        live_mode: z.boolean().optional(),
       })
       .strict()
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     await ensureConfig(context);
+
+    // Gate live_mode behind plan tier — mirrors futures updateConfig.
+    if (data.live_mode === true) {
+      const [{ data: tier }, { data: settings }] = await Promise.all([
+        context.supabase.rpc("current_plan_tier", { _user_id: context.userId }),
+        context.supabase.from("app_settings").select("paywall_enabled").eq("id", 1).maybeSingle(),
+      ]);
+      const paywall = settings?.paywall_enabled ?? true;
+      const allowed = tier === "auto5" || tier === "unlimited";
+      if (paywall && !allowed) {
+        throw new Error(
+          "PAYMENT_REQUIRED: Upgrade to Auto-Trader or Unlimited to enable Coin bot live mode.",
+        );
+      }
+    }
+
     const patch: Partial<Omit<CoinConfigRow, "user_id">> = {};
     if (data.enabled !== undefined) patch.enabled = data.enabled;
     if (data.mode !== undefined) patch.mode = data.mode;
@@ -86,6 +104,7 @@ export const updateCoinConfig = createServerFn({ method: "POST" })
     if (data.scan_interval_min !== undefined) patch.scan_interval_min = data.scan_interval_min;
     if (data.max_holding_days !== undefined) patch.max_holding_days = data.max_holding_days;
     if (data.universe_size !== undefined) patch.universe_size = data.universe_size;
+    if (data.live_mode !== undefined) patch.live_mode = data.live_mode;
     if (Object.keys(patch).length) {
       await context.supabase.from("coin_bot_config").update(patch).eq("user_id", context.userId);
     }

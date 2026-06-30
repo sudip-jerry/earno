@@ -70,6 +70,28 @@ export async function runCoinScanFor(
   userId: string,
   cfg: CoinCfg,
 ): Promise<ScanResult> {
+  // Defence-in-depth: if live_mode is on, verify the user still has a plan
+  // tier that allows live execution. If not, force-disable live and run paper.
+  if (cfg.live_mode) {
+    try {
+      const [{ data: tier }, { data: settings }] = await Promise.all([
+        supabase.rpc("current_plan_tier", { _user_id: userId }),
+        supabase.from("app_settings").select("paywall_enabled").eq("id", 1).maybeSingle(),
+      ]);
+      const paywall = (settings as { paywall_enabled?: boolean } | null)?.paywall_enabled ?? true;
+      const allowed = tier === "auto5" || tier === "unlimited";
+      if (paywall && !allowed) {
+        await supabase.from("coin_bot_config").update({ live_mode: false }).eq("user_id", userId);
+        await logCoinEvent(supabase, userId, "warn", "live_mode_disabled",
+          "Coin bot live mode disabled: current plan does not allow live trading.");
+        cfg = { ...cfg, live_mode: false };
+      }
+    } catch {
+      // If the check itself fails, fall back to paper for safety.
+      cfg = { ...cfg, live_mode: false };
+    }
+  }
+
   let tickers: NormalizedTicker[] = [];
   try {
     tickers = await fetchFuturesTickers();
