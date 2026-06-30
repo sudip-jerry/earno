@@ -1062,6 +1062,30 @@ export type Database = {
         }
         Relationships: []
       }
+      regime_confidence_floors: {
+        Row: {
+          counter_trend_floor: number
+          neutral_floor_offset: number
+          trading_style: string
+          updated_at: string
+          with_trend_floor: number
+        }
+        Insert: {
+          counter_trend_floor: number
+          neutral_floor_offset?: number
+          trading_style: string
+          updated_at?: string
+          with_trend_floor: number
+        }
+        Update: {
+          counter_trend_floor?: number
+          neutral_floor_offset?: number
+          trading_style?: string
+          updated_at?: string
+          with_trend_floor?: number
+        }
+        Relationships: []
+      }
       user_plans: {
         Row: {
           expires_at: string | null
