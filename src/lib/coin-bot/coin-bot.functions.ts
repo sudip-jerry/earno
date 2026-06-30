@@ -22,6 +22,7 @@ type CoinConfigRow = {
   scan_interval_min: number;
   max_holding_days: number;
   universe_size: number;
+  live_mode?: boolean;
 };
 
 const DEFAULT_CFG: Omit<CoinConfigRow, "user_id"> = {
