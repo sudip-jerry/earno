@@ -91,7 +91,7 @@ export const updateCoinConfig = createServerFn({ method: "POST" })
       }
     }
 
-    const patch: Record<string, unknown> = {};
+    const patch: Partial<CoinConfigRow> & { live_mode?: boolean } = {};
     if (data.enabled !== undefined) patch.enabled = data.enabled;
     if (data.mode !== undefined) patch.mode = data.mode;
     if (data.allocated_capital_usdt !== undefined)
