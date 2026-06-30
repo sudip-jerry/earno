@@ -799,23 +799,11 @@ export async function runAutoBookPass(
         const conf = a.confidence_pct;
         const style = (cfg.trading_style ?? "balanced").toLowerCase();
 
-        // Base floor per style (with-trend direction)
-        const withTrendFloor =
-          style === "aggressive" ? 85 :
-          style === "conservative" ? 92 :
-          88; // balanced default
-
-        // Counter-trend requires much stronger confirmation
-        const counterTrendFloor =
-          style === "aggressive" ? 92 :
-          style === "conservative" ? 93 :
-          91; // balanced
-
-        // Neutral: no clear trend, require base confidence + small premium
-        const neutralFloor =
-          style === "aggressive" ? autoConfThreshold :
-          style === "conservative" ? autoConfThreshold + 3 :
-          autoConfThreshold + 1;
+        // DB-backed floors per style (with-trend, counter-trend, neutral offset)
+        const floors = regimeFloorsByStyle.get(style) ?? DEFAULT_REGIME_FLOORS;
+        const withTrendFloor = floors.with_trend_floor;
+        const counterTrendFloor = floors.counter_trend_floor;
+        const neutralFloor = autoConfThreshold + floors.neutral_floor_offset;
 
         let regimeFloor: number | null = null;
         let regimeReason: string | null = null;
