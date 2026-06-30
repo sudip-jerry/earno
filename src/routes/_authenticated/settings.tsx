@@ -1397,7 +1397,6 @@ function AccountRow({
 
 function CoinLiveModeToggle({ hasCreds }: { hasCreds: boolean }) {
   const qc = useQueryClient();
-  const { getCoinConfig, updateCoinConfig } = require("@/lib/coin-bot/coin-bot.functions") as typeof import("@/lib/coin-bot/coin-bot.functions");
   const getCfgFn = useServerFn(getCoinConfig);
   const updCfgFn = useServerFn(updateCoinConfig);
   const coinCfg = useQuery({
