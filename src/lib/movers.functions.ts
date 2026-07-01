@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { atrPctFromCandles } from "@/lib/risk-engine";
+import { atrPctFromCandles, tp1PriceFor } from "@/lib/risk-engine";
 import { resolveInterval, aggregateCandles } from "@/lib/candle-aggregator";
 
 export type Bias = "long" | "short" | "wait";
@@ -800,6 +800,8 @@ export const bookManualTrade = createServerFn({ method: "POST" })
     const stop_loss = data.side === "long" ? data.price * (1 - sl / 100) : data.price * (1 + sl / 100);
     const take_profit = data.side === "long" ? data.price * (1 + tp / 100) : data.price * (1 - tp / 100);
 
+    // TP1 partial-profit — clamp to 60% of TP, same as auto-book
+    const tp1PctRaw = Math.min(style.tp1Pct, Math.max(0.1, tp * 0.6));
 
     const instrument = data.market === "spot" ? "spot" : "futures";
     const { error } = await supabaseAdmin.from("positions").insert({
@@ -813,6 +815,19 @@ export const bookManualTrade = createServerFn({ method: "POST" })
       mark_price: data.price,
       stop_loss,
       take_profit,
+      tp1_price: tp1PriceFor(data.price, tp1PctRaw, data.side),
+      tp1_pct: tp1PctRaw,
+      tp1_hit: false,
+      remaining_qty: qty,
+      tp1_qty_closed: 0,
+      trail_pct: style.trailPct,
+      breakeven_moved: false,
+      final_tp_hit: false,
+      peak_unrealized_pnl_pct: 0,
+      max_favourable_excursion_pct: 0,
+      max_adverse_excursion_pct: 0,
+      highest_unrealized_pnl: 0,
+      lowest_unrealized_pnl: 0,
       pnl: 0,
       pnl_pct: 0,
       status: "open",
