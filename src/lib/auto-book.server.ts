@@ -1222,6 +1222,11 @@ export async function runAutoBookPass(
               spread_pct_at_entry: a.spread_pct,
               distance_from_vwap_pct_at_entry: a.distance_from_vwap_pct,
               distance_from_ema21_pct_at_entry: a.distance_from_ema21_pct,
+              entry_candle_pct: entryCandlePct,
+              entry_candle_aligned: entryCandleAligned,
+              symbol_1h_trend: symbol1hTrend,
+              signal_age_seconds: signalAgeSeconds,
+
               // New exit-management fields:
               tp1_price,
               tp1_pct: tp1PctRaw,
