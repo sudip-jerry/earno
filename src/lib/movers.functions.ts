@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { atrPctFromCandles } from "@/lib/risk-engine";
+import { atrPctFromCandles, tp1PriceFor } from "@/lib/risk-engine";
 import { resolveInterval, aggregateCandles } from "@/lib/candle-aggregator";
 
 export type Bias = "long" | "short" | "wait";
