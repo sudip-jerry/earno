@@ -23,6 +23,7 @@ import {
 } from "@/lib/signal-scoring.server";
 import { feeModelRates, DEFAULT_FEE_MODEL } from "@/lib/fees";
 import { classifySetup } from "@/lib/futures/setup-classifier";
+import { isGloballyBlacklisted } from "@/lib/global-symbol-blacklist";
 import { getBackendStrategyPolicy } from "@/lib/futures/strategy-policy";
 import { evaluateTradeEligibility } from "@/lib/futures/trade-eligibility";
 import { loadLiveCreds, placeLiveEntry, placeLiveExit } from "@/lib/futures/live-execution.server";
@@ -715,7 +716,10 @@ export async function runAutoBookPass(
       let rejection: string | null = null;
       let final: string = "skip";
 
-      if (blockedSymbols.has(sym.toUpperCase())) {
+      if (isGloballyBlacklisted(sym)) {
+        rejection = "Symbol on platform blacklist";
+        final = "skip";
+      } else if (blockedSymbols.has(sym.toUpperCase())) {
         rejection = "Symbol on user blocklist";
         final = "skip";
       } else if (

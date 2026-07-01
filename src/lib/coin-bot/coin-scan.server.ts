@@ -11,6 +11,7 @@ import {
   type NormalizedTicker,
 } from "@/services/coindcxPublicApi";
 import { scoreCoin } from "./scorer";
+import { isGloballyBlacklisted } from "@/lib/global-symbol-blacklist";
 
 export type CoinMode = "intraday" | "swing";
 
@@ -154,6 +155,8 @@ export async function runCoinScanFor(
   const universe = tickers
     .filter((t) => {
       if (!t.symbol.endsWith("_USDT")) return false;
+      // Platform-wide blacklist (e.g. NFP) — never trade regardless of config.
+      if (isGloballyBlacklisted(t.symbol)) return false;
       if (t.volume24h < MIN_VOLUME_USDT) return false;
       if (statusFilterEnabled && !activeSymbols.has(t.symbol)) return false;
       // Runtime "dead symbol" filter — works even when market_details is unavailable.
