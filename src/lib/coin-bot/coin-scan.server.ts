@@ -53,6 +53,39 @@ async function logCoinEvent(
   }
 }
 
+/**
+ * Detects exchange error strings that mean "this market is not tradeable".
+ * Used to auto-mark a symbol inactive in coin_universe so no user's scanner
+ * tries to trade it again until market_details flips it back to active.
+ */
+function isDelistedError(err: string | undefined | null): boolean {
+  if (!err) return false;
+  const e = err.toLowerCase();
+  return (
+    e.includes("inactive") ||
+    e.includes("invalid market") ||
+    e.includes("market not found") ||
+    e.includes("not tradeable") ||
+    e.includes("not tradable") ||
+    e.includes("suspended") ||
+    e.includes("delisted") ||
+    e.includes("market status")
+  );
+}
+
+async function markSymbolInactive(supabase: SupabaseClient, symbol: string) {
+  try {
+    await supabase.from("coin_universe").upsert(
+      { symbol, status: "inactive", updated_at: new Date().toISOString() },
+      { onConflict: "symbol" },
+    );
+  } catch {
+    // never throw from housekeeping
+  }
+}
+
+
+
 
 export type ScanResult =
   | {
@@ -105,6 +138,9 @@ export async function runCoinScanFor(
   // near-zero-liquidity coins that may still appear in the ticker feed
   // but cannot be reliably traded. $50,000 USDT is a conservative floor.
   const MIN_VOLUME_USDT = 50_000;
+  // Any symbol with a wider bid/ask spread than this is either dead or
+  // has such thin liquidity that market orders will slip badly. Skip.
+  const MAX_SPREAD_PCT = 1.5;
 
   // Load active symbols from coin_universe (nightly cached, zero API overhead)
   // Falls back to no filter if table is empty (first run before nightly cron fires)
@@ -116,13 +152,25 @@ export async function runCoinScanFor(
   const statusFilterEnabled = activeSymbols.size > 0;
 
   const universe = tickers
-    .filter((t) =>
-      t.symbol.endsWith("_USDT") &&
-      t.volume24h >= MIN_VOLUME_USDT &&
-      (!statusFilterEnabled || activeSymbols.has(t.symbol))
-    )
+    .filter((t) => {
+      if (!t.symbol.endsWith("_USDT")) return false;
+      if (t.volume24h < MIN_VOLUME_USDT) return false;
+      if (statusFilterEnabled && !activeSymbols.has(t.symbol)) return false;
+      // Runtime "dead symbol" filter — works even when market_details is unavailable.
+      // A live trading pair always has some price movement over 24h; a symbol with
+      // exactly 0.0% change AND tiny volume is delisted/frozen even if the ticker
+      // feed still returns a last price.
+      if (t.change24hPct === 0 && t.volume24h < 500_000) return false;
+      // Wide spread = illiquid or halted. Skip if bid/ask are available.
+      if (t.spreadPct != null && t.spreadPct > MAX_SPREAD_PCT) return false;
+      // Missing bid/ask on high-volume names is fine (feed sometimes omits them);
+      // but missing bid/ask AND low-ish volume is a delisting signature.
+      if (t.bid == null && t.ask == null && t.volume24h < 200_000) return false;
+      return true;
+    })
     .sort((a, b) => b.volume24h - a.volume24h)
     .slice(0, Math.max(10, Math.min(150, cfg.universe_size)));
+
 
   const { data: openRows } = await supabase
     .from("coin_positions")
@@ -565,6 +613,12 @@ export async function runCoinScanFor(
             await logCoinEvent(supabase, userId, "error", "live_buy_failed",
               `Live buy failed for ${s.symbol}: ${exec.error}`,
               { symbol: s.symbol, error: exec.error });
+            if (isDelistedError(exec.error)) {
+              await markSymbolInactive(supabase, s.symbol);
+              await logCoinEvent(supabase, userId, "warn", "symbol_auto_inactive",
+                `Auto-marked ${s.symbol} inactive after live-buy rejection: ${exec.error}`,
+                { symbol: s.symbol, error: exec.error });
+            }
           } else {
             await logCoinEvent(supabase, userId, "info", "live_buy",
               `Live buy placed for ${s.symbol} · order: ${exec.orderId}`,
