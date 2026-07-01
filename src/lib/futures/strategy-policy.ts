@@ -25,16 +25,12 @@ function resolveRiskProfile(raw: string | null | undefined): RiskProfile {
 }
 
 function resolveAllowedSetups(
-  raw: string | null | undefined,
+  _raw: string | null | undefined,
 ): BackendStrategyPolicy["allowedSetups"] {
-  const s = String(raw ?? "").toLowerCase();
-  if (s.includes("pullback") || s.includes("vwap") || s.includes("mean")) {
-    return ["pullback"];
-  }
-  if (s.includes("momentum") || s.includes("trend") || s.includes("breakout")) {
-    return ["momentum"];
-  }
-  // Default / "auto" / unspecified strategies accept either side.
+  // Always accept both setup types. The strategy field is preserved in DB
+  // for future analytics segmentation but does not restrict signal eligibility.
+  // Beginners do not choose strategies — the system accepts the best signal
+  // regardless of whether it classifies as momentum or pullback.
   return ["momentum", "pullback"];
 }
 
