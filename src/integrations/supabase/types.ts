@@ -659,6 +659,30 @@ export type Database = {
         }
         Relationships: []
       }
+      coin_universe: {
+        Row: {
+          max_quantity: number | null
+          min_quantity: number | null
+          status: string
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          max_quantity?: number | null
+          min_quantity?: number | null
+          status?: string
+          symbol: string
+          updated_at?: string
+        }
+        Update: {
+          max_quantity?: number | null
+          min_quantity?: number | null
+          status?: string
+          symbol?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       coupon_redemptions: {
         Row: {
           coupon_id: string
