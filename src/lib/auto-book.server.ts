@@ -716,7 +716,10 @@ export async function runAutoBookPass(
       let rejection: string | null = null;
       let final: string = "skip";
 
-      if (blockedSymbols.has(sym.toUpperCase())) {
+      if (isGloballyBlacklisted(sym)) {
+        rejection = "Symbol on platform blacklist";
+        final = "skip";
+      } else if (blockedSymbols.has(sym.toUpperCase())) {
         rejection = "Symbol on user blocklist";
         final = "skip";
       } else if (
