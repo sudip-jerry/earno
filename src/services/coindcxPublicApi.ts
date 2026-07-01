@@ -175,7 +175,7 @@ export async function fetchActiveSpotSymbols(): Promise<Set<string>> {
       symbol?: string;
     };
     const raw = await getJSON<MarketDetail[]>(
-      "https://api.coindcx.com/exchange/v1/market_details",
+      "https://api.coindcx.com/exchange/v1/markets_details",
       6000,
     );
     if (!Array.isArray(raw)) return new Set();
