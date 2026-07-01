@@ -173,6 +173,8 @@ export async function fetchActiveSpotSymbols(): Promise<Set<string>> {
       pair?: string;
       status?: string;
       symbol?: string;
+      max_leverage?: number | null;
+      max_leverage_short?: number | null;
     };
     const raw = await getJSON<MarketDetail[]>(
       "https://api.coindcx.com/exchange/v1/markets_details",
@@ -183,7 +185,12 @@ export async function fetchActiveSpotSymbols(): Promise<Set<string>> {
     for (const m of raw) {
       const sym = m.pair ?? m.symbol ?? "";
       const status = (m.status ?? "").toLowerCase();
-      if (sym && status === "active") {
+      // Futures-enabled only: pairs with max_leverage 0/null are spot-only and cannot be
+      // traded as futures (e.g. B-NFP_USDT). Excluding them prevents the bot from picking
+      // spot-only symbols that will fail on live order placement.
+      const lev = Number(m.max_leverage ?? 0);
+      const levShort = Number(m.max_leverage_short ?? 0);
+      if (sym && status === "active" && (lev > 0 || levShort > 0)) {
         active.add(sym);
       }
     }
