@@ -478,6 +478,21 @@ export async function runAutoBookPass(
     neutral_floor_offset: 1,
   };
 
+  // Signal age tracker: earliest same-direction signal per symbol in last 2h (log-only analytics)
+  const { data: signalAgeRows } = await supabase
+    .from("bot_signals")
+    .select("symbol, side_bias, created_at")
+    .gte("created_at", new Date(Date.now() - 2 * 3600_000).toISOString())
+    .in("side_bias", ["long", "short"])
+    .order("created_at", { ascending: true });
+  const earliestSignalAt = new Map<string, number>();
+  for (const r of signalAgeRows ?? []) {
+    const key = `${r.symbol}|${r.side_bias}`;
+    if (!earliestSignalAt.has(key)) earliestSignalAt.set(key, new Date(r.created_at as string).getTime());
+  }
+
+
+
   for (const cfg of users) {
     let opened = 0;
     let skipped = 0;
