@@ -159,3 +159,37 @@ export async function fetchMultiTimeframe(pair: string): Promise<{
   ]);
   return { m1, m5, m30 };
 }
+
+/**
+ * Fetch the set of ACTIVE spot symbols from CoinDCX market_details endpoint.
+ * The market_details endpoint includes a `status` field: "active" or "inactive".
+ * Delisted or suspended coins appear as "inactive" — we filter them out.
+ * Returns a Set of symbol strings like "B-BTC_USDT".
+ * Falls back to an empty set (no filter applied) if the endpoint fails.
+ */
+export async function fetchActiveSpotSymbols(): Promise<Set<string>> {
+  try {
+    type MarketDetail = {
+      pair?: string;
+      status?: string;
+      symbol?: string;
+    };
+    const raw = await getJSON<MarketDetail[]>(
+      "https://api.coindcx.com/exchange/v1/market_details",
+      6000,
+    );
+    if (!Array.isArray(raw)) return new Set();
+    const active = new Set<string>();
+    for (const m of raw) {
+      const sym = m.pair ?? m.symbol ?? "";
+      const status = (m.status ?? "").toLowerCase();
+      if (sym && status === "active") {
+        active.add(sym);
+      }
+    }
+    return active;
+  } catch {
+    // If the endpoint fails, return empty set — caller treats empty as "no filter"
+    return new Set();
+  }
+}
