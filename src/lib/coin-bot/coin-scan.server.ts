@@ -106,11 +106,13 @@ export async function runCoinScanFor(
   // but cannot be reliably traded. $50,000 USDT is a conservative floor.
   const MIN_VOLUME_USDT = 50_000;
 
-  // Fetch active symbols from market_details — filters out inactive/delisted coins
-  // that still appear in the ticker feed with a price but cannot be traded.
-  // If the endpoint fails, activeSymbols is empty and the filter is skipped (fail-open).
-  const { fetchActiveSpotSymbols } = await import("@/services/coindcxPublicApi");
-  const activeSymbols = await fetchActiveSpotSymbols();
+  // Load active symbols from coin_universe (nightly cached, zero API overhead)
+  // Falls back to no filter if table is empty (first run before nightly cron fires)
+  const { data: universeRows } = await supabase
+    .from("coin_universe")
+    .select("symbol")
+    .eq("status", "active");
+  const activeSymbols = new Set((universeRows ?? []).map((r) => r.symbol as string));
   const statusFilterEnabled = activeSymbols.size > 0;
 
   const universe = tickers
