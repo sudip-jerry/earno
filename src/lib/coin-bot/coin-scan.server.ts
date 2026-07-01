@@ -101,8 +101,13 @@ export async function runCoinScanFor(
   }
 
 
+  // Minimum 24h volume threshold — filters out delisted, suspended, or
+  // near-zero-liquidity coins that may still appear in the ticker feed
+  // but cannot be reliably traded. $50,000 USDT is a conservative floor.
+  const MIN_VOLUME_USDT = 50_000;
+
   const universe = tickers
-    .filter((t) => t.symbol.endsWith("_USDT"))
+    .filter((t) => t.symbol.endsWith("_USDT") && t.volume24h >= MIN_VOLUME_USDT)
     .sort((a, b) => b.volume24h - a.volume24h)
     .slice(0, Math.max(10, Math.min(150, cfg.universe_size)));
 
