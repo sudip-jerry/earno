@@ -161,27 +161,46 @@ export async function fetchMultiTimeframe(pair: string): Promise<{
 }
 
 /**
- * Fetch the set of ACTIVE spot symbols from CoinDCX market_details endpoint.
- * The market_details endpoint includes a `status` field: "active" or "inactive".
- * Delisted or suspended coins appear as "inactive" — we filter them out.
- * Returns a Set of symbol strings like "B-BTC_USDT".
- * Falls back to an empty set (no filter applied) if the endpoint fails.
+ * Fetch the set of SPOT-tradeable USDT symbols from CoinDCX markets_details.
+ * This is the SPOT catalog (ecode "B", quoted in USDT). Consumed by the
+ * coin bot / spot scanner (coin_universe table).
+ *
+ * NOTE: This is NOT the futures list. The futures bot uses
+ * /exchange/v1/derivatives/futures/data/active_instruments if it ever needs
+ * a similar filter. Do not merge them into one call — a symbol can be
+ * futures-only (e.g. B-IN_USDT, B-O_USDT, B-BCH_USDT) or spot-only.
  */
 export async function fetchActiveSpotSymbols(): Promise<Set<string>> {
   try {
-    // Use the futures active_instruments endpoint — a plain JSON array of
-    // currently tradeable futures pairs (e.g. "B-BTC_USDT"). Delisted or
-    // paused futures are omitted entirely, so "not in list = not tradeable".
-    // The old markets_details endpoint is the SPOT catalog and includes
-    // spot-only coins that this bot can't trade as futures.
-    const raw = await getJSON<string[]>(
-      "https://api.coindcx.com/exchange/v1/derivatives/futures/data/active_instruments",
+    type MarketDetail = {
+      pair?: string;
+      status?: string;
+      symbol?: string;
+      ecode?: string;
+    };
+    const raw = await getJSON<MarketDetail[]>(
+      "https://api.coindcx.com/exchange/v1/markets_details",
       6000,
     );
     if (!Array.isArray(raw)) return new Set();
-    return new Set(raw.filter((s) => typeof s === "string" && s.endsWith("_USDT")));
+    const active = new Set<string>();
+    for (const m of raw) {
+      const pair = m.pair ?? "";
+      const status = (m.status ?? "").toLowerCase();
+      // Only Binance-sourced (ecode "B") USDT spot pairs — matches the
+      // symbol format the scanner and ticker feed use ("B-<base>_USDT").
+      if (
+        pair &&
+        status === "active" &&
+        m.ecode === "B" &&
+        pair.endsWith("_USDT")
+      ) {
+        active.add(pair);
+      }
+    }
+    return active;
   } catch {
-    // If the endpoint fails, return empty set — caller treats empty as "no filter"
+    // Fail-open: caller treats empty set as "no filter"
     return new Set();
   }
 }
