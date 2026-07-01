@@ -53,6 +53,39 @@ async function logCoinEvent(
   }
 }
 
+/**
+ * Detects exchange error strings that mean "this market is not tradeable".
+ * Used to auto-mark a symbol inactive in coin_universe so no user's scanner
+ * tries to trade it again until market_details flips it back to active.
+ */
+function isDelistedError(err: string | undefined | null): boolean {
+  if (!err) return false;
+  const e = err.toLowerCase();
+  return (
+    e.includes("inactive") ||
+    e.includes("invalid market") ||
+    e.includes("market not found") ||
+    e.includes("not tradeable") ||
+    e.includes("not tradable") ||
+    e.includes("suspended") ||
+    e.includes("delisted") ||
+    e.includes("market status")
+  );
+}
+
+async function markSymbolInactive(supabase: SupabaseClient, symbol: string) {
+  try {
+    await supabase.from("coin_universe").upsert(
+      { symbol, status: "inactive", updated_at: new Date().toISOString() },
+      { onConflict: "symbol" },
+    );
+  } catch {
+    // never throw from housekeeping
+  }
+}
+
+
+
 
 export type ScanResult =
   | {
