@@ -11,6 +11,7 @@ import {
   type NormalizedTicker,
 } from "@/services/coindcxPublicApi";
 import { scoreCoin } from "./scorer";
+import { isGloballyBlacklisted } from "@/lib/global-symbol-blacklist";
 
 export type CoinMode = "intraday" | "swing";
 
