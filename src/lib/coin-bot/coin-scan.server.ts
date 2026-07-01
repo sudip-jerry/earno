@@ -613,6 +613,12 @@ export async function runCoinScanFor(
             await logCoinEvent(supabase, userId, "error", "live_buy_failed",
               `Live buy failed for ${s.symbol}: ${exec.error}`,
               { symbol: s.symbol, error: exec.error });
+            if (isDelistedError(exec.error)) {
+              await markSymbolInactive(supabase, s.symbol);
+              await logCoinEvent(supabase, userId, "warn", "symbol_auto_inactive",
+                `Auto-marked ${s.symbol} inactive after live-buy rejection: ${exec.error}`,
+                { symbol: s.symbol, error: exec.error });
+            }
           } else {
             await logCoinEvent(supabase, userId, "info", "live_buy",
               `Live buy placed for ${s.symbol} · order: ${exec.orderId}`,
