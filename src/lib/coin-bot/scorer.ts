@@ -23,6 +23,8 @@ export type CoinScoreInput = {
   avgBuy?: number;
   /** caller mode */
   mode?: "intraday" | "swing";
+  h4?: Candle[];
+  d1?: Candle[];
   /** when true, held coins wait for a 30m reversal before early exit */
   holdUntilTrendReversal?: boolean;
 };
