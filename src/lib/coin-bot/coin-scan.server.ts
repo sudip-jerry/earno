@@ -149,6 +149,14 @@ export async function runCoinScanFor(
       batch.map(async (t) => {
         try {
           const { m1, m5, m30 } = await fetchMultiTimeframe(t.symbol);
+          let h4: import("@/services/coindcxPublicApi").Candle[] = [];
+          let d1: import("@/services/coindcxPublicApi").Candle[] = [];
+          if (cfg.mode === "swing") {
+            const { fetchH4DailyCandles } = await import("@/services/coindcxPublicApi");
+            const swing = await fetchH4DailyCandles(t.symbol).catch(() => ({ h4: [], d1: [] }));
+            h4 = swing.h4;
+            d1 = swing.d1;
+          }
           if (m5.length < 10 && m30.length < 10) return;
           const held = holdings.get(t.symbol);
           const score = scoreCoin({
@@ -160,6 +168,8 @@ export async function runCoinScanFor(
             m1,
             m5,
             m30,
+            h4,
+            d1,
             holding: !!held,
             avgBuy: held?.avg_buy_price,
             mode: cfg.mode,
