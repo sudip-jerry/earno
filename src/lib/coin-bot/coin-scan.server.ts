@@ -106,8 +106,19 @@ export async function runCoinScanFor(
   // but cannot be reliably traded. $50,000 USDT is a conservative floor.
   const MIN_VOLUME_USDT = 50_000;
 
+  // Fetch active symbols from market_details — filters out inactive/delisted coins
+  // that still appear in the ticker feed with a price but cannot be traded.
+  // If the endpoint fails, activeSymbols is empty and the filter is skipped (fail-open).
+  const { fetchActiveSpotSymbols } = await import("@/services/coindcxPublicApi");
+  const activeSymbols = await fetchActiveSpotSymbols();
+  const statusFilterEnabled = activeSymbols.size > 0;
+
   const universe = tickers
-    .filter((t) => t.symbol.endsWith("_USDT") && t.volume24h >= MIN_VOLUME_USDT)
+    .filter((t) =>
+      t.symbol.endsWith("_USDT") &&
+      t.volume24h >= MIN_VOLUME_USDT &&
+      (!statusFilterEnabled || activeSymbols.has(t.symbol))
+    )
     .sort((a, b) => b.volume24h - a.volume24h)
     .slice(0, Math.max(10, Math.min(150, cfg.universe_size)));
 
