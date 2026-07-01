@@ -186,7 +186,22 @@ export async function fetchActiveSpotSymbols(): Promise<Set<string>> {
       if (sym && status === "active") {
         active.add(sym);
       }
-    }
+}
+
+/**
+ * Fetch 4h and daily candles for swing mode scoring.
+ * Uses the same candle endpoint as fetchCandles but with h4 and 1d intervals.
+ */
+export async function fetchH4DailyCandles(pair: string): Promise<{
+  h4: Candle[];
+  d1: Candle[];
+}> {
+  const [h4, d1] = await Promise.all([
+    fetchCandles(pair, "4h", 30).catch(() => []),
+    fetchCandles(pair, "1d", 20).catch(() => []),
+  ]);
+  return { h4, d1 };
+}
     return active;
   } catch {
     // If the endpoint fails, return empty set — caller treats empty as "no filter"
