@@ -186,6 +186,12 @@ export async function fetchActiveSpotSymbols(): Promise<Set<string>> {
       if (sym && status === "active") {
         active.add(sym);
       }
+    }
+    return active;
+  } catch {
+    // If the endpoint fails, return empty set — caller treats empty as "no filter"
+    return new Set();
+  }
 }
 
 /**
@@ -202,9 +208,4 @@ export async function fetchH4DailyCandles(pair: string): Promise<{
   ]);
   return { h4, d1 };
 }
-    return active;
-  } catch {
-    // If the endpoint fails, return empty set — caller treats empty as "no filter"
-    return new Set();
-  }
-}
+
