@@ -53,11 +53,12 @@ function resolveMinSetupConfidence(profile: RiskProfile): number {
  * them at a higher confidence bar (enforced via minSetupConfidence).
  */
 function resolveAllowAmbiguous(
-  profile: RiskProfile,
-  allowed: BackendStrategyPolicy["allowedSetups"],
+  _profile: RiskProfile,
+  _allowed: BackendStrategyPolicy["allowedSetups"],
 ): boolean {
-  if (profile === "conservative") return false;
-  if (allowed.length === 1) return false;
+  // Setup classification (momentum/pullback/ambiguous) is analytics metadata only.
+  // Quality gating is handled upstream by confidence threshold and regime gate.
+  // Ambiguous setups at high confidence are valid trades — do not block them here.
   return true;
 }
 
