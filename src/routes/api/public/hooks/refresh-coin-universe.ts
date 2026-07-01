@@ -33,29 +33,31 @@ export const Route = createFileRoute("/api/public/hooks/refresh-coin-universe")(
         }
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { fetchActiveSpotSymbols, fetchFuturesTickers } = await import("@/services/coindcxPublicApi");
 
-          // Fetch all market statuses from CoinDCX market_details
-          type MarketDetail = { pair?: string; status?: string; min_quantity?: number; max_quantity?: number };
-          const raw = await fetch("https://api.coindcx.com/exchange/v1/market_details", {
-            headers: { accept: "application/json" },
-            signal: AbortSignal.timeout(10000),
-          });
-          if (!raw.ok) throw new Error(`market_details HTTP ${raw.status}`);
-          const markets = (await raw.json()) as MarketDetail[];
+          // Get active symbols from market_details (via existing helper that uses correct endpoint)
+          const activeSymbols = await fetchActiveSpotSymbols();
 
-          if (!Array.isArray(markets) || markets.length === 0) {
-            throw new Error("market_details returned empty or invalid response");
+          // Get all known USDT symbols from ticker feed
+          const tickers = await fetchFuturesTickers();
+          const allSymbols = tickers
+            .filter((t) => t.symbol.endsWith("_USDT"))
+            .map((t) => t.symbol);
+
+          if (allSymbols.length === 0) {
+            throw new Error("Ticker feed returned no symbols");
           }
 
-          const rows = markets
-            .filter((m) => m.pair && m.pair.endsWith("_USDT"))
-            .map((m) => ({
-              symbol: m.pair!,
-              status: (m.status ?? "active").toLowerCase(),
-              min_quantity: m.min_quantity ?? null,
-              max_quantity: m.max_quantity ?? null,
-              updated_at: new Date().toISOString(),
-            }));
+          // Build rows: active if in activeSymbols set, inactive otherwise
+          // If activeSymbols is empty (fetchActiveSpotSymbols failed), mark all as active (fail-open)
+          const failOpen = activeSymbols.size === 0;
+          const rows = allSymbols.map((symbol) => ({
+            symbol,
+            status: failOpen || activeSymbols.has(symbol) ? "active" : "inactive",
+            min_quantity: null,
+            max_quantity: null,
+            updated_at: new Date().toISOString(),
+          }));
 
           const BATCH = 200;
           for (let i = 0; i < rows.length; i += BATCH) {
@@ -65,8 +67,9 @@ export const Route = createFileRoute("/api/public/hooks/refresh-coin-universe")(
             if (error) throw error;
           }
 
-          console.log(`[refresh-coin-universe] upserted ${rows.length} symbols`);
-          return Response.json({ ok: true, upserted: rows.length });
+          console.log(`[refresh-coin-universe] upserted ${rows.length} symbols (${activeSymbols.size} active from market_details, failOpen=${failOpen})`);
+          return Response.json({ ok: true, upserted: rows.length, active: activeSymbols.size, fail_open: failOpen });
+
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           console.error("[refresh-coin-universe] failed", msg);
