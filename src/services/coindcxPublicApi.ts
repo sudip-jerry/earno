@@ -169,25 +169,17 @@ export async function fetchMultiTimeframe(pair: string): Promise<{
  */
 export async function fetchActiveSpotSymbols(): Promise<Set<string>> {
   try {
-    type MarketDetail = {
-      pair?: string;
-      status?: string;
-      symbol?: string;
-    };
-    const raw = await getJSON<MarketDetail[]>(
-      "https://api.coindcx.com/exchange/v1/markets_details",
+    // Use the futures active_instruments endpoint — a plain JSON array of
+    // currently tradeable futures pairs (e.g. "B-BTC_USDT"). Delisted or
+    // paused futures are omitted entirely, so "not in list = not tradeable".
+    // The old markets_details endpoint is the SPOT catalog and includes
+    // spot-only coins that this bot can't trade as futures.
+    const raw = await getJSON<string[]>(
+      "https://api.coindcx.com/exchange/v1/derivatives/futures/data/active_instruments",
       6000,
     );
     if (!Array.isArray(raw)) return new Set();
-    const active = new Set<string>();
-    for (const m of raw) {
-      const sym = m.pair ?? m.symbol ?? "";
-      const status = (m.status ?? "").toLowerCase();
-      if (sym && status === "active") {
-        active.add(sym);
-      }
-    }
-    return active;
+    return new Set(raw.filter((s) => typeof s === "string" && s.endsWith("_USDT")));
   } catch {
     // If the endpoint fails, return empty set — caller treats empty as "no filter"
     return new Set();
