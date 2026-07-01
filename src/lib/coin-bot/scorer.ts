@@ -234,15 +234,27 @@ export function scoreCoin(input: CoinScoreInput): CoinScore {
             : "Holding, watching";
     }
   } else {
-    if (strongBullish && !overbought) {
+    if (swingBlocked) {
+      action = "wait";
+      confidence = 45;
+      reason =
+        swingTrendD1 === "down"
+          ? "Daily trend bearish, no swing entry"
+          : "Higher timeframes not aligned for swing";
+    } else if (strongBullish && !overbought) {
       action = "buy";
-      confidence = 82;
-      reason = "Strong uptrend with rising momentum and volume";
+      confidence = isSwing ? 88 : 82;
+      reason = isSwing
+        ? "Daily + 4h + 30m aligned, strong swing setup"
+        : "Strong uptrend with rising momentum and volume";
     } else if (bullish && !overbought) {
       action = "buy";
-      confidence = 70;
-      reason = "Uptrend with healthy momentum";
+      confidence = isSwing ? 75 : 70;
+      reason = isSwing
+        ? "Daily trend up, 4h confirms, swing entry"
+        : "Uptrend with healthy momentum";
     } else if (oversold && trend30 === "up") {
+
       action = "buy";
       confidence = 64;
       reason = "Pullback in uptrend, oversold bounce setup";
