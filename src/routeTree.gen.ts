@@ -27,6 +27,7 @@ import { Route as AuthenticatedBetaReportRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAlgoConfigRouteImport } from './routes/_authenticated/algo-config'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAboutRouteImport } from './routes/_authenticated/about'
+import { Route as ApiPublicHooksRefreshCoinUniverseRouteImport } from './routes/api/public/hooks/refresh-coin-universe'
 import { Route as ApiPublicHooksMarkPositionsRouteImport } from './routes/api/public/hooks/mark-positions'
 import { Route as ApiPublicHooksCoinScanRouteImport } from './routes/api/public/hooks/coin-scan'
 import { Route as ApiPublicHooksAutoBookRouteImport } from './routes/api/public/hooks/auto-book'
@@ -120,6 +121,12 @@ const AuthenticatedAboutRoute = AuthenticatedAboutRouteImport.update({
   path: '/about',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicHooksRefreshCoinUniverseRoute =
+  ApiPublicHooksRefreshCoinUniverseRouteImport.update({
+    id: '/api/public/hooks/refresh-coin-universe',
+    path: '/api/public/hooks/refresh-coin-universe',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksMarkPositionsRoute =
   ApiPublicHooksMarkPositionsRouteImport.update({
     id: '/api/public/hooks/mark-positions',
@@ -158,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
   '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
+  '/api/public/hooks/refresh-coin-universe': typeof ApiPublicHooksRefreshCoinUniverseRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -180,6 +188,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
   '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
+  '/api/public/hooks/refresh-coin-universe': typeof ApiPublicHooksRefreshCoinUniverseRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -204,6 +213,7 @@ export interface FileRoutesById {
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
   '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
+  '/api/public/hooks/refresh-coin-universe': typeof ApiPublicHooksRefreshCoinUniverseRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -228,6 +238,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/auto-book'
     | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
+    | '/api/public/hooks/refresh-coin-universe'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -250,6 +261,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/auto-book'
     | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
+    | '/api/public/hooks/refresh-coin-universe'
   id:
     | '__root__'
     | '/_authenticated'
@@ -273,6 +285,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/auto-book'
     | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
+    | '/api/public/hooks/refresh-coin-universe'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -281,6 +294,7 @@ export interface RootRouteChildren {
   ApiPublicHooksAutoBookRoute: typeof ApiPublicHooksAutoBookRoute
   ApiPublicHooksCoinScanRoute: typeof ApiPublicHooksCoinScanRoute
   ApiPublicHooksMarkPositionsRoute: typeof ApiPublicHooksMarkPositionsRoute
+  ApiPublicHooksRefreshCoinUniverseRoute: typeof ApiPublicHooksRefreshCoinUniverseRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -411,6 +425,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAboutRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/hooks/refresh-coin-universe': {
+      id: '/api/public/hooks/refresh-coin-universe'
+      path: '/api/public/hooks/refresh-coin-universe'
+      fullPath: '/api/public/hooks/refresh-coin-universe'
+      preLoaderRoute: typeof ApiPublicHooksRefreshCoinUniverseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/mark-positions': {
       id: '/api/public/hooks/mark-positions'
       path: '/api/public/hooks/mark-positions'
@@ -482,17 +503,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksAutoBookRoute: ApiPublicHooksAutoBookRoute,
   ApiPublicHooksCoinScanRoute: ApiPublicHooksCoinScanRoute,
   ApiPublicHooksMarkPositionsRoute: ApiPublicHooksMarkPositionsRoute,
+  ApiPublicHooksRefreshCoinUniverseRoute:
+    ApiPublicHooksRefreshCoinUniverseRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
