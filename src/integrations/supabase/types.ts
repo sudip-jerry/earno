@@ -804,6 +804,8 @@ export type Database = {
           confidence_band_at_entry: string | null
           distance_from_ema21_pct_at_entry: number | null
           distance_from_vwap_pct_at_entry: number | null
+          entry_candle_aligned: boolean | null
+          entry_candle_pct: number | null
           entry_price: number
           entry_reason: string | null
           estimated_net_pnl: number | null
@@ -848,6 +850,7 @@ export type Database = {
           shadow_exit_pnl: number | null
           shadow_exit_reason: string | null
           side: string
+          signal_age_seconds: number | null
           signal_id: string | null
           sl_floor_applied: boolean | null
           sl_floor_experiment_version: string | null
@@ -856,6 +859,7 @@ export type Database = {
           status: string
           stop_loss: number | null
           symbol: string
+          symbol_1h_trend: string | null
           take_profit: number | null
           tp1_booked_pnl: number | null
           tp1_hit: boolean
@@ -889,6 +893,8 @@ export type Database = {
           confidence_band_at_entry?: string | null
           distance_from_ema21_pct_at_entry?: number | null
           distance_from_vwap_pct_at_entry?: number | null
+          entry_candle_aligned?: boolean | null
+          entry_candle_pct?: number | null
           entry_price: number
           entry_reason?: string | null
           estimated_net_pnl?: number | null
@@ -933,6 +939,7 @@ export type Database = {
           shadow_exit_pnl?: number | null
           shadow_exit_reason?: string | null
           side: string
+          signal_age_seconds?: number | null
           signal_id?: string | null
           sl_floor_applied?: boolean | null
           sl_floor_experiment_version?: string | null
@@ -941,6 +948,7 @@ export type Database = {
           status?: string
           stop_loss?: number | null
           symbol: string
+          symbol_1h_trend?: string | null
           take_profit?: number | null
           tp1_booked_pnl?: number | null
           tp1_hit?: boolean
@@ -974,6 +982,8 @@ export type Database = {
           confidence_band_at_entry?: string | null
           distance_from_ema21_pct_at_entry?: number | null
           distance_from_vwap_pct_at_entry?: number | null
+          entry_candle_aligned?: boolean | null
+          entry_candle_pct?: number | null
           entry_price?: number
           entry_reason?: string | null
           estimated_net_pnl?: number | null
@@ -1018,6 +1028,7 @@ export type Database = {
           shadow_exit_pnl?: number | null
           shadow_exit_reason?: string | null
           side?: string
+          signal_age_seconds?: number | null
           signal_id?: string | null
           sl_floor_applied?: boolean | null
           sl_floor_experiment_version?: string | null
@@ -1026,6 +1037,7 @@ export type Database = {
           status?: string
           stop_loss?: number | null
           symbol?: string
+          symbol_1h_trend?: string | null
           take_profit?: number | null
           tp1_booked_pnl?: number | null
           tp1_hit?: boolean
