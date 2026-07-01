@@ -102,7 +102,7 @@ export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
     maxAutoSL: 5,
     targetMult: 2,
     minRR: 1.5,
-    tp1Pct: 0.90,
+    tp1Pct: 0.70,
     trailPct: 0.62,
     profitFadeMinPct: 0.6,
     profitFadeGivebackPct: 0.4,
