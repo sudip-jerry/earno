@@ -128,20 +128,61 @@ export function scoreCoin(input: CoinScoreInput): CoinScore {
   if (r != null) pills.push(`RSI: ${Math.round(r)}`);
   pills.push(`Spread: ${spread}`);
 
-  // Default target/stop bands — tighter for intraday, wider for swing
   const isSwing = input.mode === "swing";
-  const targetPct = isSwing ? 4.0 : 1.6;
-  const stopPct = isSwing ? 3.5 : 0.9;
+
+  // --- Swing mode: use h4 and daily candles for trend confirmation ---
+  // Only fires when ALL higher timeframes agree. Far fewer signals but much stronger.
+  let swingReady = false;
+  let swingBullish = false;
+  let swingStrongBullish = false;
+  let swingTrendD1: "up" | "down" | "flat" = "flat";
+  let swingTrendH4: "up" | "down" | "flat" = "flat";
+
+  if (isSwing && input.h4 && input.d1 && input.h4.length >= 10 && input.d1.length >= 5) {
+    const closesH4 = input.h4.map((c) => c.close).filter((n) => n > 0);
+    const closesD1 = input.d1.map((c) => c.close).filter((n) => n > 0);
+    swingTrendD1 = trendOf(closesD1);
+    swingTrendH4 = trendOf(closesH4);
+    const volH4 = volumeStrength(input.h4);
+    swingReady = true;
+    swingBullish =
+      swingTrendD1 === "up" &&
+      swingTrendH4 !== "down" &&
+      trend30 !== "down" &&
+      volH4 !== "weak";
+    swingStrongBullish =
+      swingTrendD1 === "up" &&
+      swingTrendH4 === "up" &&
+      trend30 === "up" &&
+      trend5 !== "down" &&
+      volH4 === "strong";
+  }
+
+  if (isSwing && swingReady) {
+    pills.push(`Trend 4h: ${swingTrendH4}`);
+    pills.push(`Trend D1: ${swingTrendD1}`);
+  }
+
+  // Target/stop: swing uses multi-day ATR distances, intraday uses tight scalp distances
+  const targetPct = isSwing ? 8.0 : 1.6;
+  const stopPct = isSwing ? 4.0 : 0.9;
 
   let action: CoinAction = "wait";
   let confidence = 40;
   let reason = "Setup forming";
 
-  const bullish = isSwing ? trend30 === "up" && trend5 !== "down" && vol !== "weak" : trend5 === "up" && trend30 !== "down" && mom !== "fading" && vol !== "weak";
-  const strongBullish = isSwing ? trend30 === "up" && trend5 === "up" && vol === "strong" : trend5 === "up" && trend30 === "up" && mom === "rising" && vol === "strong";
+  const bullish = !isSwing
+    ? trend5 === "up" && trend30 !== "down" && mom !== "fading" && vol !== "weak"
+    : swingBullish;
+  const strongBullish = !isSwing
+    ? trend5 === "up" && trend30 === "up" && mom === "rising" && vol === "strong"
+    : swingStrongBullish;
   const bearish = trend5 === "down" && (trend30 === "down" || mom === "fading");
   const overbought = r != null && r > 78;
   const oversold = r != null && r < 25;
+
+  const swingBlocked = isSwing && swingReady && !swingBullish;
+
 
   if (input.holding) {
     // Manage open holding
