@@ -1150,7 +1150,46 @@ export async function runAutoBookPass(
               .update({ final_decision: "skip", rejection_reason: rejection })
               .eq("id", signalId);
           } else {
+          // Log-only entry snapshot: current 1m candle direction + symbol's own 1h trend.
+          let entryCandlePct: number | null = null;
+          let entryCandleAligned: boolean | null = null;
+          let symbol1hTrend: string | null = null;
+          try {
+            const [c1Res, c1hRes] = await Promise.all([
+              fetch(CANDLES(a.symbol, "1m", 2), { headers: PUB_HEADERS, signal: AbortSignal.timeout(2500) }),
+              fetch(CANDLES(a.symbol, "1h", 30), { headers: PUB_HEADERS, signal: AbortSignal.timeout(2500) }),
+            ]);
+            if (c1Res.ok) {
+              const c1 = (await c1Res.json()) as Array<{ open: number | string; close: number | string }>;
+              const last = Array.isArray(c1) && c1.length ? c1[c1.length - 1] : null;
+              if (last) {
+                const o = num(last.open); const c = num(last.close);
+                if (o > 0) {
+                  entryCandlePct = ((c - o) / o) * 100;
+                  entryCandleAligned = side === "long" ? entryCandlePct > 0 : entryCandlePct < 0;
+                }
+              }
+            }
+            if (c1hRes.ok) {
+              const c1h = (await c1hRes.json()) as Array<{ close: number | string }>;
+              if (Array.isArray(c1h) && c1h.length >= 22) {
+                const closes = c1h.map((k) => num(k.close));
+                const e9 = ema(closes, 9);
+                const e21 = ema(closes, 21);
+                if (e9 != null && e21 != null && e21 > 0) {
+                  const d = ((e9 - e21) / e21) * 100;
+                  symbol1hTrend = d > 0.15 ? "up" : d < -0.15 ? "down" : "flat";
+                }
+              }
+            }
+          } catch { /* log-only — never block booking */ }
+
+          const sigKey = `${a.symbol}|${a.side_bias}`;
+          const earliestAt = earliestSignalAt.get(sigKey);
+          const signalAgeSeconds = earliestAt != null ? Math.round((Date.now() - earliestAt) / 1000) : null;
+
           const { data: inserted, error } = await supabase
+
             .from("positions")
             .insert({
               user_id: cfg.user_id,
