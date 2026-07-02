@@ -135,8 +135,14 @@ export const getDashboardStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<DashboardStats> => {
     const { supabase } = context;
-    const startOfDay = new Date();
-    startOfDay.setUTCHours(0, 0, 0, 0);
+    // EarnO is India-only — "today" means the IST calendar day, not UTC midnight.
+    // IST is UTC+5:30. Compute midnight IST expressed as a UTC instant.
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+    const nowIst = new Date(Date.now() + IST_OFFSET_MS);
+    const istMidnightAsUtc = new Date(
+      Date.UTC(nowIst.getUTCFullYear(), nowIst.getUTCMonth(), nowIst.getUTCDate(), 0, 0, 0, 0) - IST_OFFSET_MS,
+    );
+    const startOfDay = istMidnightAsUtc;
 
     // Read mode first so positions queries can be scoped to the active mode.
     const { data: cfg } = await supabase
