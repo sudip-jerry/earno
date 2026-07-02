@@ -784,7 +784,7 @@ function UserStatusGrid({
 }: {
   testers: TesterReport[];
   coinCfgs: Array<{ user_id: string; enabled: boolean; mode: string; allocated_capital_usdt: number; min_confidence: number; max_holdings: number }>;
-  coinData: Array<{ user_id: string; status: string; realized_pnl_usdt: number | null; closed_at: string | null; opened_at: string }>;
+  coinData: Array<{ user_id: string; status: string; realized_pnl_usdt: number | null; closed_at: string | null; opened_at: string; unrealized_pnl_usdt?: number }>;
 }) {
   if (testers.length === 0) {
     return (
