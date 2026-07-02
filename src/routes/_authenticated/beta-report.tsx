@@ -144,7 +144,7 @@ function BetaReportPage() {
           <section className="px-5 mb-3">
             <div className="flex items-baseline justify-between mb-2">
               <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Today (since 00:30 IST)
+                Today (since 00:00 IST)
               </h2>
               <span className="text-[10px] text-muted-foreground">
                 {s.todayActiveTesters} active
@@ -881,8 +881,12 @@ function UserStatusGrid({
             <tbody>
               {coinCfgs.map((cfg, i) => {
                 const userPositions = coinData.filter((p) => p.user_id === cfg.user_id);
-                const todayIST = new Date();
-                todayIST.setHours(0, 0, 0, 0);
+                // EarnO is India-only — "today" means the IST calendar day, not server-local time.
+                const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+                const nowIstForToday = new Date(Date.now() + IST_OFFSET_MS);
+                const todayIST = new Date(
+                  Date.UTC(nowIstForToday.getUTCFullYear(), nowIstForToday.getUTCMonth(), nowIstForToday.getUTCDate(), 0, 0, 0, 0) - IST_OFFSET_MS,
+                );
                 const todayClosed = userPositions.filter(
                   (p) => p.status === "closed" && p.closed_at && new Date(p.closed_at) >= todayIST,
                 );

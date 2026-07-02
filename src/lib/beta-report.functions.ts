@@ -557,9 +557,13 @@ export const getBetaReport = createServerFn({ method: "GET" })
     }
 
     const sinceIso = (() => {
-      const d = new Date();
-      d.setUTCHours(0, 0, 0, 0);
-      return d.toISOString();
+      // EarnO is India-only — "today" means the IST calendar day, not UTC midnight.
+      const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+      const nowIst = new Date(Date.now() + IST_OFFSET_MS);
+      const istMidnightAsUtc = new Date(
+        Date.UTC(nowIst.getUTCFullYear(), nowIst.getUTCMonth(), nowIst.getUTCDate(), 0, 0, 0, 0) - IST_OFFSET_MS,
+      );
+      return istMidnightAsUtc.toISOString();
     })();
 
     const testers: TesterReport[] = [];
