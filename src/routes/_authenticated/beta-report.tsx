@@ -913,6 +913,9 @@ function UserStatusGrid({
                     </td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{todayClosed.length}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums">{openNow.length}</td>
+                    <td className={`px-2 py-1.5 text-right tabular-nums ${openUnrealized >= 0 ? "text-emerald-500" : "text-destructive"}`}>
+                      {openNow.length > 0 ? `${openUnrealized >= 0 ? "+" : ""}$${Math.abs(openUnrealized).toFixed(2)}` : "—"}
+                    </td>
                     <td className={`px-2 py-1.5 text-right tabular-nums ${sevenDayPnl >= 0 ? "text-emerald-500" : "text-destructive"}`}>
                       {sevenDayPnl >= 0 ? "+" : ""}${Math.abs(sevenDayPnl).toFixed(2)}
                     </td>
