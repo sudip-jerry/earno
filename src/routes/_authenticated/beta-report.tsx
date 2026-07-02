@@ -892,6 +892,7 @@ function UserStatusGrid({
                   (p) => p.status === "closed" && p.closed_at && new Date(p.closed_at) >= todayIST,
                 );
                 const openNow = userPositions.filter((p) => p.status === "open");
+                const openUnrealized = openNow.reduce((s, p) => s + Number(p.unrealized_pnl_usdt ?? 0), 0);
                 const todayPnl = todayClosed.reduce((s, p) => s + Number(p.realized_pnl_usdt ?? 0), 0);
                 const sevenDayPnl = userPositions
                   .filter((p) => p.status === "closed")
