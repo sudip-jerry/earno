@@ -168,7 +168,7 @@ function AdminPage() {
         <Tile label="Bots on" value={`${activeBots}`} />
         <Tile label="Futures/24h" value={`${totalTradesToday}`} />
         <Tile label="Coin trades/24h" value={`${coinTradesToday}`} />
-        <Tile label="Coin PnL today" value={`${coinPnlToday >= 0 ? "+" : ""}$${Math.abs(coinPnlToday).toFixed(2)}`} />
+        <Tile label="Coin PnL (realized+open)" value={`${coinPnlToday >= 0 ? "+" : ""}$${Math.abs(coinPnlToday).toFixed(2)}`} />
         <Tile label="Paying" value={`${paying}`} />
       </section>
 
