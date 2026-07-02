@@ -430,12 +430,42 @@ export const adminListCoinPositions = createServerFn({ method: "GET" })
     await assertAdmin(context.supabase as unknown as AnySupa, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const since = new Date(Date.now() - data.sinceHours * 3600_000).toISOString();
-    const { data: rows, error } = await supabaseAdmin
-      .from("coin_positions")
-      .select("user_id, status, realized_pnl_usdt, closed_at, opened_at")
-      .or(`opened_at.gte.${since},closed_at.gte.${since}`);
-    if (error) { console.error("DB error", error); throw new Error("Operation failed. Please try again."); }
-    return rows ?? [];
+
+    // All currently-open positions (regardless of when opened — a 4-day swing hold
+    // must still count toward today's unrealized PnL) plus anything closed in the window.
+    const cols = "user_id, status, symbol, qty, avg_buy_price, invested_usdt, realized_pnl_usdt, opened_at, closed_at";
+    const [openRes, closedRes] = await Promise.all([
+      supabaseAdmin.from("coin_positions").select(cols).eq("status", "open"),
+      supabaseAdmin.from("coin_positions").select(cols).eq("status", "closed").gte("closed_at", since),
+    ]);
+    if (openRes.error) { console.error("DB error", openRes.error); throw new Error("Operation failed. Please try again."); }
+    if (closedRes.error) { console.error("DB error", closedRes.error); throw new Error("Operation failed. Please try again."); }
+
+    const open = (openRes.data ?? []) as Array<{ symbol: string; qty: number; avg_buy_price: number; invested_usdt: number; user_id: string; status: string; realized_pnl_usdt: number | null; opened_at: string; closed_at: string | null }>;
+    const closedInWindow = (closedRes.data ?? []) as Array<{ user_id: string; status: string; realized_pnl_usdt: number | null; opened_at: string; closed_at: string | null }>;
+
+    // Live-price the open positions the same way getCoinHoldings does, so the
+    // admin tile matches what users see on their own dashboard.
+    const { fetchFuturesTickers } = await import("@/services/coindcxPublicApi");
+    let priceMap = new Map<string, number>();
+    try {
+      const tickers = await fetchFuturesTickers();
+      priceMap = new Map(tickers.map((t) => [t.symbol, t.price]));
+    } catch {
+      // tolerate transient public-api hiccup — fall back to invested cost (0 unrealized) below
+    }
+
+    const enrichedOpen = open.map((r) => {
+      const last = priceMap.get(r.symbol) ?? Number(r.avg_buy_price);
+      const value = Number(r.qty) * last;
+      const unrealized = value - Number(r.invested_usdt);
+      return { ...r, unrealized_pnl_usdt: unrealized, realized_pnl_usdt: 0 };
+    });
+
+    return [
+      ...enrichedOpen,
+      ...closedInWindow.map((r) => ({ ...r, unrealized_pnl_usdt: 0, realized_pnl_usdt: Number(r.realized_pnl_usdt ?? 0) })),
+    ];
   });
 
 export const adminListCoinConfigs = createServerFn({ method: "GET" })
