@@ -141,7 +141,9 @@ function AdminPage() {
   const activeBots = u.filter((x) => x.isRunning).length;
   const paying = u.filter((x) => x.tier !== "free").length;
   const coinTradesToday = coinPositions.data?.filter((p) => p.status === "closed").length ?? 0;
-  const coinPnlToday = coinPositions.data?.reduce((s, p) => s + Number(p.realized_pnl_usdt ?? 0), 0) ?? 0;
+  const coinRealizedToday = coinPositions.data?.reduce((s, p) => s + Number(p.realized_pnl_usdt ?? 0), 0) ?? 0;
+  const coinUnrealizedNow = coinPositions.data?.reduce((s, p) => s + Number((p as { unrealized_pnl_usdt?: number }).unrealized_pnl_usdt ?? 0), 0) ?? 0;
+  const coinPnlToday = coinRealizedToday + coinUnrealizedNow;
 
   return (
     <div className="min-h-svh bg-background pb-16">
@@ -166,7 +168,7 @@ function AdminPage() {
         <Tile label="Bots on" value={`${activeBots}`} />
         <Tile label="Futures/24h" value={`${totalTradesToday}`} />
         <Tile label="Coin trades/24h" value={`${coinTradesToday}`} />
-        <Tile label="Coin PnL today" value={`${coinPnlToday >= 0 ? "+" : ""}$${Math.abs(coinPnlToday).toFixed(2)}`} />
+        <Tile label="Coin PnL (realized+open)" value={`${coinPnlToday >= 0 ? "+" : ""}$${Math.abs(coinPnlToday).toFixed(2)}`} />
         <Tile label="Paying" value={`${paying}`} />
       </section>
 
