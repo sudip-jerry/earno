@@ -141,7 +141,9 @@ function AdminPage() {
   const activeBots = u.filter((x) => x.isRunning).length;
   const paying = u.filter((x) => x.tier !== "free").length;
   const coinTradesToday = coinPositions.data?.filter((p) => p.status === "closed").length ?? 0;
-  const coinPnlToday = coinPositions.data?.reduce((s, p) => s + Number(p.realized_pnl_usdt ?? 0), 0) ?? 0;
+  const coinRealizedToday = coinPositions.data?.reduce((s, p) => s + Number(p.realized_pnl_usdt ?? 0), 0) ?? 0;
+  const coinUnrealizedNow = coinPositions.data?.reduce((s, p) => s + Number((p as { unrealized_pnl_usdt?: number }).unrealized_pnl_usdt ?? 0), 0) ?? 0;
+  const coinPnlToday = coinRealizedToday + coinUnrealizedNow;
 
   return (
     <div className="min-h-svh bg-background pb-16">
