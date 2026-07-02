@@ -874,6 +874,7 @@ function UserStatusGrid({
                 <th className="px-2 py-1 text-right font-normal">Today PnL</th>
                 <th className="px-2 py-1 text-right font-normal">Today trades</th>
                 <th className="px-2 py-1 text-right font-normal">Open</th>
+                <th className="px-2 py-1 text-right font-normal">Open PnL</th>
                 <th className="px-2 py-1 text-right font-normal">7d PnL</th>
                 <th className="px-2 py-1 text-right font-normal">Capital</th>
               </tr>
