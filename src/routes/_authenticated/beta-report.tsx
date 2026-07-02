@@ -784,7 +784,7 @@ function UserStatusGrid({
 }: {
   testers: TesterReport[];
   coinCfgs: Array<{ user_id: string; enabled: boolean; mode: string; allocated_capital_usdt: number; min_confidence: number; max_holdings: number }>;
-  coinData: Array<{ user_id: string; status: string; realized_pnl_usdt: number | null; closed_at: string | null; opened_at: string }>;
+  coinData: Array<{ user_id: string; status: string; realized_pnl_usdt: number | null; closed_at: string | null; opened_at: string; unrealized_pnl_usdt?: number }>;
 }) {
   if (testers.length === 0) {
     return (
@@ -874,6 +874,7 @@ function UserStatusGrid({
                 <th className="px-2 py-1 text-right font-normal">Today PnL</th>
                 <th className="px-2 py-1 text-right font-normal">Today trades</th>
                 <th className="px-2 py-1 text-right font-normal">Open</th>
+                <th className="px-2 py-1 text-right font-normal">Open PnL</th>
                 <th className="px-2 py-1 text-right font-normal">7d PnL</th>
                 <th className="px-2 py-1 text-right font-normal">Capital</th>
               </tr>
@@ -891,6 +892,7 @@ function UserStatusGrid({
                   (p) => p.status === "closed" && p.closed_at && new Date(p.closed_at) >= todayIST,
                 );
                 const openNow = userPositions.filter((p) => p.status === "open");
+                const openUnrealized = openNow.reduce((s, p) => s + Number(p.unrealized_pnl_usdt ?? 0), 0);
                 const todayPnl = todayClosed.reduce((s, p) => s + Number(p.realized_pnl_usdt ?? 0), 0);
                 const sevenDayPnl = userPositions
                   .filter((p) => p.status === "closed")
@@ -911,6 +913,9 @@ function UserStatusGrid({
                     </td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{todayClosed.length}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums">{openNow.length}</td>
+                    <td className={`px-2 py-1.5 text-right tabular-nums ${openUnrealized >= 0 ? "text-emerald-500" : "text-destructive"}`}>
+                      {openNow.length > 0 ? `${openUnrealized >= 0 ? "+" : ""}$${Math.abs(openUnrealized).toFixed(2)}` : "—"}
+                    </td>
                     <td className={`px-2 py-1.5 text-right tabular-nums ${sevenDayPnl >= 0 ? "text-emerald-500" : "text-destructive"}`}>
                       {sevenDayPnl >= 0 ? "+" : ""}${Math.abs(sevenDayPnl).toFixed(2)}
                     </td>

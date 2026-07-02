@@ -1805,9 +1805,9 @@ export const adminGetCoinStats = createServerFn({ method: "GET" })
       supabaseAdmin
         .from("coin_positions")
         .select(
-          "user_id, status, realized_pnl_usdt, closed_at, opened_at, symbol, exit_reason",
+          "user_id, status, realized_pnl_usdt, closed_at, opened_at, symbol, exit_reason, qty, avg_buy_price, invested_usdt",
         )
-        .gte("opened_at", sevenDaysAgo),
+        .or(`opened_at.gte.${sevenDaysAgo},status.eq.open`),
       supabaseAdmin
         .from("coin_bot_config")
         .select(
@@ -1825,8 +1825,25 @@ export const adminGetCoinStats = createServerFn({ method: "GET" })
     if (e2) { console.error("DB error", e2); throw new Error("Operation failed. Please try again."); }
     if (e3) { console.error("DB error", e3); throw new Error("Operation failed. Please try again."); }
 
+    const { fetchFuturesTickers } = await import("@/services/coindcxPublicApi");
+    let priceMap = new Map<string, number>();
+    try {
+      const tickers = await fetchFuturesTickers();
+      priceMap = new Map(tickers.map((t) => [t.symbol, t.price]));
+    } catch {
+      // tolerate transient public-api hiccup — falls back to avg_buy_price (0 unrealized) below
+    }
+
+    const enrichedPositions = (positions ?? []).map((p) => {
+      if (p.status !== "open") return { ...p, unrealized_pnl_usdt: 0 };
+      const last = priceMap.get(p.symbol) ?? Number(p.avg_buy_price);
+      const value = Number(p.qty) * last;
+      const unrealized = value - Number(p.invested_usdt);
+      return { ...p, unrealized_pnl_usdt: unrealized };
+    });
+
     return {
-      positions: positions ?? [],
+      positions: enrichedPositions,
       configs: configs ?? [],
       events: events ?? [],
     };
