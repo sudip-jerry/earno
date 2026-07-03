@@ -258,6 +258,136 @@ function Home() {
       Number((coinHoldings.data as { summary?: { unrealized_pnl_usdt?: number } } | undefined)?.summary?.unrealized_pnl_usdt ?? 0);
     const totalTodayPnl = futuresTodayPnl + coinTodayPnl;
     const totalPos = totalTodayPnl >= 0;
+    const dayPct = totalValue > 0 ? (totalTodayPnl / totalValue) * 100 : 0;
+    const movementLine =
+      totalValue <= 0
+        ? "Your balance is being set up."
+        : dayPct > 2
+          ? "Strong growth today."
+          : dayPct > 0.3
+            ? "Steady growth today."
+            : dayPct >= -0.3
+              ? "Fairly flat today — that's normal."
+              : dayPct >= -2
+                ? "A small dip today — this is normal."
+                : "Down more than usual today — the engine adapts.";
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+    if (viewMode === "simple") {
+      return (
+        <div className="min-h-svh bg-background pb-28">
+          <header className="px-5 pt-5">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => navigate({ to: "/about" })}
+                aria-label="About earn'O"
+                className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <img src={earnoStacked.url} alt="earn'O" className="h-10 w-auto select-none" draggable={false} />
+              </button>
+              <div className="ml-auto flex items-center gap-2">
+                <MarketTogglePill />
+                <IconBtn ariaLabel="Settings" onClick={() => navigate({ to: "/settings" })}>
+                  <Cog className="size-4" />
+                </IconBtn>
+              </div>
+            </div>
+            <p className="mt-4 text-[15px] font-medium text-foreground">{greeting}.</p>
+            <p className="text-[12px] text-muted-foreground">Here's a calm look at your money today.</p>
+            {currentMode === "paper" && (
+              <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 px-2.5 h-6 text-[11px] font-medium">
+                <FlaskConical className="size-3" />
+                Practice mode — using simulated trades.
+              </span>
+            )}
+          </header>
+
+          {/* Hero: total balance */}
+          <div className="px-5 mt-5">
+            <section className="rounded-2xl border bg-card px-5 py-5">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Your total balance</div>
+              <div className="mt-1 text-[34px] leading-tight font-semibold tabular-nums">{fmt(totalValue)}</div>
+              <div className={`mt-1 text-[13px] font-medium tabular-nums ${totalPos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                {fmt(totalTodayPnl, { signed: true })} today
+                <span className="text-muted-foreground font-normal"> · {dayPct >= 0 ? "+" : ""}{dayPct.toFixed(2)}%</span>
+              </div>
+              <p className="mt-2 text-[12.5px] text-muted-foreground">{movementLine}</p>
+
+              {/* Breakdown */}
+              <div className="mt-4 divide-y divide-border rounded-xl border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => { setMarket("futures"); }}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-background/60 hover:bg-muted/40 transition text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-sm bg-primary inline-block" />
+                    <span className="text-[13px] font-medium">Futures</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[13px] font-semibold tabular-nums">{fmt(futuresValue)}</div>
+                    <div className={`text-[11px] tabular-nums ${futuresTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                      {fmt(futuresTodayPnl, { signed: true })} today
+                    </div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMarket("spot"); }}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-background/60 hover:bg-muted/40 transition text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-sm bg-accent inline-block" />
+                    <span className="text-[13px] font-medium">Coins</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[13px] font-semibold tabular-nums">{fmt(coinEquity)}</div>
+                    <div className={`text-[11px] tabular-nums ${coinTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                      {fmt(coinTodayPnl, { signed: true })} today
+                    </div>
+                  </div>
+                </button>
+              </div>
+              <p className="mt-2 text-[10.5px] text-muted-foreground">Tap a row to explore that view.</p>
+            </section>
+          </div>
+
+          {/* Trust / non-custody */}
+          <div className="px-5 mt-4">
+            <div className="rounded-2xl border bg-card p-4 flex items-start gap-3">
+              <span className="size-8 grid place-items-center rounded-full bg-primary/10 text-primary shrink-0">
+                <ShieldCheck className="size-4" />
+              </span>
+              <p className="text-[12.5px] text-muted-foreground leading-relaxed">
+                EarnO spreads your money across a few automated strategies on your own exchange account. It never holds your funds directly.
+              </p>
+            </div>
+          </div>
+
+          {/* Recent activity */}
+          <div className="mt-6">
+            <RecentActivity items={s?.recentActivity ?? []} />
+          </div>
+
+          {/* Floating switch to detail */}
+          <button
+            type="button"
+            onClick={() => setViewMode("detail")}
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 inline-flex items-center gap-1.5 rounded-full border bg-card/95 backdrop-blur px-3.5 h-9 text-[12px] font-medium shadow-sm hover:bg-muted transition"
+            aria-label="Switch to detailed view"
+          >
+            <LineChart className="size-3.5" />
+            See detailed view
+          </button>
+
+          <TabBar />
+        </div>
+      );
+    }
+
+
 
     return (
       <div className="min-h-svh bg-background pb-28">
