@@ -9,6 +9,11 @@ import { toast } from "sonner";
 import earnoLogo from "@/assets/earno-logo.png.asset.json";
 
 export const Route = createFileRoute("/auth")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//")
+      ? s.next
+      : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Sign in — Earn'O" },
@@ -20,30 +25,43 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { next } = Route.useSearch();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const goNext = () => {
+    if (next) {
+      window.location.href = next;
+    } else {
+      navigate({ to: "/" });
+    }
+  };
 
   useEffect(() => {
     // Clean up legacy forced-logout keys so old installs stop signing users out.
     localStorage.removeItem("earno_remember_me");
     localStorage.removeItem("earno_remember_me_until");
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/" });
+      if (data.session) goNext();
     });
-  }, [navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
   const handleEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
+      const returnUrl = next
+        ? `${window.location.origin}${next}`
+        : window.location.origin;
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo: returnUrl },
         });
         if (error) throw error;
         toast.success("Account created. You're in.");
@@ -51,7 +69,7 @@ function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
-      navigate({ to: "/" });
+      goNext();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Authentication failed");
     } finally {
@@ -61,16 +79,17 @@ function AuthPage() {
 
   const handleGoogle = async () => {
     setLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
+    const redirect_uri = next
+      ? `${window.location.origin}${next}`
+      : window.location.origin;
+    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri });
     if (result.error) {
       toast.error("Google sign-in failed");
       setLoading(false);
       return;
     }
     if (result.redirected) return;
-    navigate({ to: "/" });
+    goNext();
   };
 
   return (
