@@ -1211,7 +1211,7 @@ export async function runAutoBookPass(
 
           const sigKey = `${a.symbol}|${a.side_bias}`;
           const earliestAt = earliestSignalAt.get(sigKey);
-          const signalAgeSeconds = earliestAt != null ? Math.round((Date.now() - earliestAt) / 1000) : null;
+          const signalAgeSeconds = earliestAt != null ? Math.max(0, Math.round((Date.now() - earliestAt) / 1000)) : 0;
 
           const { data: inserted, error } = await supabase
 
