@@ -122,6 +122,14 @@ function Home() {
   const [confirmStop, setConfirmStop] = useState(false);
   const [riskOpen, setRiskOpen] = useState(false);
   const [hideBalance, setHideBalance] = useState(false);
+  const [viewMode, setViewMode] = useState<"simple" | "detail">(() => {
+    if (typeof window === "undefined") return "simple";
+    const v = window.localStorage.getItem("earno_home_view_mode");
+    return v === "detail" ? "detail" : "simple";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("earno_home_view_mode", viewMode); } catch {}
+  }, [viewMode]);
 
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
