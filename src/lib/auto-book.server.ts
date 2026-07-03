@@ -868,12 +868,13 @@ export async function runAutoBookPass(
             regimeReason = `Regime: bullish — ${style} longs need ${withTrendFloor}+`;
           }
         } else if (marketRegime === "neutral" || marketRegime == null) {
-          if (isShort && conf < neutralFloor + 3) {
-            regimeFloor = neutralFloor + 3;
-            regimeReason = `Regime: neutral — ${style} shorts need ${neutralFloor + 3}+`;
-          } else if (isLong && conf < neutralFloor) {
-            regimeFloor = neutralFloor;
-            regimeReason = `Regime: neutral — ${style} longs need ${neutralFloor}+`;
+          const neutralGate = neutralFloor + 3;
+          if (isShort && conf < neutralGate) {
+            regimeFloor = neutralGate;
+            regimeReason = `Regime: neutral — ${style} shorts need ${neutralGate}+`;
+          } else if (isLong && conf < neutralGate) {
+            regimeFloor = neutralGate;
+            regimeReason = `Regime: neutral — ${style} longs need ${neutralGate}+`;
           }
         } else if (marketRegime === "bearish") {
           if (isLong && conf < counterTrendFloor) {
