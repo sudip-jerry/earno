@@ -413,7 +413,15 @@ function Home() {
               </IconBtn>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setViewMode("simple")}
+            className="mt-2 inline-flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground transition"
+          >
+            ‹ Simple view
+          </button>
         </header>
+
 
         {/* Mode banner */}
         <div className="px-5 mt-4">
