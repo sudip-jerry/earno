@@ -238,7 +238,10 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       if (!r.closed_at) continue;
       const t = new Date(r.closed_at).getTime();
       if (t < cutoff30) continue;
-      const key = new Date(t).toISOString().slice(0, 10);
+      // Bucket by IST calendar date (not UTC) so the daily chart agrees with
+      // todayPnl, which is already IST-midnight-anchored above.
+      const istTime = new Date(t + IST_OFFSET_MS);
+      const key = istTime.toISOString().slice(0, 10);
       dayMap.set(key, (dayMap.get(key) ?? 0) + netPnl(r));
     }
     const tradingDays30d = dayMap.size;
