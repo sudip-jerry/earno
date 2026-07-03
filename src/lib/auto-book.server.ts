@@ -478,17 +478,41 @@ export async function runAutoBookPass(
     neutral_floor_offset: 1,
   };
 
-  // Signal age tracker: earliest same-direction signal per symbol in last 2h (log-only analytics)
+  // Signal age tracker: age = seconds since start of the CURRENT continuous
+  // same-direction streak for that symbol. A gap > ~2 scan intervals or an
+  // opposite/neutral side_bias row breaks the streak. Log-only analytics.
+  const STREAK_GAP_MS = 5 * 60_000; // ~2 scan intervals (scans run every ~2m)
   const { data: signalAgeRows } = await supabase
     .from("bot_signals")
     .select("symbol, side_bias, created_at")
-    .gte("created_at", new Date(Date.now() - 2 * 3600_000).toISOString())
-    .in("side_bias", ["long", "short"])
-    .order("created_at", { ascending: true });
+    .gte("created_at", new Date(Date.now() - 4 * 3600_000).toISOString())
+    .order("created_at", { ascending: false });
   const earliestSignalAt = new Map<string, number>();
-  for (const r of signalAgeRows ?? []) {
-    const key = `${r.symbol}|${r.side_bias}`;
-    if (!earliestSignalAt.has(key)) earliestSignalAt.set(key, new Date(r.created_at as string).getTime());
+  {
+    const bySymbol = new Map<string, Array<{ ts: number; side: string | null }>>();
+    for (const r of signalAgeRows ?? []) {
+      const arr = bySymbol.get(r.symbol as string) ?? [];
+      arr.push({
+        ts: new Date(r.created_at as string).getTime(),
+        side: (r.side_bias as string | null) ?? null,
+      });
+      bySymbol.set(r.symbol as string, arr);
+    }
+    for (const [symbol, rows] of bySymbol) {
+      // rows are newest-first
+      const head = rows[0];
+      if (!head || (head.side !== "long" && head.side !== "short")) continue;
+      let streakStart = head.ts;
+      let prevTs = head.ts;
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        if (r.side !== head.side) break;
+        if (prevTs - r.ts > STREAK_GAP_MS) break;
+        streakStart = r.ts;
+        prevTs = r.ts;
+      }
+      earliestSignalAt.set(`${symbol}|${head.side}`, streakStart);
+    }
   }
 
 
@@ -844,12 +868,13 @@ export async function runAutoBookPass(
             regimeReason = `Regime: bullish — ${style} longs need ${withTrendFloor}+`;
           }
         } else if (marketRegime === "neutral" || marketRegime == null) {
-          if (isShort && conf < neutralFloor + 3) {
-            regimeFloor = neutralFloor + 3;
-            regimeReason = `Regime: neutral — ${style} shorts need ${neutralFloor + 3}+`;
-          } else if (isLong && conf < neutralFloor) {
-            regimeFloor = neutralFloor;
-            regimeReason = `Regime: neutral — ${style} longs need ${neutralFloor}+`;
+          const neutralGate = neutralFloor + 3;
+          if (isShort && conf < neutralGate) {
+            regimeFloor = neutralGate;
+            regimeReason = `Regime: neutral — ${style} shorts need ${neutralGate}+`;
+          } else if (isLong && conf < neutralGate) {
+            regimeFloor = neutralGate;
+            regimeReason = `Regime: neutral — ${style} longs need ${neutralGate}+`;
           }
         } else if (marketRegime === "bearish") {
           if (isLong && conf < counterTrendFloor) {
@@ -1186,7 +1211,7 @@ export async function runAutoBookPass(
 
           const sigKey = `${a.symbol}|${a.side_bias}`;
           const earliestAt = earliestSignalAt.get(sigKey);
-          const signalAgeSeconds = earliestAt != null ? Math.round((Date.now() - earliestAt) / 1000) : null;
+          const signalAgeSeconds = earliestAt != null ? Math.max(0, Math.round((Date.now() - earliestAt) / 1000)) : 0;
 
           const { data: inserted, error } = await supabase
 
