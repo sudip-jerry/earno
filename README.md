@@ -34,7 +34,9 @@ Signal Engine → Risk Engine → Execution Engine → Learning Engine → Recom
 Browser (React 19 + TanStack Router)
   └── TanStack Start SSR + createServerFn handlers
        ├── Supabase Auth + PostgreSQL
+       │    └── bot_events — structured gate-rejection and scan-event audit log
        ├── Auto-book cron   /api/public/hooks/auto-book
+       │    └── signal-scoring.server.ts → auto-book.server.ts → positions
        ├── Mark-positions cron   /api/public/hooks/mark-positions
        └── Coin-scan cron   /api/public/hooks/coin-scan
 
@@ -44,10 +46,63 @@ Market Data (public endpoints, no API key required for paper mode)
   └── CoinDCX OHLCV candles
 
 Execution (live mode only)
-  └── CoinDCX signed order APIs
+  └── CoinDCX signed order APIs  (live-execution.server.ts)
 ```
 
 **Stack**: TanStack Start · React 19 · Nitro / Cloudflare Workers · Supabase PostgreSQL · TypeScript 5.8+ · Tailwind CSS 4 · Radix UI · TanStack Query 5
+
+---
+
+## Trading Algorithm (High Level)
+
+**Scanner inputs**
+- Scan universe rebuilt each pass: top 25 symbols by absolute 24h % change + top 25 by volume (de-duplicated union), CoinDCX USDT perpetual futures only.
+- Multi-timeframe OHLCV candles via CoinDCX public API; configurable per user (default 5m).
+- Indicators: RSI, VWAP deviation, EMA 9/21 stack, ATR-14, volume spike ratio, spread proxy.
+- Market regime derived from BTC 1h EMA-21/50 slope + 15m momentum confirmation.
+
+**Confidence and bias**
+- Confidence score 0–100. Long or short bias only when ≥ 2 of (trend, VWAP, EMA) agree; otherwise AVOID.
+- Regime is one of: `strong_bullish`, `bullish`, `neutral`, `bearish`, `strong_bearish`.
+- Paper-trading by default. Live mode requires `auto5` / `unlimited` plan and CoinDCX API credentials.
+
+**Risk engine** (style presets from `risk-engine.ts`)
+- Three styles: conservative (`maxAutoSL` 2.5%, `minRR` 3.0), balanced (`maxAutoSL` 4%, `minRR` 1.5), aggressive (`maxAutoSL` 5%, `minRR` 1.5).
+- SL = max(minSL, ATR-14% × style multiplier); TP = SL × targetMultiplier.
+- Position size = (capital × riskPct%) / SL%. Status: Auto eligible · Manual review required · Avoid.
+
+**Auto-book eligibility** — 20+ sequential gates, any rejection skips and logs to `bot_events`
+- Blacklists (platform + user), hard-SL cooldowns (global 2+ in 6h; per-user), direction locks.
+- Standard cooldown, rolling loss-streak cooldown (style-aware), spread block, risk plan gate.
+- Regime-aware confidence floors (DB-backed per style), major-coin confidence floor (default 90%).
+- Momentum exhaustion, backend setup classification, session hour block, SL width cap, EV ratio, pre-entry fee floor, position / daily limits.
+
+**Exit stack** — implemented and validated; do not duplicate
+- TP1 on 50% size → move SL to breakeven → trailing stop → profit-fade exit → weak-progress time exit → pre-TP1 failed-momentum exit → stop-loss / take-profit.
+
+---
+
+## Features (High Level)
+
+**Dashboard**: Portfolio value, today's P&L, 14-day daily bar chart (green/red per day), RAG bot status in plain English, one-tap recommendation panel, activity feed with every auto-book decision and gate rejection.
+
+**Futures Bot**: Paper-trading-by-default; 24/7 scheduled scan with configurable timeframe; per-symbol confidence feed; live mode (plan-gated, requires API credentials).
+
+**Coin Bot**: Spot portfolio bot; intraday (5m-primary) and swing (30m-primary) modes; multi-holding diversification; hold-until-trend-reversal option; Held badge on live signals for active holdings.
+
+**Scanner**: Real-time signal scanner with confidence tiers (auto / watch / weak / avoid) and 4-section checklist breakdown (trend · entry · momentum · risk) per symbol.
+
+**Movers**: Live CoinDCX futures movers ranked by 24h % change and quote volume.
+
+**Positions**: Open positions with live P&L, manual-close, and chart sheet overlay.
+
+**Settings**: Trading style presets, risk-cap overrides, cooldown config, symbol blocklist, blocked IST session hours, live wallet allocation.
+
+**Exit Replay**: Historical exit sequence audit for closed positions.
+
+**Plans**: Free / Reco / Auto5 / Unlimited tiers; auto-book and live mode are plan-gated.
+
+**Admin**: User and config management panel (restricted access).
 
 ---
 
