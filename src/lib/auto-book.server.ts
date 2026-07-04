@@ -814,6 +814,26 @@ export async function runAutoBookPass(
       } else if (plan.status !== "auto_eligible") {
         rejection = plan.reason ?? "Risk plan rejected";
         final = "skip";
+        const gateKind =
+          plan.reason === "Risk-reward weak"
+            ? "rr_too_low"
+            : plan.reason === "Volatility too high for auto-book"
+              ? "sl_too_wide"
+              : plan.reason === "No capital available"
+                ? "no_capital"
+                : "risk_plan_rejected";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: gateKind,
+          symbol: a.symbol,
+          rr: plan.rr,
+          min_rr: preset.minRR,
+          sl_pct: plan.slPct,
+          min_sl_pct: preset.minSL,
+          max_auto_sl_pct: preset.maxAutoSL,
+          tp_pct: plan.tpPct,
+          plan_status: plan.status,
+          plan_reason: plan.reason,
+        });
       } else if (!dailyLossAvailable) {
         rejection = "Daily loss cap hit";
         final = "skip";
@@ -830,6 +850,13 @@ export async function runAutoBookPass(
       } else if (a.confidence_pct < autoConfThreshold) {
         rejection = `Below auto-book threshold (${a.confidence_pct} < ${autoConfThreshold})`;
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: "confidence_below_threshold",
+          symbol: a.symbol,
+          confidence_pct: a.confidence_pct,
+          auto_book_confidence_threshold: autoConfThreshold,
+          display_conf_threshold: displayConfThreshold,
+        });
       }
 
       // Regime-aware direction gate — style-aware thresholds
