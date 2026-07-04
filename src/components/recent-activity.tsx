@@ -2,6 +2,17 @@ import type { ActivityItem, ActivityMeta } from "@/lib/stats.functions";
 import { History } from "lucide-react";
 import { useCurrency } from "@/hooks/use-currency";
 
+const GATE_SKIP_KINDS = [
+  "session_hour_skip", "sl_width_skip", "ev_ratio_skip", "pre_entry_net_profit_skip",
+  "platform_blacklist_skip", "user_blocklist_skip", "global_sl_cooldown_skip",
+  "user_sl_cooldown_skip", "avoid_signal_skip", "shorts_disabled_skip",
+  "longs_disabled_skip", "cooldown_skip", "rolling_cooldown_skip", "spread_skip",
+  "daily_loss_cap_skip", "daily_limit_skip", "max_positions_skip", "open_position_skip",
+  "sizing_failed_skip", "rr_too_low", "sl_too_wide", "no_capital", "risk_plan_rejected",
+  "confidence_below_threshold", "regime_gate_skip", "major_coin_floor_skip",
+  "momentum_exhaustion_skip", "eligibility_skip",
+];
+
 function fmtTime(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -162,8 +173,7 @@ function StructuredEntry({ it }: { it: ActivityItem }) {
   const { fmt } = useCurrency();
   const m = it.meta!;
 
-  const gateKinds = ["session_hour_skip", "sl_width_skip", "ev_ratio_skip", "pre_entry_net_profit_skip"];
-  if (gateKinds.includes(m.kind ?? "")) {
+  if (GATE_SKIP_KINDS.includes(m.kind ?? "")) {
     return <GateEntry kind={m.kind!} msg={it.message} />;
   }
 
@@ -257,12 +267,11 @@ export function RecentActivity({ items }: { items: ActivityItem[] }) {
           )}
           {items.map((it) => {
             const c = classify(it.message, it.meta);
-            const gateKinds = ["session_hour_skip", "sl_width_skip", "ev_ratio_skip", "pre_entry_net_profit_skip"];
             const structured =
               it.meta?.kind === "auto_book" ||
               it.meta?.kind === "skip" ||
               it.meta?.kind === "auto_tune" ||
-              gateKinds.includes(it.meta?.kind ?? "");
+              GATE_SKIP_KINDS.includes(it.meta?.kind ?? "");
             const clean = structured ? null : sanitize(it.message);
             return (
               <div key={it.id} className="px-4 py-2.5 flex items-start gap-3">

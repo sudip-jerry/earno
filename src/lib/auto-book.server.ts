@@ -758,9 +758,17 @@ export async function runAutoBookPass(
       if (isGloballyBlacklisted(sym)) {
         rejection = "Symbol on platform blacklist";
         final = "skip";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: "platform_blacklist_skip",
+          symbol: a.symbol,
+        });
       } else if (blockedSymbols.has(sym.toUpperCase())) {
         rejection = "Symbol on user blocklist";
         final = "skip";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: "user_blocklist_skip",
+          symbol: a.symbol,
+        });
       } else if (
         // Global hard-SL cooldown: 2+ hard SLs across Futures paper users in
         // the last 6h blocks new auto-book entries (both long & short) for 6h.
@@ -769,6 +777,11 @@ export async function runAutoBookPass(
       ) {
         rejection = "Symbol globally cooled (2+ hard SLs across users in 6h)";
         final = "skip";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: "global_sl_cooldown_skip",
+          symbol: a.symbol,
+          global_hard_sl_count: globalHardSlCount.get(sym) ?? 0,
+        });
       } else if (
         // Per-user hard-SL cooldown: 1 hard SL in last 6h blocks re-entry
         // for symbol_sl_cooldown_minutes.
@@ -778,20 +791,44 @@ export async function runAutoBookPass(
       ) {
         rejection = "Symbol hard-SL cooldown (user, last 6h)";
         final = "skip";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: "user_sl_cooldown_skip",
+          symbol: a.symbol,
+          symbol_sl_cooldown_minutes: cfg.symbol_sl_cooldown_minutes,
+        });
       } else if (a.action === "AVOID" || a.side_bias === "neutral") {
         rejection = "Bias unclear / avoid";
         final = "avoid";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: "avoid_signal_skip",
+          symbol: a.symbol,
+          action: a.action,
+          side_bias: a.side_bias,
+        });
       } else if (a.side_bias === "short" && !cfg.allow_short) {
         rejection = "Shorts disabled in config";
         final = "skip";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: "shorts_disabled_skip",
+          symbol: a.symbol,
+        });
       } else if (a.side_bias === "long" && cfg.allow_long === false) {
         rejection = "Longs disabled in config";
         final = "skip";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: "longs_disabled_skip",
+          symbol: a.symbol,
+        });
         // Loss-based symbol blacklist removed — only delisted symbols (filtered
         // upstream by the market list) remain excluded.
       } else if (cooldownActive) {
         rejection = "Cooldown active";
         final = "skip";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: "cooldown_skip",
+          symbol: a.symbol,
+          cooldown_minutes: cfg.cooldown_minutes,
+        });
       } else if (
         // Rolling symbol cooldown driven by style preset.
         (() => {
@@ -807,10 +844,24 @@ export async function runAutoBookPass(
       ) {
         rejection = `Rolling cooldown (${preset.lossesBeforeSymbolCooldown}+ losses in 24h, style=${preset.key})`;
         final = "skip";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: "rolling_cooldown_skip",
+          symbol: a.symbol,
+          losses: lossCountBySymbol.get(sym) ?? 0,
+          wins: winCountBySymbol.get(sym) ?? 0,
+          losses_before_cooldown: preset.lossesBeforeSymbolCooldown,
+          style: preset.key,
+        });
       // (Regime-aware direction gate moved below as a standalone check.)
       } else if (a.spread_pct != null && a.spread_pct > HARD_SPREAD_BLOCK_PCT) {
         rejection = `Spread too high (${a.spread_pct.toFixed(2)}%)`;
         final = "skip";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: "spread_skip",
+          symbol: a.symbol,
+          spread_pct: a.spread_pct,
+          hard_spread_block_pct: HARD_SPREAD_BLOCK_PCT,
+        });
       } else if (plan.status !== "auto_eligible") {
         rejection = plan.reason ?? "Risk plan rejected";
         final = "skip";
@@ -837,16 +888,35 @@ export async function runAutoBookPass(
       } else if (!dailyLossAvailable) {
         rejection = "Daily loss cap hit";
         final = "skip";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: "daily_loss_cap_skip",
+          symbol: a.symbol,
+          daily_loss_cap_pct: cfg.daily_loss_cap_pct,
+        });
       } else if (remainingToday - opened <= 0) {
         rejection = "Daily auto-book limit reached";
         final = "skip";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: "daily_limit_skip",
+          symbol: a.symbol,
+          max_trades_per_day: cfg.max_trades_per_day,
+        });
         // Style trades/day, same-direction, and per-symbol/day hardcaps removed for now.
       } else if (openSlot <= 0) {
         rejection = "Max open positions reached";
         final = "skip";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: "max_positions_skip",
+          symbol: a.symbol,
+          max_open_positions: cfg.max_open_positions,
+        });
       } else if (openSymbols.has(sym)) {
         rejection = "Position already open on symbol";
         final = "skip";
+        await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+          kind: "open_position_skip",
+          symbol: a.symbol,
+        });
       } else if (a.confidence_pct < autoConfThreshold) {
         rejection = `Below auto-book threshold (${a.confidence_pct} < ${autoConfThreshold})`;
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
@@ -1066,6 +1136,12 @@ export async function runAutoBookPass(
         if (notional <= 0 || a.price <= 0) {
           rejection = "Position sizing failed";
           final = "skip";
+          await logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+            kind: "sizing_failed_skip",
+            symbol: a.symbol,
+            notional,
+            price: a.price,
+          });
         } else {
           const qty = notional / a.price;
           const stop_loss =
