@@ -138,7 +138,7 @@ function Home() {
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
 
   const profile = useQuery({
-    queryKey: ["my_profile"],
+    queryKey: ["home_profile"],
     queryFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return null;
