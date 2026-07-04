@@ -114,9 +114,9 @@ export function SimpleView(props: SimpleViewProps) {
   const coinHoldingsLabel = `${coinHoldingCount} holding${coinHoldingCount === 1 ? "" : "s"}`;
 
   return (
-    <div className="min-h-svh bg-background pb-36">
+    <div className="min-h-svh bg-background pb-28">
       <div className="mx-auto max-w-md">
-        <header className="px-5 pt-8">
+        <header className="px-5 pt-5">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -132,28 +132,29 @@ export function SimpleView(props: SimpleViewProps) {
               </IconBtn>
             </div>
           </div>
-          <p className="mt-5 text-[13px] font-medium uppercase text-muted-foreground">
+          <p className="mt-5 text-[11px] uppercase tracking-wider text-muted-foreground">
             {derived.greeting}
           </p>
-          <p className="mt-0.5 text-[28px] leading-tight font-semibold text-foreground">
+          <p className="mt-0.5 text-[19px] font-semibold text-foreground">
             {derived.firstName}
           </p>
           {currentMode === "paper" && (
-            <span className="mt-7 inline-flex items-center gap-2 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 px-4 h-9 text-[16px] font-medium">
-              <FlaskConical className="size-4" />
+            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 px-2.5 h-6 text-[11px] font-medium">
+              <FlaskConical className="size-3" />
               Practice mode — using simulated trades
             </span>
           )}
         </header>
 
-        <div className="px-5 mt-9">
-          <section className="rounded-3xl border border-t-4 border-t-primary bg-card px-6 py-7 shadow-sm">
-            <div className="text-[15px] text-muted-foreground">Your total balance</div>
-            <div className="mt-1 text-[32px] leading-tight font-semibold tabular-nums">
+
+        <div className="px-5 mt-4">
+          <section className="rounded-2xl border border-t-2 border-t-primary bg-card px-5 py-4 shadow-sm">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Your total balance</div>
+            <div className="mt-1 text-3xl font-semibold tabular-nums">
               {hideBalance ? "••••••" : fmt(totalValue)}
             </div>
             <div
-              className={`mt-4 inline-flex items-center gap-2 text-[17px] font-semibold tabular-nums ${derived.totalPos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+              className={`mt-1 inline-flex items-center gap-1 text-[13px] font-semibold tabular-nums ${derived.totalPos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
             >
               <span aria-hidden="true">{derived.totalPos ? "↗" : "↘"}</span>
               <span>
@@ -161,19 +162,19 @@ export function SimpleView(props: SimpleViewProps) {
                 {derived.dayPct.toFixed(2)}%) today
               </span>
             </div>
-            <p className="mt-6 text-[15px] leading-relaxed text-muted-foreground">
+            <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
               {derived.movementLine}
             </p>
 
-            <div className="mt-7 border-t pt-6">
+            <div className="mt-4 border-t pt-4">
               <div
-                className="flex h-3 overflow-hidden rounded-full bg-muted"
+                className="flex h-2.5 overflow-hidden rounded-full bg-muted"
                 aria-label="Today's gained and lost split"
               >
                 <div className="bg-emerald-500" style={{ width: `${derived.gainedShare}%` }} />
                 <div className="flex-1 bg-rose-500" />
               </div>
-              <div className="mt-3 flex items-center justify-between gap-4 text-[13px] text-muted-foreground">
+              <div className="mt-3 flex items-center justify-between gap-4 text-[11px] text-muted-foreground">
                 <span>Gained {fmt(derived.todayGained)} today</span>
                 <span>Lost {fmt(derived.todayLost)} today</span>
               </div>
@@ -181,70 +182,72 @@ export function SimpleView(props: SimpleViewProps) {
           </section>
         </div>
 
-        <div className="px-5 mt-9">
+
+        <div className="px-5 mt-4">
           <SimpleMarketTabs />
         </div>
 
-        <div className="px-5 mt-7">
-          <section className="rounded-3xl border bg-card shadow-sm divide-y">
+        <div className="px-5 mt-4">
+          <section className="rounded-2xl border bg-card shadow-sm divide-y">
             <button
               type="button"
               onClick={() => setMarket("futures")}
-              className="w-full flex items-center gap-4 px-5 py-5 text-left hover:bg-muted/40 transition first:rounded-t-3xl"
+              className="w-full flex items-center gap-4 px-4 py-3 text-left hover:bg-muted/40 transition first:rounded-t-2xl"
             >
               <div className="min-w-0 flex-1">
-                <div className="text-[20px] leading-tight font-semibold">Futures</div>
-                <div className="mt-1 text-[15px] text-muted-foreground">{futuresPositionsLabel}</div>
+                <div className="text-[12.5px] leading-tight font-medium">Futures</div>
+                <div className="text-[11px] text-muted-foreground">{futuresPositionsLabel}</div>
               </div>
               <div className="text-right">
-                <div className="text-[20px] leading-tight font-semibold tabular-nums">
+                <div className="text-[13px] font-semibold tabular-nums">
                   {fmt(futuresValue)}
                 </div>
                 <div
-                  className={`mt-1 text-[15px] font-semibold tabular-nums ${futuresTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                  className={`mt-1 text-[11px] tabular-nums ${futuresTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
                 >
                   {futuresTodayPnl >= 0 ? "↗" : "↘"} {fmt(futuresTodayPnl, { signed: true })} today
                 </div>
               </div>
-              <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
             </button>
             <button
               type="button"
               onClick={() => setMarket("spot")}
-              className="w-full flex items-center gap-4 px-5 py-5 text-left hover:bg-muted/40 transition last:rounded-b-3xl"
+              className="w-full flex items-center gap-4 px-4 py-3 text-left hover:bg-muted/40 transition last:rounded-b-2xl"
             >
               <div className="min-w-0 flex-1">
-                <div className="text-[20px] leading-tight font-semibold">Coins</div>
-                <div className="mt-1 text-[15px] text-muted-foreground">{coinHoldingsLabel}</div>
+                <div className="text-[12.5px] leading-tight font-medium">Coins</div>
+                <div className="text-[11px] text-muted-foreground">{coinHoldingsLabel}</div>
               </div>
               <div className="text-right">
-                <div className="text-[20px] leading-tight font-semibold tabular-nums">
+                <div className="text-[13px] font-semibold tabular-nums">
                   {fmt(coinEquity)}
                 </div>
                 <div
-                  className={`mt-1 text-[15px] font-semibold tabular-nums ${coinTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                  className={`mt-1 text-[11px] tabular-nums ${coinTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
                 >
                   {coinTodayPnl >= 0 ? "↗" : "↘"} {fmt(coinTodayPnl, { signed: true })} today
                 </div>
               </div>
-              <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
             </button>
           </section>
         </div>
 
-        <div className="px-5 mt-7">
-          <div className="rounded-3xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 flex items-start gap-3">
+
+        <div className="px-5 mt-4">
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 flex items-start gap-3">
             <span className="size-7 grid place-items-center rounded-full text-amber-700 dark:text-amber-300 shrink-0">
-              <Info className="size-5" />
+              <Info className="size-4" />
             </span>
-            <p className="text-[15px] leading-relaxed text-foreground/90">
+            <p className="text-[12.5px] leading-relaxed text-foreground/90">
               EarnO spreads your money across automated strategies on your own exchange account. It
               never holds your funds directly.
             </p>
           </div>
         </div>
 
-        <div className="mt-7">
+        <div className="mt-4">
           <RecentActivity items={recentActivity} />
         </div>
       </div>
