@@ -75,7 +75,8 @@ Execution (live mode only)
 - Blacklists (platform + user), hard-SL cooldowns (global 2+ in 6h; per-user), direction locks.
 - Standard cooldown, rolling loss-streak cooldown (style-aware), spread block, risk plan gate.
 - Regime-aware confidence floors (DB-backed per style), major-coin confidence floor (default 90%).
-- Momentum exhaustion, backend setup classification, session hour block, SL width cap, EV ratio, pre-entry fee floor, position / daily limits.
+- Momentum exhaustion (RSI overextended + weak volume), backend setup classification, session hour block.
+- SL width cap, EV ratio `(conf × TP%) / ((1−conf) × SL%)`, pre-entry fee floor, position / daily limits.
 
 **Exit stack** — implemented and validated; do not duplicate
 - TP1 on 50% size → move SL to breakeven → trailing stop → profit-fade exit → weak-progress time exit → pre-TP1 failed-momentum exit → stop-loss / take-profit.
@@ -84,7 +85,7 @@ Execution (live mode only)
 
 ## Features (High Level)
 
-**Dashboard**: Portfolio value, today's P&L, 14-day daily bar chart (green/red per day), RAG bot status in plain English, one-tap recommendation panel, activity feed with every auto-book decision and gate rejection.
+**Dashboard**: Portfolio value, today's P&L, 14-day daily bar chart (green/red per day), RAG (Red/Amber/Green) bot status in plain English, one-tap recommendation panel, activity feed with every auto-book decision and gate rejection.
 
 **Futures Bot**: Paper-trading-by-default; 24/7 scheduled scan with configurable timeframe; per-symbol confidence feed; live mode (plan-gated, requires API credentials).
 
