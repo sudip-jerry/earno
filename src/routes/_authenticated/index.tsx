@@ -66,6 +66,7 @@ import { CoinBotHealth } from "@/components/coin-bot/coin-bot-health";
 import { CoinRecentActivity } from "@/components/coin-bot/coin-recent-activity";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
 import { getCoinPortfolio, getCoinHoldings } from "@/lib/coin-bot/coin-bot.functions";
+import { SimpleView } from "@/components/home-simple/simple-view";
 
 const HOME_VIEW_MODE_KEY = "earno_home_view_mode_v2";
 
