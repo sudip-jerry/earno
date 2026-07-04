@@ -381,7 +381,7 @@ function Home() {
             <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Your money · all</div>
             <div className="mt-1 flex items-baseline gap-2 flex-wrap">
               <div className="text-3xl font-semibold tabular-nums">{fmt(totalValue)}</div>
-              <div className={`text-[13px] font-medium tabular-nums ${totalPos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+              <div className={`text-[13px] font-medium tabular-nums ${totalTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                 {fmt(totalTodayPnl, { signed: true })} today
               </div>
             </div>
