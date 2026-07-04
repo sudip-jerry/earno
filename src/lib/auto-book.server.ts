@@ -22,6 +22,7 @@ import {
   type SignalAnalysis,
 } from "@/lib/signal-scoring.server";
 import { feeModelRates, DEFAULT_FEE_MODEL } from "@/lib/fees";
+import { projectedNetPctAtTp } from "@/lib/entry-gates";
 import { classifySetup } from "@/lib/futures/setup-classifier";
 import { isGloballyBlacklisted } from "@/lib/global-symbol-blacklist";
 import { getBackendStrategyPolicy } from "@/lib/futures/strategy-policy";
@@ -272,6 +273,7 @@ type BotConfig = {
   minimum_net_profit_to_enter_pct?: number | null;
   max_sl_atr_pct?: number | null;
   min_ev_ratio?: number | null;
+  slippage_buffer_pct?: number | null;
   blocked_session_hours_ist?: number[] | null;
   major_coin_confidence_floor?: number | null;
 };
@@ -382,7 +384,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,max_sl_atr_pct,min_ev_ratio,blocked_session_hours_ist,major_coin_confidence_floor",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -514,8 +516,6 @@ export async function runAutoBookPass(
       earliestSignalAt.set(`${symbol}|${head.side}`, streakStart);
     }
   }
-
-
 
   for (const cfg of users) {
     let opened = 0;
@@ -1158,16 +1158,16 @@ export async function runAutoBookPass(
           // if the projected net% (on entry notional) is below the configured floor.
           const minNetEnterPct = Number(cfg.minimum_net_profit_to_enter_pct ?? 0);
           if (minNetEnterPct > 0) {
-            const fees = feeModelRates(DEFAULT_FEE_MODEL);
-            const entryNotional = qty * a.price;
-            const exitNotionalAtTp = qty * take_profit;
-            const grossAtTp = qty * Math.abs(take_profit - a.price);
-            const feesAtTp =
-              ((entryNotional * fees.entry_fee_pct) / 100 +
-                (exitNotionalAtTp * fees.exit_fee_pct) / 100) *
-              (1 + fees.gst_pct / 100);
-            const netPctAtTp =
-              entryNotional > 0 ? ((grossAtTp - feesAtTp) / entryNotional) * 100 : 0;
+            // Projected net% at TP using the SAME cost model as the exit path
+            // (fees + GST + slippage), so the gate isn't optimistic by the
+            // slippage the exit later subtracts.
+            const slippageBufferPct = Number(cfg.slippage_buffer_pct ?? 0.05);
+            const netPctAtTp = projectedNetPctAtTp({
+              entryPrice: a.price,
+              takeProfit: take_profit,
+              qty,
+              slippageBufferPct,
+            });
             if (netPctAtTp < minNetEnterPct) {
               rejection = `Projected net profit at TP ${netPctAtTp.toFixed(3)}% < min ${minNetEnterPct}%`;
               final = "skip";
@@ -1182,8 +1182,7 @@ export async function runAutoBookPass(
                   tp_pct: tpPct,
                   projected_net_pct: Number(netPctAtTp.toFixed(4)),
                   min_net_profit_to_enter_pct: minNetEnterPct,
-                  fees_at_tp: Number(feesAtTp.toFixed(4)),
-                  gross_at_tp: Number(grossAtTp.toFixed(4)),
+                  slippage_buffer_pct: slippageBufferPct,
                 },
               ).catch(() => {});
             }
