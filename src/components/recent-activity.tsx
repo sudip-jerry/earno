@@ -3,14 +3,34 @@ import { History } from "lucide-react";
 import { useCurrency } from "@/hooks/use-currency";
 
 const GATE_SKIP_KINDS = [
-  "session_hour_skip", "sl_width_skip", "ev_ratio_skip", "pre_entry_net_profit_skip",
-  "platform_blacklist_skip", "user_blocklist_skip", "global_sl_cooldown_skip",
-  "user_sl_cooldown_skip", "avoid_signal_skip", "shorts_disabled_skip",
-  "longs_disabled_skip", "cooldown_skip", "rolling_cooldown_skip", "spread_skip",
-  "daily_loss_cap_skip", "daily_limit_skip", "max_positions_skip", "open_position_skip",
-  "sizing_failed_skip", "rr_too_low", "sl_too_wide", "no_capital", "risk_plan_rejected",
-  "confidence_below_threshold", "regime_gate_skip", "major_coin_floor_skip",
-  "momentum_exhaustion_skip", "eligibility_skip",
+  "session_hour_skip",
+  "sl_width_skip",
+  "ev_ratio_skip",
+  "pre_entry_net_profit_skip",
+  "platform_blacklist_skip",
+  "user_blocklist_skip",
+  "global_sl_cooldown_skip",
+  "user_sl_cooldown_skip",
+  "avoid_signal_skip",
+  "shorts_disabled_skip",
+  "longs_disabled_skip",
+  "cooldown_skip",
+  "rolling_cooldown_skip",
+  "spread_skip",
+  "daily_loss_cap_skip",
+  "daily_limit_skip",
+  "max_positions_skip",
+  "open_position_skip",
+  "sizing_failed_skip",
+  "rr_too_low",
+  "sl_too_wide",
+  "no_capital",
+  "risk_plan_rejected",
+  "confidence_below_threshold",
+  "regime_gate_skip",
+  "major_coin_floor_skip",
+  "momentum_exhaustion_skip",
+  "eligibility_skip",
 ];
 
 function fmtTime(iso: string): string {
@@ -56,6 +76,29 @@ function classify(msg: string, meta?: ActivityMeta | null): { tag: string; tone:
   if (kind === "sl_width_skip" || /exceeds max_sl_atr/i.test(msg)) return { tag: "SL too wide", tone: "warn" };
   if (kind === "ev_ratio_skip" || /EV ratio/i.test(msg)) return { tag: "Low EV", tone: "warn" };
   if (kind === "pre_entry_net_profit_skip" || /net profit at TP below/i.test(msg)) return { tag: "Fee gate", tone: "warn" };
+  if (kind === "platform_blacklist_skip") return { tag: "Blacklisted", tone: "warn" };
+  if (kind === "user_blocklist_skip") return { tag: "Blocked", tone: "warn" };
+  if (kind === "global_sl_cooldown_skip") return { tag: "Global cooldown", tone: "warn" };
+  if (kind === "user_sl_cooldown_skip") return { tag: "SL cooldown", tone: "warn" };
+  if (kind === "avoid_signal_skip") return { tag: "Avoid", tone: "warn" };
+  if (kind === "shorts_disabled_skip") return { tag: "Shorts off", tone: "warn" };
+  if (kind === "longs_disabled_skip") return { tag: "Longs off", tone: "warn" };
+  if (kind === "cooldown_skip" || kind === "rolling_cooldown_skip") return { tag: "Cooldown", tone: "warn" };
+  if (kind === "spread_skip") return { tag: "Spread", tone: "warn" };
+  if (kind === "daily_loss_cap_skip") return { tag: "Loss cap", tone: "negative" };
+  if (kind === "daily_limit_skip") return { tag: "Daily limit", tone: "warn" };
+  if (kind === "max_positions_skip") return { tag: "Max positions", tone: "warn" };
+  if (kind === "open_position_skip") return { tag: "Already open", tone: "warn" };
+  if (kind === "sizing_failed_skip") return { tag: "Sizing fail", tone: "negative" };
+  if (kind === "rr_too_low") return { tag: "Low RR", tone: "warn" };
+  if (kind === "sl_too_wide") return { tag: "SL too wide", tone: "warn" };
+  if (kind === "no_capital") return { tag: "No capital", tone: "negative" };
+  if (kind === "risk_plan_rejected") return { tag: "Risk rejected", tone: "warn" };
+  if (kind === "confidence_below_threshold") return { tag: "Low confidence", tone: "warn" };
+  if (kind === "regime_gate_skip") return { tag: "Regime gate", tone: "warn" };
+  if (kind === "major_coin_floor_skip") return { tag: "Floor skip", tone: "warn" };
+  if (kind === "momentum_exhaustion_skip") return { tag: "Exhaustion", tone: "warn" };
+  if (kind === "eligibility_skip") return { tag: "Ineligible", tone: "warn" };
   if (kind === "skip" || /^Skipped/i.test(msg)) return { tag: "Skipped", tone: "warn" };
   if (/^Auto-closed|^Closed/i.test(msg)) return { tag: "Closed", tone: "neutral" };
   if (/paused|cap hit|limit|risk lock/i.test(msg)) return { tag: "Paused", tone: "warn" };
