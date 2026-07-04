@@ -41,6 +41,7 @@ import {
   MoreVertical,
   Bot as BotIcon,
   Radar,
+  Home as HomeIcon,
   Briefcase,
   Pause,
   Play,
@@ -65,6 +66,8 @@ import { CoinBotHealth } from "@/components/coin-bot/coin-bot-health";
 import { CoinRecentActivity } from "@/components/coin-bot/coin-recent-activity";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
 import { getCoinPortfolio, getCoinHoldings } from "@/lib/coin-bot/coin-bot.functions";
+
+const HOME_VIEW_MODE_KEY = "earno_home_view_mode_v2";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -124,15 +127,36 @@ function Home() {
   const [hideBalance, setHideBalance] = useState(false);
   const [viewMode, setViewMode] = useState<"simple" | "detail">(() => {
     if (typeof window === "undefined") return "simple";
-    const v = window.localStorage.getItem("earno_home_view_mode");
+    const v = window.localStorage.getItem(HOME_VIEW_MODE_KEY);
     return v === "detail" ? "detail" : "simple";
   });
   useEffect(() => {
-    try { window.localStorage.setItem("earno_home_view_mode", viewMode); } catch {}
+    try { window.localStorage.setItem(HOME_VIEW_MODE_KEY, viewMode); } catch {}
   }, [viewMode]);
 
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
+
+  const profile = useQuery({
+    queryKey: ["home_profile"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("display_name,email")
+        .eq("id", u.user.id)
+        .maybeSingle();
+      const displayName =
+        (data?.display_name as string | null) ??
+        (u.user.user_metadata?.full_name as string | undefined) ??
+        null;
+      return {
+        displayName,
+        email: (data?.email as string | null) ?? u.user.email ?? null,
+      };
+    },
+  });
 
   const cfg = useQuery({
     queryKey: ["bot_config"],
@@ -247,25 +271,42 @@ function Home() {
   }, [isRunning, s, openCount]);
 
   if (market === "all") {
+    const coinSummary = (coinHoldings.data as {
+      summary?: {
+        current_value_usdt?: number;
+        unrealized_pnl_usdt?: number;
+        active_holdings?: number;
+      };
+    } | undefined)?.summary;
     const futuresValue = Number(s?.portfolioValue ?? c?.paper_equity ?? 0);
     const coinEquity =
       Number(coinPortfolio.data?.available_cash_usdt ?? 0) +
-      Number((coinHoldings.data as { summary?: { current_value_usdt?: number } } | undefined)?.summary?.current_value_usdt ?? 0);
+      Number(coinSummary?.current_value_usdt ?? 0);
     const totalValue = futuresValue + coinEquity;
     const futuresTodayPnl = Number(s?.todayPnl ?? 0);
     const coinTodayPnl =
       Number(coinPortfolio.data?.realized_today_usdt ?? 0) +
-      Number((coinHoldings.data as { summary?: { unrealized_pnl_usdt?: number } } | undefined)?.summary?.unrealized_pnl_usdt ?? 0);
+      Number(coinSummary?.unrealized_pnl_usdt ?? 0);
     const totalTodayPnl = futuresTodayPnl + coinTodayPnl;
     const totalPos = totalTodayPnl >= 0;
     const dayPct = totalValue > 0 ? (totalTodayPnl / totalValue) * 100 : 0;
+    const todayGained = [futuresTodayPnl, coinTodayPnl]
+      .filter((n) => n > 0)
+      .reduce((a, n) => a + n, 0);
+    const todayLost = Math.abs(
+      [futuresTodayPnl, coinTodayPnl]
+        .filter((n) => n < 0)
+        .reduce((a, n) => a + n, 0),
+    );
+    const activityTotal = todayGained + todayLost;
+    const gainedShare = activityTotal > 0 ? Math.min(92, Math.max(8, (todayGained / activityTotal) * 100)) : 50;
     const movementLine =
       totalValue <= 0
         ? "Your balance is being set up."
         : dayPct > 2
           ? "Strong growth today."
           : dayPct > 0.3
-            ? "Steady growth today."
+            ? "Steady growth today — a normal good day."
             : dayPct >= -0.3
               ? "Fairly flat today — that's normal."
               : dayPct >= -2
@@ -273,116 +314,128 @@ function Home() {
                 : "Down more than usual today — the engine adapts.";
     const hour = new Date().getHours();
     const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+    const firstName = (profile.data?.displayName ?? profile.data?.email?.split("@")[0] ?? "there")
+      .trim()
+      .split(/\s+/)[0];
+    const futuresPositionsLabel = `${openCount} position${openCount === 1 ? "" : "s"}`;
+    const coinHoldingCount = Number(coinSummary?.active_holdings ?? coinPortfolio.data?.active_holdings ?? 0);
+    const coinHoldingsLabel = `${coinHoldingCount} holding${coinHoldingCount === 1 ? "" : "s"}`;
 
     if (viewMode === "simple") {
       return (
-        <div className="min-h-svh bg-background pb-28">
-          <header className="px-5 pt-5">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => navigate({ to: "/about" })}
-                aria-label="About earn'O"
-                className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <img src={earnoStacked.url} alt="earn'O" className="h-10 w-auto select-none" draggable={false} />
-              </button>
-              <div className="ml-auto flex items-center gap-2">
-                <MarketTogglePill />
-                <IconBtn ariaLabel="Settings" onClick={() => navigate({ to: "/settings" })}>
-                  <Cog className="size-4" />
-                </IconBtn>
+        <div className="min-h-svh bg-background pb-36">
+          <div className="mx-auto max-w-md">
+            <header className="px-5 pt-8">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate({ to: "/about" })}
+                  aria-label="About earn'O"
+                  className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <img src={earnoStacked.url} alt="earn'O" className="h-10 w-auto select-none" draggable={false} />
+                </button>
+                <div className="ml-auto">
+                  <IconBtn ariaLabel="Settings" onClick={() => navigate({ to: "/settings" })}>
+                    <Cog className="size-5" />
+                  </IconBtn>
+                </div>
               </div>
+              <p className="mt-5 text-[13px] font-medium uppercase text-muted-foreground">{greeting}</p>
+              <p className="mt-0.5 text-[28px] leading-tight font-semibold text-foreground">{firstName}</p>
+              {currentMode === "paper" && (
+                <span className="mt-7 inline-flex items-center gap-2 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 px-4 h-9 text-[16px] font-medium">
+                  <FlaskConical className="size-4" />
+                  Practice mode — using simulated trades
+                </span>
+              )}
+            </header>
+
+            <div className="px-5 mt-9">
+              <section className="rounded-3xl border border-t-4 border-t-primary bg-card px-6 py-7 shadow-sm">
+                <div className="text-[15px] text-muted-foreground">Your total balance</div>
+                <div className="mt-1 text-[32px] leading-tight font-semibold tabular-nums">
+                  {hideBalance ? "••••••" : fmt(totalValue)}
+                </div>
+                <div className={`mt-4 inline-flex items-center gap-2 text-[17px] font-semibold tabular-nums ${totalPos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                  <span aria-hidden="true">{totalPos ? "↗" : "↘"}</span>
+                  <span>{fmt(totalTodayPnl, { signed: true })} ({dayPct >= 0 ? "+" : ""}{dayPct.toFixed(2)}%) today</span>
+                </div>
+                <p className="mt-6 text-[15px] leading-relaxed text-muted-foreground">{movementLine}</p>
+
+                <div className="mt-7 border-t pt-6">
+                  <div className="flex h-3 overflow-hidden rounded-full bg-muted" aria-label="Today's gained and lost split">
+                    <div className="bg-emerald-500" style={{ width: `${gainedShare}%` }} />
+                    <div className="flex-1 bg-rose-500" />
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-4 text-[13px] text-muted-foreground">
+                    <span>Gained {fmt(todayGained)} today</span>
+                    <span>Lost {fmt(todayLost)} today</span>
+                  </div>
+                </div>
+              </section>
             </div>
-            <p className="mt-4 text-[15px] font-medium text-foreground">{greeting}.</p>
-            <p className="text-[12px] text-muted-foreground">Here's a calm look at your money today.</p>
-            {currentMode === "paper" && (
-              <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 px-2.5 h-6 text-[11px] font-medium">
-                <FlaskConical className="size-3" />
-                Practice mode — using simulated trades.
-              </span>
-            )}
-          </header>
 
-          {/* Hero: total balance */}
-          <div className="px-5 mt-5">
-            <section className="rounded-2xl border bg-card px-5 py-5">
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Your total balance</div>
-              <div className="mt-1 text-[34px] leading-tight font-semibold tabular-nums">{fmt(totalValue)}</div>
-              <div className={`mt-1 text-[13px] font-medium tabular-nums ${totalPos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                {fmt(totalTodayPnl, { signed: true })} today
-                <span className="text-muted-foreground font-normal"> · {dayPct >= 0 ? "+" : ""}{dayPct.toFixed(2)}%</span>
-              </div>
-              <p className="mt-2 text-[12.5px] text-muted-foreground">{movementLine}</p>
+            <div className="px-5 mt-9">
+              <SimpleMarketTabs />
+            </div>
 
-              {/* Breakdown */}
-              <div className="mt-4 divide-y divide-border rounded-xl border overflow-hidden">
+            <div className="px-5 mt-7">
+              <section className="rounded-3xl border bg-card shadow-sm divide-y">
                 <button
                   type="button"
                   onClick={() => { setMarket("futures"); }}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-background/60 hover:bg-muted/40 transition text-left"
+                  className="w-full flex items-center gap-4 px-5 py-5 text-left hover:bg-muted/40 transition first:rounded-t-3xl"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-sm bg-primary inline-block" />
-                    <span className="text-[13px] font-medium">Futures</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[20px] leading-tight font-semibold">Futures</div>
+                    <div className="mt-1 text-[15px] text-muted-foreground">{futuresPositionsLabel}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[13px] font-semibold tabular-nums">{fmt(futuresValue)}</div>
-                    <div className={`text-[11px] tabular-nums ${futuresTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                      {fmt(futuresTodayPnl, { signed: true })} today
+                    <div className="text-[20px] leading-tight font-semibold tabular-nums">{fmt(futuresValue)}</div>
+                    <div className={`mt-1 text-[15px] font-semibold tabular-nums ${futuresTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                      {futuresTodayPnl >= 0 ? "↗" : "↘"} {fmt(futuresTodayPnl, { signed: true })} today
                     </div>
                   </div>
+                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
                 </button>
                 <button
                   type="button"
                   onClick={() => { setMarket("spot"); }}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-background/60 hover:bg-muted/40 transition text-left"
+                  className="w-full flex items-center gap-4 px-5 py-5 text-left hover:bg-muted/40 transition last:rounded-b-3xl"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-sm bg-accent inline-block" />
-                    <span className="text-[13px] font-medium">Coins</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[20px] leading-tight font-semibold">Coins</div>
+                    <div className="mt-1 text-[15px] text-muted-foreground">{coinHoldingsLabel}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[13px] font-semibold tabular-nums">{fmt(coinEquity)}</div>
-                    <div className={`text-[11px] tabular-nums ${coinTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                      {fmt(coinTodayPnl, { signed: true })} today
+                    <div className="text-[20px] leading-tight font-semibold tabular-nums">{fmt(coinEquity)}</div>
+                    <div className={`mt-1 text-[15px] font-semibold tabular-nums ${coinTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                      {coinTodayPnl >= 0 ? "↗" : "↘"} {fmt(coinTodayPnl, { signed: true })} today
                     </div>
                   </div>
+                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
                 </button>
-              </div>
-              <p className="mt-2 text-[10.5px] text-muted-foreground">Tap a row to explore that view.</p>
-            </section>
-          </div>
+              </section>
+            </div>
 
-          {/* Trust / non-custody */}
-          <div className="px-5 mt-4">
-            <div className="rounded-2xl border bg-card p-4 flex items-start gap-3">
-              <span className="size-8 grid place-items-center rounded-full bg-primary/10 text-primary shrink-0">
-                <ShieldCheck className="size-4" />
-              </span>
-              <p className="text-[12.5px] text-muted-foreground leading-relaxed">
-                EarnO spreads your money across a few automated strategies on your own exchange account. It never holds your funds directly.
-              </p>
+            <div className="px-5 mt-7">
+              <div className="rounded-3xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 flex items-start gap-3">
+                <span className="size-7 grid place-items-center rounded-full text-amber-700 dark:text-amber-300 shrink-0">
+                  <Info className="size-5" />
+                </span>
+                <p className="text-[15px] leading-relaxed text-foreground/90">
+                  EarnO spreads your money across automated strategies on your own exchange account. It never holds your funds directly.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-7">
+              <RecentActivity items={s?.recentActivity ?? []} />
             </div>
           </div>
 
-          {/* Recent activity */}
-          <div className="mt-6">
-            <RecentActivity items={s?.recentActivity ?? []} />
-          </div>
-
-          {/* Floating switch to detail */}
-          <button
-            type="button"
-            onClick={() => setViewMode("detail")}
-            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 inline-flex items-center gap-1.5 rounded-full border bg-card/95 backdrop-blur px-3.5 h-9 text-[12px] font-medium shadow-sm hover:bg-muted transition"
-            aria-label="Switch to detailed view"
-          >
-            <LineChart className="size-3.5" />
-            See detailed view
-          </button>
-
-          <TabBar />
+          <SimpleTabBar onDetails={() => setViewMode("detail")} />
         </div>
       );
     }
@@ -1250,6 +1303,59 @@ function MarketTogglePill() {
         );
       })}
     </div>
+  );
+}
+
+function SimpleMarketTabs() {
+  const { market, setMarket } = useMarketMode();
+  const opts: { v: MarketMode; label: string }[] = [
+    { v: "all", label: "All" },
+    { v: "futures", label: "Futures" },
+    { v: "spot", label: "Coins" },
+  ];
+
+  return (
+    <div className="grid grid-cols-3 rounded-full bg-muted p-1 text-[18px] font-semibold text-muted-foreground">
+      {opts.map((o) => {
+        const active = market === o.v;
+        return (
+          <button
+            key={o.v}
+            type="button"
+            onClick={() => setMarket(o.v)}
+            className={`h-14 rounded-full transition ${active ? "bg-card text-primary shadow-sm" : "hover:text-foreground"}`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SimpleTabBar({ onDetails }: { onDetails: () => void }) {
+  return (
+    <nav aria-label="Simple primary" className="fixed bottom-5 inset-x-0 z-40 pointer-events-none px-6">
+      <div className="mx-auto grid h-[78px] max-w-[330px] grid-cols-3 rounded-full border bg-card/95 shadow-lg backdrop-blur pointer-events-auto">
+        <Link to="/" className="flex flex-col items-center justify-center gap-1 text-primary">
+          <HomeIcon className="size-6" />
+          <span className="text-[16px] font-semibold leading-none">Home</span>
+        </Link>
+        <button
+          type="button"
+          onClick={onDetails}
+          className="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground transition"
+          aria-label="Open detailed view"
+        >
+          <LineChart className="size-6" />
+          <span className="text-[16px] font-semibold leading-none">Details</span>
+        </button>
+        <Link to="/settings" className="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground transition">
+          <Cog className="size-6" />
+          <span className="text-[16px] font-semibold leading-none">Settings</span>
+        </Link>
+      </div>
+    </nav>
   );
 }
 
