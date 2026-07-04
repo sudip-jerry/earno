@@ -162,7 +162,16 @@ function StructuredEntry({ it }: { it: ActivityItem }) {
   const { fmt } = useCurrency();
   const m = it.meta!;
 
-  const gateKinds = ["session_hour_skip", "sl_width_skip", "ev_ratio_skip", "pre_entry_net_profit_skip"];
+  const gateKinds = [
+    "session_hour_skip", "sl_width_skip", "ev_ratio_skip", "pre_entry_net_profit_skip",
+    "platform_blacklist_skip", "user_blocklist_skip", "global_sl_cooldown_skip",
+    "user_sl_cooldown_skip", "avoid_signal_skip", "shorts_disabled_skip",
+    "longs_disabled_skip", "cooldown_skip", "rolling_cooldown_skip", "spread_skip",
+    "daily_loss_cap_skip", "daily_limit_skip", "max_positions_skip", "open_position_skip",
+    "sizing_failed_skip", "rr_too_low", "sl_too_wide", "no_capital", "risk_plan_rejected",
+    "confidence_below_threshold", "regime_gate_skip", "major_coin_floor_skip",
+    "momentum_exhaustion_skip", "eligibility_skip",
+  ];
   if (gateKinds.includes(m.kind ?? "")) {
     return <GateEntry kind={m.kind!} msg={it.message} />;
   }
@@ -257,7 +266,16 @@ export function RecentActivity({ items }: { items: ActivityItem[] }) {
           )}
           {items.map((it) => {
             const c = classify(it.message, it.meta);
-            const gateKinds = ["session_hour_skip", "sl_width_skip", "ev_ratio_skip", "pre_entry_net_profit_skip"];
+            const gateKinds = [
+              "session_hour_skip", "sl_width_skip", "ev_ratio_skip", "pre_entry_net_profit_skip",
+              "platform_blacklist_skip", "user_blocklist_skip", "global_sl_cooldown_skip",
+              "user_sl_cooldown_skip", "avoid_signal_skip", "shorts_disabled_skip",
+              "longs_disabled_skip", "cooldown_skip", "rolling_cooldown_skip", "spread_skip",
+              "daily_loss_cap_skip", "daily_limit_skip", "max_positions_skip", "open_position_skip",
+              "sizing_failed_skip", "rr_too_low", "sl_too_wide", "no_capital", "risk_plan_rejected",
+              "confidence_below_threshold", "regime_gate_skip", "major_coin_floor_skip",
+              "momentum_exhaustion_skip", "eligibility_skip",
+            ];
             const structured =
               it.meta?.kind === "auto_book" ||
               it.meta?.kind === "skip" ||
