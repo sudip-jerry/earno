@@ -1306,6 +1306,59 @@ function MarketTogglePill() {
   );
 }
 
+function SimpleMarketTabs() {
+  const { market, setMarket } = useMarketMode();
+  const opts: { v: MarketMode; label: string }[] = [
+    { v: "all", label: "All" },
+    { v: "futures", label: "Futures" },
+    { v: "spot", label: "Coins" },
+  ];
+
+  return (
+    <div className="grid grid-cols-3 rounded-full bg-muted p-1 text-[18px] font-semibold text-muted-foreground">
+      {opts.map((o) => {
+        const active = market === o.v;
+        return (
+          <button
+            key={o.v}
+            type="button"
+            onClick={() => setMarket(o.v)}
+            className={`h-14 rounded-full transition ${active ? "bg-card text-primary shadow-sm" : "hover:text-foreground"}`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SimpleTabBar({ onDetails }: { onDetails: () => void }) {
+  return (
+    <nav aria-label="Simple primary" className="fixed bottom-5 inset-x-0 z-40 pointer-events-none px-6">
+      <div className="mx-auto grid h-[78px] max-w-[330px] grid-cols-3 rounded-full border bg-card/95 shadow-lg backdrop-blur pointer-events-auto">
+        <Link to="/" className="flex flex-col items-center justify-center gap-1 text-primary">
+          <HomeIcon className="size-6" />
+          <span className="text-[16px] font-semibold leading-none">Home</span>
+        </Link>
+        <button
+          type="button"
+          onClick={onDetails}
+          className="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground transition"
+          aria-label="Open detailed view"
+        >
+          <LineChart className="size-6" />
+          <span className="text-[16px] font-semibold leading-none">Details</span>
+        </button>
+        <Link to="/settings" className="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground transition">
+          <Cog className="size-6" />
+          <span className="text-[16px] font-semibold leading-none">Settings</span>
+        </Link>
+      </div>
+    </nav>
+  );
+}
+
 function DailyChart({
   portfolioValue,
   todayPnl,
