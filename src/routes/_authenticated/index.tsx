@@ -289,157 +289,30 @@ function Home() {
       Number(coinPortfolio.data?.realized_today_usdt ?? 0) +
       Number(coinSummary?.unrealized_pnl_usdt ?? 0);
     const totalTodayPnl = futuresTodayPnl + coinTodayPnl;
-    const totalPos = totalTodayPnl >= 0;
-    const dayPct = totalValue > 0 ? (totalTodayPnl / totalValue) * 100 : 0;
-    const todayGained = [futuresTodayPnl, coinTodayPnl]
-      .filter((n) => n > 0)
-      .reduce((a, n) => a + n, 0);
-    const todayLost = Math.abs(
-      [futuresTodayPnl, coinTodayPnl]
-        .filter((n) => n < 0)
-        .reduce((a, n) => a + n, 0),
-    );
-    const activityTotal = todayGained + todayLost;
-    const gainedShare = activityTotal > 0 ? Math.min(92, Math.max(8, (todayGained / activityTotal) * 100)) : 50;
-    const movementLine =
-      totalValue <= 0
-        ? "Your balance is being set up."
-        : dayPct > 2
-          ? "Strong growth today."
-          : dayPct > 0.3
-            ? "Steady growth today — a normal good day."
-            : dayPct >= -0.3
-              ? "Fairly flat today — that's normal."
-              : dayPct >= -2
-                ? "A small dip today — this is normal."
-                : "Down more than usual today — the engine adapts.";
-    const hour = new Date().getHours();
-    const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-    const firstName = (profile.data?.displayName ?? profile.data?.email?.split("@")[0] ?? "there")
-      .trim()
-      .split(/\s+/)[0];
-    const futuresPositionsLabel = `${openCount} position${openCount === 1 ? "" : "s"}`;
     const coinHoldingCount = Number(coinSummary?.active_holdings ?? coinPortfolio.data?.active_holdings ?? 0);
-    const coinHoldingsLabel = `${coinHoldingCount} holding${coinHoldingCount === 1 ? "" : "s"}`;
 
     if (viewMode === "simple") {
       return (
-        <div className="min-h-svh bg-background pb-36">
-          <div className="mx-auto max-w-md">
-            <header className="px-5 pt-8">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => navigate({ to: "/about" })}
-                  aria-label="About earn'O"
-                  className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <img src={earnoStacked.url} alt="earn'O" className="h-10 w-auto select-none" draggable={false} />
-                </button>
-                <div className="ml-auto">
-                  <IconBtn ariaLabel="Settings" onClick={() => navigate({ to: "/settings" })}>
-                    <Cog className="size-5" />
-                  </IconBtn>
-                </div>
-              </div>
-              <p className="mt-5 text-[13px] font-medium uppercase text-muted-foreground">{greeting}</p>
-              <p className="mt-0.5 text-[28px] leading-tight font-semibold text-foreground">{firstName}</p>
-              {currentMode === "paper" && (
-                <span className="mt-7 inline-flex items-center gap-2 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 px-4 h-9 text-[16px] font-medium">
-                  <FlaskConical className="size-4" />
-                  Practice mode — using simulated trades
-                </span>
-              )}
-            </header>
-
-            <div className="px-5 mt-9">
-              <section className="rounded-3xl border border-t-4 border-t-primary bg-card px-6 py-7 shadow-sm">
-                <div className="text-[15px] text-muted-foreground">Your total balance</div>
-                <div className="mt-1 text-[32px] leading-tight font-semibold tabular-nums">
-                  {hideBalance ? "••••••" : fmt(totalValue)}
-                </div>
-                <div className={`mt-4 inline-flex items-center gap-2 text-[17px] font-semibold tabular-nums ${totalPos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                  <span aria-hidden="true">{totalPos ? "↗" : "↘"}</span>
-                  <span>{fmt(totalTodayPnl, { signed: true })} ({dayPct >= 0 ? "+" : ""}{dayPct.toFixed(2)}%) today</span>
-                </div>
-                <p className="mt-6 text-[15px] leading-relaxed text-muted-foreground">{movementLine}</p>
-
-                <div className="mt-7 border-t pt-6">
-                  <div className="flex h-3 overflow-hidden rounded-full bg-muted" aria-label="Today's gained and lost split">
-                    <div className="bg-emerald-500" style={{ width: `${gainedShare}%` }} />
-                    <div className="flex-1 bg-rose-500" />
-                  </div>
-                  <div className="mt-3 flex items-center justify-between gap-4 text-[13px] text-muted-foreground">
-                    <span>Gained {fmt(todayGained)} today</span>
-                    <span>Lost {fmt(todayLost)} today</span>
-                  </div>
-                </div>
-              </section>
-            </div>
-
-            <div className="px-5 mt-9">
-              <SimpleMarketTabs />
-            </div>
-
-            <div className="px-5 mt-7">
-              <section className="rounded-3xl border bg-card shadow-sm divide-y">
-                <button
-                  type="button"
-                  onClick={() => { setMarket("futures"); }}
-                  className="w-full flex items-center gap-4 px-5 py-5 text-left hover:bg-muted/40 transition first:rounded-t-3xl"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[20px] leading-tight font-semibold">Futures</div>
-                    <div className="mt-1 text-[15px] text-muted-foreground">{futuresPositionsLabel}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[20px] leading-tight font-semibold tabular-nums">{fmt(futuresValue)}</div>
-                    <div className={`mt-1 text-[15px] font-semibold tabular-nums ${futuresTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                      {futuresTodayPnl >= 0 ? "↗" : "↘"} {fmt(futuresTodayPnl, { signed: true })} today
-                    </div>
-                  </div>
-                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setMarket("spot"); }}
-                  className="w-full flex items-center gap-4 px-5 py-5 text-left hover:bg-muted/40 transition last:rounded-b-3xl"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[20px] leading-tight font-semibold">Coins</div>
-                    <div className="mt-1 text-[15px] text-muted-foreground">{coinHoldingsLabel}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[20px] leading-tight font-semibold tabular-nums">{fmt(coinEquity)}</div>
-                    <div className={`mt-1 text-[15px] font-semibold tabular-nums ${coinTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                      {coinTodayPnl >= 0 ? "↗" : "↘"} {fmt(coinTodayPnl, { signed: true })} today
-                    </div>
-                  </div>
-                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
-                </button>
-              </section>
-            </div>
-
-            <div className="px-5 mt-7">
-              <div className="rounded-3xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 flex items-start gap-3">
-                <span className="size-7 grid place-items-center rounded-full text-amber-700 dark:text-amber-300 shrink-0">
-                  <Info className="size-5" />
-                </span>
-                <p className="text-[15px] leading-relaxed text-foreground/90">
-                  EarnO spreads your money across automated strategies on your own exchange account. It never holds your funds directly.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-7">
-              <RecentActivity items={s?.recentActivity ?? []} />
-            </div>
-          </div>
-
-          <SimpleTabBar onDetails={() => setViewMode("detail")} />
-        </div>
+        <SimpleView
+          fmt={fmt}
+          hideBalance={hideBalance}
+          currentMode={currentMode}
+          displayName={profile.data?.displayName}
+          email={profile.data?.email}
+          totalValue={totalValue}
+          totalTodayPnl={totalTodayPnl}
+          futuresValue={futuresValue}
+          futuresTodayPnl={futuresTodayPnl}
+          coinEquity={coinEquity}
+          coinTodayPnl={coinTodayPnl}
+          openCount={openCount}
+          coinHoldingCount={coinHoldingCount}
+          recentActivity={s?.recentActivity ?? []}
+          onDetails={() => setViewMode("detail")}
+        />
       );
     }
+
 
 
 
