@@ -293,8 +293,10 @@ function bucketStats(trades: Pos[], bucket: BucketStats["bucket"]): BucketStats 
   }
   for (const t of closed) {
     const grossPnl = Number(t.pnl ?? 0);
-    const fee = Number(t.estimated_total_fee ?? NaN);
-    const f = Number.isFinite(fee) ? fee : tradeFee(t);
+    // Use the computed fee (maker basis for futures) rather than the stored
+    // estimated_total_fee, which was written on the taker model at close time —
+    // so reported net matches the maker-fee basis shown everywhere else.
+    const f = tradeFee(t);
     const n = grossPnl - f;
     gross += grossPnl; fees += f; net += n;
     if (n > 0) { wins++; gain += n; } else if (n < 0) { loss += -n; }
@@ -1469,7 +1471,7 @@ export const exportAllTradesCsv = createServerFn({ method: "GET" })
           t.qty != null && t.entry_price != null
             ? Number((Number(t.qty) * Number(t.entry_price)).toFixed(6))
             : "",
-        fees: t.estimated_total_fee ?? "",
+        fees: t.status === "closed" ? Number(computeFees(t).total_fee.toFixed(6)) : "",
         ...(() => {
           if (t.status !== "closed") {
             return {
