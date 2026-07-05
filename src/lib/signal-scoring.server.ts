@@ -455,6 +455,7 @@ export async function analyzeSymbol(
       entry: entryScore,
       overextension_penalty: overext,
       choppy_penalty: choppy,
+      adx: adx14 != null ? Number(adx14.toFixed(2)) : 0,
     },
   };
 }
