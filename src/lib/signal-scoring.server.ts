@@ -188,6 +188,11 @@ export type SignalAnalysis = {
   distance_from_ema21_pct: number | null;
   impulse_candle_pct: number | null;
   market_regime: string;
+  /** ADX(14) — analytics-only, not fed into confidence or bias. */
+  adx: number | null;
+  /** Relative volume: last candle volume / avg of trailing 20-candle volume.
+   *  Separate window from `volume_spike_ratio` (10-candle) so both can be compared. */
+  rvol: number | null;
   /** Component-level breakdown for diagnostics. */
   breakdown: Record<string, number>;
 };
