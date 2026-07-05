@@ -120,6 +120,53 @@ function chopiness(candles: Candle[]): number {
   return Math.min(25, p);
 }
 
+/** Wilder-smoothed ADX(period). Returns null when insufficient candles.
+ *  Analytics-only for now — not used in scoring or bias. */
+function adx(candles: Candle[], period = 14): number | null {
+  if (!candles || candles.length < period * 2 + 1) return null;
+  const len = candles.length;
+  const tr: number[] = new Array(len).fill(0);
+  const plusDM: number[] = new Array(len).fill(0);
+  const minusDM: number[] = new Array(len).fill(0);
+  for (let i = 1; i < len; i++) {
+    const c = candles[i], p = candles[i - 1];
+    const upMove = c.high - p.high;
+    const downMove = p.low - c.low;
+    plusDM[i] = upMove > downMove && upMove > 0 ? upMove : 0;
+    minusDM[i] = downMove > upMove && downMove > 0 ? downMove : 0;
+    tr[i] = Math.max(
+      c.high - c.low,
+      Math.abs(c.high - p.close),
+      Math.abs(c.low - p.close),
+    );
+  }
+  // Wilder smoothing
+  let atrS = 0, plusS = 0, minusS = 0;
+  for (let i = 1; i <= period; i++) {
+    atrS += tr[i]; plusS += plusDM[i]; minusS += minusDM[i];
+  }
+  const dxs: number[] = [];
+  const pushDx = () => {
+    const plusDI = atrS > 0 ? (100 * plusS) / atrS : 0;
+    const minusDI = atrS > 0 ? (100 * minusS) / atrS : 0;
+    const sum = plusDI + minusDI;
+    dxs.push(sum > 0 ? (100 * Math.abs(plusDI - minusDI)) / sum : 0);
+  };
+  pushDx();
+  for (let i = period + 1; i < len; i++) {
+    atrS = atrS - atrS / period + tr[i];
+    plusS = plusS - plusS / period + plusDM[i];
+    minusS = minusS - minusS / period + minusDM[i];
+    pushDx();
+  }
+  if (dxs.length < period) return null;
+  let adxVal = dxs.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < dxs.length; i++) {
+    adxVal = (adxVal * (period - 1) + dxs[i]) / period;
+  }
+  return adxVal;
+}
+
 // ── Public result ──────────────────────────────────────────────────────────
 
 export type SignalAnalysis = {
