@@ -40,6 +40,8 @@ function base(): SignalAnalysis {
     distance_from_ema21_pct: 0.5,
     impulse_candle_pct: 0.3,
     market_regime: "neutral",
+    adx: null,
+    rvol: null,
     breakdown: {},
   };
 }
