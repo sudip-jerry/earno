@@ -252,6 +252,8 @@ export async function analyzeSymbol(
       market_regime: change24h >= 0 ? "Bullish 24h" : "Bearish 24h",
       adx: null,
       rvol: null,
+      funding_rate: null,
+      open_interest: null,
       breakdown: {},
     };
   }
