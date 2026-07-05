@@ -822,6 +822,7 @@ export type Database = {
           final_exit_reason: string | null
           final_sl_pct: number | null
           final_tp_hit: boolean
+          funding_rate_at_entry: number | null
           giveback_pct: number | null
           gross_pnl: number | null
           highest_unrealized_pnl: number | null
@@ -837,6 +838,7 @@ export type Database = {
           max_adverse_excursion_pct: number | null
           max_favourable_excursion_pct: number | null
           mode: string
+          open_interest_at_entry: number | null
           opened_at: string
           original_exit_reason: string | null
           peak_unrealized_pnl_pct: number | null
@@ -913,6 +915,7 @@ export type Database = {
           final_exit_reason?: string | null
           final_sl_pct?: number | null
           final_tp_hit?: boolean
+          funding_rate_at_entry?: number | null
           giveback_pct?: number | null
           gross_pnl?: number | null
           highest_unrealized_pnl?: number | null
@@ -928,6 +931,7 @@ export type Database = {
           max_adverse_excursion_pct?: number | null
           max_favourable_excursion_pct?: number | null
           mode: string
+          open_interest_at_entry?: number | null
           opened_at?: string
           original_exit_reason?: string | null
           peak_unrealized_pnl_pct?: number | null
@@ -1004,6 +1008,7 @@ export type Database = {
           final_exit_reason?: string | null
           final_sl_pct?: number | null
           final_tp_hit?: boolean
+          funding_rate_at_entry?: number | null
           giveback_pct?: number | null
           gross_pnl?: number | null
           highest_unrealized_pnl?: number | null
@@ -1019,6 +1024,7 @@ export type Database = {
           max_adverse_excursion_pct?: number | null
           max_favourable_excursion_pct?: number | null
           mode?: string
+          open_interest_at_entry?: number | null
           opened_at?: string
           original_exit_reason?: string | null
           peak_unrealized_pnl_pct?: number | null
