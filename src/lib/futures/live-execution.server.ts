@@ -65,9 +65,9 @@ function extractOrderId(raw: CoindcxOrderResponse): string | null {
 /** Place a market entry order on CoinDCX Futures. */
 export async function placeLiveEntry(args: {
   creds: LiveCreds;
-  symbol: string;          // e.g. "B-BTC_USDT"
+  symbol: string; // e.g. "B-BTC_USDT"
   side: LiveOrderSide;
-  qty: number;             // contract qty
+  qty: number; // contract qty
   leverage: number;
 }): Promise<LiveOrderResult> {
   const { creds, symbol, side, qty, leverage } = args;
@@ -95,11 +95,122 @@ export async function placeLiveEntry(args: {
   return { ok: true, orderId: id, raw: r.data };
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Poll a futures order's fill status.
+ *
+ * ⚠️ VERIFY before enabling live: the exact CoinDCX endpoint/response shape for
+ * order status. Below uses the documented derivatives orders path; adjust the
+ * `status`/`filled` field names to match the live response. On any error it
+ * returns "unknown" so the caller treats it as not-yet-filled (safe: falls back
+ * to a market order rather than assuming a fill).
+ */
+async function fetchOrderFilled(
+  creds: LiveCreds,
+  orderId: string,
+): Promise<"filled" | "open" | "unknown"> {
+  const r = await coindcxAuthedPost<{
+    status?: string;
+    remaining_quantity?: number;
+    orders?: Array<{ status?: string; remaining_quantity?: number }>;
+  }>(
+    "/exchange/v1/derivatives/futures/orders", // VERIFY: order-fetch/status endpoint
+    creds.api_key,
+    creds.api_secret,
+    { id: orderId },
+  );
+  if (!r.ok) return "unknown";
+  const o = r.data.orders?.[0] ?? r.data;
+  const status = String(o.status ?? "").toLowerCase();
+  if (status === "filled" || Number(o.remaining_quantity ?? 1) === 0) return "filled";
+  if (status) return "open";
+  return "unknown";
+}
+
+async function cancelOrder(creds: LiveCreds, orderId: string): Promise<void> {
+  await coindcxAuthedPost(
+    "/exchange/v1/derivatives/futures/orders/cancel",
+    creds.api_key,
+    creds.api_secret,
+    { id: orderId },
+  );
+}
+
+/**
+ * Maker-first entry: place a post-only LIMIT order at `limitPrice` (a passive
+ * price supplied by the caller, e.g. the current mark), poll for up to
+ * `makerWaitMs` (~5s). If it fills → maker fee. If it doesn't fill in time →
+ * cancel and place a MARKET order so the entry still happens → taker fee.
+ *
+ * Returns `fill: "maker" | "taker"` so the caller can record the correct fee
+ * model on the position. Any error on the maker path degrades gracefully to a
+ * market order, so worst case == today's taker behavior.
+ *
+ * ⚠️ VERIFY before enabling live: limit `order_type` string, the `post_only`
+ * flag name, and the order-status endpoint (see fetchOrderFilled). Gated behind
+ * config `maker_entry_enabled` (default false) — dormant until confirmed.
+ */
+export async function placeLiveEntryMakerFirst(args: {
+  creds: LiveCreds;
+  symbol: string;
+  side: LiveOrderSide;
+  qty: number;
+  leverage: number;
+  limitPrice: number;
+  makerWaitMs?: number;
+}): Promise<LiveOrderResult & { fill: "maker" | "taker" }> {
+  const { creds, symbol, side, qty, leverage, limitPrice } = args;
+  const waitMs = args.makerWaitMs ?? 5000;
+  if (qty <= 0) return { ok: false, error: "qty must be > 0", fill: "taker" };
+
+  const market = async (): Promise<LiveOrderResult & { fill: "maker" | "taker" }> => {
+    const m = await placeLiveEntry({ creds, symbol, side, qty, leverage });
+    return m.ok ? { ...m, fill: "taker" } : { ...m, fill: "taker" };
+  };
+
+  if (!(limitPrice > 0)) return market();
+
+  // 1) Post-only limit (maker).
+  const limitOrder = {
+    pair: symbol,
+    side: sideForOpen(side),
+    order_type: "limit_order", // VERIFY
+    price: limitPrice,
+    total_quantity: qty,
+    leverage: Math.max(1, Math.round(leverage)),
+    post_only: true, // VERIFY
+    notification: "no_notification",
+    client_order_id: `earno-entry-maker-${Date.now()}`,
+  };
+  const created = await coindcxAuthedPost<CoindcxOrderResponse>(
+    "/exchange/v1/derivatives/futures/orders/create",
+    creds.api_key,
+    creds.api_secret,
+    { order: limitOrder },
+  );
+  if (!created.ok) return market(); // maker path failed → market fallback
+  const orderId = extractOrderId(created.data);
+  if (!orderId) return market();
+
+  // 2) Poll up to waitMs for a fill.
+  const deadline = Date.now() + waitMs;
+  while (Date.now() < deadline) {
+    await sleep(1000);
+    const st = await fetchOrderFilled(creds, orderId);
+    if (st === "filled") return { ok: true, orderId, fill: "maker", raw: created.data };
+  }
+
+  // 3) Not filled in time → cancel + market fallback (taker) so we still enter.
+  await cancelOrder(creds, orderId);
+  return market();
+}
+
 /** Place a market exit order to flatten an existing futures position. */
 export async function placeLiveExit(args: {
   creds: LiveCreds;
   symbol: string;
-  side: LiveOrderSide;     // original side; helper inverts internally
+  side: LiveOrderSide; // original side; helper inverts internally
   qty: number;
 }): Promise<LiveOrderResult> {
   const { creds, symbol, side, qty } = args;

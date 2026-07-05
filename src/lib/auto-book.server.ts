@@ -30,7 +30,12 @@ import { classifySetup } from "@/lib/futures/setup-classifier";
 import { isGloballyBlacklisted } from "@/lib/global-symbol-blacklist";
 import { getBackendStrategyPolicy } from "@/lib/futures/strategy-policy";
 import { evaluateTradeEligibility } from "@/lib/futures/trade-eligibility";
-import { loadLiveCreds, placeLiveEntry, placeLiveExit } from "@/lib/futures/live-execution.server";
+import {
+  loadLiveCreds,
+  placeLiveEntry,
+  placeLiveEntryMakerFirst,
+  placeLiveExit,
+} from "@/lib/futures/live-execution.server";
 
 const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
 const CANDLES = (pair: string, interval: string, limit: number) =>
@@ -233,10 +238,22 @@ export async function fetchMarketRegime(): Promise<MarketRegime | null> {
 // At confidence < major_coin_confidence_floor, these are skipped.
 // At confidence >= floor they trade normally — preserving breakout participation.
 const MAJOR_COINS = new Set([
-  "B-BTC_USDT","B-ETH_USDT","B-BNB_USDT","B-SOL_USDT",
-  "B-XRP_USDT","B-ADA_USDT","B-DOGE_USDT","B-NEAR_USDT",
-  "B-SUI_USDT","B-AAVE_USDT","B-AVAX_USDT","B-LINK_USDT",
-  "B-UNI_USDT","B-DOT_USDT","B-MATIC_USDT","B-LTC_USDT",
+  "B-BTC_USDT",
+  "B-ETH_USDT",
+  "B-BNB_USDT",
+  "B-SOL_USDT",
+  "B-XRP_USDT",
+  "B-ADA_USDT",
+  "B-DOGE_USDT",
+  "B-NEAR_USDT",
+  "B-SUI_USDT",
+  "B-AAVE_USDT",
+  "B-AVAX_USDT",
+  "B-LINK_USDT",
+  "B-UNI_USDT",
+  "B-DOT_USDT",
+  "B-MATIC_USDT",
+  "B-LTC_USDT",
 ]);
 
 type BotConfig = {
@@ -274,11 +291,15 @@ type BotConfig = {
   live_allocation_pct?: number | null;
   timeframe?: string | null;
   minimum_net_profit_to_enter_pct?: number | null;
+  minimum_expected_edge_pct?: number | null;
   max_sl_atr_pct?: number | null;
   min_ev_ratio?: number | null;
   slippage_buffer_pct?: number | null;
   blocked_session_hours_ist?: number[] | null;
   major_coin_confidence_floor?: number | null;
+  // Maker-first live entry (dormant unless explicitly enabled). Live-only.
+  maker_entry_enabled?: boolean | null;
+  maker_entry_wait_ms?: number | null;
 };
 
 /** Returns the USDT capital to size positions against. Paper uses paper_equity.
@@ -387,7 +408,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,minimum_expected_edge_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -474,9 +495,7 @@ export async function runAutoBookPass(
   const { data: floorRows } = await supabase
     .from("regime_confidence_floors")
     .select("trading_style, with_trend_floor, counter_trend_floor, neutral_floor_offset");
-  const regimeFloorsByStyle = new Map(
-    (floorRows ?? []).map((r) => [r.trading_style, r]),
-  );
+  const regimeFloorsByStyle = new Map((floorRows ?? []).map((r) => [r.trading_style, r]));
   const DEFAULT_REGIME_FLOORS = {
     with_trend_floor: 88,
     counter_trend_floor: 91,
@@ -596,12 +615,8 @@ export async function runAutoBookPass(
     const istOffset = 5.5 * 60 * 60 * 1000; // 5h30m in ms
     const istNow = new Date(now.getTime() + istOffset);
     const istMidnight = new Date(
-      Date.UTC(
-        istNow.getUTCFullYear(),
-        istNow.getUTCMonth(),
-        istNow.getUTCDate(),
-        0, 0, 0, 0
-      ) - istOffset
+      Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate(), 0, 0, 0, 0) -
+        istOffset,
     );
     const startOfDay = istMidnight;
     const { data: todayPos } = await supabase
@@ -737,7 +752,6 @@ export async function runAutoBookPass(
       trading_style: cfg.trading_style,
     });
 
-
     for (const a of analyses) {
       const sym = a.symbol;
       const signalId = crypto.randomUUID();
@@ -761,17 +775,29 @@ export async function runAutoBookPass(
       if (isGloballyBlacklisted(sym)) {
         rejection = "Symbol on platform blacklist";
         final = "skip";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "platform_blacklist_skip",
-          symbol: a.symbol,
-        }).catch(() => {});
+        void logEvent(
+          supabase,
+          cfg.user_id,
+          "info",
+          `Auto-book skipped ${a.symbol}: ${rejection}`,
+          {
+            kind: "platform_blacklist_skip",
+            symbol: a.symbol,
+          },
+        ).catch(() => {});
       } else if (blockedSymbols.has(sym.toUpperCase())) {
         rejection = "Symbol on user blocklist";
         final = "skip";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "user_blocklist_skip",
-          symbol: a.symbol,
-        }).catch(() => {});
+        void logEvent(
+          supabase,
+          cfg.user_id,
+          "info",
+          `Auto-book skipped ${a.symbol}: ${rejection}`,
+          {
+            kind: "user_blocklist_skip",
+            symbol: a.symbol,
+          },
+        ).catch(() => {});
       } else if (
         // Global hard-SL cooldown: 2+ hard SLs across Futures paper users in
         // the last 6h blocks new auto-book entries (both long & short) for 6h.
@@ -780,11 +806,17 @@ export async function runAutoBookPass(
       ) {
         rejection = "Symbol globally cooled (2+ hard SLs across users in 6h)";
         final = "skip";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "global_sl_cooldown_skip",
-          symbol: a.symbol,
-          global_hard_sl_count: globalHardSlCount.get(sym) ?? 0,
-        }).catch(() => {});
+        void logEvent(
+          supabase,
+          cfg.user_id,
+          "info",
+          `Auto-book skipped ${a.symbol}: ${rejection}`,
+          {
+            kind: "global_sl_cooldown_skip",
+            symbol: a.symbol,
+            global_hard_sl_count: globalHardSlCount.get(sym) ?? 0,
+          },
+        ).catch(() => {});
       } else if (
         // Per-user hard-SL cooldown: 1 hard SL in last 6h blocks re-entry
         // for symbol_sl_cooldown_minutes.
@@ -794,11 +826,17 @@ export async function runAutoBookPass(
       ) {
         rejection = "Symbol hard-SL cooldown (user, last 6h)";
         final = "skip";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "user_sl_cooldown_skip",
-          symbol: a.symbol,
-          symbol_sl_cooldown_minutes: cfg.symbol_sl_cooldown_minutes,
-        }).catch(() => {});
+        void logEvent(
+          supabase,
+          cfg.user_id,
+          "info",
+          `Auto-book skipped ${a.symbol}: ${rejection}`,
+          {
+            kind: "user_sl_cooldown_skip",
+            symbol: a.symbol,
+            symbol_sl_cooldown_minutes: cfg.symbol_sl_cooldown_minutes,
+          },
+        ).catch(() => {});
       } else if (a.action === "AVOID" || a.side_bias === "neutral") {
         rejection = "Bias unclear / avoid";
         final = "avoid";
@@ -810,27 +848,45 @@ export async function runAutoBookPass(
       } else if (a.side_bias === "short" && !cfg.allow_short) {
         rejection = "Shorts disabled in config";
         final = "skip";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "shorts_disabled_skip",
-          symbol: a.symbol,
-        }).catch(() => {});
+        void logEvent(
+          supabase,
+          cfg.user_id,
+          "info",
+          `Auto-book skipped ${a.symbol}: ${rejection}`,
+          {
+            kind: "shorts_disabled_skip",
+            symbol: a.symbol,
+          },
+        ).catch(() => {});
       } else if (a.side_bias === "long" && cfg.allow_long === false) {
         rejection = "Longs disabled in config";
         final = "skip";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "longs_disabled_skip",
-          symbol: a.symbol,
-        }).catch(() => {});
+        void logEvent(
+          supabase,
+          cfg.user_id,
+          "info",
+          `Auto-book skipped ${a.symbol}: ${rejection}`,
+          {
+            kind: "longs_disabled_skip",
+            symbol: a.symbol,
+          },
+        ).catch(() => {});
         // Loss-based symbol blacklist removed — only delisted symbols (filtered
         // upstream by the market list) remain excluded.
       } else if (cooldownActive) {
         rejection = "Cooldown active";
         final = "skip";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "cooldown_skip",
-          symbol: a.symbol,
-          cooldown_minutes: cfg.cooldown_minutes,
-        }).catch(() => {});
+        void logEvent(
+          supabase,
+          cfg.user_id,
+          "info",
+          `Auto-book skipped ${a.symbol}: ${rejection}`,
+          {
+            kind: "cooldown_skip",
+            symbol: a.symbol,
+            cooldown_minutes: cfg.cooldown_minutes,
+          },
+        ).catch(() => {});
       } else if (
         // Rolling symbol cooldown driven by style preset.
         (() => {
@@ -846,24 +902,36 @@ export async function runAutoBookPass(
       ) {
         rejection = `Rolling cooldown (${preset.lossesBeforeSymbolCooldown}+ losses in 24h, style=${preset.key})`;
         final = "skip";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "rolling_cooldown_skip",
-          symbol: a.symbol,
-          losses: lossCountBySymbol.get(sym) ?? 0,
-          wins: winCountBySymbol.get(sym) ?? 0,
-          losses_before_cooldown: preset.lossesBeforeSymbolCooldown,
-          style: preset.key,
-        }).catch(() => {});
-      // (Regime-aware direction gate moved below as a standalone check.)
+        void logEvent(
+          supabase,
+          cfg.user_id,
+          "info",
+          `Auto-book skipped ${a.symbol}: ${rejection}`,
+          {
+            kind: "rolling_cooldown_skip",
+            symbol: a.symbol,
+            losses: lossCountBySymbol.get(sym) ?? 0,
+            wins: winCountBySymbol.get(sym) ?? 0,
+            losses_before_cooldown: preset.lossesBeforeSymbolCooldown,
+            style: preset.key,
+          },
+        ).catch(() => {});
+        // (Regime-aware direction gate moved below as a standalone check.)
       } else if (a.spread_pct != null && a.spread_pct > HARD_SPREAD_BLOCK_PCT) {
         rejection = `Spread too high (${a.spread_pct.toFixed(2)}%)`;
         final = "skip";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "spread_skip",
-          symbol: a.symbol,
-          spread_pct: a.spread_pct,
-          hard_spread_block_pct: HARD_SPREAD_BLOCK_PCT,
-        }).catch(() => {});
+        void logEvent(
+          supabase,
+          cfg.user_id,
+          "info",
+          `Auto-book skipped ${a.symbol}: ${rejection}`,
+          {
+            kind: "spread_skip",
+            symbol: a.symbol,
+            spread_pct: a.spread_pct,
+            hard_spread_block_pct: HARD_SPREAD_BLOCK_PCT,
+          },
+        ).catch(() => {});
       } else if (plan.status !== "auto_eligible") {
         rejection = plan.reason ?? "Risk plan rejected";
         final = "skip";
@@ -875,50 +943,80 @@ export async function runAutoBookPass(
               : plan.reason === "No capital available"
                 ? "no_capital"
                 : "risk_plan_rejected";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: gateKind,
-          symbol: a.symbol,
-          rr: plan.rr,
-          min_rr: preset.minRR,
-          sl_pct: plan.slPct,
-          min_sl_pct: preset.minSL,
-          max_auto_sl_pct: preset.maxAutoSL,
-          tp_pct: plan.tpPct,
-          plan_status: plan.status,
-          plan_reason: plan.reason,
-        }).catch(() => {});
+        void logEvent(
+          supabase,
+          cfg.user_id,
+          "info",
+          `Auto-book skipped ${a.symbol}: ${rejection}`,
+          {
+            kind: gateKind,
+            symbol: a.symbol,
+            rr: plan.rr,
+            min_rr: preset.minRR,
+            sl_pct: plan.slPct,
+            min_sl_pct: preset.minSL,
+            max_auto_sl_pct: preset.maxAutoSL,
+            tp_pct: plan.tpPct,
+            plan_status: plan.status,
+            plan_reason: plan.reason,
+          },
+        ).catch(() => {});
       } else if (!dailyLossAvailable) {
         rejection = "Daily loss cap hit";
         final = "skip";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "daily_loss_cap_skip",
-          symbol: a.symbol,
-          daily_loss_cap_pct: cfg.daily_loss_cap_pct,
-        }).catch(() => {});
+        void logEvent(
+          supabase,
+          cfg.user_id,
+          "info",
+          `Auto-book skipped ${a.symbol}: ${rejection}`,
+          {
+            kind: "daily_loss_cap_skip",
+            symbol: a.symbol,
+            daily_loss_cap_pct: cfg.daily_loss_cap_pct,
+          },
+        ).catch(() => {});
       } else if (remainingToday - opened <= 0) {
         rejection = "Daily auto-book limit reached";
         final = "skip";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "daily_limit_skip",
-          symbol: a.symbol,
-          max_trades_per_day: cfg.max_trades_per_day,
-        }).catch(() => {});
+        void logEvent(
+          supabase,
+          cfg.user_id,
+          "info",
+          `Auto-book skipped ${a.symbol}: ${rejection}`,
+          {
+            kind: "daily_limit_skip",
+            symbol: a.symbol,
+            max_trades_per_day: cfg.max_trades_per_day,
+          },
+        ).catch(() => {});
         // Style trades/day, same-direction, and per-symbol/day hardcaps removed for now.
       } else if (openSlot <= 0) {
         rejection = "Max open positions reached";
         final = "skip";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "max_positions_skip",
-          symbol: a.symbol,
-          max_open_positions: cfg.max_open_positions,
-        }).catch(() => {});
+        void logEvent(
+          supabase,
+          cfg.user_id,
+          "info",
+          `Auto-book skipped ${a.symbol}: ${rejection}`,
+          {
+            kind: "max_positions_skip",
+            symbol: a.symbol,
+            max_open_positions: cfg.max_open_positions,
+          },
+        ).catch(() => {});
       } else if (openSymbols.has(sym)) {
         rejection = "Position already open on symbol";
         final = "skip";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "open_position_skip",
-          symbol: a.symbol,
-        }).catch(() => {});
+        void logEvent(
+          supabase,
+          cfg.user_id,
+          "info",
+          `Auto-book skipped ${a.symbol}: ${rejection}`,
+          {
+            kind: "open_position_skip",
+            symbol: a.symbol,
+          },
+        ).catch(() => {});
       } else if (a.confidence_pct < autoConfThreshold) {
         rejection = `Below auto-book threshold (${a.confidence_pct} < ${autoConfThreshold})`;
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
@@ -927,13 +1025,19 @@ export async function runAutoBookPass(
         // signals are the same idle noise as "avoid" — skipped from the feed but
         // still recorded in bot_signals for analysis.
         if (final === "display") {
-          void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-            kind: "confidence_below_threshold",
-            symbol: a.symbol,
-            confidence_pct: a.confidence_pct,
-            auto_book_confidence_threshold: autoConfThreshold,
-            display_conf_threshold: displayConfThreshold,
-          }).catch(() => {});
+          void logEvent(
+            supabase,
+            cfg.user_id,
+            "info",
+            `Auto-book skipped ${a.symbol}: ${rejection}`,
+            {
+              kind: "confidence_below_threshold",
+              symbol: a.symbol,
+              confidence_pct: a.confidence_pct,
+              auto_book_confidence_threshold: autoConfThreshold,
+              display_conf_threshold: displayConfThreshold,
+            },
+          ).catch(() => {});
         }
       }
 
@@ -1002,18 +1106,23 @@ export async function runAutoBookPass(
         if (regimeFloor !== null && conf < regimeFloor && regimeReason !== null) {
           rejection = regimeReason;
           final = conf >= displayConfThreshold ? "display" : "skip";
-          void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-            kind: "regime_gate_skip",
-            symbol: a.symbol,
-            market_regime: marketRegime,
-            side: a.side_bias,
-            confidence_pct: conf,
-            regime_floor: regimeFloor,
-            trading_style: style,
-          }).catch(() => {});
+          void logEvent(
+            supabase,
+            cfg.user_id,
+            "info",
+            `Auto-book skipped ${a.symbol}: ${rejection}`,
+            {
+              kind: "regime_gate_skip",
+              symbol: a.symbol,
+              market_regime: marketRegime,
+              side: a.side_bias,
+              confidence_pct: conf,
+              regime_floor: regimeFloor,
+              trading_style: style,
+            },
+          ).catch(() => {});
         }
       }
-
 
       // Major-coin confidence floor: require higher confidence on liquid coins
       // where institutional flow overwhelms momentum signals below ~90%.
@@ -1023,12 +1132,18 @@ export async function runAutoBookPass(
         if (MAJOR_COINS.has(sym) && a.confidence_pct < majorFloor) {
           rejection = `Major coin confidence floor: ${a.confidence_pct} < ${majorFloor} required for ${sym}`;
           final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
-          void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-            kind: "major_coin_floor_skip",
-            symbol: a.symbol,
-            confidence_pct: a.confidence_pct,
-            major_coin_confidence_floor: majorFloor,
-          }).catch(() => {});
+          void logEvent(
+            supabase,
+            cfg.user_id,
+            "info",
+            `Auto-book skipped ${a.symbol}: ${rejection}`,
+            {
+              kind: "major_coin_floor_skip",
+              symbol: a.symbol,
+              confidence_pct: a.confidence_pct,
+              major_coin_confidence_floor: majorFloor,
+            },
+          ).catch(() => {});
         }
       }
 
@@ -1041,19 +1156,24 @@ export async function runAutoBookPass(
         const isLong = a.side_bias === "long";
 
         const momentumExhausted =
-          (isLong && rsi > 72 && volSpike < 1.2) ||
-          (isShort && rsi < 28 && volSpike < 1.2);
+          (isLong && rsi > 72 && volSpike < 1.2) || (isShort && rsi < 28 && volSpike < 1.2);
 
         if (momentumExhausted) {
           rejection = `Momentum exhaustion: RSI ${rsi.toFixed(1)} extended for ${a.side_bias} with weak volume (${volSpike.toFixed(2)}x)`;
           final = "skip";
-          void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-            kind: "momentum_exhaustion_skip",
-            symbol: a.symbol,
-            side: a.side_bias,
-            rsi: a.rsi,
-            volume_spike_ratio: a.volume_spike_ratio,
-          }).catch(() => {});
+          void logEvent(
+            supabase,
+            cfg.user_id,
+            "info",
+            `Auto-book skipped ${a.symbol}: ${rejection}`,
+            {
+              kind: "momentum_exhaustion_skip",
+              symbol: a.symbol,
+              side: a.side_bias,
+              rsi: a.rsi,
+              volume_spike_ratio: a.volume_spike_ratio,
+            },
+          ).catch(() => {});
         }
       }
 
@@ -1064,11 +1184,17 @@ export async function runAutoBookPass(
         if (!eligibility.allowed) {
           rejection = eligibility.reason ?? "Backend policy rejected";
           final = "skip";
-          void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-            kind: "eligibility_skip",
-            symbol: a.symbol,
-            ...(eligibility.metadata ?? {}),
-          }).catch(() => {});
+          void logEvent(
+            supabase,
+            cfg.user_id,
+            "info",
+            `Auto-book skipped ${a.symbol}: ${rejection}`,
+            {
+              kind: "eligibility_skip",
+              symbol: a.symbol,
+              ...(eligibility.metadata ?? {}),
+            },
+          ).catch(() => {});
         }
       }
 
@@ -1086,12 +1212,18 @@ export async function runAutoBookPass(
           if (Number.isFinite(istHour) && blockedHours.includes(istHour)) {
             rejection = `Auto-book blocked: session hour ${istHour} IST in blocked_session_hours_ist`;
             final = "skip";
-            void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-              kind: "session_hour_skip",
-              symbol: a.symbol,
-              ist_hour: istHour,
-              blocked_hours: blockedHours,
-            }).catch(() => {});
+            void logEvent(
+              supabase,
+              cfg.user_id,
+              "info",
+              `Auto-book skipped ${a.symbol}: ${rejection}`,
+              {
+                kind: "session_hour_skip",
+                symbol: a.symbol,
+                ist_hour: istHour,
+                blocked_hours: blockedHours,
+              },
+            ).catch(() => {});
           }
         }
       }
@@ -1101,12 +1233,18 @@ export async function runAutoBookPass(
         if (maxSlAtr > 0 && plan.slPct > maxSlAtr) {
           rejection = `SL width ${plan.slPct.toFixed(2)}% exceeds max_sl_atr_pct ${maxSlAtr}%`;
           final = "skip";
-          void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-            kind: "sl_width_skip",
-            symbol: a.symbol,
-            sl_pct: plan.slPct,
-            max_sl_atr_pct: maxSlAtr,
-          }).catch(() => {});
+          void logEvent(
+            supabase,
+            cfg.user_id,
+            "info",
+            `Auto-book skipped ${a.symbol}: ${rejection}`,
+            {
+              kind: "sl_width_skip",
+              symbol: a.symbol,
+              sl_pct: plan.slPct,
+              max_sl_atr_pct: maxSlAtr,
+            },
+          ).catch(() => {});
         }
       }
 
@@ -1119,17 +1257,54 @@ export async function runAutoBookPass(
             if (evRatio < minEv) {
               rejection = `EV ratio ${evRatio.toFixed(3)} below min_ev_ratio ${minEv} (conf=${a.confidence_pct}%, tp=${plan.tpPct}%, sl=${plan.slPct}%)`;
               final = "skip";
-              void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-                kind: "ev_ratio_skip",
-                symbol: a.symbol,
-                ev_ratio: Number(evRatio.toFixed(4)),
-                min_ev_ratio: minEv,
-                confidence_pct: a.confidence_pct,
-                tp_pct: plan.tpPct,
-                sl_pct: plan.slPct,
-              }).catch(() => {});
+              void logEvent(
+                supabase,
+                cfg.user_id,
+                "info",
+                `Auto-book skipped ${a.symbol}: ${rejection}`,
+                {
+                  kind: "ev_ratio_skip",
+                  symbol: a.symbol,
+                  ev_ratio: Number(evRatio.toFixed(4)),
+                  min_ev_ratio: minEv,
+                  confidence_pct: a.confidence_pct,
+                  tp_pct: plan.tpPct,
+                  sl_pct: plan.slPct,
+                },
+              ).catch(() => {});
             }
           }
+        }
+      }
+
+      if (rejection == null) {
+        // Minimum expected-edge gate (fee-aware; perps). The gross target must
+        // clear the instrument's minimum viable edge or fees mechanically eat
+        // the trade — the classic "0.2% target vs 0.1%/side fees consumes the
+        // whole profit" failure. Field guidance: perps ~0.6%, spot ~0.35% (spot
+        // lives on the coin-bot path). Unlike a max-trades throttle (which only
+        // scales volume), this removes the tiny-target, net-negative subset — it
+        // changes the SIGN of expectancy on what remains. plan.tpPct is the
+        // gross target move %, the exact quantity the rule speaks in. Active
+        // only when configured (> 0); default off until validated on history via
+        // the backtest harness.
+        const minEdgePct = Number(cfg.minimum_expected_edge_pct ?? 0);
+        if (minEdgePct > 0 && plan.tpPct > 0 && plan.tpPct < minEdgePct) {
+          rejection = `Expected edge (target ${plan.tpPct}%) below minimum ${minEdgePct}% — fees would dominate`;
+          final = "skip";
+          void logEvent(
+            supabase,
+            cfg.user_id,
+            "info",
+            `Auto-book skipped ${a.symbol}: ${rejection}`,
+            {
+              kind: "expected_edge_below_min_skip",
+              symbol: a.symbol,
+              tp_pct: plan.tpPct,
+              sl_pct: plan.slPct,
+              min_expected_edge_pct: minEdgePct,
+            },
+          ).catch(() => {});
         }
       }
 
@@ -1144,12 +1319,18 @@ export async function runAutoBookPass(
         if (notional <= 0 || a.price <= 0) {
           rejection = "Position sizing failed";
           final = "skip";
-          void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-            kind: "sizing_failed_skip",
-            symbol: a.symbol,
-            notional,
-            price: a.price,
-          }).catch(() => {});
+          void logEvent(
+            supabase,
+            cfg.user_id,
+            "info",
+            `Auto-book skipped ${a.symbol}: ${rejection}`,
+            {
+              kind: "sizing_failed_skip",
+              symbol: a.symbol,
+              notional,
+              price: a.price,
+            },
+          ).catch(() => {});
         } else {
           const qty = notional / a.price;
           const stop_loss =
@@ -1196,10 +1377,6 @@ export async function runAutoBookPass(
             }
           }
 
-
-
-
-
           // FK requires the signal row to exist first.
           const { error: sigErr } = await supabase.from("bot_signals").insert({
             id: signalId,
@@ -1237,230 +1414,289 @@ export async function runAutoBookPass(
           if (sigErr) {
             rejection = `Signal pre-insert failed: ${sigErr.message}`;
             final = "skip";
-            await logEvent(supabase, cfg.user_id, "error", `Auto-book ${a.symbol} failed: ${rejection}`);
+            await logEvent(
+              supabase,
+              cfg.user_id,
+              "error",
+              `Auto-book ${a.symbol} failed: ${rejection}`,
+            );
           } else {
-          // LIVE (wallet) execution: place a real market order before recording
-          // the position. On failure we skip the booking so the local DB and
-          // the exchange never disagree. Paper mode is unchanged.
-          let liveOrderId: string | null = null;
-          if (cfg.mode === "live") {
-            const creds = await loadLiveCreds(supabase, cfg.user_id);
-            if (!creds) {
-              rejection = "Live mode: no CoinDCX API credentials configured";
-              final = "skip";
-              await logEvent(supabase, cfg.user_id, "warn", `Auto-book ${a.symbol} skipped: ${rejection}`);
-              await supabase
-                .from("bot_signals")
-                .update({ final_decision: "skip", rejection_reason: rejection })
-                .eq("id", signalId);
-            } else {
-              const exec = await placeLiveEntry({
-                creds,
-                symbol: a.symbol,
-                side,
-                qty,
-                leverage: lev,
-              });
-              if (!exec.ok) {
-                rejection = `Live order rejected: ${exec.error}`;
+            // LIVE (wallet) execution: place a real market order before recording
+            // the position. On failure we skip the booking so the local DB and
+            // the exchange never disagree. Paper mode is unchanged.
+            let liveOrderId: string | null = null;
+            // Records how the live entry actually filled so exit fee accounting
+            // can pick the right model. Paper always books at taker (market sim).
+            let entryFillType: "maker" | "taker" = "taker";
+            if (cfg.mode === "live") {
+              const creds = await loadLiveCreds(supabase, cfg.user_id);
+              if (!creds) {
+                rejection = "Live mode: no CoinDCX API credentials configured";
                 final = "skip";
-                await logEvent(supabase, cfg.user_id, "error", `Auto-book ${a.symbol} live order failed: ${exec.error}`, {
-                  kind: "live_entry_failed", symbol: a.symbol, side,
-                });
+                await logEvent(
+                  supabase,
+                  cfg.user_id,
+                  "warn",
+                  `Auto-book ${a.symbol} skipped: ${rejection}`,
+                );
                 await supabase
                   .from("bot_signals")
                   .update({ final_decision: "skip", rejection_reason: rejection })
                   .eq("id", signalId);
               } else {
-                liveOrderId = exec.orderId;
-              }
-            }
-          }
-
-          if (rejection != null) {
-            // live execution or pre-entry gate failed — record skip on the
-            // signal row and fall through past the position insert.
-            await supabase
-              .from("bot_signals")
-              .update({ final_decision: "skip", rejection_reason: rejection })
-              .eq("id", signalId);
-          } else {
-          // Log-only entry snapshot: current 1m candle direction + symbol's own 1h trend.
-          let entryCandlePct: number | null = null;
-          let entryCandleAligned: boolean | null = null;
-          let symbol1hTrend: string | null = null;
-          try {
-            const [c1Res, c1hRes] = await Promise.all([
-              fetch(CANDLES(a.symbol, "1m", 2), { headers: PUB_HEADERS, signal: AbortSignal.timeout(2500) }),
-              fetch(CANDLES(a.symbol, "1h", 30), { headers: PUB_HEADERS, signal: AbortSignal.timeout(2500) }),
-            ]);
-            if (c1Res.ok) {
-              const c1 = (await c1Res.json()) as Array<{ open: number | string; close: number | string }>;
-              const last = Array.isArray(c1) && c1.length ? c1[c1.length - 1] : null;
-              if (last) {
-                const o = num(last.open); const c = num(last.close);
-                if (o > 0) {
-                  entryCandlePct = ((c - o) / o) * 100;
-                  entryCandleAligned = side === "long" ? entryCandlePct > 0 : entryCandlePct < 0;
+                // Maker-first (dormant unless maker_entry_enabled): post a passive
+                // limit at the signal price, wait ~5s for a maker fill, else cancel
+                // and flip to a market (taker) order so the entry still happens.
+                const exec =
+                  cfg.maker_entry_enabled === true
+                    ? await placeLiveEntryMakerFirst({
+                        creds,
+                        symbol: a.symbol,
+                        side,
+                        qty,
+                        leverage: lev,
+                        limitPrice: a.price,
+                        makerWaitMs: Number(cfg.maker_entry_wait_ms ?? 5000),
+                      })
+                    : {
+                        ...(await placeLiveEntry({
+                          creds,
+                          symbol: a.symbol,
+                          side,
+                          qty,
+                          leverage: lev,
+                        })),
+                        fill: "taker" as const,
+                      };
+                if (!exec.ok) {
+                  rejection = `Live order rejected: ${exec.error}`;
+                  final = "skip";
+                  await logEvent(
+                    supabase,
+                    cfg.user_id,
+                    "error",
+                    `Auto-book ${a.symbol} live order failed: ${exec.error}`,
+                    {
+                      kind: "live_entry_failed",
+                      symbol: a.symbol,
+                      side,
+                    },
+                  );
+                  await supabase
+                    .from("bot_signals")
+                    .update({ final_decision: "skip", rejection_reason: rejection })
+                    .eq("id", signalId);
+                } else {
+                  liveOrderId = exec.orderId;
+                  entryFillType = exec.fill;
                 }
               }
             }
-            if (c1hRes.ok) {
-              const c1h = (await c1hRes.json()) as Array<{ close: number | string }>;
-              if (Array.isArray(c1h) && c1h.length >= 22) {
-                const closes = c1h.map((k) => num(k.close));
-                const e9 = ema(closes, 9);
-                const e21 = ema(closes, 21);
-                if (e9 != null && e21 != null && e21 > 0) {
-                  const d = ((e9 - e21) / e21) * 100;
-                  symbol1hTrend = d > 0.15 ? "up" : d < -0.15 ? "down" : "flat";
-                }
-              }
-            }
-          } catch { /* log-only — never block booking */ }
 
-          const sigKey = `${a.symbol}|${a.side_bias}`;
-          const earliestAt = earliestSignalAt.get(sigKey);
-          const signalAgeSeconds = earliestAt != null ? Math.max(0, Math.round((Date.now() - earliestAt) / 1000)) : 0;
-
-          // Booking-time funding proxy (CoinDCX-native). CoinDCX doesn't publish
-          // a funding-rate value, so we reconstruct the funding DIRECTION as the
-          // perp-vs-spot premium: (perp - spot)/spot. Uses one bulk, 30s-cached
-          // CoinDCX spot fetch shared across the pass — no per-symbol calls, no
-          // external exchange, 100% coverage where a spot pair exists.
-          // Analytics-only; null on miss; never blocks booking.
-          // (open_interest is left null — CoinDCX does not expose it publicly.)
-          let fundingRateAtEntry: number | null = null;
-          {
-            const spotMarket = perpToSpotMarket(a.symbol);
-            if (spotMarket) {
+            if (rejection != null) {
+              // live execution or pre-entry gate failed — record skip on the
+              // signal row and fall through past the position insert.
+              await supabase
+                .from("bot_signals")
+                .update({ final_decision: "skip", rejection_reason: rejection })
+                .eq("id", signalId);
+            } else {
+              // Log-only entry snapshot: current 1m candle direction + symbol's own 1h trend.
+              let entryCandlePct: number | null = null;
+              let entryCandleAligned: boolean | null = null;
+              let symbol1hTrend: string | null = null;
               try {
-                const spot = (await fetchSpotPrices()).get(spotMarket);
-                if (spot != null) fundingRateAtEntry = premiumPct(a.price, spot);
+                const [c1Res, c1hRes] = await Promise.all([
+                  fetch(CANDLES(a.symbol, "1m", 2), {
+                    headers: PUB_HEADERS,
+                    signal: AbortSignal.timeout(2500),
+                  }),
+                  fetch(CANDLES(a.symbol, "1h", 30), {
+                    headers: PUB_HEADERS,
+                    signal: AbortSignal.timeout(2500),
+                  }),
+                ]);
+                if (c1Res.ok) {
+                  const c1 = (await c1Res.json()) as Array<{
+                    open: number | string;
+                    close: number | string;
+                  }>;
+                  const last = Array.isArray(c1) && c1.length ? c1[c1.length - 1] : null;
+                  if (last) {
+                    const o = num(last.open);
+                    const c = num(last.close);
+                    if (o > 0) {
+                      entryCandlePct = ((c - o) / o) * 100;
+                      entryCandleAligned =
+                        side === "long" ? entryCandlePct > 0 : entryCandlePct < 0;
+                    }
+                  }
+                }
+                if (c1hRes.ok) {
+                  const c1h = (await c1hRes.json()) as Array<{ close: number | string }>;
+                  if (Array.isArray(c1h) && c1h.length >= 22) {
+                    const closes = c1h.map((k) => num(k.close));
+                    const e9 = ema(closes, 9);
+                    const e21 = ema(closes, 21);
+                    if (e9 != null && e21 != null && e21 > 0) {
+                      const d = ((e9 - e21) / e21) * 100;
+                      symbol1hTrend = d > 0.15 ? "up" : d < -0.15 ? "down" : "flat";
+                    }
+                  }
+                }
               } catch {
-                // analytics-only — never block booking
+                /* log-only — never block booking */
               }
-            }
-          }
 
-          const { data: inserted, error } = await supabase
+              const sigKey = `${a.symbol}|${a.side_bias}`;
+              const earliestAt = earliestSignalAt.get(sigKey);
+              const signalAgeSeconds =
+                earliestAt != null ? Math.max(0, Math.round((Date.now() - earliestAt) / 1000)) : 0;
 
-            .from("positions")
-            .insert({
-              user_id: cfg.user_id,
-              mode: cfg.mode,
-              symbol: a.symbol,
-              side,
-              leverage: lev,
-              qty,
-              entry_price: a.price,
-              mark_price: a.price,
-              stop_loss,
-              take_profit,
-              pnl: 0,
-              pnl_pct: 0,
-              status: "open",
-              instrument: "futures",
-              exchange_order_id:
-                cfg.mode === "paper" ? `paper-auto-${Date.now()}` : liveOrderId,
-              signal_id: signalId,
-              source: "auto",
-              algo_id: ALGO_ID,
-              algo_name: ALGO_NAME,
-              algo_version: ALGO_VERSION,
-              confidence_at_entry: a.confidence_pct,
-              confidence_band_at_entry: a.confidence_band,
-              entry_reason: a.reason,
-              market_regime: marketRegime ?? a.market_regime,
-              rsi_at_entry: a.rsi,
-              volume_spike_ratio_at_entry: a.volume_spike_ratio,
-              spread_pct_at_entry: a.spread_pct,
-              distance_from_vwap_pct_at_entry: a.distance_from_vwap_pct,
-              distance_from_ema21_pct_at_entry: a.distance_from_ema21_pct,
-              adx_at_entry: a.adx,
-              rvol_at_entry: a.rvol,
-              funding_rate_at_entry: fundingRateAtEntry,
-              open_interest_at_entry: null,
-              entry_candle_pct: entryCandlePct,
-              entry_candle_aligned: entryCandleAligned,
-              symbol_1h_trend: symbol1hTrend,
-              signal_age_seconds: signalAgeSeconds,
-
-              // New exit-management fields:
-              tp1_price,
-              tp1_pct: tp1PctRaw,
-              tp1_hit: false,
-              remaining_qty: qty,
-              tp1_qty_closed: 0,
-              trail_pct: preset.trailPct,
-              breakeven_moved: false,
-              final_tp_hit: false,
-              peak_unrealized_pnl_pct: 0,
-              max_favourable_excursion_pct: 0,
-              max_adverse_excursion_pct: 0,
-              highest_unrealized_pnl: 0,
-              lowest_unrealized_pnl: 0,
-            } as never)
-            .select("id")
-            .single();
-
-          if (error || !inserted) {
-            rejection = error?.message ?? "Insert failed";
-            final = "skip";
-            await logEvent(supabase, cfg.user_id, "error", `Auto-book ${a.symbol} failed: ${rejection}`);
-            // Mark the pre-inserted signal as rejected.
-            await supabase
-              .from("bot_signals")
-              .update({ final_decision: "skip", rejection_reason: rejection })
-              .eq("id", signalId);
-          } else {
-            bookedTradeId = inserted.id as string;
-            final = "booked";
-            opened++;
-            openSlot--;
-            openSymbols.add(sym);
-            lastOpen.set(sym, Date.now());
-            sameDirOpenedThisPass[side]++;
-            symbolOpenedThisPass.set(sym, (symbolOpenedThisPass.get(sym) ?? 0) + 1);
-            // Write the booking linkage back onto the signal row.
-            await supabase
-              .from("bot_signals")
-              .update({
-                booked: true,
-                booked_trade_id: bookedTradeId,
-                final_decision: "booked",
-                action: side === "long" ? "LONG" : "SHORT",
-                confidence_pct: a.confidence_pct,
-                confidence_band: a.confidence_band,
-              })
-              .eq("id", signalId);
-            await logEvent(
-              supabase,
-              cfg.user_id,
-              "info",
-              `Auto-booked ${side.toUpperCase()} ${a.symbol} · Confidence ${a.confidence_pct.toFixed(0)}% · Target +${tpPct.toFixed(2)}% · Stop −${slPct.toFixed(2)}% · Stop Type Volatility-based · R:R ${plan.rr.toFixed(2)}:1`,
+              // Booking-time funding proxy (CoinDCX-native). CoinDCX doesn't publish
+              // a funding-rate value, so we reconstruct the funding DIRECTION as the
+              // perp-vs-spot premium: (perp - spot)/spot. Uses one bulk, 30s-cached
+              // CoinDCX spot fetch shared across the pass — no per-symbol calls, no
+              // external exchange, 100% coverage where a spot pair exists.
+              // Analytics-only; null on miss; never blocks booking.
+              // (open_interest is left null — CoinDCX does not expose it publicly.)
+              let fundingRateAtEntry: number | null = null;
               {
-                kind: "auto_book",
-                symbol: a.symbol,
-                side,
-                confidence: Math.round(a.confidence_pct),
-                tpPct,
-                slPct,
-                atrPct: plan.atrPct,
-                rr: plan.rr,
-                riskAmount: plan.riskAmount,
-                positionSize: plan.positionSize,
-                stopType: "Volatility-based",
-                detected_setup: setup.primarySetup,
-                setup_confidence: setup.setupConfidence,
-                momentum_score: setup.momentumScore,
-                pullback_score: setup.pullbackScore,
-                overlap_flags: setup.overlapFlags,
-                backend_risk_profile: backendPolicy.riskProfile,
-              },
-            );
-          }
-          } // close: live-rejection else
+                const spotMarket = perpToSpotMarket(a.symbol);
+                if (spotMarket) {
+                  try {
+                    const spot = (await fetchSpotPrices()).get(spotMarket);
+                    if (spot != null) fundingRateAtEntry = premiumPct(a.price, spot);
+                  } catch {
+                    // analytics-only — never block booking
+                  }
+                }
+              }
+
+              const { data: inserted, error } = await supabase
+
+                .from("positions")
+                .insert({
+                  user_id: cfg.user_id,
+                  mode: cfg.mode,
+                  symbol: a.symbol,
+                  side,
+                  leverage: lev,
+                  qty,
+                  entry_price: a.price,
+                  mark_price: a.price,
+                  stop_loss,
+                  take_profit,
+                  pnl: 0,
+                  pnl_pct: 0,
+                  status: "open",
+                  instrument: "futures",
+                  exchange_order_id:
+                    cfg.mode === "paper" ? `paper-auto-${Date.now()}` : liveOrderId,
+                  signal_id: signalId,
+                  source: "auto",
+                  algo_id: ALGO_ID,
+                  algo_name: ALGO_NAME,
+                  algo_version: ALGO_VERSION,
+                  confidence_at_entry: a.confidence_pct,
+                  confidence_band_at_entry: a.confidence_band,
+                  entry_reason: a.reason,
+                  market_regime: marketRegime ?? a.market_regime,
+                  rsi_at_entry: a.rsi,
+                  volume_spike_ratio_at_entry: a.volume_spike_ratio,
+                  spread_pct_at_entry: a.spread_pct,
+                  distance_from_vwap_pct_at_entry: a.distance_from_vwap_pct,
+                  distance_from_ema21_pct_at_entry: a.distance_from_ema21_pct,
+                  adx_at_entry: a.adx,
+                  rvol_at_entry: a.rvol,
+                  funding_rate_at_entry: fundingRateAtEntry,
+                  open_interest_at_entry: null,
+                  entry_candle_pct: entryCandlePct,
+                  entry_candle_aligned: entryCandleAligned,
+                  symbol_1h_trend: symbol1hTrend,
+                  signal_age_seconds: signalAgeSeconds,
+                  entry_fill_type: entryFillType,
+
+                  // New exit-management fields:
+                  tp1_price,
+                  tp1_pct: tp1PctRaw,
+                  tp1_hit: false,
+                  remaining_qty: qty,
+                  tp1_qty_closed: 0,
+                  trail_pct: preset.trailPct,
+                  breakeven_moved: false,
+                  final_tp_hit: false,
+                  peak_unrealized_pnl_pct: 0,
+                  max_favourable_excursion_pct: 0,
+                  max_adverse_excursion_pct: 0,
+                  highest_unrealized_pnl: 0,
+                  lowest_unrealized_pnl: 0,
+                } as never)
+                .select("id")
+                .single();
+
+              if (error || !inserted) {
+                rejection = error?.message ?? "Insert failed";
+                final = "skip";
+                await logEvent(
+                  supabase,
+                  cfg.user_id,
+                  "error",
+                  `Auto-book ${a.symbol} failed: ${rejection}`,
+                );
+                // Mark the pre-inserted signal as rejected.
+                await supabase
+                  .from("bot_signals")
+                  .update({ final_decision: "skip", rejection_reason: rejection })
+                  .eq("id", signalId);
+              } else {
+                bookedTradeId = inserted.id as string;
+                final = "booked";
+                opened++;
+                openSlot--;
+                openSymbols.add(sym);
+                lastOpen.set(sym, Date.now());
+                sameDirOpenedThisPass[side]++;
+                symbolOpenedThisPass.set(sym, (symbolOpenedThisPass.get(sym) ?? 0) + 1);
+                // Write the booking linkage back onto the signal row.
+                await supabase
+                  .from("bot_signals")
+                  .update({
+                    booked: true,
+                    booked_trade_id: bookedTradeId,
+                    final_decision: "booked",
+                    action: side === "long" ? "LONG" : "SHORT",
+                    confidence_pct: a.confidence_pct,
+                    confidence_band: a.confidence_band,
+                  })
+                  .eq("id", signalId);
+                await logEvent(
+                  supabase,
+                  cfg.user_id,
+                  "info",
+                  `Auto-booked ${side.toUpperCase()} ${a.symbol} · Confidence ${a.confidence_pct.toFixed(0)}% · Target +${tpPct.toFixed(2)}% · Stop −${slPct.toFixed(2)}% · Stop Type Volatility-based · R:R ${plan.rr.toFixed(2)}:1`,
+                  {
+                    kind: "auto_book",
+                    symbol: a.symbol,
+                    side,
+                    confidence: Math.round(a.confidence_pct),
+                    tpPct,
+                    slPct,
+                    atrPct: plan.atrPct,
+                    rr: plan.rr,
+                    riskAmount: plan.riskAmount,
+                    positionSize: plan.positionSize,
+                    stopType: "Volatility-based",
+                    detected_setup: setup.primarySetup,
+                    setup_confidence: setup.setupConfidence,
+                    momentum_score: setup.momentumScore,
+                    pullback_score: setup.pullbackScore,
+                    overlap_flags: setup.overlapFlags,
+                    backend_risk_profile: backendPolicy.riskProfile,
+                  },
+                );
+              }
+            } // close: live-rejection else
           } // close: sigErr else
         }
       } else {
@@ -1546,7 +1782,9 @@ export async function runMarkPass(
   );
   const { data: cfgRows } = await supabase
     .from("bot_config")
-    .select("user_id,auto_close_minutes,trading_style,strategy,min_scalp_score,fee_aware_exits_enabled,minimum_net_profit_to_exit_pct,slippage_buffer_pct,minimum_gross_profit_before_profit_fade_exit_pct,minimum_gross_profit_before_weak_progress_exit_pct,breakeven_arm_roe_pct")
+    .select(
+      "user_id,auto_close_minutes,trading_style,strategy,min_scalp_score,fee_aware_exits_enabled,minimum_net_profit_to_exit_pct,slippage_buffer_pct,minimum_gross_profit_before_profit_fade_exit_pct,minimum_gross_profit_before_weak_progress_exit_pct,breakeven_arm_roe_pct",
+    )
 
     .in("user_id", userIds);
   const cfgByUser = new Map((cfgRows ?? []).map((c) => [c.user_id as string, c]));
@@ -1737,7 +1975,10 @@ export async function runMarkPass(
 
     // Fee-aware evaluation (unchanged).
     const grossPctPrice = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul : 0;
-    const feeRates = feeModelRates(DEFAULT_FEE_MODEL);
+    // A maker-filled entry pays the lower maker fee on the way in; the exit is
+    // still a market (taker) close. Everything else keeps the taker/taker model.
+    const exitFeeModel = p.entry_fill_type === "maker" ? "maker_taker_with_gst" : DEFAULT_FEE_MODEL;
+    const feeRates = feeModelRates(exitFeeModel);
     const roundTripFeePct =
       (feeRates.entry_fee_pct + feeRates.exit_fee_pct) * (1 + feeRates.gst_pct / 100);
     const slippageBufferPct = Number(cfgRow?.slippage_buffer_pct ?? 0.05);
@@ -1801,13 +2042,16 @@ export async function runMarkPass(
       finalExitReason = "trailing_exit";
     } else if (hitProfitFade) {
       const isActuallyLosing = grossPctPrice < 0;
-      if (!isActuallyLosing && feeAwareEnabled && (grossPctPrice < minGrossFadePct || netPctPrice < minNetExitPct)) {
+      if (
+        !isActuallyLosing &&
+        feeAwareEnabled &&
+        (grossPctPrice < minGrossFadePct || netPctPrice < minNetExitPct)
+      ) {
         originalExitReason = "profit_fade_exit";
         exitBlockedReason = "fee_blocked_profit_fade";
       } else {
         finalExitReason = "profit_fade_exit";
       }
-
     } else if (hitPreTp1FailedMomentum) {
       finalExitReason = "profit_fade_exit";
       exitProtectionReason = "pre_tp1_failed_momentum";
@@ -1816,13 +2060,16 @@ export async function runMarkPass(
       // Never delay an exit on a position that is already at a loss — that traps
       // a deteriorating trade open while the loss grows toward full stop loss.
       const isActuallyLosing = grossPctPrice < 0;
-      if (!isActuallyLosing && feeAwareEnabled && (grossPctPrice < minGrossWeakPct || netPctPrice < minNetExitPct)) {
+      if (
+        !isActuallyLosing &&
+        feeAwareEnabled &&
+        (grossPctPrice < minGrossWeakPct || netPctPrice < minNetExitPct)
+      ) {
         originalExitReason = "weak_progress_time_exit";
         exitBlockedReason = "fee_blocked_weak_progress";
       } else {
         finalExitReason = "weak_progress_time_exit";
       }
-
     } else if (hitTimeExit) {
       finalExitReason = "time_exit";
     }
@@ -1925,24 +2172,42 @@ export async function runMarkPass(
         const remainQ = Number(p.remaining_qty ?? qty);
         const creds = await loadLiveCreds(supabase, p.user_id as string);
         if (!creds) {
-          await logEvent(supabase, p.user_id as string, "warn",
-            `Live exit ${p.symbol}: no API credentials — local close only`);
+          await logEvent(
+            supabase,
+            p.user_id as string,
+            "warn",
+            `Live exit ${p.symbol}: no API credentials — local close only`,
+          );
         } else if (remainQ > 0) {
           const exec = await placeLiveExit({
-            creds, symbol: p.symbol as string, side, qty: remainQ,
+            creds,
+            symbol: p.symbol as string,
+            side,
+            qty: remainQ,
           });
           if (!exec.ok) {
-            await logEvent(supabase, p.user_id as string, "error",
+            await logEvent(
+              supabase,
+              p.user_id as string,
+              "error",
               `Live exit ${p.symbol} failed: ${exec.error} — local close only`,
-              { kind: "live_exit_failed", symbol: p.symbol, side });
+              { kind: "live_exit_failed", symbol: p.symbol, side },
+            );
           } else {
-            await logEvent(supabase, p.user_id as string, "info",
-              `Live exit order placed for ${p.symbol} (#${exec.orderId})`);
+            await logEvent(
+              supabase,
+              p.user_id as string,
+              "info",
+              `Live exit order placed for ${p.symbol} (#${exec.orderId})`,
+            );
           }
         }
       }
 
-      const { error } = await supabase.from("positions").update(baseUpdate as never).eq("id", p.id as string);
+      const { error } = await supabase
+        .from("positions")
+        .update(baseUpdate as never)
+        .eq("id", p.id as string);
 
       if (!error) {
         closed++;
