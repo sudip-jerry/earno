@@ -74,6 +74,7 @@ export type Database = {
           auto_book_confidence_threshold: number
           auto_close_minutes: number
           blocked_session_hours_ist: number[]
+          breakeven_arm_roe_pct: number | null
           cooldown_minutes: number
           created_at: string
           daily_loss_cap_pct: number
@@ -129,6 +130,7 @@ export type Database = {
           auto_book_confidence_threshold?: number
           auto_close_minutes?: number
           blocked_session_hours_ist?: number[]
+          breakeven_arm_roe_pct?: number | null
           cooldown_minutes?: number
           created_at?: string
           daily_loss_cap_pct?: number
@@ -184,6 +186,7 @@ export type Database = {
           auto_book_confidence_threshold?: number
           auto_close_minutes?: number
           blocked_session_hours_ist?: number[]
+          breakeven_arm_roe_pct?: number | null
           cooldown_minutes?: number
           created_at?: string
           daily_loss_cap_pct?: number
