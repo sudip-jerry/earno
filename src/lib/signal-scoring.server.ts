@@ -9,6 +9,8 @@
 
 import { atrPctFromCandles } from "@/lib/risk-engine";
 import { resolveInterval, aggregateCandles } from "@/lib/candle-aggregator";
+import { fetchAllFundingRates, fetchOpenInterest } from "@/lib/binance-futures.server";
+import { mapToBinanceSymbol } from "@/lib/symbol-map";
 
 const CANDLES = (pair: string, interval: string, limit: number) =>
   `https://public.coindcx.com/market_data/candles?pair=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
