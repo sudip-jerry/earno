@@ -120,6 +120,53 @@ function chopiness(candles: Candle[]): number {
   return Math.min(25, p);
 }
 
+/** Wilder-smoothed ADX(period). Returns null when insufficient candles.
+ *  Analytics-only for now — not used in scoring or bias. */
+function adx(candles: Candle[], period = 14): number | null {
+  if (!candles || candles.length < period * 2 + 1) return null;
+  const len = candles.length;
+  const tr: number[] = new Array(len).fill(0);
+  const plusDM: number[] = new Array(len).fill(0);
+  const minusDM: number[] = new Array(len).fill(0);
+  for (let i = 1; i < len; i++) {
+    const c = candles[i], p = candles[i - 1];
+    const upMove = c.high - p.high;
+    const downMove = p.low - c.low;
+    plusDM[i] = upMove > downMove && upMove > 0 ? upMove : 0;
+    minusDM[i] = downMove > upMove && downMove > 0 ? downMove : 0;
+    tr[i] = Math.max(
+      c.high - c.low,
+      Math.abs(c.high - p.close),
+      Math.abs(c.low - p.close),
+    );
+  }
+  // Wilder smoothing
+  let atrS = 0, plusS = 0, minusS = 0;
+  for (let i = 1; i <= period; i++) {
+    atrS += tr[i]; plusS += plusDM[i]; minusS += minusDM[i];
+  }
+  const dxs: number[] = [];
+  const pushDx = () => {
+    const plusDI = atrS > 0 ? (100 * plusS) / atrS : 0;
+    const minusDI = atrS > 0 ? (100 * minusS) / atrS : 0;
+    const sum = plusDI + minusDI;
+    dxs.push(sum > 0 ? (100 * Math.abs(plusDI - minusDI)) / sum : 0);
+  };
+  pushDx();
+  for (let i = period + 1; i < len; i++) {
+    atrS = atrS - atrS / period + tr[i];
+    plusS = plusS - plusS / period + plusDM[i];
+    minusS = minusS - minusS / period + minusDM[i];
+    pushDx();
+  }
+  if (dxs.length < period) return null;
+  let adxVal = dxs.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < dxs.length; i++) {
+    adxVal = (adxVal * (period - 1) + dxs[i]) / period;
+  }
+  return adxVal;
+}
+
 // ── Public result ──────────────────────────────────────────────────────────
 
 export type SignalAnalysis = {
@@ -141,6 +188,11 @@ export type SignalAnalysis = {
   distance_from_ema21_pct: number | null;
   impulse_candle_pct: number | null;
   market_regime: string;
+  /** ADX(14) — analytics-only, not fed into confidence or bias. */
+  adx: number | null;
+  /** Relative volume: last candle volume / avg of trailing 20-candle volume.
+   *  Separate window from `volume_spike_ratio` (10-candle) so both can be compared. */
+  rvol: number | null;
   /** Component-level breakdown for diagnostics. */
   breakdown: Record<string, number>;
 };
@@ -192,6 +244,8 @@ export async function analyzeSymbol(
       distance_from_ema21_pct: null,
       impulse_candle_pct: null,
       market_regime: change24h >= 0 ? "Bullish 24h" : "Bearish 24h",
+      adx: null,
+      rvol: null,
       breakdown: {},
     };
   }
@@ -205,6 +259,13 @@ export async function analyzeSymbol(
   const rsi14 = rsi(closes, 14);
   const vw = vwap(candles.slice(-48));
   const atrPct = atrPctFromCandles(candles, 14);
+  const adx14 = adx(candles, 14);
+
+  // RVOL — last candle volume / avg of trailing 20 (excluding the current bar).
+  // Distinct from `volSpike` (10-candle window) so both can be compared.
+  const last20 = candles.slice(-21, -1);
+  const avgVol20 = last20.length ? last20.reduce((a, c) => a + c.volume, 0) / last20.length : 0;
+  const rvol20 = avgVol20 > 0 ? candles[candles.length - 1].volume / avgVol20 : null;
 
   const last10 = candles.slice(-11, -1);
   const avgVol = last10.length ? last10.reduce((a, c) => a + c.volume, 0) / last10.length : 0;
@@ -381,6 +442,8 @@ export async function analyzeSymbol(
     impulse_candle_pct: impulse != null ? Number(impulse.toFixed(3)) : null,
     market_regime:
       change24h >= 1 ? "Bullish 24h" : change24h <= -1 ? "Bearish 24h" : "Sideways 24h",
+    adx: adx14 != null ? Number(adx14.toFixed(2)) : null,
+    rvol: rvol20 != null ? Number(rvol20.toFixed(2)) : null,
     breakdown: {
       trend: trendScore,
       vwap: vwapScore,
@@ -392,6 +455,7 @@ export async function analyzeSymbol(
       entry: entryScore,
       overextension_penalty: overext,
       choppy_penalty: choppy,
+      adx: adx14 != null ? Number(adx14.toFixed(2)) : 0,
     },
   };
 }

@@ -1,0 +1,1 @@
+ALTER TABLE public.positions ADD COLUMN IF NOT EXISTS adx_at_entry numeric; ALTER TABLE public.positions ADD COLUMN IF NOT EXISTS rvol_at_entry numeric;

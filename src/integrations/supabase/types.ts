@@ -789,6 +789,7 @@ export type Database = {
       }
       positions: {
         Row: {
+          adx_at_entry: number | null
           algo_id: string | null
           algo_name: string | null
           algo_version: string | null
@@ -846,6 +847,7 @@ export type Database = {
           remaining_qty: number | null
           rsi_at_entry: number | null
           runner_pnl: number | null
+          rvol_at_entry: number | null
           shadow_closed_at: string | null
           shadow_exit_pnl: number | null
           shadow_exit_reason: string | null
@@ -878,6 +880,7 @@ export type Database = {
           weak_progress_marked_at: string | null
         }
         Insert: {
+          adx_at_entry?: number | null
           algo_id?: string | null
           algo_name?: string | null
           algo_version?: string | null
@@ -935,6 +938,7 @@ export type Database = {
           remaining_qty?: number | null
           rsi_at_entry?: number | null
           runner_pnl?: number | null
+          rvol_at_entry?: number | null
           shadow_closed_at?: string | null
           shadow_exit_pnl?: number | null
           shadow_exit_reason?: string | null
@@ -967,6 +971,7 @@ export type Database = {
           weak_progress_marked_at?: string | null
         }
         Update: {
+          adx_at_entry?: number | null
           algo_id?: string | null
           algo_name?: string | null
           algo_version?: string | null
@@ -1024,6 +1029,7 @@ export type Database = {
           remaining_qty?: number | null
           rsi_at_entry?: number | null
           runner_pnl?: number | null
+          rvol_at_entry?: number | null
           shadow_closed_at?: string | null
           shadow_exit_pnl?: number | null
           shadow_exit_reason?: string | null
