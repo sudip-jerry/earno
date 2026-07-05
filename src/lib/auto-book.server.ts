@@ -1352,6 +1352,8 @@ export async function runAutoBookPass(
               distance_from_ema21_pct_at_entry: a.distance_from_ema21_pct,
               adx_at_entry: a.adx,
               rvol_at_entry: a.rvol,
+              funding_rate_at_entry: a.funding_rate,
+              open_interest_at_entry: a.open_interest,
               entry_candle_pct: entryCandlePct,
               entry_candle_aligned: entryCandleAligned,
               symbol_1h_trend: symbol1hTrend,
