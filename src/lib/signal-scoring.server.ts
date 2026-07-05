@@ -195,6 +195,10 @@ export type SignalAnalysis = {
   /** Relative volume: last candle volume / avg of trailing 20-candle volume.
    *  Separate window from `volume_spike_ratio` (10-candle) so both can be compared. */
   rvol: number | null;
+  /** Binance last funding rate for the mapped symbol (analytics-only, silent-fail). */
+  funding_rate: number | null;
+  /** Binance open interest for the mapped symbol (analytics-only, silent-fail). */
+  open_interest: number | null;
   /** Component-level breakdown for diagnostics. */
   breakdown: Record<string, number>;
 };
