@@ -259,6 +259,13 @@ export async function analyzeSymbol(
   const rsi14 = rsi(closes, 14);
   const vw = vwap(candles.slice(-48));
   const atrPct = atrPctFromCandles(candles, 14);
+  const adx14 = adx(candles, 14);
+
+  // RVOL — last candle volume / avg of trailing 20 (excluding the current bar).
+  // Distinct from `volSpike` (10-candle window) so both can be compared.
+  const last20 = candles.slice(-21, -1);
+  const avgVol20 = last20.length ? last20.reduce((a, c) => a + c.volume, 0) / last20.length : 0;
+  const rvol20 = avgVol20 > 0 ? candles[candles.length - 1].volume / avgVol20 : null;
 
   const last10 = candles.slice(-11, -1);
   const avgVol = last10.length ? last10.reduce((a, c) => a + c.volume, 0) / last10.length : 0;
