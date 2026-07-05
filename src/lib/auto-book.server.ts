@@ -23,8 +23,9 @@ import {
 } from "@/lib/signal-scoring.server";
 import { feeModelRates, DEFAULT_FEE_MODEL } from "@/lib/fees";
 import { projectedNetPctAtTp } from "@/lib/entry-gates";
-import { fetchAllFundingRates, fetchOpenInterest } from "@/lib/binance-futures.server";
-import { mapToBinanceSymbol } from "@/lib/symbol-map";
+import { fetchSpotPrices } from "@/lib/coindcx-spot.server";
+import { perpToSpotMarket } from "@/lib/symbol-map";
+import { premiumPct } from "@/lib/funding";
 import { classifySetup } from "@/lib/futures/setup-classifier";
 import { isGloballyBlacklisted } from "@/lib/global-symbol-blacklist";
 import { getBackendStrategyPolicy } from "@/lib/futures/strategy-policy";
@@ -1317,27 +1318,20 @@ export async function runAutoBookPass(
           const earliestAt = earliestSignalAt.get(sigKey);
           const signalAgeSeconds = earliestAt != null ? Math.max(0, Math.round((Date.now() - earliestAt) / 1000)) : 0;
 
-          // Booking-time analytics enrichment (Binance funding rate / open
-          // interest). Fetched only for the symbol actually being opened — NOT
-          // in the scan-universe scorer — so the hot path stays free of external
-          // network I/O and its rate-limit/latency burst. Silent-fail → null;
-          // funding uses a shared 60s cache, so this is ~1 uncached call (OI)
-          // per booked position. Never blocks booking.
+          // Booking-time funding proxy (CoinDCX-native). CoinDCX doesn't publish
+          // a funding-rate value, so we reconstruct the funding DIRECTION as the
+          // perp-vs-spot premium: (perp - spot)/spot. Uses one bulk, 30s-cached
+          // CoinDCX spot fetch shared across the pass — no per-symbol calls, no
+          // external exchange, 100% coverage where a spot pair exists.
+          // Analytics-only; null on miss; never blocks booking.
+          // (open_interest is left null — CoinDCX does not expose it publicly.)
           let fundingRateAtEntry: number | null = null;
-          let openInterestAtEntry: number | null = null;
           {
-            const binSym = mapToBinanceSymbol(a.symbol);
-            if (binSym) {
+            const spotMarket = perpToSpotMarket(a.symbol);
+            if (spotMarket) {
               try {
-                const [fundingMap, oi] = await Promise.all([
-                  fetchAllFundingRates(),
-                  fetchOpenInterest(binSym),
-                ]);
-                const f = fundingMap.get(binSym);
-                if (f && f.fundingRate != null && Number.isFinite(f.fundingRate)) {
-                  fundingRateAtEntry = f.fundingRate;
-                }
-                if (oi && Number.isFinite(oi.openInterest)) openInterestAtEntry = oi.openInterest;
+                const spot = (await fetchSpotPrices()).get(spotMarket);
+                if (spot != null) fundingRateAtEntry = premiumPct(a.price, spot);
               } catch {
                 // analytics-only — never block booking
               }
@@ -1381,7 +1375,7 @@ export async function runAutoBookPass(
               adx_at_entry: a.adx,
               rvol_at_entry: a.rvol,
               funding_rate_at_entry: fundingRateAtEntry,
-              open_interest_at_entry: openInterestAtEntry,
+              open_interest_at_entry: null,
               entry_candle_pct: entryCandlePct,
               entry_candle_aligned: entryCandleAligned,
               symbol_1h_trend: symbol1hTrend,
