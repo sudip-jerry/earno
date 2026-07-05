@@ -17,7 +17,7 @@ type PremiumIndexRow = {
   lastFundingRate?: string | number;
 };
 
-export type FundingEntry = { fundingRate: number; markPrice: number };
+export type FundingEntry = { fundingRate: number | null; markPrice: number };
 
 let cache: { at: number; data: Map<string, FundingEntry> } | null = null;
 let inflight: Promise<Map<string, FundingEntry>> | null = null;
@@ -54,7 +54,9 @@ export async function fetchAllFundingRates(): Promise<Map<string, FundingEntry>>
           const mp = num(r.markPrice);
           if (!Number.isFinite(fr) && !Number.isFinite(mp)) continue;
           map.set(r.symbol, {
-            fundingRate: Number.isFinite(fr) ? fr : 0,
+            // Keep a genuinely-missing funding rate as null so downstream
+            // analytics can tell "no data" apart from a real flat (0) reading.
+            fundingRate: Number.isFinite(fr) ? fr : null,
             markPrice: Number.isFinite(mp) ? mp : 0,
           });
         }

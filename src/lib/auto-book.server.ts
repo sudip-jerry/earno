@@ -23,6 +23,8 @@ import {
 } from "@/lib/signal-scoring.server";
 import { feeModelRates, DEFAULT_FEE_MODEL } from "@/lib/fees";
 import { projectedNetPctAtTp } from "@/lib/entry-gates";
+import { fetchAllFundingRates, fetchOpenInterest } from "@/lib/binance-futures.server";
+import { mapToBinanceSymbol } from "@/lib/symbol-map";
 import { classifySetup } from "@/lib/futures/setup-classifier";
 import { isGloballyBlacklisted } from "@/lib/global-symbol-blacklist";
 import { getBackendStrategyPolicy } from "@/lib/futures/strategy-policy";
@@ -1315,6 +1317,33 @@ export async function runAutoBookPass(
           const earliestAt = earliestSignalAt.get(sigKey);
           const signalAgeSeconds = earliestAt != null ? Math.max(0, Math.round((Date.now() - earliestAt) / 1000)) : 0;
 
+          // Booking-time analytics enrichment (Binance funding rate / open
+          // interest). Fetched only for the symbol actually being opened — NOT
+          // in the scan-universe scorer — so the hot path stays free of external
+          // network I/O and its rate-limit/latency burst. Silent-fail → null;
+          // funding uses a shared 60s cache, so this is ~1 uncached call (OI)
+          // per booked position. Never blocks booking.
+          let fundingRateAtEntry: number | null = null;
+          let openInterestAtEntry: number | null = null;
+          {
+            const binSym = mapToBinanceSymbol(a.symbol);
+            if (binSym) {
+              try {
+                const [fundingMap, oi] = await Promise.all([
+                  fetchAllFundingRates(),
+                  fetchOpenInterest(binSym),
+                ]);
+                const f = fundingMap.get(binSym);
+                if (f && f.fundingRate != null && Number.isFinite(f.fundingRate)) {
+                  fundingRateAtEntry = f.fundingRate;
+                }
+                if (oi && Number.isFinite(oi.openInterest)) openInterestAtEntry = oi.openInterest;
+              } catch {
+                // analytics-only — never block booking
+              }
+            }
+          }
+
           const { data: inserted, error } = await supabase
 
             .from("positions")
@@ -1351,8 +1380,8 @@ export async function runAutoBookPass(
               distance_from_ema21_pct_at_entry: a.distance_from_ema21_pct,
               adx_at_entry: a.adx,
               rvol_at_entry: a.rvol,
-              funding_rate_at_entry: a.funding_rate,
-              open_interest_at_entry: a.open_interest,
+              funding_rate_at_entry: fundingRateAtEntry,
+              open_interest_at_entry: openInterestAtEntry,
               entry_candle_pct: entryCandlePct,
               entry_candle_aligned: entryCandleAligned,
               symbol_1h_trend: symbol1hTrend,

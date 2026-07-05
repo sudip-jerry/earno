@@ -9,8 +9,6 @@
 
 import { atrPctFromCandles } from "@/lib/risk-engine";
 import { resolveInterval, aggregateCandles } from "@/lib/candle-aggregator";
-import { fetchAllFundingRates, fetchOpenInterest } from "@/lib/binance-futures.server";
-import { mapToBinanceSymbol } from "@/lib/symbol-map";
 
 const CANDLES = (pair: string, interval: string, limit: number) =>
   `https://public.coindcx.com/market_data/candles?pair=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
@@ -195,10 +193,6 @@ export type SignalAnalysis = {
   /** Relative volume: last candle volume / avg of trailing 20-candle volume.
    *  Separate window from `volume_spike_ratio` (10-candle) so both can be compared. */
   rvol: number | null;
-  /** Binance last funding rate for the mapped symbol (analytics-only, silent-fail). */
-  funding_rate: number | null;
-  /** Binance open interest for the mapped symbol (analytics-only, silent-fail). */
-  open_interest: number | null;
   /** Component-level breakdown for diagnostics. */
   breakdown: Record<string, number>;
 };
@@ -252,8 +246,6 @@ export async function analyzeSymbol(
       market_regime: change24h >= 0 ? "Bullish 24h" : "Bearish 24h",
       adx: null,
       rvol: null,
-      funding_rate: null,
-      open_interest: null,
       breakdown: {},
     };
   }
@@ -430,23 +422,11 @@ export async function analyzeSymbol(
   if (overext >= 10) reasonParts.push("Overextended");
   if (choppy >= 10) reasonParts.push("Choppy tape");
 
-  // ── External enrichment (analytics-only; silent-fail, never blocks) ──
-  let fundingRate: number | null = null;
-  let openInterest: number | null = null;
-  try {
-    const binSym = mapToBinanceSymbol(symbol);
-    if (binSym) {
-      const [fundingMap, oi] = await Promise.all([
-        fetchAllFundingRates(),
-        fetchOpenInterest(binSym),
-      ]);
-      const f = fundingMap.get(binSym);
-      if (f && Number.isFinite(f.fundingRate)) fundingRate = f.fundingRate;
-      if (oi && Number.isFinite(oi.openInterest)) openInterest = oi.openInterest;
-    }
-  } catch {
-    // never surface — analytics-only
-  }
+  // Binance funding-rate / open-interest enrichment is intentionally NOT done
+  // here. This scorer runs over the whole scan universe every pass; issuing a
+  // per-symbol Binance call from the hot path caused a rate-limit/latency burst.
+  // The enrichment is fetched at booking time (auto-book.server.ts) for the one
+  // symbol actually being opened, which is the only place the values are used.
 
   return {
     symbol,
@@ -470,8 +450,6 @@ export async function analyzeSymbol(
       change24h >= 1 ? "Bullish 24h" : change24h <= -1 ? "Bearish 24h" : "Sideways 24h",
     adx: adx14 != null ? Number(adx14.toFixed(2)) : null,
     rvol: rvol20 != null ? Number(rvol20.toFixed(2)) : null,
-    funding_rate: fundingRate,
-    open_interest: openInterest,
     breakdown: {
       trend: trendScore,
       vwap: vwapScore,

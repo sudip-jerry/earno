@@ -42,8 +42,6 @@ function base(): SignalAnalysis {
     market_regime: "neutral",
     adx: null,
     rvol: null,
-    funding_rate: null,
-    open_interest: null,
     breakdown: {},
   };
 }
