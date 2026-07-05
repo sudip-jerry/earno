@@ -1546,7 +1546,7 @@ export async function runMarkPass(
   );
   const { data: cfgRows } = await supabase
     .from("bot_config")
-    .select("user_id,auto_close_minutes,trading_style,strategy,min_scalp_score,fee_aware_exits_enabled,minimum_net_profit_to_exit_pct,slippage_buffer_pct,minimum_gross_profit_before_profit_fade_exit_pct,minimum_gross_profit_before_weak_progress_exit_pct")
+    .select("user_id,auto_close_minutes,trading_style,strategy,min_scalp_score,fee_aware_exits_enabled,minimum_net_profit_to_exit_pct,slippage_buffer_pct,minimum_gross_profit_before_profit_fade_exit_pct,minimum_gross_profit_before_weak_progress_exit_pct,breakeven_arm_roe_pct")
 
     .in("user_id", userIds);
   const cfgByUser = new Map((cfgRows ?? []).map((c) => [c.user_id as string, c]));
@@ -1593,6 +1593,7 @@ export async function runMarkPass(
           slippage_buffer_pct?: number | null;
           minimum_gross_profit_before_profit_fade_exit_pct?: number | null;
           minimum_gross_profit_before_weak_progress_exit_pct?: number | null;
+          breakeven_arm_roe_pct?: number | null;
         }
       | undefined;
     const autoCloseMinutes = Number(cfgRow?.auto_close_minutes ?? 120);
@@ -1651,7 +1652,18 @@ export async function runMarkPass(
       }
     }
 
-    // Breakeven only armed when TP1 fires. No pre-TP1 breakeven move.
+    // 1b) Early breakeven (config-gated, OFF by default). Once a trade's
+    // unrealized ROE reaches breakeven_arm_roe_pct, move the stop to entry so a
+    // trade that went favorable can't round-trip into a loss — independent of
+    // TP1. Only arms the existing breakeven mechanism earlier (no new exit
+    // path); a later SL-at-entry hit is labeled breakeven_exit via the
+    // `newBreakeven` check below. Persisted in the update block so it sticks
+    // across mark passes. Used to A/B-test tighter gain-protection per cohort.
+    const beArmRoe = Number(cfgRow?.breakeven_arm_roe_pct ?? 0);
+    const armedEarlyBreakeven = beArmRoe > 0 && !newBreakeven && !tp1Hit && currentRoe >= beArmRoe;
+    if (armedEarlyBreakeven) newBreakeven = true;
+
+    // Breakeven only armed when TP1 fires (or by early-breakeven above).
     const profitProtected = newBreakeven || tp1Hit || tp1JustHit;
 
     // 2) Final TP.
@@ -1847,6 +1859,14 @@ export async function runMarkPass(
       baseUpdate.trail_anchor_price = mark;
     } else if (tp1Hit) {
       baseUpdate.trail_anchor_price = trailAnchor;
+    }
+    // Persist an early (pre-TP1) breakeven arm so the stop stays at entry on the
+    // next mark pass. (tp1JustHit already persists this in its own block; the two
+    // are mutually exclusive since early-arm requires !newBreakeven.)
+    if (armedEarlyBreakeven) {
+      baseUpdate.breakeven_moved = true;
+      baseUpdate.breakeven_armed_at = new Date().toISOString();
+      baseUpdate.stop_loss = entry;
     }
     if (newWeakProgress) Object.assign(baseUpdate, newWeakProgress);
 
