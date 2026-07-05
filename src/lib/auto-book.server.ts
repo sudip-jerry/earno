@@ -30,7 +30,7 @@ import { classifySetup } from "@/lib/futures/setup-classifier";
 import { isGloballyBlacklisted } from "@/lib/global-symbol-blacklist";
 import { getBackendStrategyPolicy } from "@/lib/futures/strategy-policy";
 import { evaluateTradeEligibility } from "@/lib/futures/trade-eligibility";
-import { loadLiveCreds, placeLiveEntry, placeLiveExit } from "@/lib/futures/live-execution.server";
+import { loadLiveCreds, placeLiveEntry, placeLiveEntryMakerFirst, placeLiveExit } from "@/lib/futures/live-execution.server";
 
 const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
 const CANDLES = (pair: string, interval: string, limit: number) =>
@@ -279,6 +279,9 @@ type BotConfig = {
   slippage_buffer_pct?: number | null;
   blocked_session_hours_ist?: number[] | null;
   major_coin_confidence_floor?: number | null;
+  // Maker-first live entry (dormant unless explicitly enabled). Live-only.
+  maker_entry_enabled?: boolean | null;
+  maker_entry_wait_ms?: number | null;
 };
 
 /** Returns the USDT capital to size positions against. Paper uses paper_equity.
@@ -387,7 +390,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -1243,6 +1246,9 @@ export async function runAutoBookPass(
           // the position. On failure we skip the booking so the local DB and
           // the exchange never disagree. Paper mode is unchanged.
           let liveOrderId: string | null = null;
+          // Records how the live entry actually filled so exit fee accounting
+          // can pick the right model. Paper always books at taker (market sim).
+          let entryFillType: "maker" | "taker" = "taker";
           if (cfg.mode === "live") {
             const creds = await loadLiveCreds(supabase, cfg.user_id);
             if (!creds) {
@@ -1254,13 +1260,26 @@ export async function runAutoBookPass(
                 .update({ final_decision: "skip", rejection_reason: rejection })
                 .eq("id", signalId);
             } else {
-              const exec = await placeLiveEntry({
-                creds,
-                symbol: a.symbol,
-                side,
-                qty,
-                leverage: lev,
-              });
+              // Maker-first (dormant unless maker_entry_enabled): post a passive
+              // limit at the signal price, wait ~5s for a maker fill, else cancel
+              // and flip to a market (taker) order so the entry still happens.
+              const exec = cfg.maker_entry_enabled === true
+                ? await placeLiveEntryMakerFirst({
+                    creds,
+                    symbol: a.symbol,
+                    side,
+                    qty,
+                    leverage: lev,
+                    limitPrice: a.price,
+                    makerWaitMs: Number(cfg.maker_entry_wait_ms ?? 5000),
+                  })
+                : { ...(await placeLiveEntry({
+                    creds,
+                    symbol: a.symbol,
+                    side,
+                    qty,
+                    leverage: lev,
+                  })), fill: "taker" as const };
               if (!exec.ok) {
                 rejection = `Live order rejected: ${exec.error}`;
                 final = "skip";
@@ -1273,6 +1292,7 @@ export async function runAutoBookPass(
                   .eq("id", signalId);
               } else {
                 liveOrderId = exec.orderId;
+                entryFillType = exec.fill;
               }
             }
           }
@@ -1385,6 +1405,7 @@ export async function runAutoBookPass(
               entry_candle_aligned: entryCandleAligned,
               symbol_1h_trend: symbol1hTrend,
               signal_age_seconds: signalAgeSeconds,
+              entry_fill_type: entryFillType,
 
               // New exit-management fields:
               tp1_price,
@@ -1737,7 +1758,11 @@ export async function runMarkPass(
 
     // Fee-aware evaluation (unchanged).
     const grossPctPrice = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul : 0;
-    const feeRates = feeModelRates(DEFAULT_FEE_MODEL);
+    // A maker-filled entry pays the lower maker fee on the way in; the exit is
+    // still a market (taker) close. Everything else keeps the taker/taker model.
+    const exitFeeModel =
+      p.entry_fill_type === "maker" ? "maker_taker_with_gst" : DEFAULT_FEE_MODEL;
+    const feeRates = feeModelRates(exitFeeModel);
     const roundTripFeePct =
       (feeRates.entry_fee_pct + feeRates.exit_fee_pct) * (1 + feeRates.gst_pct / 100);
     const slippageBufferPct = Number(cfgRow?.slippage_buffer_pct ?? 0.05);
