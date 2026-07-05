@@ -244,6 +244,8 @@ export async function analyzeSymbol(
       distance_from_ema21_pct: null,
       impulse_candle_pct: null,
       market_regime: change24h >= 0 ? "Bullish 24h" : "Bearish 24h",
+      adx: null,
+      rvol: null,
       breakdown: {},
     };
   }
