@@ -23,6 +23,9 @@ import {
 } from "@/lib/signal-scoring.server";
 import { feeModelRates, DEFAULT_FEE_MODEL } from "@/lib/fees";
 import { projectedNetPctAtTp } from "@/lib/entry-gates";
+import { fetchSpotPrices } from "@/lib/coindcx-spot.server";
+import { perpToSpotMarket } from "@/lib/symbol-map";
+import { premiumPct } from "@/lib/funding";
 import { classifySetup } from "@/lib/futures/setup-classifier";
 import { isGloballyBlacklisted } from "@/lib/global-symbol-blacklist";
 import { getBackendStrategyPolicy } from "@/lib/futures/strategy-policy";
@@ -799,12 +802,11 @@ export async function runAutoBookPass(
       } else if (a.action === "AVOID" || a.side_bias === "neutral") {
         rejection = "Bias unclear / avoid";
         final = "avoid";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "avoid_signal_skip",
-          symbol: a.symbol,
-          action: a.action,
-          side_bias: a.side_bias,
-        }).catch(() => {});
+        // Not logged to the activity feed: "bias unclear / avoid" means there was
+        // no directional signal at all (the idle state for most symbols every
+        // scan) — it floods the feed and is not a gate rejection of a real
+        // candidate. Still recorded in bot_signals for analysis; the per-scan
+        // "Scan complete" event is the feed's heartbeat.
       } else if (a.side_bias === "short" && !cfg.allow_short) {
         rejection = "Shorts disabled in config";
         final = "skip";
@@ -920,13 +922,19 @@ export async function runAutoBookPass(
       } else if (a.confidence_pct < autoConfThreshold) {
         rejection = `Below auto-book threshold (${a.confidence_pct} < ${autoConfThreshold})`;
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "confidence_below_threshold",
-          symbol: a.symbol,
-          confidence_pct: a.confidence_pct,
-          auto_book_confidence_threshold: autoConfThreshold,
-          display_conf_threshold: displayConfThreshold,
-        }).catch(() => {});
+        // Only surface display-worthy near-misses in the feed (a real directional
+        // setup that just missed the book threshold). Sub-display-confidence
+        // signals are the same idle noise as "avoid" — skipped from the feed but
+        // still recorded in bot_signals for analysis.
+        if (final === "display") {
+          void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+            kind: "confidence_below_threshold",
+            symbol: a.symbol,
+            confidence_pct: a.confidence_pct,
+            auto_book_confidence_threshold: autoConfThreshold,
+            display_conf_threshold: displayConfThreshold,
+          }).catch(() => {});
+        }
       }
 
       // Regime-aware direction gate — style-aware thresholds
@@ -1315,6 +1323,26 @@ export async function runAutoBookPass(
           const earliestAt = earliestSignalAt.get(sigKey);
           const signalAgeSeconds = earliestAt != null ? Math.max(0, Math.round((Date.now() - earliestAt) / 1000)) : 0;
 
+          // Booking-time funding proxy (CoinDCX-native). CoinDCX doesn't publish
+          // a funding-rate value, so we reconstruct the funding DIRECTION as the
+          // perp-vs-spot premium: (perp - spot)/spot. Uses one bulk, 30s-cached
+          // CoinDCX spot fetch shared across the pass — no per-symbol calls, no
+          // external exchange, 100% coverage where a spot pair exists.
+          // Analytics-only; null on miss; never blocks booking.
+          // (open_interest is left null — CoinDCX does not expose it publicly.)
+          let fundingRateAtEntry: number | null = null;
+          {
+            const spotMarket = perpToSpotMarket(a.symbol);
+            if (spotMarket) {
+              try {
+                const spot = (await fetchSpotPrices()).get(spotMarket);
+                if (spot != null) fundingRateAtEntry = premiumPct(a.price, spot);
+              } catch {
+                // analytics-only — never block booking
+              }
+            }
+          }
+
           const { data: inserted, error } = await supabase
 
             .from("positions")
@@ -1351,8 +1379,8 @@ export async function runAutoBookPass(
               distance_from_ema21_pct_at_entry: a.distance_from_ema21_pct,
               adx_at_entry: a.adx,
               rvol_at_entry: a.rvol,
-              funding_rate_at_entry: a.funding_rate,
-              open_interest_at_entry: a.open_interest,
+              funding_rate_at_entry: fundingRateAtEntry,
+              open_interest_at_entry: null,
               entry_candle_pct: entryCandlePct,
               entry_candle_aligned: entryCandleAligned,
               symbol_1h_trend: symbol1hTrend,
