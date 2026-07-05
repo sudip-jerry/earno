@@ -159,7 +159,22 @@ export type BacktestVariant = {
   tpScale?: number;
   /** Scale the SL distance from entry (ratio-matched wider stop). Default 1. */
   slScale?: number;
+  /**
+   * Entry-edge gate: exclude trades whose gross target move % (|tp - entry| /
+   * entry) is below this floor, mirroring the live minimum_expected_edge_pct
+   * gate. Lets us measure, on real history, whether the fee-clearing floor
+   * (perps ~0.6%) flips the surviving set net-positive and how many trades it
+   * culls. Undefined = no entry filter.
+   */
+  minExpectedEdgePct?: number;
 };
+
+/** Gross target move % of a position (the quantity the edge gate compares). */
+function targetEdgePct(pos: BacktestPosition): number {
+  const entry = num(pos.entry_price);
+  if (!(entry > 0) || pos.take_profit == null) return Infinity;
+  return (Math.abs(num(pos.take_profit) - entry) / entry) * 100;
+}
 
 export type ReplayResult = {
   id: string;
@@ -565,6 +580,7 @@ export async function runBacktest(
     { name: "be_arm_2pct", breakevenArmRoePct: 2 },
     { name: "maker_entry", entryFill: "maker" },
     { name: "tp_1_5x", tpScale: 1.5, slScale: 1.5 },
+    { name: "edge_gate_0_6", minExpectedEdgePct: 0.6 },
   ];
 
   // Fetch each position's candle path ONCE, reused across all variants.
@@ -580,14 +596,20 @@ export async function runBacktest(
   }
 
   const summaries = variants.map((variant) => {
+    // Entry-edge gate: for edge-gate variants, only trades whose target clears
+    // the floor are "eligible" — the rest are culled at entry, exactly as the
+    // live gate would. eligible.length is the post-gate trade count.
+    const eligible = positions.filter(
+      (p) => variant.minExpectedEdgePct == null || targetEdgePct(p) >= variant.minExpectedEdgePct,
+    );
     const results: ReplayResult[] = [];
-    for (const p of positions) {
+    for (const p of eligible) {
       const candles = paths.get(p.id) ?? [];
       const cfg: BacktestConfig = cfgByUser.get(p.user_id) ?? {};
       const r = replayPosition(p, candles, cfg, variant);
       if (r) results.push(r);
     }
-    return summarize(variant, results, positions.length);
+    return summarize(variant, results, eligible.length);
   });
 
   const scope = {
