@@ -470,6 +470,8 @@ export async function analyzeSymbol(
       change24h >= 1 ? "Bullish 24h" : change24h <= -1 ? "Bearish 24h" : "Sideways 24h",
     adx: adx14 != null ? Number(adx14.toFixed(2)) : null,
     rvol: rvol20 != null ? Number(rvol20.toFixed(2)) : null,
+    funding_rate: fundingRate,
+    open_interest: openInterest,
     breakdown: {
       trend: trendScore,
       vwap: vwapScore,
