@@ -799,12 +799,11 @@ export async function runAutoBookPass(
       } else if (a.action === "AVOID" || a.side_bias === "neutral") {
         rejection = "Bias unclear / avoid";
         final = "avoid";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "avoid_signal_skip",
-          symbol: a.symbol,
-          action: a.action,
-          side_bias: a.side_bias,
-        }).catch(() => {});
+        // Not logged to the activity feed: "bias unclear / avoid" means there was
+        // no directional signal at all (the idle state for most symbols every
+        // scan) — it floods the feed and is not a gate rejection of a real
+        // candidate. Still recorded in bot_signals for analysis; the per-scan
+        // "Scan complete" event is the feed's heartbeat.
       } else if (a.side_bias === "short" && !cfg.allow_short) {
         rejection = "Shorts disabled in config";
         final = "skip";
@@ -920,13 +919,19 @@ export async function runAutoBookPass(
       } else if (a.confidence_pct < autoConfThreshold) {
         rejection = `Below auto-book threshold (${a.confidence_pct} < ${autoConfThreshold})`;
         final = a.confidence_pct >= displayConfThreshold ? "display" : "skip";
-        void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
-          kind: "confidence_below_threshold",
-          symbol: a.symbol,
-          confidence_pct: a.confidence_pct,
-          auto_book_confidence_threshold: autoConfThreshold,
-          display_conf_threshold: displayConfThreshold,
-        }).catch(() => {});
+        // Only surface display-worthy near-misses in the feed (a real directional
+        // setup that just missed the book threshold). Sub-display-confidence
+        // signals are the same idle noise as "avoid" — skipped from the feed but
+        // still recorded in bot_signals for analysis.
+        if (final === "display") {
+          void logEvent(supabase, cfg.user_id, "info", `Auto-book skipped ${a.symbol}: ${rejection}`, {
+            kind: "confidence_below_threshold",
+            symbol: a.symbol,
+            confidence_pct: a.confidence_pct,
+            auto_book_confidence_threshold: autoConfThreshold,
+            display_conf_threshold: displayConfThreshold,
+          }).catch(() => {});
+        }
       }
 
       // Regime-aware direction gate — style-aware thresholds
