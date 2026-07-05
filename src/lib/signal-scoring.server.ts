@@ -430,6 +430,24 @@ export async function analyzeSymbol(
   if (overext >= 10) reasonParts.push("Overextended");
   if (choppy >= 10) reasonParts.push("Choppy tape");
 
+  // ── External enrichment (analytics-only; silent-fail, never blocks) ──
+  let fundingRate: number | null = null;
+  let openInterest: number | null = null;
+  try {
+    const binSym = mapToBinanceSymbol(symbol);
+    if (binSym) {
+      const [fundingMap, oi] = await Promise.all([
+        fetchAllFundingRates(),
+        fetchOpenInterest(binSym),
+      ]);
+      const f = fundingMap.get(binSym);
+      if (f && Number.isFinite(f.fundingRate)) fundingRate = f.fundingRate;
+      if (oi && Number.isFinite(oi.openInterest)) openInterest = oi.openInterest;
+    }
+  } catch {
+    // never surface — analytics-only
+  }
+
   return {
     symbol,
     price,
