@@ -111,7 +111,7 @@ function PositionsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("positions")
-        .select("pnl,entry_price,exit_price,qty,exit_reason")
+        .select("pnl,entry_price,exit_price,qty,exit_reason,entry_fill_type")
         .eq("status", "closed")
         .order("closed_at", { ascending: false });
       if (error) throw error;
@@ -125,7 +125,7 @@ function PositionsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("positions")
-        .select("id,symbol,side,leverage,qty,entry_price,mark_price,stop_loss,take_profit,pnl,pnl_pct,opened_at,closed_at,exit_price,exit_reason,mode,instrument,tp1_hit,tp1_roe_pct,breakeven_armed_at,breakeven_moved,peak_unrealized_pnl_pct,exit_protection_reason")
+        .select("id,symbol,side,leverage,qty,entry_price,mark_price,stop_loss,take_profit,pnl,pnl_pct,opened_at,closed_at,exit_price,exit_reason,mode,instrument,tp1_hit,tp1_roe_pct,breakeven_armed_at,breakeven_moved,peak_unrealized_pnl_pct,exit_protection_reason,entry_fill_type")
         .eq("status", "closed")
         .order("closed_at", { ascending: false })
         .limit(100);

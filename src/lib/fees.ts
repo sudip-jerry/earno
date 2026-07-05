@@ -17,30 +17,27 @@ export type FeeModel =
 
 export const DEFAULT_FEE_MODEL: FeeModel = "taker_taker_with_gst";
 
-// Reporting basis for FUTURES (perps). Dashboards and reports show net PnL on a
-// maker-fee basis to reflect the maker-first entry strategy: maker on the way in
-// (post-only limit, 0.02%), taker on the way out (market close, 0.05%) — hence
+// Fee model for a trade whose entry actually filled as a maker: maker on the way
+// in (post-only limit, 0.02%), taker on the way out (market close, 0.05%) — hence
 // maker_taker, NOT maker_maker (which would understate the real exit cost).
-//
-// This is a REPORTING/display default only: netPnl/computeFees/tradeFee resolve
-// to it when no explicit model is passed. Trading/exit logic (auto-book,
-// entry-gates) keeps DEFAULT_FEE_MODEL (taker) so trade decisions stay
-// conservative and are not loosened by an optimistic fee assumption. Spot trades
-// keep the taker default. Override per-call by passing an explicit model.
-export const REPORTING_FEE_MODEL_FUTURES: FeeModel = "maker_taker_with_gst";
+export const MAKER_FILL_FEE_MODEL: FeeModel = "maker_taker_with_gst";
 
-/** True when a trade row is a futures/perp trade (explicit instrument, or the
- *  CoinDCX perp symbol prefix "B-" when instrument isn't on the row). */
-function isFuturesTrade(t: FeeInputs): boolean {
-  if (t.instrument === "futures") return true;
-  if (t.instrument === "spot") return false;
-  return (t.symbol ?? "").startsWith("B-");
-}
-
-/** Fee model used by the reporting helpers when no explicit model is passed:
- *  maker basis for futures, taker default otherwise. */
+/**
+ * Fee model the reporting helpers use when no explicit model is passed.
+ *
+ * HONEST PER-FILL: a trade is billed on the maker model ONLY when its entry
+ * actually filled as a maker (entry_fill_type === "maker"). Everything else —
+ * historical trades, taker fallbacks, spot — uses the taker default. So realized
+ * dashboards reflect fees actually PAID, never a maker what-if (that projection
+ * lives in the backtest harness). Fails safe: a row without entry_fill_type
+ * resolves to taker, never falsely maker.
+ *
+ * This is a reporting/display default only. Trading/exit logic (auto-book,
+ * entry-gates) keeps DEFAULT_FEE_MODEL so decisions stay conservative. Override
+ * per-call by passing an explicit model.
+ */
 export function reportingFeeModel(t: FeeInputs): FeeModel {
-  return isFuturesTrade(t) ? REPORTING_FEE_MODEL_FUTURES : DEFAULT_FEE_MODEL;
+  return t.entry_fill_type === "maker" ? MAKER_FILL_FEE_MODEL : DEFAULT_FEE_MODEL;
 }
 
 export function feeModelRates(model: FeeModel = DEFAULT_FEE_MODEL): {
@@ -67,10 +64,9 @@ export type FeeInputs = {
   exit_price?: number | null;
   qty?: number | null;
   exit_reason?: string | null;
-  // Used to pick the reporting fee model (maker basis for futures). Either is
-  // enough; symbol's "B-" prefix classifies perps when instrument isn't present.
-  symbol?: string | null;
-  instrument?: string | null;
+  // Drives the reporting fee model: "maker" bills the trade on the maker basis;
+  // anything else (incl. undefined) uses the taker default. Fails safe.
+  entry_fill_type?: string | null;
 };
 
 export type FeeBreakdown = {

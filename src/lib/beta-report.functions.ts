@@ -535,7 +535,7 @@ export const getBetaReport = createServerFn({ method: "GET" })
         supabaseAdmin
           .from("positions")
           .select(
-            "user_id,symbol,side,status,pnl,pnl_pct,exit_reason,final_exit_reason,tp1_hit,tp1_pnl,peak_unrealized_pnl_pct,manual_saved_pnl,manual_missed_pnl,source,opened_at,closed_at,entry_price,exit_price,qty,confidence_at_entry,estimated_total_fee",
+            "user_id,symbol,side,status,pnl,pnl_pct,exit_reason,final_exit_reason,tp1_hit,tp1_pnl,peak_unrealized_pnl_pct,manual_saved_pnl,manual_missed_pnl,source,opened_at,closed_at,entry_price,exit_price,qty,confidence_at_entry,estimated_total_fee,entry_fill_type",
           )
           .eq("mode", "paper")
           .order("opened_at", { ascending: false })
