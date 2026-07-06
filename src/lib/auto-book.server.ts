@@ -139,46 +139,72 @@ async function fetchScanUniverse(
 /** Last 1m close for a single futures pair (fallback price source). Uses the
  *  futures candlesticks endpoint, which covers pairs the realtime bulk ticker
  *  occasionally omits. Returns 0 on any failure. */
-async function fetchSingleFuturesPrice(pair: string): Promise<number> {
+async function fetchSingleFuturesPrice(pair: string, timeoutMs = 2000): Promise<number> {
   const to = Math.floor(Date.now() / 1000);
   const from = to - 600; // last ~10 minutes of 1m candles
   const url = `https://public.coindcx.com/market_data/candlesticks?pair=${encodeURIComponent(
     pair,
   )}&from=${from}&to=${to}&resolution=1&pcode=f`;
-  const res = await fetch(url, {
-    headers: PUB_HEADERS,
-    cache: "no-store",
-    signal: AbortSignal.timeout(3000),
-  });
-  if (!res.ok) return 0;
-  const payload = (await res.json()) as { data?: Array<{ close?: number | string; time?: number | string }> };
-  const arr = Array.isArray(payload?.data) ? payload.data : [];
-  let best = 0;
-  let bestT = -1;
-  for (const k of arr) {
-    const t = num(k.time);
-    const c = num(k.close);
-    if (c > 0 && t >= bestT) {
-      bestT = t;
-      best = c;
+  try {
+    const res = await fetch(url, {
+      headers: PUB_HEADERS,
+      cache: "no-store",
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) return 0;
+    const payload = (await res.json()) as { data?: Array<{ close?: number | string; time?: number | string }> };
+    const arr = Array.isArray(payload?.data) ? payload.data : [];
+    let best = 0;
+    let bestT = -1;
+    for (const k of arr) {
+      const t = num(k.time);
+      const c = num(k.close);
+      if (c > 0 && t >= bestT) {
+        bestT = t;
+        best = c;
+      }
     }
+    return best;
+  } catch {
+    return 0;
   }
-  return best;
+}
+
+/** Spot ticker fallback for a single pair. Maps a futures symbol
+ * ("B-BTC_USDT") to its spot market ("BTCUSDT") and returns last price, or
+ * 0 on any failure. Kept independent from the bulk spot fetch so a single
+ * request can't drag the whole pass over the timeout budget. */
+async function fetchSingleSpotPrice(pair: string, timeoutMs = 2000): Promise<number> {
+  const market = perpToSpotMarket(pair);
+  if (!market) return 0;
+  try {
+    const res = await fetch(
+      `https://api.coindcx.com/exchange/ticker`,
+      { headers: PUB_HEADERS, cache: "no-store", signal: AbortSignal.timeout(timeoutMs) },
+    );
+    if (!res.ok) return 0;
+    const raw = (await res.json()) as Array<{ market?: string; last_price?: string | number }>;
+    if (!Array.isArray(raw)) return 0;
+    const row = raw.find((r) => r.market === market);
+    return row ? num(row.last_price) : 0;
+  } catch {
+    return 0;
+  }
 }
 
 /**
  * Get live mark prices for the given symbols.
  *
- * This drives stop-loss / take-profit enforcement in the mark pass, so its
- * reliability is critical: a silent failure means open positions are NOT
- * re-priced, so stops aren't checked and losers overshoot far past their level
- * before the next successful pass. Hardened against the ways the old version
- * failed:
- *   - hard timeout so a hung realtime-ticker request can't stall the whole pass
- *     (which previously let the serverless function time out and mark nothing)
- *   - one retry when the bulk ticker fails or comes back incomplete
- *   - per-symbol candlestick fallback for pairs the bulk ticker omits, so an
- *     open position is never skipped just because its pair isn't in the feed
+ * Reliability contract (drives stop-loss / take-profit enforcement in the
+ * every-minute mark pass — a silent failure means open positions aren't
+ * re-priced and losers overshoot far past their level):
+ *   - single-attempt bulk realtime ticker with a hard 2s timeout (no long
+ *     retry loop that can starve the whole pass)
+ *   - per-symbol parallel fallback for anything still missing: futures
+ *     candlestick + spot ticker in parallel, 2s each
+ *   - never returns empty for all symbols because one endpoint failed —
+ *     degrades per-symbol, always returns whatever prices it could resolve
+ *   - whole function completes well under 4s
  */
 export async function fetchMarkPrices(symbols: string[]): Promise<Record<string, number>> {
   if (!symbols.length) return {};
@@ -198,49 +224,48 @@ export async function fetchMarkPrices(symbols: string[]): Promise<Record<string,
     }
   };
 
-  // Bulk realtime ticker, with a hard timeout and one retry if it fails or is
-  // missing some of the requested symbols.
-  for (let attempt = 0; attempt < 2 && Object.keys(out).length < symbols.length; attempt++) {
-    try {
-      const res = await fetch(FUTURES_TICKER, {
-        headers: PUB_HEADERS,
-        cache: "no-store",
-        signal: AbortSignal.timeout(4000),
-      });
-      if (res.ok) {
-        const raw = (await res.json()) as
-          | { prices: Record<string, TickerEntry> }
-          | Record<string, TickerEntry>
-          | TickerEntry[];
-        const dict =
-          raw && typeof raw === "object" && !Array.isArray(raw) && "prices" in raw
-            ? (raw as { prices: Record<string, TickerEntry> }).prices
-            : (raw as Record<string, TickerEntry> | TickerEntry[]);
-        consume(dict);
-      }
-    } catch {
-      /* timeout / network — fall through to retry, then per-symbol fallback */
+  // Bulk realtime ticker — single attempt, hard 2s timeout.
+  try {
+    const res = await fetch(FUTURES_TICKER, {
+      headers: PUB_HEADERS,
+      cache: "no-store",
+      signal: AbortSignal.timeout(2000),
+    });
+    if (res.ok) {
+      const raw = (await res.json()) as
+        | { prices: Record<string, TickerEntry> }
+        | Record<string, TickerEntry>
+        | TickerEntry[];
+      const dict =
+        raw && typeof raw === "object" && !Array.isArray(raw) && "prices" in raw
+          ? (raw as { prices: Record<string, TickerEntry> }).prices
+          : (raw as Record<string, TickerEntry> | TickerEntry[]);
+      consume(dict);
     }
+  } catch {
+    /* bulk failed — degrade to per-symbol fallback below, don't starve pass */
   }
 
-  // Per-symbol fallback so an open position is never left unpriced (and thus
-  // unstopped) just because its pair was absent from the bulk ticker.
+  // Per-symbol fallback in parallel: futures candles + spot ticker, 2s each.
+  // Whichever returns a positive price first wins; a single flaky endpoint
+  // must not block the rest of the pass.
   const missing = symbols.filter((s) => !(out[s] > 0));
   if (missing.length) {
     await Promise.all(
       missing.map(async (s) => {
-        try {
-          const p = await fetchSingleFuturesPrice(s);
-          if (p > 0) out[s] = p;
-        } catch {
-          /* leave unpriced */
-        }
+        const [candlePrice, spotPrice] = await Promise.all([
+          fetchSingleFuturesPrice(s, 2000).catch(() => 0),
+          fetchSingleSpotPrice(s, 2000).catch(() => 0),
+        ]);
+        const p = candlePrice > 0 ? candlePrice : spotPrice;
+        if (p > 0) out[s] = p;
       }),
     );
   }
 
   return out;
 }
+
 
 /** Coarse market regime computed from BTC 1h trend + last-candle momentum.
  * Used to gate trade direction at open time. Returns null on fetch failure
@@ -1880,12 +1905,39 @@ export async function runMarkPass(
   );
   const marks = await fetchMarkPrices(allSymbols);
 
+  // Warn on any still-open position we couldn't price from any source. Lets
+  // us distinguish CoinDCX API flakiness/rate-limiting from a code bug when
+  // stops start overshooting again.
+  const unpriced = positions.filter((p) => !(marks[p.symbol as string] > 0));
+  if (unpriced.length) {
+    const seen = new Set<string>();
+    await Promise.all(
+      unpriced
+        .filter((p) => {
+          const key = `${p.user_id as string}:${p.symbol as string}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .map((p) =>
+          logEvent(
+            supabase,
+            p.user_id as string,
+            "warn",
+            `mark_price_unavailable: ${p.symbol}`,
+            { kind: "mark_price_unavailable", symbol: p.symbol, position_id: p.id },
+          ).catch(() => undefined),
+        ),
+    );
+  }
+
   let updated = 0;
   let closed = 0;
 
   for (const p of positions) {
     const mark = marks[p.symbol as string];
     if (!mark) continue;
+
     const entry = Number(p.entry_price);
     const qty = Number(p.qty);
     const lev = Number(p.leverage);

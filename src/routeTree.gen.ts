@@ -35,6 +35,7 @@ import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.
 import { Route as ApiPublicHooksRefreshCoinUniverseRouteImport } from './routes/api/public/hooks/refresh-coin-universe'
 import { Route as ApiPublicHooksMarkPositionsRouteImport } from './routes/api/public/hooks/mark-positions'
 import { Route as ApiPublicHooksCoinScanRouteImport } from './routes/api/public/hooks/coin-scan'
+import { Route as ApiPublicHooksCoinEnforceRouteImport } from './routes/api/public/hooks/coin-enforce'
 import { Route as ApiPublicHooksBacktestRouteImport } from './routes/api/public/hooks/backtest'
 import { Route as ApiPublicHooksAutoBookRouteImport } from './routes/api/public/hooks/auto-book'
 
@@ -172,6 +173,12 @@ const ApiPublicHooksCoinScanRoute = ApiPublicHooksCoinScanRouteImport.update({
   path: '/api/public/hooks/coin-scan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksCoinEnforceRoute =
+  ApiPublicHooksCoinEnforceRouteImport.update({
+    id: '/api/public/hooks/coin-enforce',
+    path: '/api/public/hooks/coin-enforce',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksBacktestRoute = ApiPublicHooksBacktestRouteImport.update({
   id: '/api/public/hooks/backtest',
   path: '/api/public/hooks/backtest',
@@ -208,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
   '/api/public/hooks/backtest': typeof ApiPublicHooksBacktestRoute
+  '/api/public/hooks/coin-enforce': typeof ApiPublicHooksCoinEnforceRoute
   '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
   '/api/public/hooks/refresh-coin-universe': typeof ApiPublicHooksRefreshCoinUniverseRoute
@@ -237,6 +245,7 @@ export interface FileRoutesByTo {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
   '/api/public/hooks/backtest': typeof ApiPublicHooksBacktestRoute
+  '/api/public/hooks/coin-enforce': typeof ApiPublicHooksCoinEnforceRoute
   '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
   '/api/public/hooks/refresh-coin-universe': typeof ApiPublicHooksRefreshCoinUniverseRoute
@@ -268,6 +277,7 @@ export interface FileRoutesById {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
   '/api/public/hooks/backtest': typeof ApiPublicHooksBacktestRoute
+  '/api/public/hooks/coin-enforce': typeof ApiPublicHooksCoinEnforceRoute
   '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
   '/api/public/hooks/refresh-coin-universe': typeof ApiPublicHooksRefreshCoinUniverseRoute
@@ -299,6 +309,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/hooks/auto-book'
     | '/api/public/hooks/backtest'
+    | '/api/public/hooks/coin-enforce'
     | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
     | '/api/public/hooks/refresh-coin-universe'
@@ -328,6 +339,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/hooks/auto-book'
     | '/api/public/hooks/backtest'
+    | '/api/public/hooks/coin-enforce'
     | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
     | '/api/public/hooks/refresh-coin-universe'
@@ -358,6 +370,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/hooks/auto-book'
     | '/api/public/hooks/backtest'
+    | '/api/public/hooks/coin-enforce'
     | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
     | '/api/public/hooks/refresh-coin-universe'
@@ -373,6 +386,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicHooksAutoBookRoute: typeof ApiPublicHooksAutoBookRoute
   ApiPublicHooksBacktestRoute: typeof ApiPublicHooksBacktestRoute
+  ApiPublicHooksCoinEnforceRoute: typeof ApiPublicHooksCoinEnforceRoute
   ApiPublicHooksCoinScanRoute: typeof ApiPublicHooksCoinScanRoute
   ApiPublicHooksMarkPositionsRoute: typeof ApiPublicHooksMarkPositionsRoute
   ApiPublicHooksRefreshCoinUniverseRoute: typeof ApiPublicHooksRefreshCoinUniverseRoute
@@ -562,6 +576,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksCoinScanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/coin-enforce': {
+      id: '/api/public/hooks/coin-enforce'
+      path: '/api/public/hooks/coin-enforce'
+      fullPath: '/api/public/hooks/coin-enforce'
+      preLoaderRoute: typeof ApiPublicHooksCoinEnforceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/backtest': {
       id: '/api/public/hooks/backtest'
       path: '/api/public/hooks/backtest'
@@ -631,6 +652,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicHooksAutoBookRoute: ApiPublicHooksAutoBookRoute,
   ApiPublicHooksBacktestRoute: ApiPublicHooksBacktestRoute,
+  ApiPublicHooksCoinEnforceRoute: ApiPublicHooksCoinEnforceRoute,
   ApiPublicHooksCoinScanRoute: ApiPublicHooksCoinScanRoute,
   ApiPublicHooksMarkPositionsRoute: ApiPublicHooksMarkPositionsRoute,
   ApiPublicHooksRefreshCoinUniverseRoute:
