@@ -35,6 +35,7 @@ import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.
 import { Route as ApiPublicHooksRefreshCoinUniverseRouteImport } from './routes/api/public/hooks/refresh-coin-universe'
 import { Route as ApiPublicHooksMarkPositionsRouteImport } from './routes/api/public/hooks/mark-positions'
 import { Route as ApiPublicHooksCoinScanRouteImport } from './routes/api/public/hooks/coin-scan'
+import { Route as ApiPublicHooksBacktestRouteImport } from './routes/api/public/hooks/backtest'
 import { Route as ApiPublicHooksAutoBookRouteImport } from './routes/api/public/hooks/auto-book'
 
 const McpRoute = McpRouteImport.update({
@@ -171,6 +172,11 @@ const ApiPublicHooksCoinScanRoute = ApiPublicHooksCoinScanRouteImport.update({
   path: '/api/public/hooks/coin-scan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksBacktestRoute = ApiPublicHooksBacktestRouteImport.update({
+  id: '/api/public/hooks/backtest',
+  path: '/api/public/hooks/backtest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksAutoBookRoute = ApiPublicHooksAutoBookRouteImport.update({
   id: '/api/public/hooks/auto-book',
   path: '/api/public/hooks/auto-book',
@@ -201,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
+  '/api/public/hooks/backtest': typeof ApiPublicHooksBacktestRoute
   '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
   '/api/public/hooks/refresh-coin-universe': typeof ApiPublicHooksRefreshCoinUniverseRoute
@@ -229,6 +236,7 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
+  '/api/public/hooks/backtest': typeof ApiPublicHooksBacktestRoute
   '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
   '/api/public/hooks/refresh-coin-universe': typeof ApiPublicHooksRefreshCoinUniverseRoute
@@ -259,6 +267,7 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
+  '/api/public/hooks/backtest': typeof ApiPublicHooksBacktestRoute
   '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
   '/api/public/hooks/refresh-coin-universe': typeof ApiPublicHooksRefreshCoinUniverseRoute
@@ -289,6 +298,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/hooks/auto-book'
+    | '/api/public/hooks/backtest'
     | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
     | '/api/public/hooks/refresh-coin-universe'
@@ -317,6 +327,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/hooks/auto-book'
+    | '/api/public/hooks/backtest'
     | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
     | '/api/public/hooks/refresh-coin-universe'
@@ -346,6 +357,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/hooks/auto-book'
+    | '/api/public/hooks/backtest'
     | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
     | '/api/public/hooks/refresh-coin-universe'
@@ -360,6 +372,7 @@ export interface RootRouteChildren {
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicHooksAutoBookRoute: typeof ApiPublicHooksAutoBookRoute
+  ApiPublicHooksBacktestRoute: typeof ApiPublicHooksBacktestRoute
   ApiPublicHooksCoinScanRoute: typeof ApiPublicHooksCoinScanRoute
   ApiPublicHooksMarkPositionsRoute: typeof ApiPublicHooksMarkPositionsRoute
   ApiPublicHooksRefreshCoinUniverseRoute: typeof ApiPublicHooksRefreshCoinUniverseRoute
@@ -549,6 +562,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksCoinScanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/backtest': {
+      id: '/api/public/hooks/backtest'
+      path: '/api/public/hooks/backtest'
+      fullPath: '/api/public/hooks/backtest'
+      preLoaderRoute: typeof ApiPublicHooksBacktestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/auto-book': {
       id: '/api/public/hooks/auto-book'
       path: '/api/public/hooks/auto-book'
@@ -610,6 +630,7 @@ const rootRouteChildren: RootRouteChildren = {
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicHooksAutoBookRoute: ApiPublicHooksAutoBookRoute,
+  ApiPublicHooksBacktestRoute: ApiPublicHooksBacktestRoute,
   ApiPublicHooksCoinScanRoute: ApiPublicHooksCoinScanRoute,
   ApiPublicHooksMarkPositionsRoute: ApiPublicHooksMarkPositionsRoute,
   ApiPublicHooksRefreshCoinUniverseRoute:
