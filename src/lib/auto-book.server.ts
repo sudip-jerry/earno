@@ -1905,12 +1905,39 @@ export async function runMarkPass(
   );
   const marks = await fetchMarkPrices(allSymbols);
 
+  // Warn on any still-open position we couldn't price from any source. Lets
+  // us distinguish CoinDCX API flakiness/rate-limiting from a code bug when
+  // stops start overshooting again.
+  const unpriced = positions.filter((p) => !(marks[p.symbol as string] > 0));
+  if (unpriced.length) {
+    const seen = new Set<string>();
+    await Promise.all(
+      unpriced
+        .filter((p) => {
+          const key = `${p.user_id as string}:${p.symbol as string}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .map((p) =>
+          logEvent(
+            supabase,
+            p.user_id as string,
+            "warn",
+            `mark_price_unavailable: ${p.symbol}`,
+            { kind: "mark_price_unavailable", symbol: p.symbol, position_id: p.id },
+          ).catch(() => undefined),
+        ),
+    );
+  }
+
   let updated = 0;
   let closed = 0;
 
   for (const p of positions) {
     const mark = marks[p.symbol as string];
     if (!mark) continue;
+
     const entry = Number(p.entry_price);
     const qty = Number(p.qty);
     const lev = Number(p.leverage);
