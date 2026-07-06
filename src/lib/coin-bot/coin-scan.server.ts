@@ -899,6 +899,9 @@ export async function runCoinEnforcePass(supabase: SupabaseClient): Promise<{
   }
 
   return { checked: positions.length, closed, unpriced };
+}
+
+
 
 
 /**
