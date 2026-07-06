@@ -89,6 +89,8 @@ export type Database = {
           live_allocation_pct: number
           live_wallet_source: string
           major_coin_confidence_floor: number
+          maker_entry_enabled: boolean
+          maker_entry_wait_ms: number
           max_auto_sl_pct: number
           max_open_positions: number
           max_sl_atr_pct: number
@@ -97,6 +99,7 @@ export type Database = {
           min_rr: number
           min_scalp_score: number
           min_sl_pct: number
+          minimum_expected_edge_pct: number | null
           minimum_gross_profit_before_profit_fade_exit_pct: number
           minimum_gross_profit_before_weak_progress_exit_pct: number
           minimum_net_profit_to_enter_pct: number
@@ -145,6 +148,8 @@ export type Database = {
           live_allocation_pct?: number
           live_wallet_source?: string
           major_coin_confidence_floor?: number
+          maker_entry_enabled?: boolean
+          maker_entry_wait_ms?: number
           max_auto_sl_pct?: number
           max_open_positions?: number
           max_sl_atr_pct?: number
@@ -153,6 +158,7 @@ export type Database = {
           min_rr?: number
           min_scalp_score?: number
           min_sl_pct?: number
+          minimum_expected_edge_pct?: number | null
           minimum_gross_profit_before_profit_fade_exit_pct?: number
           minimum_gross_profit_before_weak_progress_exit_pct?: number
           minimum_net_profit_to_enter_pct?: number
@@ -201,6 +207,8 @@ export type Database = {
           live_allocation_pct?: number
           live_wallet_source?: string
           major_coin_confidence_floor?: number
+          maker_entry_enabled?: boolean
+          maker_entry_wait_ms?: number
           max_auto_sl_pct?: number
           max_open_positions?: number
           max_sl_atr_pct?: number
@@ -209,6 +217,7 @@ export type Database = {
           min_rr?: number
           min_scalp_score?: number
           min_sl_pct?: number
+          minimum_expected_edge_pct?: number | null
           minimum_gross_profit_before_profit_fade_exit_pct?: number
           minimum_gross_profit_before_weak_progress_exit_pct?: number
           minimum_net_profit_to_enter_pct?: number
@@ -810,6 +819,7 @@ export type Database = {
           distance_from_vwap_pct_at_entry: number | null
           entry_candle_aligned: boolean | null
           entry_candle_pct: number | null
+          entry_fill_type: string
           entry_price: number
           entry_reason: string | null
           estimated_net_pnl: number | null
@@ -903,6 +913,7 @@ export type Database = {
           distance_from_vwap_pct_at_entry?: number | null
           entry_candle_aligned?: boolean | null
           entry_candle_pct?: number | null
+          entry_fill_type?: string
           entry_price: number
           entry_reason?: string | null
           estimated_net_pnl?: number | null
@@ -996,6 +1007,7 @@ export type Database = {
           distance_from_vwap_pct_at_entry?: number | null
           entry_candle_aligned?: boolean | null
           entry_candle_pct?: number | null
+          entry_fill_type?: string
           entry_price?: number
           entry_reason?: string | null
           estimated_net_pnl?: number | null
