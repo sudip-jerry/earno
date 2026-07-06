@@ -695,6 +695,213 @@ export async function runCoinScanAll(supabase: SupabaseClient) {
 }
 
 /**
+ * Lightweight every-minute stop/target enforcement pass for coin_positions.
+ *
+ * Decoupled from the heavy 5-minute scoring/universe scan so a coin that
+ * breaches its stop is closed within ~1 minute instead of bleeding 5-40
+ * minutes past its level. Only checks stop_price / target_price — the full
+ * scan still owns scoring, entries, mark-to-market, and everything else.
+ *
+ * Reads all open positions in a single query, prices them via the futures
+ * bulk ticker, and per-symbol falls back to the futures candlestick + spot
+ * lookups from the auto-book helpers for anything the bulk ticker omits.
+ * A holding that cannot be priced from any source logs a warn
+ * "mark_price_unavailable" coin event instead of being silently skipped.
+ */
+export async function runCoinEnforcePass(supabase: SupabaseClient): Promise<{
+  checked: number;
+  closed: number;
+  unpriced: number;
+}> {
+  const { data: openRows } = await supabase
+    .from("coin_positions")
+    .select("*")
+    .eq("status", "open");
+  const positions = (openRows ?? []) as Array<Record<string, unknown>>;
+  if (!positions.length) return { checked: 0, closed: 0, unpriced: 0 };
+
+  const symbols = Array.from(new Set(positions.map((p) => p.symbol as string)));
+
+  // Bulk ticker first (keeps its own 5s timeout).
+  const priceMap = new Map<string, number>();
+  try {
+    const tickers = await fetchFuturesTickers();
+    for (const t of tickers) {
+      if (t.price > 0) priceMap.set(t.symbol, t.price);
+    }
+  } catch {
+    // fall through to per-symbol fallback
+  }
+
+  // Per-symbol fallback for anything still missing — reuse auto-book helpers
+  // (futures candles + spot ticker in parallel, 2s each).
+  const missing = symbols.filter((s) => !priceMap.has(s));
+  if (missing.length) {
+    const { fetchMarkPrices } = await import("@/lib/auto-book.server");
+    const fallback = await fetchMarkPrices(missing);
+    for (const [sym, p] of Object.entries(fallback)) {
+      if (p > 0) priceMap.set(sym, p);
+    }
+  }
+
+  // Load per-user live_mode flag so live sells still route to the exchange.
+  const userIds = Array.from(new Set(positions.map((p) => p.user_id as string)));
+  const { data: cfgRows } = await supabase
+    .from("coin_bot_config")
+    .select("user_id, live_mode")
+    .in("user_id", userIds);
+  const liveByUser = new Map(
+    (cfgRows ?? []).map((r) => [r.user_id as string, Boolean(r.live_mode)]),
+  );
+
+  let closed = 0;
+  let unpriced = 0;
+  const warnedKeys = new Set<string>();
+
+  for (const row of positions) {
+    const sym = row.symbol as string;
+    const userId = row.user_id as string;
+    const currentPrice = priceMap.get(sym) ?? 0;
+
+    if (!(currentPrice > 0)) {
+      const key = `${userId}:${sym}`;
+      if (!warnedKeys.has(key)) {
+        warnedKeys.add(key);
+        unpriced += 1;
+        await logCoinEvent(
+          supabase,
+          userId,
+          "warn",
+          "mark_price_unavailable",
+          `Could not price ${sym} from any source`,
+          { symbol: sym, position_id: row.id },
+        );
+      }
+      continue;
+    }
+
+    const stopPrice = row.stop_price != null ? Number(row.stop_price) : null;
+    const targetPrice = row.target_price != null ? Number(row.target_price) : null;
+
+    let exitReason: string | null = null;
+    if (stopPrice !== null && currentPrice <= stopPrice) {
+      exitReason = "bot:Stop level reached";
+    } else if (targetPrice !== null && currentPrice >= targetPrice) {
+      exitReason = "bot:Target reached";
+    }
+    if (!exitReason) continue;
+
+    const qty = Number(row.qty);
+    const investedUsdt = Number(row.invested_usdt);
+    const proceeds = qty * currentPrice;
+    const buyFee = investedUsdt * 0.001;
+    const sellFee = proceeds * 0.001;
+    const realized = proceeds - investedUsdt - buyFee - sellFee;
+
+    // Atomic close: only update if still open, so a concurrent 5m scan
+    // can't double-close and double-count cash.
+    const { data: updated } = await supabase
+      .from("coin_positions")
+      .update({
+        status: "closed",
+        closed_at: new Date().toISOString(),
+        exit_price: currentPrice,
+        exit_reason: exitReason,
+        last_price: currentPrice,
+        current_value_usdt: proceeds,
+        realized_pnl_usdt: realized,
+        unrealized_pnl_usdt: 0,
+      })
+      .eq("id", row.id)
+      .eq("status", "open")
+      .select("id")
+      .maybeSingle();
+    if (!updated) continue;
+
+    // Credit cash back to the user's coin bot wallet.
+    const { data: cfgCash } = await supabase
+      .from("coin_bot_config")
+      .select("available_cash_usdt")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (cfgCash) {
+      await supabase
+        .from("coin_bot_config")
+        .update({
+          available_cash_usdt: Number(cfgCash.available_cash_usdt ?? 0) + proceeds,
+        })
+        .eq("user_id", userId);
+    }
+
+    closed += 1;
+
+    await logCoinEvent(
+      supabase,
+      userId,
+      realized >= 0 ? "info" : "warn",
+      exitReason.startsWith("bot:Stop") ? "stop_hit" : "target_hit",
+      `${exitReason.replace("bot:", "")} ${sym} @ ${currentPrice} · realized: ${realized.toFixed(4)} USDT`,
+      {
+        symbol: sym,
+        realized_pnl_usdt: realized,
+        exit_reason: exitReason,
+        price: currentPrice,
+        stop_price: stopPrice,
+        target_price: targetPrice,
+        source: "enforce_pass",
+      },
+    );
+
+    // Live sell if enabled for this user.
+    if (liveByUser.get(userId)) {
+      try {
+        const { loadCoinLiveCreds, placeCoinLiveSell, toSpotPair } = await import(
+          "./coin-live-execution.server"
+        );
+        const creds = await loadCoinLiveCreds(supabase, userId);
+        if (creds) {
+          const exec = await placeCoinLiveSell({
+            creds,
+            pair: toSpotPair(sym),
+            totalQuantity: qty,
+          });
+          if (!exec.ok) {
+            await logCoinEvent(
+              supabase,
+              userId,
+              "error",
+              "live_sell_failed",
+              `Live sell failed for ${sym}: ${exec.error}`,
+              { symbol: sym, error: exec.error },
+            );
+          } else {
+            await logCoinEvent(
+              supabase,
+              userId,
+              "info",
+              "live_sell",
+              `Live sell placed for ${sym} · order: ${exec.orderId}`,
+              { symbol: sym, order_id: exec.orderId },
+            );
+          }
+        }
+      } catch (e) {
+        await logCoinEvent(
+          supabase,
+          userId,
+          "error",
+          "live_sell_failed",
+          `Live sell threw for ${sym}: ${e instanceof Error ? e.message : String(e)}`,
+          { symbol: sym },
+        );
+      }
+    }
+  }
+
+  return { checked: positions.length, closed, unpriced };
+
+
+/**
  * Write a coin_bot_config_audit row for each changed field.
  * Call this from adminUpdateCoinConfig in plans.functions.ts after applying a patch.
  */
