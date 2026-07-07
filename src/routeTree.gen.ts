@@ -32,6 +32,7 @@ import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } fr
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
+import { Route as ApiPublicHooksRefreshFxRouteImport } from './routes/api/public/hooks/refresh-fx'
 import { Route as ApiPublicHooksRefreshCoinUniverseRouteImport } from './routes/api/public/hooks/refresh-coin-universe'
 import { Route as ApiPublicHooksMarkPositionsRouteImport } from './routes/api/public/hooks/mark-positions'
 import { Route as ApiPublicHooksCoinScanRouteImport } from './routes/api/public/hooks/coin-scan'
@@ -156,6 +157,11 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   path: '/.lovable/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksRefreshFxRoute = ApiPublicHooksRefreshFxRouteImport.update({
+  id: '/api/public/hooks/refresh-fx',
+  path: '/api/public/hooks/refresh-fx',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksRefreshCoinUniverseRoute =
   ApiPublicHooksRefreshCoinUniverseRouteImport.update({
     id: '/api/public/hooks/refresh-coin-universe',
@@ -219,6 +225,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
   '/api/public/hooks/refresh-coin-universe': typeof ApiPublicHooksRefreshCoinUniverseRoute
+  '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -249,6 +256,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
   '/api/public/hooks/refresh-coin-universe': typeof ApiPublicHooksRefreshCoinUniverseRoute
+  '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -281,6 +289,7 @@ export interface FileRoutesById {
   '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
   '/api/public/hooks/refresh-coin-universe': typeof ApiPublicHooksRefreshCoinUniverseRoute
+  '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -313,6 +322,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
     | '/api/public/hooks/refresh-coin-universe'
+    | '/api/public/hooks/refresh-fx'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -343,6 +353,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
     | '/api/public/hooks/refresh-coin-universe'
+    | '/api/public/hooks/refresh-fx'
   id:
     | '__root__'
     | '/_authenticated'
@@ -374,6 +385,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/mark-positions'
     | '/api/public/hooks/refresh-coin-universe'
+    | '/api/public/hooks/refresh-fx'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -390,6 +402,7 @@ export interface RootRouteChildren {
   ApiPublicHooksCoinScanRoute: typeof ApiPublicHooksCoinScanRoute
   ApiPublicHooksMarkPositionsRoute: typeof ApiPublicHooksMarkPositionsRoute
   ApiPublicHooksRefreshCoinUniverseRoute: typeof ApiPublicHooksRefreshCoinUniverseRoute
+  ApiPublicHooksRefreshFxRoute: typeof ApiPublicHooksRefreshFxRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -555,6 +568,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DotlovableOauthConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/refresh-fx': {
+      id: '/api/public/hooks/refresh-fx'
+      path: '/api/public/hooks/refresh-fx'
+      fullPath: '/api/public/hooks/refresh-fx'
+      preLoaderRoute: typeof ApiPublicHooksRefreshFxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/refresh-coin-universe': {
       id: '/api/public/hooks/refresh-coin-universe'
       path: '/api/public/hooks/refresh-coin-universe'
@@ -657,6 +677,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksMarkPositionsRoute: ApiPublicHooksMarkPositionsRoute,
   ApiPublicHooksRefreshCoinUniverseRoute:
     ApiPublicHooksRefreshCoinUniverseRoute,
+  ApiPublicHooksRefreshFxRoute: ApiPublicHooksRefreshFxRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
