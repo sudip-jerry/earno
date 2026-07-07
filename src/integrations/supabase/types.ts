@@ -766,6 +766,30 @@ export type Database = {
         }
         Relationships: []
       }
+      fx_rates: {
+        Row: {
+          currency: string
+          fetched_at: string
+          rate: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          currency: string
+          fetched_at?: string
+          rate: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          currency?: string
+          fetched_at?: string
+          rate?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payment_orders: {
         Row: {
           amount_paise: number
