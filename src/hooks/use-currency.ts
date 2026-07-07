@@ -67,7 +67,10 @@ export function useCurrency() {
       if (usd == null || !Number.isFinite(Number(usd))) return "—";
       const v = Number(usd) * rate;
       const digits = opts?.digits ?? (code === "JPY" || code === "INR" ? (Math.abs(v) >= 100 ? 0 : 2) : 2);
-      const abs = Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: digits === 0 ? 0 : 2 });
+      // Pin the grouping locale per-currency so it's deterministic across server/browser.
+      // INR must use Indian lakh grouping (1,24,860) rather than whatever the runtime locale is.
+      const locale = code === "INR" ? "en-IN" : "en-US";
+      const abs = Math.abs(v).toLocaleString(locale, { maximumFractionDigits: digits, minimumFractionDigits: digits === 0 ? 0 : 2 });
       if (opts?.signed) {
         const sign = v >= 0 ? "+" : "−";
         return `${sign}${symbol}${abs}`;

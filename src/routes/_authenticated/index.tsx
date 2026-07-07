@@ -291,6 +291,13 @@ function Home() {
     const totalTodayPnl = futuresTodayPnl + coinTodayPnl;
     const coinHoldingCount = Number(coinSummary?.active_holdings ?? coinPortfolio.data?.active_holdings ?? 0);
 
+    // Invested (cost basis) and profit-till-date, kept consistent with totalValue:
+    // totalReturns = current value − what was put in, so Invested + Returns = Current.
+    const futuresInvested = Number(s?.baselineEquity ?? c?.paper_equity ?? 0);
+    const coinInvested = Number(coinPortfolio.data?.allocated_capital_usdt ?? 0);
+    const totalInvested = futuresInvested + coinInvested;
+    const totalReturns = totalValue - totalInvested;
+
     if (viewMode === "simple") {
       return (
         <SimpleView
@@ -300,6 +307,8 @@ function Home() {
           displayName={profile.data?.displayName}
           email={profile.data?.email}
           totalValue={totalValue}
+          totalInvested={totalInvested}
+          totalReturns={totalReturns}
           totalTodayPnl={totalTodayPnl}
           futuresValue={futuresValue}
           futuresTodayPnl={futuresTodayPnl}
