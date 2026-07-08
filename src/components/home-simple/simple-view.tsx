@@ -18,6 +18,8 @@ export type SimpleViewProps = {
   displayName: string | null | undefined;
   email: string | null | undefined;
   totalValue: number;
+  totalInvested: number;
+  totalReturns: number;
   totalTodayPnl: number;
   futuresValue: number;
   futuresTodayPnl: number;
@@ -58,6 +60,8 @@ export function SimpleView(props: SimpleViewProps) {
     displayName,
     email,
     totalValue,
+    totalInvested,
+    totalReturns,
     totalTodayPnl,
     futuresValue,
     futuresTodayPnl,
@@ -112,6 +116,9 @@ export function SimpleView(props: SimpleViewProps) {
 
   const futuresPositionsLabel = `${openCount} position${openCount === 1 ? "" : "s"}`;
   const coinHoldingsLabel = `${coinHoldingCount} holding${coinHoldingCount === 1 ? "" : "s"}`;
+
+  const returnsPos = totalReturns >= 0;
+  const returnsPct = totalInvested > 0 ? (totalReturns / totalInvested) * 100 : 0;
 
   return (
     <div className="min-h-svh bg-background pb-28">
@@ -182,6 +189,44 @@ export function SimpleView(props: SimpleViewProps) {
           </section>
         </div>
 
+
+        <div className="px-5 mt-3">
+          <section className="rounded-2xl border bg-card px-5 py-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Profit till date
+                </div>
+                <div
+                  className={`mt-1 text-2xl font-semibold tabular-nums ${returnsPos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                >
+                  {hideBalance ? "••••••" : fmt(totalReturns, { signed: true })}
+                </div>
+              </div>
+              <span
+                className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 h-6 text-[11px] font-semibold tabular-nums ${returnsPos ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"}`}
+              >
+                <span aria-hidden="true">{returnsPos ? "▲" : "▼"}</span>
+                {returnsPct >= 0 ? "+" : ""}
+                {returnsPct.toFixed(2)}%
+              </span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 border-t pt-3">
+              <div>
+                <div className="text-[11px] text-muted-foreground">Invested</div>
+                <div className="text-[13px] font-semibold tabular-nums">
+                  {hideBalance ? "••••" : fmt(totalInvested)}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-[11px] text-muted-foreground">Current value</div>
+                <div className="text-[13px] font-semibold tabular-nums">
+                  {hideBalance ? "••••" : fmt(totalValue)}
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
 
         <div className="px-5 mt-4">
           <SimpleMarketTabs />
