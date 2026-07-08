@@ -6,7 +6,6 @@ import { RecentActivity } from "@/components/recent-activity";
 import { useMarketMode } from "@/hooks/use-market-mode";
 import type { useCurrency } from "@/hooks/use-currency";
 import { SimpleMarketTabs } from "./simple-market-tabs";
-import { SimpleTabBar } from "./simple-tab-bar";
 
 type Fmt = ReturnType<typeof useCurrency>["fmt"];
 type ActivityItems = React.ComponentProps<typeof RecentActivity>["items"];
@@ -28,7 +27,6 @@ export type SimpleViewProps = {
   openCount: number;
   coinHoldingCount: number;
   recentActivity: ActivityItems;
-  onDetails: () => void;
 };
 
 function IconBtn({
@@ -70,7 +68,6 @@ export function SimpleView(props: SimpleViewProps) {
     openCount,
     coinHoldingCount,
     recentActivity,
-    onDetails,
   } = props;
   const navigate = useNavigate();
   const { setMarket } = useMarketMode();
@@ -296,8 +293,6 @@ export function SimpleView(props: SimpleViewProps) {
           <RecentActivity items={recentActivity} />
         </div>
       </div>
-
-      <SimpleTabBar onDetails={onDetails} />
     </div>
   );
 }
