@@ -18,7 +18,7 @@ import {
   CoinHoldingsCard,
   CoinSignalsList,
 } from "@/components/coin-bot/coin-panels";
-import { PageHeader, BrandEmptyState } from "@/components/brand/brand-ui";
+import { PageHeader, BrandEmptyState, ModePill } from "@/components/brand/brand-ui";
 import { CoinHero } from "@/components/coin-bot/coin-hero";
 import { CoinKpiStrip } from "@/components/coin-bot/coin-kpi-strip";
 import { CoinBotHealth } from "@/components/coin-bot/coin-bot-health";
@@ -195,6 +195,7 @@ function PositionsPage() {
           subtitle="Open trades with live PNL and ROE"
           actions={
             <>
+              <ModePill className="mr-1" />
               <Link
                 to="/help"
                 className="size-10 grid place-items-center rounded-full hover:bg-muted"

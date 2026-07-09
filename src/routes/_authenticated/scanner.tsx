@@ -6,7 +6,7 @@ import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.function
 import { TabBar } from "@/components/tab-bar";
 import { PositionsStrip } from "@/components/positions-strip";
 import { OpportunityCard } from "@/components/opportunity-card";
-import { PageHeader, BrandEmptyState } from "@/components/brand/brand-ui";
+import { PageHeader, BrandEmptyState, ModePill } from "@/components/brand/brand-ui";
 import { useStrictness } from "@/hooks/use-strictness";
 import { useMarketMode } from "@/hooks/use-market-mode";
 import { CoinSignalsList } from "@/components/coin-bot/coin-panels";
@@ -110,6 +110,7 @@ function ScannerPage() {
         subtitle={`${filtered.length} match · ranked by confidence`}
         actions={
           <>
+            <ModePill className="mr-1" />
             <Link
               to="/help"
               className="size-10 grid place-items-center rounded-full hover:bg-muted"
@@ -216,9 +217,15 @@ function CoinScannerView() {
         title="Coin Scanner"
         subtitle="Live CoinDCX coins · paper buy/sell"
         actions={
-          <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
-            <HelpCircle className="size-5 text-muted-foreground" />
-          </Link>
+          <>
+            <ModePill className="mr-1" />
+            <Link
+              to="/help"
+              className="size-10 grid place-items-center rounded-full hover:bg-muted"
+            >
+              <HelpCircle className="size-5 text-muted-foreground" />
+            </Link>
+          </>
         }
       />
       <div className="px-5 space-y-4">

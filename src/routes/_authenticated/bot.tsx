@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { AlertTriangle, ChevronRight, Power, Zap } from "lucide-react";
-import { PageHeader } from "@/components/brand/brand-ui";
+import { PageHeader, ModePill } from "@/components/brand/brand-ui";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/bot")({
@@ -102,21 +102,7 @@ function BotPage() {
 
   return (
     <div className="min-h-svh bg-background pb-28">
-      <PageHeader
-        onBack={() => navigate({ to: "/" })}
-        title="Bot"
-        actions={
-          <span
-            className={`text-[10px] font-semibold tracking-wider px-2 h-5 inline-flex items-center rounded-full ${
-              isLive
-                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-            }`}
-          >
-            {isLive ? "LIVE" : "PAPER"}
-          </span>
-        }
-      />
+      <PageHeader onBack={() => navigate({ to: "/" })} title="Bot" actions={<ModePill />} />
 
       <section className="px-5 mt-2 space-y-3">
         <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
