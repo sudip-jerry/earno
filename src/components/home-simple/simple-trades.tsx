@@ -3,16 +3,14 @@ import { useServerFn } from "@tanstack/react-start";
 import { Receipt } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getCoinHoldings } from "@/lib/coin-bot/coin-bot.functions";
-import { RecentActivity } from "@/components/recent-activity";
+import { RecentActivityFeed } from "@/components/recent-activity";
 import type { useCurrency } from "@/hooks/use-currency";
-import type { ActivityItem } from "@/lib/stats.functions";
 
 type Fmt = ReturnType<typeof useCurrency>["fmt"];
 
 export type SimpleTradesProps = {
   fmt: Fmt;
   hideBalance: boolean;
-  recentActivity: ActivityItem[];
 };
 
 type OpenPosition = {
@@ -60,7 +58,7 @@ function PnlRow({
   );
 }
 
-export function SimpleTrades({ fmt, hideBalance, recentActivity }: SimpleTradesProps) {
+export function SimpleTrades({ fmt, hideBalance }: SimpleTradesProps) {
   const coinHoldingsFn = useServerFn(getCoinHoldings);
 
   const futures = useQuery({
@@ -153,7 +151,7 @@ export function SimpleTrades({ fmt, hideBalance, recentActivity }: SimpleTradesP
         )}
 
         <div className="mt-4">
-          <RecentActivity items={recentActivity} />
+          <RecentActivityFeed />
         </div>
       </div>
     </div>

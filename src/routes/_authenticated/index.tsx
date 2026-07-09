@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TabBar } from "@/components/tab-bar";
 import { useCurrency } from "@/hooks/use-currency";
-import { RecentActivity } from "@/components/recent-activity";
+import { RecentActivityFeed } from "@/components/recent-activity";
 import { RecommendationsPanel } from "@/components/recommendations-panel";
 import {
   AlertTriangle,
@@ -323,7 +323,6 @@ function Home() {
               coinTodayPnl={coinTodayPnl}
               openCount={openCount}
               coinHoldingCount={coinHoldingCount}
-              recentActivity={s?.recentActivity ?? []}
             />
           )}
           {simpleTab === "earnings" && (
@@ -341,17 +340,14 @@ function Home() {
             />
           )}
           {simpleTab === "trades" && (
-            <SimpleTrades
-              fmt={fmt}
-              hideBalance={hideBalance}
-              recentActivity={s?.recentActivity ?? []}
-            />
+            <SimpleTrades fmt={fmt} hideBalance={hideBalance} />
           )}
           {simpleTab === "more" && (
             <SimpleMore
               onSwitchToPro={() => setViewMode("detail")}
               hideBalance={hideBalance}
               onToggleHideBalance={() => setHideBalance((v) => !v)}
+              currentMode={currentMode}
             />
           )}
           <SimpleTabBar active={simpleTab} onNavigate={setSimpleTab} />
@@ -494,7 +490,7 @@ function Home() {
 
         {/* Recent activity */}
         <div className="mt-6">
-          <RecentActivity items={s?.recentActivity ?? []} />
+          <RecentActivityFeed />
         </div>
 
         <TabBar />
@@ -889,7 +885,7 @@ function Home() {
 
       {/* ===== Recent activity ===== */}
       <div className="mt-6">
-        <RecentActivity items={s?.recentActivity ?? []} />
+        <RecentActivityFeed />
       </div>
 
       <TabBar />
