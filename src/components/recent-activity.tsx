@@ -1,6 +1,9 @@
 import type { ActivityItem, ActivityMeta } from "@/lib/stats.functions";
 import { History } from "lucide-react";
 import { useCurrency } from "@/hooks/use-currency";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { getRecentActivity } from "@/lib/activity.functions";
 
 const GATE_SKIP_KINDS = [
   "session_hour_skip",
@@ -58,7 +61,10 @@ function prettyReason(code?: string | null): string | null {
 }
 
 function sanitize(msg: string): { text: string; reason: string | null } {
-  let text = msg.replace(/\bposition[_-][0-9a-f-]{6,}\b/gi, "").replace(/\s{2,}/g, " ").trim();
+  let text = msg
+    .replace(/\bposition[_-][0-9a-f-]{6,}\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
   let reason: string | null = null;
   const m = text.match(/\(([a-z_]+)\)\s*$/i);
   if (m) {
@@ -68,14 +74,20 @@ function sanitize(msg: string): { text: string; reason: string | null } {
   return { text, reason };
 }
 
-function classify(msg: string, meta?: ActivityMeta | null): { tag: string; tone: "positive" | "negative" | "warn" | "neutral" } {
+function classify(
+  msg: string,
+  meta?: ActivityMeta | null,
+): { tag: string; tone: "positive" | "negative" | "warn" | "neutral" } {
   const kind = meta?.kind;
   if (kind === "auto_tune" || /^Auto-tuned/i.test(msg)) return { tag: "Auto-tuned", tone: "warn" };
   if (kind === "auto_book" || /^Auto-booked/i.test(msg)) return { tag: "Opened", tone: "positive" };
-  if (kind === "session_hour_skip" || /session hour/i.test(msg)) return { tag: "Session block", tone: "warn" };
-  if (kind === "sl_width_skip" || /exceeds max_sl_atr/i.test(msg)) return { tag: "SL too wide", tone: "warn" };
+  if (kind === "session_hour_skip" || /session hour/i.test(msg))
+    return { tag: "Session block", tone: "warn" };
+  if (kind === "sl_width_skip" || /exceeds max_sl_atr/i.test(msg))
+    return { tag: "SL too wide", tone: "warn" };
   if (kind === "ev_ratio_skip" || /EV ratio/i.test(msg)) return { tag: "Low EV", tone: "warn" };
-  if (kind === "pre_entry_net_profit_skip" || /net profit at TP below/i.test(msg)) return { tag: "Fee gate", tone: "warn" };
+  if (kind === "pre_entry_net_profit_skip" || /net profit at TP below/i.test(msg))
+    return { tag: "Fee gate", tone: "warn" };
   if (kind === "platform_blacklist_skip") return { tag: "Blacklisted", tone: "warn" };
   if (kind === "user_blocklist_skip") return { tag: "Blocked", tone: "warn" };
   if (kind === "global_sl_cooldown_skip") return { tag: "Global cooldown", tone: "warn" };
@@ -83,7 +95,8 @@ function classify(msg: string, meta?: ActivityMeta | null): { tag: string; tone:
   if (kind === "avoid_signal_skip") return { tag: "Avoid", tone: "warn" };
   if (kind === "shorts_disabled_skip") return { tag: "Shorts off", tone: "warn" };
   if (kind === "longs_disabled_skip") return { tag: "Longs off", tone: "warn" };
-  if (kind === "cooldown_skip" || kind === "rolling_cooldown_skip") return { tag: "Cooldown", tone: "warn" };
+  if (kind === "cooldown_skip" || kind === "rolling_cooldown_skip")
+    return { tag: "Cooldown", tone: "warn" };
   if (kind === "spread_skip") return { tag: "Spread", tone: "warn" };
   if (kind === "daily_loss_cap_skip") return { tag: "Loss cap", tone: "negative" };
   if (kind === "daily_limit_skip") return { tag: "Daily limit", tone: "warn" };
@@ -137,28 +150,44 @@ function friendlyChanges(
 ): string[] {
   const out: string[] = [];
   const p = patch ?? {};
-  const has = (k: string) => (k in p) || (fields ?? []).includes(k);
+  const has = (k: string) => k in p || (fields ?? []).includes(k);
   if (has("auto_book_confidence_threshold")) {
     const v = p.auto_book_confidence_threshold;
-    out.push(v != null ? `Only take stronger setups now — confidence raised to ${v}` : "Only take stronger setups now (confidence raised)");
+    out.push(
+      v != null
+        ? `Only take stronger setups now — confidence raised to ${v}`
+        : "Only take stronger setups now (confidence raised)",
+    );
   }
   if (has("risk_per_trade_pct")) {
     const v = p.risk_per_trade_pct;
-    out.push(v != null ? `Risking less per trade — now ${Number(v).toFixed(2)}% of balance` : "Risking less per trade");
+    out.push(
+      v != null
+        ? `Risking less per trade — now ${Number(v).toFixed(2)}% of balance`
+        : "Risking less per trade",
+    );
   }
   if (has("cooldown_minutes")) {
     const v = p.cooldown_minutes;
-    out.push(v != null ? `Waiting ${v} min between trades to cool off` : "Waiting longer between trades");
+    out.push(
+      v != null ? `Waiting ${v} min between trades to cool off` : "Waiting longer between trades",
+    );
   }
   if (has("max_trades_per_day")) {
     const v = p.max_trades_per_day;
     out.push(v != null ? `Capping today's trades at ${v}` : "Capping today's trade count");
   }
-  if (has("allow_short") && p.allow_short === false) out.push("Paused new short (sell) trades until the trend recovers");
-  if (has("allow_long") && p.allow_long === false) out.push("Paused new long (buy) trades until the trend recovers");
+  if (has("allow_short") && p.allow_short === false)
+    out.push("Paused new short (sell) trades until the trend recovers");
+  if (has("allow_long") && p.allow_long === false)
+    out.push("Paused new long (buy) trades until the trend recovers");
   if (has("symbol_blacklist_threshold")) {
     const v = p.symbol_blacklist_threshold;
-    out.push(v != null ? `A coin is auto-skipped after just ${v} losses in a day` : "Auto-skip bad coins sooner");
+    out.push(
+      v != null
+        ? `A coin is auto-skipped after just ${v} losses in a day`
+        : "Auto-skip bad coins sooner",
+    );
   }
   if (has("symbol_sl_cooldown_minutes")) {
     const v = p.symbol_sl_cooldown_minutes;
@@ -173,7 +202,8 @@ function friendlyChanges(
 }
 
 function KV({ label, value, tone }: { label: string; value: string; tone?: "ok" | "bad" }) {
-  const cls = tone === "ok" ? "text-emerald-500" : tone === "bad" ? "text-destructive" : "text-foreground";
+  const cls =
+    tone === "ok" ? "text-emerald-500" : tone === "bad" ? "text-destructive" : "text-foreground";
   return (
     <div className="flex items-center justify-between text-[11px]">
       <span className="text-muted-foreground">{label}</span>
@@ -244,7 +274,9 @@ function StructuredEntry({ it }: { it: ActivityItem }) {
         <p className="text-xs font-medium text-foreground">Skipped {m.symbol}</p>
         <div className="mt-1.5 space-y-1 rounded-lg bg-amber-500/5 border border-amber-500/20 px-2.5 py-1.5">
           {m.reason && <KV label="Reason" value={m.reason} tone="bad" />}
-          {m.requiredSL != null && <KV label="Required Stop" value={`${m.requiredSL.toFixed(2)}%`} />}
+          {m.requiredSL != null && (
+            <KV label="Required Stop" value={`${m.requiredSL.toFixed(2)}%`} />
+          )}
           {m.allowedSL != null && <KV label="Allowed Stop" value={`${m.allowedSL.toFixed(2)}%`} />}
           {m.rr != null && m.reason === "Risk-reward weak" && (
             <KV label="R:R" value={`${m.rr.toFixed(2)} : 1`} />
@@ -264,20 +296,28 @@ function StructuredEntry({ it }: { it: ActivityItem }) {
         <div className="mt-1.5 space-y-1.5 rounded-lg bg-amber-500/5 border border-amber-500/20 px-2.5 py-2">
           {triggers.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Why</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">
+                Why
+              </p>
               <ul className="space-y-0.5">
                 {triggers.map((t, i) => (
-                  <li key={i} className="text-[11px] text-foreground/90 leading-snug">• {t}</li>
+                  <li key={i} className="text-[11px] text-foreground/90 leading-snug">
+                    • {t}
+                  </li>
                 ))}
               </ul>
             </div>
           )}
           {changes.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">What changed</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">
+                What changed
+              </p>
               <ul className="space-y-0.5">
                 {changes.map((c, i) => (
-                  <li key={i} className="text-[11px] text-foreground/90 leading-snug">• {c}</li>
+                  <li key={i} className="text-[11px] text-foreground/90 leading-snug">
+                    • {c}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -289,12 +329,44 @@ function StructuredEntry({ it }: { it: ActivityItem }) {
       </div>
     );
   }
+  return <p className="text-xs text-foreground/90 leading-relaxed flex-1 min-w-0">{it.message}</p>;
+}
+
+function ActivityRow({ it }: { it: ActivityItem }) {
+  const c = classify(it.message, it.meta);
+  const structured =
+    it.meta?.kind === "auto_book" ||
+    it.meta?.kind === "skip" ||
+    it.meta?.kind === "auto_tune" ||
+    GATE_SKIP_KINDS.includes(it.meta?.kind ?? "");
+  const clean = structured ? null : sanitize(it.message);
   return (
-    <p className="text-xs text-foreground/90 leading-relaxed flex-1 min-w-0">{it.message}</p>
+    <div className="px-4 py-2.5 flex items-start gap-3">
+      <span className="text-[10px] tabular-nums text-muted-foreground w-10 shrink-0 mt-0.5">
+        {fmtTime(it.at)}
+      </span>
+      <span
+        className={`text-[10px] px-1.5 h-4 inline-flex items-center rounded font-semibold tracking-wider uppercase shrink-0 mt-0.5 ${toneCls[c.tone]}`}
+      >
+        {c.tag}
+      </span>
+      {structured ? (
+        <StructuredEntry it={it} />
+      ) : (
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-foreground/90 leading-relaxed">{clean!.text}</p>
+          {clean!.reason && (
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Reason: <span className="text-foreground font-medium">{clean!.reason}</span>
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
-export function RecentActivity({ items }: { items: ActivityItem[] }) {
+function ActivityShell({ children }: { children: React.ReactNode }) {
   return (
     <section className="px-5 mt-5">
       <div className="rounded-2xl border bg-card">
@@ -302,47 +374,75 @@ export function RecentActivity({ items }: { items: ActivityItem[] }) {
           <History className="size-4 text-primary" />
           <p className="text-xs font-semibold uppercase tracking-wider">Recent Activity</p>
         </div>
-        <div className="divide-y">
-          {items.length === 0 && (
-            <p className="px-4 py-6 text-center text-xs text-muted-foreground">
-              No activity yet. Start the bot to see live actions here.
-            </p>
-          )}
-          {items.map((it) => {
-            const c = classify(it.message, it.meta);
-            const structured =
-              it.meta?.kind === "auto_book" ||
-              it.meta?.kind === "skip" ||
-              it.meta?.kind === "auto_tune" ||
-              GATE_SKIP_KINDS.includes(it.meta?.kind ?? "");
-            const clean = structured ? null : sanitize(it.message);
-            return (
-              <div key={it.id} className="px-4 py-2.5 flex items-start gap-3">
-                <span className="text-[10px] tabular-nums text-muted-foreground w-10 shrink-0 mt-0.5">
-                  {fmtTime(it.at)}
-                </span>
-                <span
-                  className={`text-[10px] px-1.5 h-4 inline-flex items-center rounded font-semibold tracking-wider uppercase shrink-0 mt-0.5 ${toneCls[c.tone]}`}
-                >
-                  {c.tag}
-                </span>
-                {structured ? (
-                  <StructuredEntry it={it} />
-                ) : (
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-foreground/90 leading-relaxed">{clean!.text}</p>
-                    {clean!.reason && (
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        Reason: <span className="text-foreground font-medium">{clean!.reason}</span>
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        {children}
       </div>
     </section>
+  );
+}
+
+/** Presentational list — used where the caller already has the items. */
+export function RecentActivity({ items }: { items: ActivityItem[] }) {
+  return (
+    <ActivityShell>
+      <div className="divide-y">
+        {items.length === 0 && (
+          <p className="px-4 py-6 text-center text-xs text-muted-foreground">
+            No activity yet. Start the bot to see live actions here.
+          </p>
+        )}
+        {items.map((it) => (
+          <ActivityRow key={it.id} it={it} />
+        ))}
+      </div>
+    </ActivityShell>
+  );
+}
+
+/**
+ * Self-fetching, paginated activity feed. Loads a small first page and fetches
+ * more only when the user taps "Show more" — much lighter than pulling a big
+ * slice inside the 15s dashboard-stats refetch.
+ */
+export function RecentActivityFeed({ pageSize = 6 }: { pageSize?: number }) {
+  const fn = useServerFn(getRecentActivity);
+  const q = useInfiniteQuery({
+    queryKey: ["recent_activity", pageSize],
+    queryFn: ({ pageParam }) => fn({ data: { limit: pageSize, offset: pageParam } }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.hasMore ? allPages.length * pageSize : undefined,
+    staleTime: 30_000,
+  });
+
+  const items = q.data?.pages.flatMap((p) => p.items) ?? [];
+
+  return (
+    <ActivityShell>
+      <div className="divide-y">
+        {q.isLoading && (
+          <p className="px-4 py-6 text-center text-xs text-muted-foreground">Loading activity…</p>
+        )}
+        {!q.isLoading && items.length === 0 && (
+          <p className="px-4 py-6 text-center text-xs text-muted-foreground">
+            No activity yet. Start the bot to see live actions here.
+          </p>
+        )}
+        {items.map((it) => (
+          <ActivityRow key={it.id} it={it} />
+        ))}
+      </div>
+      {q.hasNextPage && (
+        <div className="px-4 py-3 border-t">
+          <button
+            type="button"
+            onClick={() => q.fetchNextPage()}
+            disabled={q.isFetchingNextPage}
+            className="w-full h-9 rounded-lg text-[12.5px] font-medium text-primary hover:bg-primary/5 disabled:opacity-60 transition"
+          >
+            {q.isFetchingNextPage ? "Loading…" : "Show more"}
+          </button>
+        </div>
+      )}
+    </ActivityShell>
   );
 }

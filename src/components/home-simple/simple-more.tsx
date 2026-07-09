@@ -9,12 +9,15 @@ import {
   Shield,
   Info,
   ChevronRight,
+  FlaskConical,
+  BadgeCheck,
 } from "lucide-react";
 
 export type SimpleMoreProps = {
   onSwitchToPro: () => void;
   hideBalance: boolean;
   onToggleHideBalance: () => void;
+  currentMode: "paper" | "live";
 };
 
 function LinkRow({
@@ -42,7 +45,13 @@ function LinkRow({
   );
 }
 
-export function SimpleMore({ onSwitchToPro, hideBalance, onToggleHideBalance }: SimpleMoreProps) {
+export function SimpleMore({
+  onSwitchToPro,
+  hideBalance,
+  onToggleHideBalance,
+  currentMode,
+}: SimpleMoreProps) {
+  const isLive = currentMode === "live";
   return (
     <div className="min-h-svh bg-background pb-28">
       <div className="mx-auto max-w-md">
@@ -70,6 +79,30 @@ export function SimpleMore({ onSwitchToPro, hideBalance, onToggleHideBalance }: 
 
         <div className="px-5 mt-4">
           <section className="rounded-2xl border bg-card shadow-sm divide-y overflow-hidden">
+            <button
+              type="button"
+              onClick={onSwitchToPro}
+              className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted/40 transition"
+            >
+              <span
+                className={`size-8 grid place-items-center rounded-lg shrink-0 ${isLive ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/15 text-amber-600 dark:text-amber-400"}`}
+              >
+                {isLive ? <BadgeCheck className="size-4" /> : <FlaskConical className="size-4" />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-medium">Trading mode</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {isLive
+                    ? "Live — trading with real money"
+                    : "Practice — simulated money. Switch to live in Pro."}
+                </div>
+              </div>
+              <span
+                className={`text-[10px] font-semibold tracking-wider px-2 h-5 inline-flex items-center rounded-full shrink-0 ${isLive ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"}`}
+              >
+                {isLive ? "LIVE" : "PAPER"}
+              </span>
+            </button>
             <LinkRow
               to="/help"
               icon={<HelpCircle className="size-4" />}

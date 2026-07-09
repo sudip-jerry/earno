@@ -3,13 +3,12 @@ import { useMemo } from "react";
 import { ChevronRight, Settings as Cog, FlaskConical, Info } from "lucide-react";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
 import earneyWave from "@/assets/earney-wave.png.asset.json";
-import { RecentActivity } from "@/components/recent-activity";
+import { RecentActivityFeed } from "@/components/recent-activity";
 import { useMarketMode } from "@/hooks/use-market-mode";
 import type { useCurrency } from "@/hooks/use-currency";
 import { SimpleMarketTabs } from "./simple-market-tabs";
 
 type Fmt = ReturnType<typeof useCurrency>["fmt"];
-type ActivityItems = React.ComponentProps<typeof RecentActivity>["items"];
 
 export type SimpleViewProps = {
   fmt: Fmt;
@@ -27,7 +26,6 @@ export type SimpleViewProps = {
   coinTodayPnl: number;
   openCount: number;
   coinHoldingCount: number;
-  recentActivity: ActivityItems;
 };
 
 function IconBtn({
@@ -68,7 +66,6 @@ export function SimpleView(props: SimpleViewProps) {
     coinTodayPnl,
     openCount,
     coinHoldingCount,
-    recentActivity,
   } = props;
   const navigate = useNavigate();
   const { setMarket } = useMarketMode();
@@ -129,7 +126,12 @@ export function SimpleView(props: SimpleViewProps) {
               aria-label="About earn'O"
               className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <img src={earnoStacked.url} alt="earn'O" className="h-10 w-auto select-none" draggable={false} />
+              <img
+                src={earnoStacked.url}
+                alt="earn'O"
+                className="h-10 w-auto select-none"
+                draggable={false}
+              />
             </button>
             <div className="ml-auto">
               <IconBtn ariaLabel="Settings" onClick={() => navigate({ to: "/settings" })}>
@@ -161,10 +163,11 @@ export function SimpleView(props: SimpleViewProps) {
           </div>
         </header>
 
-
         <div className="px-5 mt-4">
           <section className="brand-hero rounded-2xl px-5 py-4 shadow-md">
-            <div className="text-[11px] uppercase tracking-wider text-white/60">Your total balance</div>
+            <div className="text-[11px] uppercase tracking-wider text-white/60">
+              Your total balance
+            </div>
             <div className="mt-1 text-3xl font-semibold tabular-nums text-white">
               {hideBalance ? "••••••" : fmt(totalValue)}
             </div>
@@ -196,7 +199,6 @@ export function SimpleView(props: SimpleViewProps) {
             </div>
           </section>
         </div>
-
 
         <div className="px-5 mt-3">
           <section className="rounded-2xl border bg-card px-5 py-4 shadow-sm">
@@ -252,9 +254,7 @@ export function SimpleView(props: SimpleViewProps) {
                 <div className="text-[11px] text-muted-foreground">{futuresPositionsLabel}</div>
               </div>
               <div className="text-right">
-                <div className="text-[13px] font-semibold tabular-nums">
-                  {fmt(futuresValue)}
-                </div>
+                <div className="text-[13px] font-semibold tabular-nums">{fmt(futuresValue)}</div>
                 <div
                   className={`mt-1 text-[11px] tabular-nums ${futuresTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
                 >
@@ -273,9 +273,7 @@ export function SimpleView(props: SimpleViewProps) {
                 <div className="text-[11px] text-muted-foreground">{coinHoldingsLabel}</div>
               </div>
               <div className="text-right">
-                <div className="text-[13px] font-semibold tabular-nums">
-                  {fmt(coinEquity)}
-                </div>
+                <div className="text-[13px] font-semibold tabular-nums">{fmt(coinEquity)}</div>
                 <div
                   className={`mt-1 text-[11px] tabular-nums ${coinTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
                 >
@@ -286,7 +284,6 @@ export function SimpleView(props: SimpleViewProps) {
             </button>
           </section>
         </div>
-
 
         <div className="px-5 mt-4">
           <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 flex items-start gap-3">
@@ -301,7 +298,7 @@ export function SimpleView(props: SimpleViewProps) {
         </div>
 
         <div className="mt-4">
-          <RecentActivity items={recentActivity} />
+          <RecentActivityFeed />
         </div>
       </div>
     </div>

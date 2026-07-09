@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { getCoinHoldings } from "@/lib/coin-bot/coin-bot.functions";
@@ -18,38 +19,72 @@ function ago(iso: string | null): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-export function CoinRecentActivity({ limit = 8 }: { limit?: number }) {
+type ClosedCoinTrade = {
+  id: string;
+  display?: string;
+  exit_reason?: string | null;
+  exit_price?: number | null;
+  closed_at?: string | null;
+  realized_pnl_usdt?: number | null;
+};
+
+export function CoinRecentActivity({ pageSize = 6 }: { pageSize?: number }) {
   const { fmt } = useCurrency();
   const fn = useServerFn(getCoinHoldings);
   const q = useQuery({ queryKey: ["coin_holdings"], queryFn: () => fn(), refetchInterval: 20_000 });
-  const closed = (q.data?.closed ?? []).slice(0, limit);
+  const [visible, setVisible] = useState(pageSize);
+  const all = (q.data?.closed ?? []) as ClosedCoinTrade[];
+  const closed = all.slice(0, visible);
 
   return (
     <section>
-      <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">Recent coin activity</div>
+      <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">
+        Recent coin activity
+      </div>
       {closed.length === 0 ? (
-        <div className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">No closed coin trades yet.</div>
+        <div className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
+          No closed coin trades yet.
+        </div>
       ) : (
-        <ul className="rounded-2xl border bg-card divide-y">
-          {closed.map((c: any) => {
-            const pnl = Number(c.realized_pnl_usdt ?? 0);
-            const pos = pnl >= 0;
-            return (
-              <li key={c.id} className="px-3 py-2 flex items-center gap-3 text-xs">
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-sm">{c.display}</div>
-                  <div className="text-[10px] text-muted-foreground truncate">{c.exit_reason ?? "closed"} · {ago(c.closed_at)} ago</div>
-                </div>
-                <div className="text-right tabular-nums">
-                  <div className={`text-sm font-semibold ${pos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                    {fmt(pnl, { signed: true })}
+        <div className="rounded-2xl border bg-card overflow-hidden">
+          <ul className="divide-y">
+            {closed.map((c) => {
+              const pnl = Number(c.realized_pnl_usdt ?? 0);
+              const pos = pnl >= 0;
+              return (
+                <li key={c.id} className="px-3 py-2 flex items-center gap-3 text-xs">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-sm">{c.display}</div>
+                    <div className="text-[10px] text-muted-foreground truncate">
+                      {c.exit_reason ?? "closed"} · {ago(c.closed_at ?? null)} ago
+                    </div>
                   </div>
-                  <div className="text-[10px] text-muted-foreground">@ {fmtPrice(c.exit_price)} USDT</div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                  <div className="text-right tabular-nums">
+                    <div
+                      className={`text-sm font-semibold ${pos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                    >
+                      {fmt(pnl, { signed: true })}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      @ {fmtPrice(c.exit_price)} USDT
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          {visible < all.length && (
+            <div className="px-3 py-2.5 border-t">
+              <button
+                type="button"
+                onClick={() => setVisible((v) => v + pageSize)}
+                className="w-full h-9 rounded-lg text-[12.5px] font-medium text-primary hover:bg-primary/5 transition"
+              >
+                Show more
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </section>
   );
