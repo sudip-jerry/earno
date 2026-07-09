@@ -5,6 +5,7 @@ import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.function
 import { TabBar } from "@/components/tab-bar";
 import { PositionsStrip } from "@/components/positions-strip";
 import { OpportunityCard } from "@/components/opportunity-card";
+import { PageHeader, BrandEmptyState } from "@/components/brand/brand-ui";
 import { useMarketMode } from "@/hooks/use-market-mode";
 import { toast } from "sonner";
 import { Flame, RefreshCw, HelpCircle } from "lucide-react";
@@ -14,7 +15,10 @@ export const Route = createFileRoute("/_authenticated/movers")({
   head: () => ({
     meta: [
       { title: "Top Movers — Earn'O" },
-      { name: "description", content: "Top movers with simple Long/Short/Wait/Avoid recommendations and confidence." },
+      {
+        name: "description",
+        content: "Top movers with simple Long/Short/Wait/Avoid recommendations and confidence.",
+      },
     ],
   }),
   component: MoversPage,
@@ -46,14 +50,23 @@ function MoversPage() {
 
   const book = useMutation({
     mutationFn: async (input: { m: Mover; side: "long" | "short"; tpPct: number; slPct: number }) =>
-      bookFn({ data: {
-        symbol: input.m.symbol, side: input.side, price: input.m.price, market,
-        confidence: input.m.confidence, tpPct: input.tpPct, slPct: input.slPct,
-      } }),
+      bookFn({
+        data: {
+          symbol: input.m.symbol,
+          side: input.side,
+          price: input.m.price,
+          market,
+          confidence: input.m.confidence,
+          tpPct: input.tpPct,
+          slPct: input.slPct,
+        },
+      }),
     onMutate: (v) => setPending(v.m.symbol),
     onSettled: () => setPending(null),
     onSuccess: (_d, v) => {
-      toast.success(`${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked · Target +${v.tpPct.toFixed(2)}% · Stop −${v.slPct.toFixed(2)}%`);
+      toast.success(
+        `${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked · Target +${v.tpPct.toFixed(2)}% · Stop −${v.slPct.toFixed(2)}%`,
+      );
       qc.invalidateQueries({ queryKey: ["positions_open"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Booking failed"),
@@ -66,29 +79,28 @@ function MoversPage() {
   return (
     <div className="min-h-svh bg-background pb-28">
       <PositionsStrip />
-      <header className="px-5 pt-6 pb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Flame className="size-5 text-orange-500" />
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Top Movers</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Long / Short / Wait / Avoid with confidence
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
-            <HelpCircle className="size-5 text-muted-foreground" />
-          </Link>
-          <button
-            onClick={() => q.refetch()}
-            className="size-10 grid place-items-center rounded-full hover:bg-muted"
-            aria-label="Refresh"
-          >
-            <RefreshCw className={`size-4 ${q.isFetching ? "animate-spin" : ""}`} />
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        icon={<Flame className="size-5 text-orange-500" />}
+        title="Top Movers"
+        subtitle="Long / Short / Wait / Avoid with confidence"
+        actions={
+          <>
+            <Link
+              to="/help"
+              className="size-10 grid place-items-center rounded-full hover:bg-muted"
+            >
+              <HelpCircle className="size-5 text-muted-foreground" />
+            </Link>
+            <button
+              onClick={() => q.refetch()}
+              className="size-10 grid place-items-center rounded-full hover:bg-muted"
+              aria-label="Refresh"
+            >
+              <RefreshCw className={`size-4 ${q.isFetching ? "animate-spin" : ""}`} />
+            </button>
+          </>
+        }
+      />
 
       {errorMsg ? (
         <div className="mx-5 mt-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
@@ -118,8 +130,12 @@ function MoversPage() {
         })}
 
         {!q.isLoading && movers.length === 0 && !errorMsg ? (
-          <li className="rounded-2xl border border-dashed bg-card/50 p-8 text-center text-sm text-muted-foreground">
-            No movers available right now.
+          <li>
+            <BrandEmptyState
+              mood="thinking"
+              title="No movers right now"
+              message="The market's quiet. Earney will surface fresh setups here as they appear."
+            />
           </li>
         ) : null}
       </ul>

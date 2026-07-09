@@ -6,6 +6,7 @@ import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.function
 import { TabBar } from "@/components/tab-bar";
 import { PositionsStrip } from "@/components/positions-strip";
 import { OpportunityCard } from "@/components/opportunity-card";
+import { PageHeader, BrandEmptyState } from "@/components/brand/brand-ui";
 import { useStrictness } from "@/hooks/use-strictness";
 import { useMarketMode } from "@/hooks/use-market-mode";
 import { CoinSignalsList } from "@/components/coin-bot/coin-panels";
@@ -20,7 +21,11 @@ export const Route = createFileRoute("/_authenticated/scanner")({
   head: () => ({
     meta: [
       { title: "Market Scanner — Earn'O" },
-      { name: "description", content: "Futures pairs ranked by confidence with simple Long/Short/Wait/Avoid recommendations." },
+      {
+        name: "description",
+        content:
+          "Futures pairs ranked by confidence with simple Long/Short/Wait/Avoid recommendations.",
+      },
     ],
   }),
   component: ScannerPage,
@@ -57,14 +62,23 @@ function ScannerPage() {
 
   const book = useMutation({
     mutationFn: async (input: { m: Mover; side: "long" | "short"; tpPct: number; slPct: number }) =>
-      bookFn({ data: {
-        symbol: input.m.symbol, side: input.side, price: input.m.price, market,
-        confidence: input.m.confidence, tpPct: input.tpPct, slPct: input.slPct,
-      } }),
+      bookFn({
+        data: {
+          symbol: input.m.symbol,
+          side: input.side,
+          price: input.m.price,
+          market,
+          confidence: input.m.confidence,
+          tpPct: input.tpPct,
+          slPct: input.slPct,
+        },
+      }),
     onMutate: (v) => setPending(v.m.symbol),
     onSettled: () => setPending(null),
     onSuccess: (_d, v) => {
-      toast.success(`${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked · Target +${v.tpPct.toFixed(2)}% · Stop −${v.slPct.toFixed(2)}%`);
+      toast.success(
+        `${v.side === "long" ? "Long" : "Short"} ${v.m.display} booked · Target +${v.tpPct.toFixed(2)}% · Stop −${v.slPct.toFixed(2)}%`,
+      );
       qc.invalidateQueries({ queryKey: ["positions_open"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Booking failed"),
@@ -83,7 +97,6 @@ function ScannerPage() {
 
   const errorMsg = q.data && !q.data.ok ? q.data.error : null;
 
-
   if (market === "spot") {
     return <CoinScannerView />;
   }
@@ -91,29 +104,28 @@ function ScannerPage() {
   return (
     <div className="min-h-svh bg-background pb-28">
       <PositionsStrip />
-      <header className="px-5 pt-6 pb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Radar className="size-5 text-primary" />
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Scanner</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {filtered.length} match · ranked by confidence
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
-            <HelpCircle className="size-5 text-muted-foreground" />
-          </Link>
-          <button
-            onClick={() => q.refetch()}
-            className="size-10 grid place-items-center rounded-full hover:bg-muted"
-            aria-label="Refresh"
-          >
-            <RefreshCw className={`size-4 ${q.isFetching ? "animate-spin" : ""}`} />
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        icon={<Radar className="size-5 text-primary" />}
+        title="Scanner"
+        subtitle={`${filtered.length} match · ranked by confidence`}
+        actions={
+          <>
+            <Link
+              to="/help"
+              className="size-10 grid place-items-center rounded-full hover:bg-muted"
+            >
+              <HelpCircle className="size-5 text-muted-foreground" />
+            </Link>
+            <button
+              onClick={() => q.refetch()}
+              className="size-10 grid place-items-center rounded-full hover:bg-muted"
+              aria-label="Refresh"
+            >
+              <RefreshCw className={`size-4 ${q.isFetching ? "animate-spin" : ""}`} />
+            </button>
+          </>
+        }
+      />
 
       {/* Filters */}
       <div className="px-5 space-y-2">
@@ -178,8 +190,12 @@ function ScannerPage() {
         })}
 
         {!q.isLoading && filtered.length === 0 && !errorMsg ? (
-          <li className="rounded-2xl border border-dashed bg-card/50 p-8 text-center text-sm text-muted-foreground">
-            No pairs match your filters. Try lowering confidence or showing all actions.
+          <li>
+            <BrandEmptyState
+              mood="analyzing"
+              title="Nothing matches your filters"
+              message="Try lowering the confidence bar or showing all actions to see more setups."
+            />
           </li>
         ) : null}
       </ul>
@@ -195,18 +211,16 @@ function CoinScannerView() {
   return (
     <div className="min-h-svh bg-background pb-28">
       <PositionsStrip />
-      <header className="px-5 pt-6 pb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Radar className="size-5 text-primary" />
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Coin Scanner</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Live CoinDCX coins · paper buy/sell</p>
-          </div>
-        </div>
-        <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
-          <HelpCircle className="size-5 text-muted-foreground" />
-        </Link>
-      </header>
+      <PageHeader
+        icon={<Radar className="size-5 text-primary" />}
+        title="Coin Scanner"
+        subtitle="Live CoinDCX coins · paper buy/sell"
+        actions={
+          <Link to="/help" className="size-10 grid place-items-center rounded-full hover:bg-muted">
+            <HelpCircle className="size-5 text-muted-foreground" />
+          </Link>
+        }
+      />
       <div className="px-5 space-y-4">
         <CoinHero />
         <CoinKpiStrip />
