@@ -156,13 +156,13 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     const [{ data: today }, { data: closedAll }, { data: openRows }, { data: events }] = await Promise.all([
       supabase
         .from("positions")
-        .select("pnl,closed_at,status,entry_price,exit_price,qty,exit_reason")
+        .select("pnl,closed_at,status,entry_price,exit_price,qty,exit_reason,symbol,instrument")
         .eq("status", "closed")
         .eq("mode", mode)
         .gte("closed_at", startOfDay.toISOString()),
       supabase
         .from("positions")
-        .select("pnl,closed_at,status,entry_price,exit_price,qty,exit_reason")
+        .select("pnl,closed_at,status,entry_price,exit_price,qty,exit_reason,symbol,instrument")
         .eq("status", "closed")
         .eq("mode", mode)
         .order("closed_at", { ascending: true }),

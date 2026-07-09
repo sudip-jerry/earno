@@ -74,6 +74,7 @@ export type Database = {
           auto_book_confidence_threshold: number
           auto_close_minutes: number
           blocked_session_hours_ist: number[]
+          breakeven_arm_roe_pct: number | null
           cooldown_minutes: number
           created_at: string
           daily_loss_cap_pct: number
@@ -88,6 +89,8 @@ export type Database = {
           live_allocation_pct: number
           live_wallet_source: string
           major_coin_confidence_floor: number
+          maker_entry_enabled: boolean
+          maker_entry_wait_ms: number
           max_auto_sl_pct: number
           max_open_positions: number
           max_sl_atr_pct: number
@@ -96,6 +99,7 @@ export type Database = {
           min_rr: number
           min_scalp_score: number
           min_sl_pct: number
+          minimum_expected_edge_pct: number | null
           minimum_gross_profit_before_profit_fade_exit_pct: number
           minimum_gross_profit_before_weak_progress_exit_pct: number
           minimum_net_profit_to_enter_pct: number
@@ -129,6 +133,7 @@ export type Database = {
           auto_book_confidence_threshold?: number
           auto_close_minutes?: number
           blocked_session_hours_ist?: number[]
+          breakeven_arm_roe_pct?: number | null
           cooldown_minutes?: number
           created_at?: string
           daily_loss_cap_pct?: number
@@ -143,6 +148,8 @@ export type Database = {
           live_allocation_pct?: number
           live_wallet_source?: string
           major_coin_confidence_floor?: number
+          maker_entry_enabled?: boolean
+          maker_entry_wait_ms?: number
           max_auto_sl_pct?: number
           max_open_positions?: number
           max_sl_atr_pct?: number
@@ -151,6 +158,7 @@ export type Database = {
           min_rr?: number
           min_scalp_score?: number
           min_sl_pct?: number
+          minimum_expected_edge_pct?: number | null
           minimum_gross_profit_before_profit_fade_exit_pct?: number
           minimum_gross_profit_before_weak_progress_exit_pct?: number
           minimum_net_profit_to_enter_pct?: number
@@ -184,6 +192,7 @@ export type Database = {
           auto_book_confidence_threshold?: number
           auto_close_minutes?: number
           blocked_session_hours_ist?: number[]
+          breakeven_arm_roe_pct?: number | null
           cooldown_minutes?: number
           created_at?: string
           daily_loss_cap_pct?: number
@@ -198,6 +207,8 @@ export type Database = {
           live_allocation_pct?: number
           live_wallet_source?: string
           major_coin_confidence_floor?: number
+          maker_entry_enabled?: boolean
+          maker_entry_wait_ms?: number
           max_auto_sl_pct?: number
           max_open_positions?: number
           max_sl_atr_pct?: number
@@ -206,6 +217,7 @@ export type Database = {
           min_rr?: number
           min_scalp_score?: number
           min_sl_pct?: number
+          minimum_expected_edge_pct?: number | null
           minimum_gross_profit_before_profit_fade_exit_pct?: number
           minimum_gross_profit_before_weak_progress_exit_pct?: number
           minimum_net_profit_to_enter_pct?: number
@@ -754,6 +766,30 @@ export type Database = {
         }
         Relationships: []
       }
+      fx_rates: {
+        Row: {
+          currency: string
+          fetched_at: string
+          rate: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          currency: string
+          fetched_at?: string
+          rate: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          currency?: string
+          fetched_at?: string
+          rate?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payment_orders: {
         Row: {
           amount_paise: number
@@ -789,6 +825,7 @@ export type Database = {
       }
       positions: {
         Row: {
+          adx_at_entry: number | null
           algo_id: string | null
           algo_name: string | null
           algo_version: string | null
@@ -806,6 +843,7 @@ export type Database = {
           distance_from_vwap_pct_at_entry: number | null
           entry_candle_aligned: boolean | null
           entry_candle_pct: number | null
+          entry_fill_type: string
           entry_price: number
           entry_reason: string | null
           estimated_net_pnl: number | null
@@ -821,6 +859,7 @@ export type Database = {
           final_exit_reason: string | null
           final_sl_pct: number | null
           final_tp_hit: boolean
+          funding_rate_at_entry: number | null
           giveback_pct: number | null
           gross_pnl: number | null
           highest_unrealized_pnl: number | null
@@ -836,6 +875,7 @@ export type Database = {
           max_adverse_excursion_pct: number | null
           max_favourable_excursion_pct: number | null
           mode: string
+          open_interest_at_entry: number | null
           opened_at: string
           original_exit_reason: string | null
           peak_unrealized_pnl_pct: number | null
@@ -846,6 +886,7 @@ export type Database = {
           remaining_qty: number | null
           rsi_at_entry: number | null
           runner_pnl: number | null
+          rvol_at_entry: number | null
           shadow_closed_at: string | null
           shadow_exit_pnl: number | null
           shadow_exit_reason: string | null
@@ -878,6 +919,7 @@ export type Database = {
           weak_progress_marked_at: string | null
         }
         Insert: {
+          adx_at_entry?: number | null
           algo_id?: string | null
           algo_name?: string | null
           algo_version?: string | null
@@ -895,6 +937,7 @@ export type Database = {
           distance_from_vwap_pct_at_entry?: number | null
           entry_candle_aligned?: boolean | null
           entry_candle_pct?: number | null
+          entry_fill_type?: string
           entry_price: number
           entry_reason?: string | null
           estimated_net_pnl?: number | null
@@ -910,6 +953,7 @@ export type Database = {
           final_exit_reason?: string | null
           final_sl_pct?: number | null
           final_tp_hit?: boolean
+          funding_rate_at_entry?: number | null
           giveback_pct?: number | null
           gross_pnl?: number | null
           highest_unrealized_pnl?: number | null
@@ -925,6 +969,7 @@ export type Database = {
           max_adverse_excursion_pct?: number | null
           max_favourable_excursion_pct?: number | null
           mode: string
+          open_interest_at_entry?: number | null
           opened_at?: string
           original_exit_reason?: string | null
           peak_unrealized_pnl_pct?: number | null
@@ -935,6 +980,7 @@ export type Database = {
           remaining_qty?: number | null
           rsi_at_entry?: number | null
           runner_pnl?: number | null
+          rvol_at_entry?: number | null
           shadow_closed_at?: string | null
           shadow_exit_pnl?: number | null
           shadow_exit_reason?: string | null
@@ -967,6 +1013,7 @@ export type Database = {
           weak_progress_marked_at?: string | null
         }
         Update: {
+          adx_at_entry?: number | null
           algo_id?: string | null
           algo_name?: string | null
           algo_version?: string | null
@@ -984,6 +1031,7 @@ export type Database = {
           distance_from_vwap_pct_at_entry?: number | null
           entry_candle_aligned?: boolean | null
           entry_candle_pct?: number | null
+          entry_fill_type?: string
           entry_price?: number
           entry_reason?: string | null
           estimated_net_pnl?: number | null
@@ -999,6 +1047,7 @@ export type Database = {
           final_exit_reason?: string | null
           final_sl_pct?: number | null
           final_tp_hit?: boolean
+          funding_rate_at_entry?: number | null
           giveback_pct?: number | null
           gross_pnl?: number | null
           highest_unrealized_pnl?: number | null
@@ -1014,6 +1063,7 @@ export type Database = {
           max_adverse_excursion_pct?: number | null
           max_favourable_excursion_pct?: number | null
           mode?: string
+          open_interest_at_entry?: number | null
           opened_at?: string
           original_exit_reason?: string | null
           peak_unrealized_pnl_pct?: number | null
@@ -1024,6 +1074,7 @@ export type Database = {
           remaining_qty?: number | null
           rsi_at_entry?: number | null
           runner_pnl?: number | null
+          rvol_at_entry?: number | null
           shadow_closed_at?: string | null
           shadow_exit_pnl?: number | null
           shadow_exit_reason?: string | null

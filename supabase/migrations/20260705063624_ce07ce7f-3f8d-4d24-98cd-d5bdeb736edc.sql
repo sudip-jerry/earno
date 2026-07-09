@@ -1,0 +1,1 @@
+ALTER TABLE public.positions ADD COLUMN IF NOT EXISTS funding_rate_at_entry numeric; ALTER TABLE public.positions ADD COLUMN IF NOT EXISTS open_interest_at_entry numeric;
