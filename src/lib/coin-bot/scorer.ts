@@ -213,7 +213,10 @@ export function scoreCoin(input: CoinScoreInput): CoinScore {
       action = "sell";
       confidence = 62;
       reason = "Momentum faded";
-    } else if (overbought && pnlPct > 0.6) {
+    } else if (overbought && pnlPct > targetPct * 0.6) {
+      // Only bank on an RSI-exhaustion spike once a real gain is on the table
+      // (swing ~+4.8%, intraday ~+0.96%). Below that, hold and let the winner run
+      // toward target instead of scratching a barely-green trade.
       action = "sell";
       confidence = 60;
       reason = "Overbought, take profit";

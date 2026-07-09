@@ -458,7 +458,7 @@ export async function runCoinScanFor(
 
     const { data: row } = await supabase
       .from("coin_positions")
-      .select("qty, invested_usdt, avg_buy_price")
+      .select("qty, invested_usdt, avg_buy_price, stop_price, mode")
       .eq("id", held.id)
       .maybeSingle();
     if (!row || !row.qty) continue;
@@ -468,24 +468,37 @@ export async function runCoinScanFor(
     const currentValue = qty * currentPrice;
     const unrealized = currentValue - invested;
 
+    const update: Record<string, unknown> = {
+      last_price: currentPrice,
+      current_value_usdt: currentValue,
+      unrealized_pnl_usdt: unrealized,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Breakeven safety net (swing only): once a position is up +2.5%, ratchet the
+    // stop up to entry so a winner can't round-trip into a full -4% loss. Only ever
+    // tightens the stop on a winner — never loosens — so it cannot add risk.
+    const avgBuy = Number(row.avg_buy_price);
+    const stopPrice = row.stop_price != null ? Number(row.stop_price) : null;
+    if (row.mode === "swing" && avgBuy > 0 && stopPrice != null && stopPrice < avgBuy) {
+      const pnlPct = ((currentPrice - avgBuy) / avgBuy) * 100;
+      if (pnlPct >= 2.5) {
+        update.stop_price = avgBuy;
+      }
+    }
+
     markUpdates.push(
       Promise.resolve(
-        supabase
-          .from("coin_positions")
-          .update({
-            last_price: currentPrice,
-            current_value_usdt: currentValue,
-            unrealized_pnl_usdt: unrealized,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", held.id)
+        supabase.from("coin_positions").update(update).eq("id", held.id)
       )
     );
   }
   await Promise.all(markUpdates);
 
   // --- Symbol stop cooldown: track recent stop hits to prevent re-entry ---
-  const stopCooldownMs = Math.max(60, Number(cfg.symbol_stop_cooldown_minutes ?? 120)) * 60_000;
+  // 6h window (matches the futures hard-SL cooldown) so a coin that stops out is
+  // not re-bought later the same session after a short window expires.
+  const stopCooldownMs = Math.max(60, Number(cfg.symbol_stop_cooldown_minutes ?? 360)) * 60_000;
   const cooldownSince = new Date(Date.now() - stopCooldownMs).toISOString();
   const { data: recentStops } = await supabase
     .from("coin_positions")
@@ -506,7 +519,9 @@ export async function runCoinScanFor(
   let autoOpened = 0;
   if (cfg.enabled) {
     const blocklist = new Set(cfg.symbol_blocklist ?? []);
-    const MAX_STOPS_BEFORE_COOLDOWN = 2;
+    // Block a symbol after its FIRST stop within the cooldown window — re-buying a
+    // coin that just stopped (on a falling tape) was the dominant loss driver.
+    const MAX_STOPS_BEFORE_COOLDOWN = 1;
     const buys = signalsToInsert
       .filter(
         (s) =>
