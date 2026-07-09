@@ -19,17 +19,17 @@ export function CoinHero() {
   const pnlPos = totalPnl >= 0;
 
   return (
-    <section className="rounded-2xl border bg-card p-5">
-      <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+    <section className="brand-hero rounded-2xl p-5 shadow-md">
+      <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/60">
         <Coins className="size-3.5" />
         Coin paper equity
-        <span className={`ml-auto text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full ${p?.enabled ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+        <span className={`ml-auto text-[10px] font-semibold px-2 h-5 inline-flex items-center rounded-full ${p?.enabled ? "bg-emerald-400/20 text-emerald-200" : "bg-white/10 text-white/60"}`}>
           Bot {p?.enabled ? "On" : "Off"}
         </span>
       </div>
       <div className="mt-2 flex items-end gap-3">
-        <div className="text-3xl font-semibold tabular-nums">{fmt(equity)}</div>
-        <div className={`inline-flex items-center gap-1 text-sm font-medium tabular-nums mb-1 ${pnlPos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+        <div className="text-3xl font-semibold tabular-nums text-white">{fmt(equity)}</div>
+        <div className={`inline-flex items-center gap-1 text-sm font-medium tabular-nums mb-1 ${pnlPos ? "text-emerald-300" : "text-rose-300"}`}>
           {pnlPos ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
           {fmt(totalPnl, { signed: true })}
         </div>
@@ -45,10 +45,10 @@ export function CoinHero() {
 }
 
 function Tile({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" }) {
-  const color = tone === "pos" ? "text-emerald-600 dark:text-emerald-400" : tone === "neg" ? "text-rose-600 dark:text-rose-400" : "text-foreground";
+  const color = tone === "pos" ? "text-emerald-300" : tone === "neg" ? "text-rose-300" : "text-white";
   return (
-    <div className="rounded-xl bg-muted/40 p-2">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+    <div className="rounded-xl bg-white/10 p-2">
+      <div className="text-[10px] uppercase tracking-wider text-white/55">{label}</div>
       <div className={`mt-0.5 text-[12px] font-semibold tabular-nums ${color}`}>{value}</div>
     </div>
   );
