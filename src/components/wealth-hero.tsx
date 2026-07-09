@@ -89,26 +89,26 @@ export function WealthHero({ stats, equityFallback, isLive, hideBalance, onToggl
 
 
 
-      {/* Label row */}
-      <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="uppercase tracking-wider text-[10px] font-medium">
-          Portfolio Value
-        </span>
-        <button
-          type="button"
-          onClick={onToggleHide}
-          aria-label={hideBalance ? "Show balance" : "Hide balance"}
-          className="size-5 grid place-items-center rounded hover:bg-muted text-muted-foreground"
-        >
-          {hideBalance ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-        </button>
-      </div>
-
-      {/* Portfolio value */}
-      <div className="mt-2 flex items-baseline gap-2">
-        <p className="text-[40px] leading-none font-semibold tracking-tight tabular-nums">
-          {hideBalance ? masked : fmt(portfolio)}
-        </p>
+      {/* Portfolio value — signature earn'O brand-hero surface */}
+      <div className="mt-4 brand-hero rounded-2xl px-4 py-4 shadow-md">
+        <div className="flex items-center gap-2">
+          <span className="uppercase tracking-wider text-[10px] font-medium text-white/60">
+            Portfolio Value
+          </span>
+          <button
+            type="button"
+            onClick={onToggleHide}
+            aria-label={hideBalance ? "Show balance" : "Hide balance"}
+            className="size-5 grid place-items-center rounded hover:bg-white/10 text-white/80"
+          >
+            {hideBalance ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+          </button>
+        </div>
+        <div className="mt-2 flex items-baseline gap-2">
+          <p className="text-[40px] leading-none font-semibold tracking-tight tabular-nums text-white">
+            {hideBalance ? masked : fmt(portfolio)}
+          </p>
+        </div>
       </div>
 
       {/* Transparent math: baseline + realized − fees = portfolio */}

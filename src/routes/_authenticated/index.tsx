@@ -421,19 +421,23 @@ function Home() {
           </button>
         </div>
 
-        {/* Aggregate hero */}
+        {/* Aggregate hero — signature earn'O brand-hero surface */}
         <div className="px-5 mt-3">
-          <section className="rounded-2xl border bg-card px-5 py-4">
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Your money · all</div>
+          <section className="brand-hero rounded-2xl px-5 py-4 shadow-md">
+            <div className="text-[11px] uppercase tracking-wider text-white/60">Your money · all</div>
             <div className="mt-1 flex items-baseline gap-2 flex-wrap">
-              <div className="text-3xl font-semibold tabular-nums">{fmt(totalValue)}</div>
-              <div className={`text-[13px] font-medium tabular-nums ${totalTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+              <div className="text-3xl font-semibold tabular-nums text-white">{fmt(totalValue)}</div>
+              <div className={`text-[13px] font-medium tabular-nums ${totalTodayPnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
                 {fmt(totalTodayPnl, { signed: true })} today
               </div>
             </div>
+          </section>
+        </div>
 
-            {/* Breakdown */}
-            <div className="mt-4 divide-y divide-border rounded-xl border overflow-hidden">
+        {/* Breakdown */}
+        <div className="px-5 mt-3">
+          <section className="rounded-2xl border bg-card overflow-hidden">
+            <div className="divide-y divide-border">
               <button
                 type="button"
                 onClick={() => { setMarket("futures"); }}
@@ -467,7 +471,7 @@ function Home() {
                 </div>
               </button>
             </div>
-            <p className="mt-2 text-[10.5px] text-muted-foreground">Tap a row to see that view in detail.</p>
+            <p className="px-4 py-2.5 text-[10.5px] text-muted-foreground">Tap a row to see that view in detail.</p>
           </section>
         </div>
 
