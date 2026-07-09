@@ -27,8 +27,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/brand/brand-ui";
 import {
-  ChevronLeft,
   HelpCircle,
   CheckCircle2,
   XCircle,
@@ -116,7 +116,9 @@ function StrictnessControl() {
   };
 
   const handleReset = async () => {
-    const ok = window.confirm(`Reset to "${STRICTNESS_PRESETS[strictness].label}" defaults? This will undo any auto-tune improvements.`);
+    const ok = window.confirm(
+      `Reset to "${STRICTNESS_PRESETS[strictness].label}" defaults? This will undo any auto-tune improvements.`,
+    );
     if (!ok) return;
     try {
       await updateFn({ data: presetPatch(strictness) as never });
@@ -126,7 +128,6 @@ function StrictnessControl() {
       toast.error(e instanceof Error ? e.message : "Reset failed");
     }
   };
-
 
   return (
     <div className="space-y-2">
@@ -348,7 +349,6 @@ const DEFAULTS: Cfg = {
   blocked_session_hours_ist: [],
 };
 
-
 function SettingsPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -459,17 +459,15 @@ function SettingsPage() {
 
   return (
     <div className="min-h-svh bg-background pb-12">
-      <header className="px-5 pt-6 pb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Link to="/" className="size-9 grid place-items-center rounded-full hover:bg-muted -ml-2">
-            <ChevronLeft className="size-5" />
+      <PageHeader
+        onBack={() => navigate({ to: "/" })}
+        title="Settings"
+        actions={
+          <Link to="/help" className="size-9 grid place-items-center rounded-full hover:bg-muted">
+            <HelpCircle className="size-5 text-muted-foreground" />
           </Link>
-          <h1 className="text-xl font-semibold">Settings</h1>
-        </div>
-        <Link to="/help" className="size-9 grid place-items-center rounded-full hover:bg-muted">
-          <HelpCircle className="size-5 text-muted-foreground" />
-        </Link>
-      </header>
+        }
+      />
 
       {/* Account section — Profile, plan, admin, help, appearance */}
       <section className="px-5">
@@ -643,8 +641,8 @@ function SettingsPage() {
             </p>
             <p className="text-[11px] text-muted-foreground">
               For <span className="font-medium">Coin live trading</span>, enable both{" "}
-              <span className="font-medium">Spot Trade</span> permissions on your API key.
-              The same key works for futures and coins.
+              <span className="font-medium">Spot Trade</span> permissions on your API key. The same
+              key works for futures and coins.
             </p>
           </div>
         </div>
@@ -782,10 +780,12 @@ function SettingsPage() {
               onChange={(v) => set("min_scalp_score", v)}
             />
           </Row>
-          <p className="text-[11px] text-muted-foreground px-4 pb-2">Controls which signals appear in the scanner. The auto-book threshold is set separately in Advanced settings.</p>
+          <p className="text-[11px] text-muted-foreground px-4 pb-2">
+            Controls which signals appear in the scanner. The auto-book threshold is set separately
+            in Advanced settings.
+          </p>
         </div>
       </section>
-
 
       {/* Trading Style preset */}
       <section className="px-5 mt-6">
@@ -958,7 +958,9 @@ function SettingsPage() {
             </Row>
 
             <div className="pt-2 border-t mt-2">
-              <p className="text-xs font-medium text-muted-foreground mt-3 mb-1">Entry gate thresholds</p>
+              <p className="text-xs font-medium text-muted-foreground mt-3 mb-1">
+                Entry gate thresholds
+              </p>
               <div className="space-y-5">
                 <SliderField
                   label="Max SL width (ATR %)"
@@ -996,20 +998,26 @@ function SettingsPage() {
                   value={get("major_coin_confidence_floor")}
                   onChange={(v) => set("major_coin_confidence_floor", v)}
                 />
-                <p className="text-[11px] text-muted-foreground">BTC/ETH/SOL/XRP etc only trade at this confidence. Data shows PF 1.04 above 90%, PF 0.14 below.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  BTC/ETH/SOL/XRP etc only trade at this confidence. Data shows PF 1.04 above 90%,
+                  PF 0.14 below.
+                </p>
                 <div className="text-[11px] text-muted-foreground">
-
                   <span className="font-medium text-foreground">Blocked IST hours: </span>
-                  {(get("blocked_session_hours_ist") as number[] ?? []).length > 0 ? (get("blocked_session_hours_ist") as number[]).join(", ") : "none"}
+                  {((get("blocked_session_hours_ist") as number[]) ?? []).length > 0
+                    ? (get("blocked_session_hours_ist") as number[]).join(", ")
+                    : "none"}
                   <span className="ml-1 opacity-60">(edit via Admin)</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground">These gates run before every trade is booked. Raising them reduces trade frequency but improves quality.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  These gates run before every trade is booked. Raising them reduces trade frequency
+                  but improves quality.
+                </p>
               </div>
             </div>
           </div>
         </details>
       </section>
-
 
       <section className="px-5 mt-6">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
@@ -1048,7 +1056,6 @@ function SettingsPage() {
           </p>
         </div>
       </section>
-
 
       {hasChanges && (
         <div className="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-4 flex gap-3 z-50 safe-area-pb">
@@ -1409,7 +1416,11 @@ function CoinLiveModeToggle({ hasCreds }: { hasCreds: boolean }) {
       await updCfgFn({ data: { live_mode: live } });
     },
     onSuccess: (_, live) => {
-      toast.success(live ? "Coin bot switched to LIVE — real spot orders will be placed" : "Coin bot switched to Paper");
+      toast.success(
+        live
+          ? "Coin bot switched to LIVE — real spot orders will be placed"
+          : "Coin bot switched to Paper",
+      );
       qc.invalidateQueries({ queryKey: ["coin_bot_cfg_mode"] });
       qc.invalidateQueries({ queryKey: ["coin_cfg"] });
     },
@@ -1424,7 +1435,9 @@ function CoinLiveModeToggle({ hasCreds }: { hasCreds: boolean }) {
   });
 
   const isLive = (coinCfg.data as { live_mode?: boolean } | null)?.live_mode ?? false;
-  const capital = Number((coinCfg.data as { allocated_capital_usdt?: number } | null)?.allocated_capital_usdt ?? 500);
+  const capital = Number(
+    (coinCfg.data as { allocated_capital_usdt?: number } | null)?.allocated_capital_usdt ?? 500,
+  );
 
   return (
     <div className="rounded-2xl border bg-card divide-y">
@@ -1432,14 +1445,22 @@ function CoinLiveModeToggle({ hasCreds }: { hasCreds: boolean }) {
         <div>
           <p className="text-sm font-medium">Coin bot live trading</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            {isLive ? `Live — real spot buys/sells from your CoinDCX wallet` : "Paper — simulated only, no real orders"}
+            {isLive
+              ? `Live — real spot buys/sells from your CoinDCX wallet`
+              : "Paper — simulated only, no real orders"}
           </p>
         </div>
         <Switch
           checked={isLive}
           disabled={!hasCreds || toggle.isPending}
           onCheckedChange={(v) => {
-            if (v && !confirm(`Switch Coin bot to LIVE? It will place real spot orders up to $${capital} USDT from your CoinDCX spot wallet. Cannot be undone mid-trade.`)) return;
+            if (
+              v &&
+              !confirm(
+                `Switch Coin bot to LIVE? It will place real spot orders up to $${capital} USDT from your CoinDCX spot wallet. Cannot be undone mid-trade.`,
+              )
+            )
+              return;
             toggle.mutate(v);
           }}
         />
@@ -1447,7 +1468,11 @@ function CoinLiveModeToggle({ hasCreds }: { hasCreds: boolean }) {
       {isLive && (
         <div className="px-4 py-3 flex gap-2 text-xs text-destructive bg-destructive/5">
           <AlertTriangle className="size-4 shrink-0 mt-0.5" />
-          <p>Live mode active. The coin bot will buy and sell real coins from your CoinDCX spot wallet. Ensure you have USDT available in your <strong>spot/trade wallet</strong> (not futures margin).</p>
+          <p>
+            Live mode active. The coin bot will buy and sell real coins from your CoinDCX spot
+            wallet. Ensure you have USDT available in your <strong>spot/trade wallet</strong> (not
+            futures margin).
+          </p>
         </div>
       )}
       {!hasCreds && (
