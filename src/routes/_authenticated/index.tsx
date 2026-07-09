@@ -1286,21 +1286,19 @@ function DailyChart({
   }
 
   return (
-    <section className="rounded-2xl border bg-card px-5 py-4">
+    <section className="brand-hero rounded-2xl px-5 py-4 shadow-md">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          <div className="text-[11px] uppercase tracking-wider text-white/60">
             Portfolio value
           </div>
           <div className="mt-1 flex items-baseline gap-2 flex-wrap">
-            <div className="text-3xl font-semibold tabular-nums">
+            <div className="text-3xl font-semibold tabular-nums text-white">
               {hideBalance ? "••••••" : fmt(portfolioValue)}
             </div>
             <div
               className={`text-[13px] font-medium tabular-nums ${
-                todayPos
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-rose-600 dark:text-rose-400"
+                todayPos ? "text-emerald-300" : "text-rose-300"
               }`}
             >
               {fmt(todayPnl, { signed: true })} today
@@ -1311,32 +1309,28 @@ function DailyChart({
           type="button"
           onClick={onToggleHide}
           aria-label={hideBalance ? "Show balance" : "Hide balance"}
-          className="size-8 grid place-items-center rounded-full hover:bg-muted text-muted-foreground"
+          className="size-8 grid place-items-center rounded-full hover:bg-white/10 text-white/80"
         >
           {hideBalance ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
         </button>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <div className="rounded-xl border bg-background/60 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total P&L</p>
+        <div className="rounded-xl bg-white/10 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wider text-white/55">Total P&L</p>
           <p
             className={`mt-0.5 text-[14px] font-semibold tabular-nums ${
-              totalPnl >= 0
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-rose-600 dark:text-rose-400"
+              totalPnl >= 0 ? "text-emerald-300" : "text-rose-300"
             }`}
           >
             {fmt(totalPnl, { signed: true })}
           </p>
         </div>
-        <div className="rounded-xl border bg-background/60 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Return</p>
+        <div className="rounded-xl bg-white/10 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wider text-white/55">Return</p>
           <p
             className={`mt-0.5 text-[14px] font-semibold tabular-nums ${
-              totalPnlPct >= 0
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-rose-600 dark:text-rose-400"
+              totalPnlPct >= 0 ? "text-emerald-300" : "text-rose-300"
             }`}
           >
             {totalPnlPct >= 0 ? "+" : "−"}
@@ -1347,7 +1341,7 @@ function DailyChart({
 
       <div className="mt-4">
         {series.length < 3 ? (
-          <div className="h-[64px] grid place-items-center text-[12px] text-muted-foreground">
+          <div className="h-[64px] grid place-items-center text-[12px] text-white/60">
             Chart builds as trades close
           </div>
         ) : (
@@ -1360,14 +1354,10 @@ function DailyChart({
               return (
                 <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
                   <div
-                    className={`w-full rounded-sm ${
-                      pos ? "bg-emerald-500/80" : "bg-rose-500/80"
-                    }`}
+                    className={`w-full rounded-sm ${pos ? "bg-emerald-400" : "bg-rose-400"}`}
                     style={{ height: `${h}px` }}
                   />
-                  <div className="text-[9px] text-muted-foreground tabular-nums leading-none">
-                    {day}
-                  </div>
+                  <div className="text-[9px] text-white/50 tabular-nums leading-none">{day}</div>
                 </div>
               );
             })}
@@ -1375,7 +1365,7 @@ function DailyChart({
         )}
       </div>
 
-      <div className="mt-3 text-[11px] text-muted-foreground">{context}</div>
+      <div className="mt-3 text-[11px] text-white/60">{context}</div>
     </section>
   );
 }
