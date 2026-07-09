@@ -1,7 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { ChevronLeft, Linkedin, Shield, Scale, Megaphone } from "lucide-react";
+import { Linkedin, Shield, Scale, Megaphone } from "lucide-react";
 import { AppVersionDialog } from "@/components/AppVersionDialog";
+import { PageHeader } from "@/components/brand/brand-ui";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/about")({
@@ -19,18 +20,11 @@ export const Route = createFileRoute("/_authenticated/about")({
 
 function AboutPage() {
   const [showVersionDialog, setShowVersionDialog] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-svh bg-background pb-24">
-      <header className="px-5 pt-6 pb-4 flex items-center gap-2">
-        <Link
-          to="/settings"
-          className="size-9 grid place-items-center rounded-full hover:bg-muted -ml-2"
-        >
-          <ChevronLeft className="size-5" />
-        </Link>
-        <h1 className="text-xl font-semibold">About Earn'O</h1>
-      </header>
+      <PageHeader onBack={() => navigate({ to: "/settings" })} title="About Earn'O" />
 
       <section className="px-5 space-y-5">
         <div className="rounded-2xl border bg-card p-5 space-y-3">

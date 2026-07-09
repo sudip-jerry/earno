@@ -19,7 +19,8 @@ import mascotThinking from "@/assets/earney-thinking.png.asset.json";
 import mascotConfident from "@/assets/earney-confident.png.asset.json";
 import { useCurrency } from "@/hooks/use-currency";
 
-const PRIMARY = "#082567";
+// earn'O brand accent blue (matches the --primary design token).
+const PRIMARY = "#2563EB";
 
 export const Route = createFileRoute("/_authenticated/help")({
   head: () => ({
@@ -88,9 +89,7 @@ export function HelpFlow({
           {STEPS.map((s, i) => (
             <div
               key={s.key}
-              className={`h-1 flex-1 rounded-full transition-all ${
-                i <= step ? "" : "bg-muted"
-              }`}
+              className={`h-1 flex-1 rounded-full transition-all ${i <= step ? "" : "bg-muted"}`}
               style={i <= step ? { backgroundColor: PRIMARY } : undefined}
             />
           ))}
@@ -150,7 +149,6 @@ export function HelpFlow({
   );
 }
 
-
 /* ---------------- Steps ---------------- */
 
 function StepWelcome() {
@@ -159,7 +157,11 @@ function StepWelcome() {
   return (
     <section>
       <div className="flex items-end gap-3">
-        <img src={mascotHappy.url} alt="Earney mascot" className="size-24 -mb-1 shrink-0 drop-shadow" />
+        <img
+          src={mascotHappy.url}
+          alt="Earney mascot"
+          className="size-24 -mb-1 shrink-0 drop-shadow"
+        />
         <div className="pb-1">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
             Hi, I'm Earn'O
@@ -170,11 +172,9 @@ function StepWelcome() {
         </div>
       </div>
       <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-        Your AI market companion. Spot opportunities, understand the why, and
-        grow your portfolio — with paper trading, manual control, or full
-        automation.
+        Your AI market companion. Spot opportunities, understand the why, and grow your portfolio —
+        with paper trading, manual control, or full automation.
       </p>
-
 
       <div className="mt-5 grid grid-cols-3 gap-2">
         <Pillar icon={<Brain className="size-4" />} label="AI insight" />
@@ -198,7 +198,9 @@ function StepWelcome() {
           <div className="min-w-0">
             <p className="text-xs opacity-80">Live demo</p>
             <p className="font-semibold mt-0.5">See your virtual portfolio</p>
-            <p className="text-xs opacity-80 mt-0.5">No setup. Start with {fmtCur(1190)} paper capital.</p>
+            <p className="text-xs opacity-80 mt-0.5">
+              No setup. Start with {fmtCur(1190)} paper capital.
+            </p>
           </div>
           <ArrowRight className="size-5 shrink-0" />
         </div>
@@ -211,7 +213,11 @@ function StepFlow() {
   return (
     <section>
       <div className="flex items-end gap-3">
-        <img src={mascotAnalyzing.url} alt="Earney analyzing" className="size-24 -mb-1 shrink-0 drop-shadow" />
+        <img
+          src={mascotAnalyzing.url}
+          alt="Earney analyzing"
+          className="size-24 -mb-1 shrink-0 drop-shadow"
+        />
         <div className="pb-1">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
             How it works
@@ -222,16 +228,28 @@ function StepFlow() {
         </div>
       </div>
       <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-        Hundreds of markets scanned live, ranked by confidence, every signal
-        explained in plain English.
+        Hundreds of markets scanned live, ranked by confidence, every signal explained in plain
+        English.
       </p>
 
       <DemoLoop />
 
       <div className="mt-5 grid grid-cols-2 gap-2">
-        <MiniStep icon={<Radar className="size-4" />} title="Scan" body="Hundreds of pairs, live." />
-        <MiniStep icon={<Brain className="size-4" />} title="Analyze" body="Confidence + risk scoring." />
-        <MiniStep icon={<MessageSquareText className="size-4" />} title="Explain" body="Plain‑English rationale." />
+        <MiniStep
+          icon={<Radar className="size-4" />}
+          title="Scan"
+          body="Hundreds of pairs, live."
+        />
+        <MiniStep
+          icon={<Brain className="size-4" />}
+          title="Analyze"
+          body="Confidence + risk scoring."
+        />
+        <MiniStep
+          icon={<MessageSquareText className="size-4" />}
+          title="Explain"
+          body="Plain‑English rationale."
+        />
         <MiniStep icon={<Play className="size-4" />} title="Trade" body="Paper, manual or auto." />
       </div>
     </section>
@@ -244,7 +262,11 @@ function StepPaper() {
   return (
     <section>
       <div className="flex items-end gap-3">
-        <img src={mascotThinking.url} alt="Earney thinking" className="size-24 -mb-1 shrink-0 drop-shadow" />
+        <img
+          src={mascotThinking.url}
+          alt="Earney thinking"
+          className="size-24 -mb-1 shrink-0 drop-shadow"
+        />
         <div className="pb-1">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
             Risk free
@@ -255,8 +277,8 @@ function StepPaper() {
         </div>
       </div>
       <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-        Start with virtual capital. No exchange, no API keys, no real money at
-        risk. Same signals, same scores — zero downside.
+        Start with virtual capital. No exchange, no API keys, no real money at risk. Same signals,
+        same scores — zero downside.
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-2">
@@ -275,8 +297,8 @@ function StepPaper() {
       <div className="mt-3 rounded-2xl p-4 bg-primary/5 border border-primary/20">
         <p className="text-xs font-semibold text-primary">Why it matters</p>
         <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-          Conviction beats luck. Paper trade until you trust the signals — then
-          scale up on your own terms.
+          Conviction beats luck. Paper trade until you trust the signals — then scale up on your own
+          terms.
         </p>
       </div>
     </section>
@@ -287,7 +309,11 @@ function StepAutomate() {
   return (
     <section>
       <div className="flex items-end gap-3">
-        <img src={mascotConfident.url} alt="Earney confident" className="size-24 -mb-1 shrink-0 drop-shadow" />
+        <img
+          src={mascotConfident.url}
+          alt="Earney confident"
+          className="size-24 -mb-1 shrink-0 drop-shadow"
+        />
         <div className="pb-1">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
             When you're ready
@@ -298,8 +324,8 @@ function StepAutomate() {
         </div>
       </div>
       <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-        Connect your exchange when you're confident. Earn'O executes with your
-        risk rules, your limits, your control.
+        Connect your exchange when you're confident. Earn'O executes with your risk rules, your
+        limits, your control.
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-2">
@@ -323,7 +349,9 @@ function StepAutomate() {
           <div className="min-w-0">
             <p className="text-xs opacity-80">When ready</p>
             <p className="font-semibold mt-0.5">Connect your exchange</p>
-            <p className="text-xs opacity-80 mt-0.5">Optional. Many traders stay in paper forever — that's fine.</p>
+            <p className="text-xs opacity-80 mt-0.5">
+              Optional. Many traders stay in paper forever — that's fine.
+            </p>
           </div>
           <ArrowRight className="size-5 shrink-0" />
         </div>
@@ -336,13 +364,14 @@ function StatCard({ label, value, tone }: { label: string; value: string; tone?:
   return (
     <div className="rounded-2xl border bg-card p-3">
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-base font-semibold tracking-tight tabular-nums ${tone === "positive" ? "text-emerald-500" : ""}`}>
+      <p
+        className={`mt-1 text-base font-semibold tracking-tight tabular-nums ${tone === "positive" ? "text-emerald-500" : ""}`}
+      >
         {value}
       </p>
     </div>
   );
 }
-
 
 /* ---------------- Pieces ---------------- */
 
@@ -355,15 +384,7 @@ function Pillar({ icon, label }: { icon: React.ReactNode; label: string }) {
   );
 }
 
-function MiniStep({
-  icon,
-  title,
-  body,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  body: string;
-}) {
+function MiniStep({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
     <div className="rounded-xl border bg-card p-3">
       <div className="flex items-center gap-2">
@@ -378,10 +399,7 @@ function MiniStep({
 function Bullet({ children }: { children: React.ReactNode }) {
   return (
     <li className="flex gap-3 items-start">
-      <CheckCircle2
-        className="size-5 shrink-0 mt-0.5"
-        style={{ color: PRIMARY }}
-      />
+      <CheckCircle2 className="size-5 shrink-0 mt-0.5" style={{ color: PRIMARY }} />
       <span className="text-sm text-foreground leading-relaxed">{children}</span>
     </li>
   );
@@ -429,8 +447,7 @@ function DemoLoop() {
     <div
       className="mt-5 rounded-2xl border overflow-hidden relative"
       style={{
-        background:
-          "linear-gradient(160deg, rgba(8,37,103,0.06), rgba(8,37,103,0) 60%)",
+        background: "linear-gradient(160deg, rgba(8,37,103,0.06), rgba(8,37,103,0) 60%)",
       }}
     >
       {/* Status bar */}
@@ -458,7 +475,13 @@ function DemoLoop() {
       <div className="p-4 space-y-2 min-h-[260px]">
         {/* Scan rows */}
         <DemoRow pair="BTCUSDT" side="Long" conf={84} active={phase >= 0} highlight={phase === 0} />
-        <DemoRow pair="ETHUSDT" side="Short" conf={81} active={phase >= 1} highlight={phase === 1} />
+        <DemoRow
+          pair="ETHUSDT"
+          side="Short"
+          conf={81}
+          active={phase >= 1}
+          highlight={phase === 1}
+        />
         <DemoRow pair="SOLUSDT" side="Long" conf={74} active={phase >= 1} muted />
 
         {/* Confidence */}
@@ -488,8 +511,8 @@ function DemoLoop() {
               <MessageSquareText className="size-3.5" /> Rationale
             </div>
             <p className="mt-1.5 text-xs leading-relaxed">
-              Trend aligned across timeframes, momentum confirmed, entry near
-              structure with capped downside.
+              Trend aligned across timeframes, momentum confirmed, entry near structure with capped
+              downside.
             </p>
           </div>
         )}
@@ -506,9 +529,7 @@ function DemoLoop() {
               <p className="text-[11px] text-muted-foreground">BTCUSDT · Long · 84%</p>
             </div>
             <div className="ml-auto text-right">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                P&L
-              </p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">P&L</p>
               <p className="text-sm font-semibold tabular-nums text-emerald-600">
                 {fmtCur(pnl / 84, { signed: true })}
               </p>
@@ -542,9 +563,7 @@ function DemoRow({
         active ? "opacity-100" : "opacity-30"
       } ${muted ? "opacity-60" : ""}`}
       style={
-        highlight
-          ? { borderColor: PRIMARY, boxShadow: "0 0 0 3px rgba(8,37,103,0.08)" }
-          : undefined
+        highlight ? { borderColor: PRIMARY, boxShadow: "0 0 0 3px rgba(8,37,103,0.08)" } : undefined
       }
     >
       <p className="text-xs font-semibold w-20">{pair}</p>
