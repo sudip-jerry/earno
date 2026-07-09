@@ -216,20 +216,20 @@ function PositionsPage() {
         </div>
 
         {tab === "open" ? (
-          <div className="rounded-2xl border bg-card p-4 flex items-center justify-between">
+          <div className="brand-hero rounded-2xl p-4 flex items-center justify-between shadow-md">
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Active PNL</p>
+              <p className="text-[10px] uppercase tracking-wider text-white/60">Active PNL</p>
               <p
                 className={`text-2xl font-semibold tabular-nums mt-0.5 ${
-                  totalPnl >= 0 ? "text-emerald-500" : "text-destructive"
+                  totalPnl >= 0 ? "text-emerald-300" : "text-rose-300"
                 }`}
               >
                 {fmt(totalPnl, { signed: true })}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Open</p>
-              <p className="text-2xl font-semibold tabular-nums mt-0.5">{rows.length}</p>
+              <p className="text-[10px] uppercase tracking-wider text-white/60">Open</p>
+              <p className="text-2xl font-semibold tabular-nums mt-0.5 text-white">{rows.length}</p>
             </div>
           </div>
         ) : (
