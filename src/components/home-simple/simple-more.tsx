@@ -18,6 +18,7 @@ export type SimpleMoreProps = {
   hideBalance: boolean;
   onToggleHideBalance: () => void;
   currentMode: "paper" | "live";
+  onManageMode: () => void;
 };
 
 function LinkRow({
@@ -50,6 +51,7 @@ export function SimpleMore({
   hideBalance,
   onToggleHideBalance,
   currentMode,
+  onManageMode,
 }: SimpleMoreProps) {
   const isLive = currentMode === "live";
   return (
@@ -81,7 +83,7 @@ export function SimpleMore({
           <section className="rounded-2xl border bg-card shadow-sm divide-y overflow-hidden">
             <button
               type="button"
-              onClick={onSwitchToPro}
+              onClick={onManageMode}
               className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted/40 transition"
             >
               <span
@@ -93,8 +95,8 @@ export function SimpleMore({
                 <div className="text-[13px] font-medium">Trading mode</div>
                 <div className="text-[11px] text-muted-foreground">
                   {isLive
-                    ? "Live — trading with real money"
-                    : "Practice — simulated money. Switch to live in Pro."}
+                    ? "Live — trading with real money. Tap to manage."
+                    : "Practice — simulated money. Tap to go live."}
                 </div>
               </div>
               <span

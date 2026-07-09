@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { ChevronRight, Settings as Cog, FlaskConical, Info } from "lucide-react";
+import { ChevronRight, Settings as Cog, FlaskConical, Info, BadgeCheck } from "lucide-react";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
 import earneyWave from "@/assets/earney-wave.png.asset.json";
 import { RecentActivityFeed } from "@/components/recent-activity";
@@ -26,6 +26,7 @@ export type SimpleViewProps = {
   coinTodayPnl: number;
   openCount: number;
   coinHoldingCount: number;
+  onManageMode: () => void;
 };
 
 function IconBtn({
@@ -66,6 +67,7 @@ export function SimpleView(props: SimpleViewProps) {
     coinTodayPnl,
     openCount,
     coinHoldingCount,
+    onManageMode,
   } = props;
   const navigate = useNavigate();
   const { setMarket } = useMarketMode();
@@ -147,12 +149,20 @@ export function SimpleView(props: SimpleViewProps) {
               <p className="mt-0.5 text-[19px] font-semibold text-foreground">
                 {derived.firstName}
               </p>
-              {currentMode === "paper" && (
-                <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 px-2.5 h-6 text-[11px] font-medium">
+              <button
+                type="button"
+                onClick={onManageMode}
+                className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 h-6 text-[11px] font-medium transition ${currentMode === "live" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15" : "bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/15"}`}
+              >
+                {currentMode === "live" ? (
+                  <BadgeCheck className="size-3" />
+                ) : (
                   <FlaskConical className="size-3" />
-                  Practice mode — using simulated trades
-                </span>
-              )}
+                )}
+                {currentMode === "live"
+                  ? "Live — real money · manage"
+                  : "Practice mode · tap to go live"}
+              </button>
             </div>
             <img
               src={earneyWave.url}
