@@ -70,6 +70,7 @@ import { SimpleView } from "@/components/home-simple/simple-view";
 import { SimpleEarnings } from "@/components/home-simple/simple-earnings";
 import { SimpleTrades } from "@/components/home-simple/simple-trades";
 import { SimpleMore } from "@/components/home-simple/simple-more";
+import { SimpleGoLive } from "@/components/home-simple/simple-go-live";
 import { SimpleTabBar, type SimpleTab } from "@/components/home-simple/simple-tab-bar";
 
 const HOME_VIEW_MODE_KEY = "earno_home_view_mode_v2";
@@ -139,6 +140,7 @@ function Home() {
     try { window.localStorage.setItem(HOME_VIEW_MODE_KEY, viewMode); } catch {}
   }, [viewMode]);
   const [simpleTab, setSimpleTab] = useState<SimpleTab>("home");
+  const [goLiveOpen, setGoLiveOpen] = useState(false);
 
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
@@ -323,6 +325,7 @@ function Home() {
               coinTodayPnl={coinTodayPnl}
               openCount={openCount}
               coinHoldingCount={coinHoldingCount}
+              onManageMode={() => setGoLiveOpen(true)}
             />
           )}
           {simpleTab === "earnings" && (
@@ -348,9 +351,27 @@ function Home() {
               hideBalance={hideBalance}
               onToggleHideBalance={() => setHideBalance((v) => !v)}
               currentMode={currentMode}
+              onManageMode={() => setGoLiveOpen(true)}
             />
           )}
           <SimpleTabBar active={simpleTab} onNavigate={setSimpleTab} />
+          <SimpleGoLive
+            open={goLiveOpen}
+            onOpenChange={setGoLiveOpen}
+            isLive={isLive}
+            needsUpgrade={tier !== "auto5" && tier !== "unlimited"}
+            pending={toggleMode.isPending}
+            onGoLive={() =>
+              toggleMode.mutate(true, { onSuccess: () => setGoLiveOpen(false) })
+            }
+            onBackToPaper={() =>
+              toggleMode.mutate(false, { onSuccess: () => setGoLiveOpen(false) })
+            }
+            onUpgrade={() => {
+              setGoLiveOpen(false);
+              navigate({ to: "/upgrade" });
+            }}
+          />
         </>
       );
     }
