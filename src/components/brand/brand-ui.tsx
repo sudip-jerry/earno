@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import earneyWave from "@/assets/earney-wave.png.asset.json";
 import earneyHappy from "@/assets/earney-happy.png.asset.json";
 import earneyThinking from "@/assets/earney-thinking.png.asset.json";
@@ -91,6 +93,33 @@ export function PageHeader({
       </div>
       {actions && <div className="flex items-center gap-1 shrink-0">{actions}</div>}
     </header>
+  );
+}
+
+/**
+ * Single, consistent PAPER / LIVE indicator for the app's trading mode.
+ * Reads the shared bot_config cache so every screen shows it identically.
+ */
+export function ModePill({ className = "" }: { className?: string }) {
+  const { data } = useQuery({
+    queryKey: ["bot_config"],
+    queryFn: async () => {
+      const { data } = await supabase.from("bot_config").select("mode").maybeSingle();
+      return data as { mode?: string } | null;
+    },
+    staleTime: 15_000,
+  });
+  const isLive = data?.mode === "live";
+  return (
+    <span
+      className={`text-[10px] font-semibold tracking-wider px-2 h-5 inline-flex items-center rounded-full ${
+        isLive
+          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+          : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+      } ${className}`}
+    >
+      {isLive ? "LIVE" : "PAPER"}
+    </span>
   );
 }
 

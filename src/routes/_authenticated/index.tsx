@@ -72,6 +72,7 @@ import { SimpleTrades } from "@/components/home-simple/simple-trades";
 import { SimpleMore } from "@/components/home-simple/simple-more";
 import { SimpleGoLive } from "@/components/home-simple/simple-go-live";
 import { SimpleTabBar, type SimpleTab } from "@/components/home-simple/simple-tab-bar";
+import { ModePill } from "@/components/brand/brand-ui";
 
 const HOME_VIEW_MODE_KEY = "earno_home_view_mode_v2";
 
@@ -137,11 +138,12 @@ function Home() {
     return v === "detail" ? "detail" : "simple";
   });
   useEffect(() => {
-    try { window.localStorage.setItem(HOME_VIEW_MODE_KEY, viewMode); } catch {}
+    try {
+      window.localStorage.setItem(HOME_VIEW_MODE_KEY, viewMode);
+    } catch {}
   }, [viewMode]);
   const [simpleTab, setSimpleTab] = useState<SimpleTab>("home");
   const [goLiveOpen, setGoLiveOpen] = useState(false);
-
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
 
@@ -279,13 +281,17 @@ function Home() {
   }, [isRunning, s, openCount]);
 
   if (market === "all") {
-    const coinSummary = (coinHoldings.data as {
-      summary?: {
-        current_value_usdt?: number;
-        unrealized_pnl_usdt?: number;
-        active_holdings?: number;
-      };
-    } | undefined)?.summary;
+    const coinSummary = (
+      coinHoldings.data as
+        | {
+            summary?: {
+              current_value_usdt?: number;
+              unrealized_pnl_usdt?: number;
+              active_holdings?: number;
+            };
+          }
+        | undefined
+    )?.summary;
     const futuresValue = Number(s?.portfolioValue ?? c?.paper_equity ?? 0);
     const coinEquity =
       Number(coinPortfolio.data?.available_cash_usdt ?? 0) +
@@ -296,7 +302,9 @@ function Home() {
       Number(coinPortfolio.data?.realized_today_usdt ?? 0) +
       Number(coinSummary?.unrealized_pnl_usdt ?? 0);
     const totalTodayPnl = futuresTodayPnl + coinTodayPnl;
-    const coinHoldingCount = Number(coinSummary?.active_holdings ?? coinPortfolio.data?.active_holdings ?? 0);
+    const coinHoldingCount = Number(
+      coinSummary?.active_holdings ?? coinPortfolio.data?.active_holdings ?? 0,
+    );
 
     // Invested (cost basis) and profit-till-date, kept consistent with totalValue:
     // totalReturns = current value − what was put in, so Invested + Returns = Current.
@@ -342,9 +350,7 @@ function Home() {
               coinInvested={coinInvested}
             />
           )}
-          {simpleTab === "trades" && (
-            <SimpleTrades fmt={fmt} hideBalance={hideBalance} />
-          )}
+          {simpleTab === "trades" && <SimpleTrades fmt={fmt} hideBalance={hideBalance} />}
           {simpleTab === "more" && (
             <SimpleMore
               onSwitchToPro={() => setViewMode("detail")}
@@ -361,9 +367,7 @@ function Home() {
             isLive={isLive}
             needsUpgrade={tier !== "auto5" && tier !== "unlimited"}
             pending={toggleMode.isPending}
-            onGoLive={() =>
-              toggleMode.mutate(true, { onSuccess: () => setGoLiveOpen(false) })
-            }
+            onGoLive={() => toggleMode.mutate(true, { onSuccess: () => setGoLiveOpen(false) })}
             onBackToPaper={() =>
               toggleMode.mutate(false, { onSuccess: () => setGoLiveOpen(false) })
             }
@@ -376,9 +380,6 @@ function Home() {
       );
     }
 
-
-
-
     return (
       <div className="min-h-svh bg-background pb-28">
         <header className="px-5 pt-5">
@@ -389,7 +390,12 @@ function Home() {
               aria-label="About earn'O"
               className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <img src={earnoStacked.url} alt="earn'O" className="h-11 w-auto select-none" draggable={false} />
+              <img
+                src={earnoStacked.url}
+                alt="earn'O"
+                className="h-11 w-auto select-none"
+                draggable={false}
+              />
             </button>
             <div className="ml-auto flex items-center gap-2">
               <MarketTogglePill />
@@ -412,27 +418,37 @@ function Home() {
           </button>
         </header>
 
-
         {/* Mode banner */}
         <div className="px-5 mt-4">
           <button
             type="button"
-            onClick={() => { if (isLive) toggleMode.mutate(false); else setConfirmLive(true); }}
+            onClick={() => {
+              if (isLive) toggleMode.mutate(false);
+              else setConfirmLive(true);
+            }}
             className={`w-full text-left flex items-center gap-3 rounded-2xl border px-4 py-3 transition ${isLive ? "border-destructive/30 bg-destructive/5 hover:bg-destructive/10" : "border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/15"}`}
             aria-label="Toggle paper or live trading"
           >
-            <span className={`inline-flex items-center justify-center size-9 rounded-full shrink-0 ${isLive ? "bg-destructive/15 text-destructive" : "bg-amber-500/20 text-amber-600 dark:text-amber-400"}`}>
+            <span
+              className={`inline-flex items-center justify-center size-9 rounded-full shrink-0 ${isLive ? "bg-destructive/15 text-destructive" : "bg-amber-500/20 text-amber-600 dark:text-amber-400"}`}
+            >
               {isLive ? <BadgeCheck className="size-4" /> : <FlaskConical className="size-4" />}
             </span>
             <div className="min-w-0 flex-1">
-              <p className={`text-[13px] font-semibold leading-tight ${isLive ? "text-destructive" : "text-amber-700 dark:text-amber-300"}`}>
+              <p
+                className={`text-[13px] font-semibold leading-tight ${isLive ? "text-destructive" : "text-amber-700 dark:text-amber-300"}`}
+              >
                 {isLive ? "LIVE trading active" : "PAPER — practice mode"}
               </p>
               <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-                {isLive ? "Real funds are at risk. Tap to switch back to Paper." : "All numbers reflect simulated trading. Tap to go Live."}
+                {isLive
+                  ? "Real funds are at risk. Tap to switch back to Paper."
+                  : "All numbers reflect simulated trading. Tap to go Live."}
               </p>
             </div>
-            <span className={`text-[10px] font-semibold tracking-wider px-2 h-6 inline-flex items-center rounded-full ${isLive ? "bg-destructive text-destructive-foreground" : "bg-amber-500 text-white"}`}>
+            <span
+              className={`text-[10px] font-semibold tracking-wider px-2 h-6 inline-flex items-center rounded-full ${isLive ? "bg-destructive text-destructive-foreground" : "bg-amber-500 text-white"}`}
+            >
               {isLive ? "LIVE" : "PAPER"}
             </span>
           </button>
@@ -441,10 +457,16 @@ function Home() {
         {/* Aggregate hero — signature earn'O brand-hero surface */}
         <div className="px-5 mt-3">
           <section className="brand-hero rounded-2xl px-5 py-4 shadow-md">
-            <div className="text-[11px] uppercase tracking-wider text-white/60">Your money · all</div>
+            <div className="text-[11px] uppercase tracking-wider text-white/60">
+              Your money · all
+            </div>
             <div className="mt-1 flex items-baseline gap-2 flex-wrap">
-              <div className="text-3xl font-semibold tabular-nums text-white">{fmt(totalValue)}</div>
-              <div className={`text-[13px] font-medium tabular-nums ${totalTodayPnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+              <div className="text-3xl font-semibold tabular-nums text-white">
+                {fmt(totalValue)}
+              </div>
+              <div
+                className={`text-[13px] font-medium tabular-nums ${totalTodayPnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}
+              >
                 {fmt(totalTodayPnl, { signed: true })} today
               </div>
             </div>
@@ -457,7 +479,9 @@ function Home() {
             <div className="divide-y divide-border">
               <button
                 type="button"
-                onClick={() => { setMarket("futures"); }}
+                onClick={() => {
+                  setMarket("futures");
+                }}
                 className="w-full flex items-center justify-between px-4 py-3 bg-background/60 hover:bg-muted/40 transition text-left"
               >
                 <div className="flex items-center gap-2">
@@ -466,14 +490,18 @@ function Home() {
                 </div>
                 <div className="text-right">
                   <div className="text-[13px] font-semibold tabular-nums">{fmt(futuresValue)}</div>
-                  <div className={`text-[11px] tabular-nums ${futuresTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                  <div
+                    className={`text-[11px] tabular-nums ${futuresTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                  >
                     {fmt(futuresTodayPnl, { signed: true })} today
                   </div>
                 </div>
               </button>
               <button
                 type="button"
-                onClick={() => { setMarket("spot"); }}
+                onClick={() => {
+                  setMarket("spot");
+                }}
                 className="w-full flex items-center justify-between px-4 py-3 bg-background/60 hover:bg-muted/40 transition text-left"
               >
                 <div className="flex items-center gap-2">
@@ -482,13 +510,17 @@ function Home() {
                 </div>
                 <div className="text-right">
                   <div className="text-[13px] font-semibold tabular-nums">{fmt(coinEquity)}</div>
-                  <div className={`text-[11px] tabular-nums ${coinTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                  <div
+                    className={`text-[11px] tabular-nums ${coinTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                  >
                     {fmt(coinTodayPnl, { signed: true })} today
                   </div>
                 </div>
               </button>
             </div>
-            <p className="px-4 py-2.5 text-[10.5px] text-muted-foreground">Tap a row to see that view in detail.</p>
+            <p className="px-4 py-2.5 text-[10.5px] text-muted-foreground">
+              Tap a row to see that view in detail.
+            </p>
           </section>
         </div>
 
@@ -502,12 +534,13 @@ function Home() {
               <p className="text-[13px] font-semibold">Wealth Engine · {statusLabel}</p>
               <p className="text-[11px] text-muted-foreground">{reason}</p>
             </div>
-            <span className={`text-[9.5px] font-semibold tracking-wider px-2 h-5 inline-flex items-center rounded-full ${statusLabel === "Running" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+            <span
+              className={`text-[9.5px] font-semibold tracking-wider px-2 h-5 inline-flex items-center rounded-full ${statusLabel === "Running" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
+            >
               {statusLabel}
             </span>
           </div>
         </div>
-
 
         {/* Recent activity */}
         <div className="mt-6">
@@ -523,12 +556,18 @@ function Home() {
                 <AlertTriangle className="size-5 text-destructive" /> Switch to Live trading?
               </AlertDialogTitle>
               <AlertDialogDescription>
-                Real orders will be placed on CoinDCX using your funds. Your daily-loss cap is {Number(c?.daily_loss_cap_pct ?? 6)}%. You can switch back to Paper anytime.
+                Real orders will be placed on CoinDCX using your funds. Your daily-loss cap is{" "}
+                {Number(c?.daily_loss_cap_pct ?? 6)}%. You can switch back to Paper anytime.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Stay on Paper</AlertDialogCancel>
-              <AlertDialogAction onClick={() => toggleMode.mutate(true)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Go Live</AlertDialogAction>
+              <AlertDialogAction
+                onClick={() => toggleMode.mutate(true)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Go Live
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -540,12 +579,18 @@ function Home() {
                 <AlertTriangle className="size-5 text-destructive" /> Emergency Stop
               </AlertDialogTitle>
               <AlertDialogDescription>
-                This will immediately halt the bot and force-close every open position at market price. This action cannot be undone.
+                This will immediately halt the bot and force-close every open position at market
+                price. This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => kill.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Stop &amp; close all</AlertDialogAction>
+              <AlertDialogAction
+                onClick={() => kill.mutate()}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Stop &amp; close all
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -571,7 +616,8 @@ function Home() {
                 draggable={false}
               />
             </button>
-            <div className="ml-auto flex items-center gap-1">
+            <div className="ml-auto flex items-center gap-1.5">
+              <ModePill />
               <MarketTogglePill />
               <IconBtn ariaLabel="Settings" onClick={() => navigate({ to: "/settings" })}>
                 <Cog className="size-4" />
@@ -579,7 +625,7 @@ function Home() {
             </div>
           </div>
           <p className="mt-3 text-[11px] text-muted-foreground">
-            Coin paper bot · live CoinDCX market data · no real orders
+            Live CoinDCX prices · practice trades, no real orders
           </p>
         </header>
         <div className="px-5 mt-4 space-y-4">
@@ -595,7 +641,7 @@ function Home() {
                 See all →
               </Link>
             </div>
-            <CoinSignalsList hideHeader limit={5} />
+            <CoinSignalsList hideHeader limit={5} actionableOnly />
           </section>
           <section>
             <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">
@@ -790,7 +836,9 @@ function Home() {
           portfolioValue={Number(s?.portfolioValue ?? c?.paper_equity ?? 0)}
           todayPnl={Number(s?.todayPnl ?? 0)}
           totalPnl={Number(s?.realizedPnlAllTime ?? 0)}
-          totalPnlPct={s?.baselineEquity ? (Number(s.realizedPnlAllTime ?? 0) / s.baselineEquity) * 100 : 0}
+          totalPnlPct={
+            s?.baselineEquity ? (Number(s.realizedPnlAllTime ?? 0) / s.baselineEquity) * 100 : 0
+          }
           weekChangeAbs={Number(s?.weekChangeAbs ?? 0)}
           dailyPnl={s?.dailyPnl ?? []}
           hideBalance={hideBalance}
@@ -798,7 +846,6 @@ function Home() {
           fmt={fmt}
         />
       </div>
-
 
       {tier === "free" && (
         <Link
@@ -818,7 +865,6 @@ function Home() {
 
       {/* ===== Personalized recommendations (RAG) ===== */}
       <RecommendationsPanel />
-
 
       {/* ===== Wealth Engine status ===== */}
       <section className="px-5 mt-5">
@@ -871,7 +917,6 @@ function Home() {
           >
             Full risk details →
           </button>
-
         </div>
       </section>
 
@@ -1027,8 +1072,7 @@ function PerformanceStrip({
   s: StatsExtras | undefined;
   fmt: (n: number | null | undefined, opts?: { signed?: boolean }) => string;
 }) {
-  const netValue =
-    s?.weeklyNetPnl ?? s?.totalNetPnl ?? s?.weekChangeAbs;
+  const netValue = s?.weeklyNetPnl ?? s?.totalNetPnl ?? s?.weekChangeAbs;
   const netLabel =
     s?.weeklyNetPnl != null ? "Net PnL" : s?.totalNetPnl != null ? "All time net" : "Net PnL";
 
@@ -1045,21 +1089,29 @@ function PerformanceStrip({
     <section className="px-5 mt-3">
       <div className="grid grid-cols-4 gap-2 rounded-2xl border bg-card px-4 py-3">
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">{netLabel}</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
+            {netLabel}
+          </p>
           <p className="mt-0.5 text-[13px] font-semibold tabular-nums truncate">
             {netValue == null ? "—" : fmt(netValue, { signed: true })}
           </p>
         </div>
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">Win rate</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
+            Win rate
+          </p>
           <p className="mt-0.5 text-[13px] font-semibold tabular-nums truncate">
             {winRate == null ? (
               <span className="text-[11px] text-muted-foreground font-normal">Not yet</span>
-            ) : `${(winRate * 100).toFixed(0)}%`}
+            ) : (
+              `${(winRate * 100).toFixed(0)}%`
+            )}
           </p>
         </div>
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">Profit factor</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
+            Profit factor
+          </p>
           <p
             className={`mt-0.5 text-[13px] font-semibold tabular-nums truncate ${
               pf == null
@@ -1071,11 +1123,15 @@ function PerformanceStrip({
           >
             {pf == null ? (
               <span className="text-[11px] text-muted-foreground font-normal">Not yet</span>
-            ) : pf.toFixed(2)}
+            ) : (
+              pf.toFixed(2)
+            )}
           </p>
         </div>
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">Trading fees</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
+            Trading fees
+          </p>
           <p className="mt-0.5 text-[13px] font-semibold tabular-nums truncate text-foreground">
             {fees == null ? "—" : fmt(Math.abs(fees))}
           </p>
@@ -1247,7 +1303,6 @@ function MarketTogglePill() {
   );
 }
 
-
 function DailyChart({
   portfolioValue,
   todayPnl,
@@ -1289,9 +1344,7 @@ function DailyChart({
     <section className="brand-hero rounded-2xl px-5 py-4 shadow-md">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <div className="text-[11px] uppercase tracking-wider text-white/60">
-            Portfolio value
-          </div>
+          <div className="text-[11px] uppercase tracking-wider text-white/60">Portfolio value</div>
           <div className="mt-1 flex items-baseline gap-2 flex-wrap">
             <div className="text-3xl font-semibold tabular-nums text-white">
               {hideBalance ? "••••••" : fmt(portfolioValue)}
