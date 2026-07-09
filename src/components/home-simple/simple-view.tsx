@@ -2,11 +2,11 @@ import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { ChevronRight, Settings as Cog, FlaskConical, Info } from "lucide-react";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
+import earneyWave from "@/assets/earney-wave.png.asset.json";
 import { RecentActivity } from "@/components/recent-activity";
 import { useMarketMode } from "@/hooks/use-market-mode";
 import type { useCurrency } from "@/hooks/use-currency";
 import { SimpleMarketTabs } from "./simple-market-tabs";
-import { SimpleTabBar } from "./simple-tab-bar";
 
 type Fmt = ReturnType<typeof useCurrency>["fmt"];
 type ActivityItems = React.ComponentProps<typeof RecentActivity>["items"];
@@ -28,7 +28,6 @@ export type SimpleViewProps = {
   openCount: number;
   coinHoldingCount: number;
   recentActivity: ActivityItems;
-  onDetails: () => void;
 };
 
 function IconBtn({
@@ -70,7 +69,6 @@ export function SimpleView(props: SimpleViewProps) {
     openCount,
     coinHoldingCount,
     recentActivity,
-    onDetails,
   } = props;
   const navigate = useNavigate();
   const { setMarket } = useMarketMode();
@@ -139,29 +137,39 @@ export function SimpleView(props: SimpleViewProps) {
               </IconBtn>
             </div>
           </div>
-          <p className="mt-5 text-[11px] uppercase tracking-wider text-muted-foreground">
-            {derived.greeting}
-          </p>
-          <p className="mt-0.5 text-[19px] font-semibold text-foreground">
-            {derived.firstName}
-          </p>
-          {currentMode === "paper" && (
-            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 px-2.5 h-6 text-[11px] font-medium">
-              <FlaskConical className="size-3" />
-              Practice mode — using simulated trades
-            </span>
-          )}
+          <div className="mt-5 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                {derived.greeting}
+              </p>
+              <p className="mt-0.5 text-[19px] font-semibold text-foreground">
+                {derived.firstName}
+              </p>
+              {currentMode === "paper" && (
+                <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 px-2.5 h-6 text-[11px] font-medium">
+                  <FlaskConical className="size-3" />
+                  Practice mode — using simulated trades
+                </span>
+              )}
+            </div>
+            <img
+              src={earneyWave.url}
+              alt="Earney, your earn'O assistant, waving"
+              className="h-16 w-16 shrink-0 select-none -mb-1 drop-shadow-sm"
+              draggable={false}
+            />
+          </div>
         </header>
 
 
         <div className="px-5 mt-4">
-          <section className="rounded-2xl border border-t-2 border-t-primary bg-card px-5 py-4 shadow-sm">
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Your total balance</div>
-            <div className="mt-1 text-3xl font-semibold tabular-nums">
+          <section className="brand-hero rounded-2xl px-5 py-4 shadow-md">
+            <div className="text-[11px] uppercase tracking-wider text-white/60">Your total balance</div>
+            <div className="mt-1 text-3xl font-semibold tabular-nums text-white">
               {hideBalance ? "••••••" : fmt(totalValue)}
             </div>
             <div
-              className={`mt-1 inline-flex items-center gap-1 text-[13px] font-semibold tabular-nums ${derived.totalPos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+              className={`mt-1 inline-flex items-center gap-1 text-[13px] font-semibold tabular-nums ${derived.totalPos ? "text-emerald-300" : "text-rose-300"}`}
             >
               <span aria-hidden="true">{derived.totalPos ? "↗" : "↘"}</span>
               <span>
@@ -169,19 +177,19 @@ export function SimpleView(props: SimpleViewProps) {
                 {derived.dayPct.toFixed(2)}%) today
               </span>
             </div>
-            <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
+            <p className="mt-2 text-[12.5px] leading-relaxed text-white/70">
               {derived.movementLine}
             </p>
 
-            <div className="mt-4 border-t pt-4">
+            <div className="mt-4 border-t border-white/15 pt-4">
               <div
-                className="flex h-2.5 overflow-hidden rounded-full bg-muted"
+                className="flex h-2.5 overflow-hidden rounded-full bg-white/15"
                 aria-label="Today's gained and lost split"
               >
-                <div className="bg-emerald-500" style={{ width: `${derived.gainedShare}%` }} />
-                <div className="flex-1 bg-rose-500" />
+                <div className="bg-emerald-400" style={{ width: `${derived.gainedShare}%` }} />
+                <div className="flex-1 bg-rose-400" />
               </div>
-              <div className="mt-3 flex items-center justify-between gap-4 text-[11px] text-muted-foreground">
+              <div className="mt-3 flex items-center justify-between gap-4 text-[11px] text-white/60">
                 <span>Gained {fmt(derived.todayGained)} today</span>
                 <span>Lost {fmt(derived.todayLost)} today</span>
               </div>
@@ -296,8 +304,6 @@ export function SimpleView(props: SimpleViewProps) {
           <RecentActivity items={recentActivity} />
         </div>
       </div>
-
-      <SimpleTabBar onDetails={onDetails} />
     </div>
   );
 }

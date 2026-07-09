@@ -67,6 +67,10 @@ import { CoinRecentActivity } from "@/components/coin-bot/coin-recent-activity";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
 import { getCoinPortfolio, getCoinHoldings } from "@/lib/coin-bot/coin-bot.functions";
 import { SimpleView } from "@/components/home-simple/simple-view";
+import { SimpleEarnings } from "@/components/home-simple/simple-earnings";
+import { SimpleTrades } from "@/components/home-simple/simple-trades";
+import { SimpleMore } from "@/components/home-simple/simple-more";
+import { SimpleTabBar, type SimpleTab } from "@/components/home-simple/simple-tab-bar";
 
 const HOME_VIEW_MODE_KEY = "earno_home_view_mode_v2";
 
@@ -134,6 +138,7 @@ function Home() {
   useEffect(() => {
     try { window.localStorage.setItem(HOME_VIEW_MODE_KEY, viewMode); } catch {}
   }, [viewMode]);
+  const [simpleTab, setSimpleTab] = useState<SimpleTab>("home");
 
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
@@ -300,25 +305,57 @@ function Home() {
 
     if (viewMode === "simple") {
       return (
-        <SimpleView
-          fmt={fmt}
-          hideBalance={hideBalance}
-          currentMode={currentMode}
-          displayName={profile.data?.displayName}
-          email={profile.data?.email}
-          totalValue={totalValue}
-          totalInvested={totalInvested}
-          totalReturns={totalReturns}
-          totalTodayPnl={totalTodayPnl}
-          futuresValue={futuresValue}
-          futuresTodayPnl={futuresTodayPnl}
-          coinEquity={coinEquity}
-          coinTodayPnl={coinTodayPnl}
-          openCount={openCount}
-          coinHoldingCount={coinHoldingCount}
-          recentActivity={s?.recentActivity ?? []}
-          onDetails={() => setViewMode("detail")}
-        />
+        <>
+          {simpleTab === "home" && (
+            <SimpleView
+              fmt={fmt}
+              hideBalance={hideBalance}
+              currentMode={currentMode}
+              displayName={profile.data?.displayName}
+              email={profile.data?.email}
+              totalValue={totalValue}
+              totalInvested={totalInvested}
+              totalReturns={totalReturns}
+              totalTodayPnl={totalTodayPnl}
+              futuresValue={futuresValue}
+              futuresTodayPnl={futuresTodayPnl}
+              coinEquity={coinEquity}
+              coinTodayPnl={coinTodayPnl}
+              openCount={openCount}
+              coinHoldingCount={coinHoldingCount}
+              recentActivity={s?.recentActivity ?? []}
+            />
+          )}
+          {simpleTab === "earnings" && (
+            <SimpleEarnings
+              fmt={fmt}
+              hideBalance={hideBalance}
+              totalTodayPnl={totalTodayPnl}
+              totalValue={totalValue}
+              totalInvested={totalInvested}
+              totalReturns={totalReturns}
+              futuresValue={futuresValue}
+              futuresInvested={futuresInvested}
+              coinEquity={coinEquity}
+              coinInvested={coinInvested}
+            />
+          )}
+          {simpleTab === "trades" && (
+            <SimpleTrades
+              fmt={fmt}
+              hideBalance={hideBalance}
+              recentActivity={s?.recentActivity ?? []}
+            />
+          )}
+          {simpleTab === "more" && (
+            <SimpleMore
+              onSwitchToPro={() => setViewMode("detail")}
+              hideBalance={hideBalance}
+              onToggleHideBalance={() => setHideBalance((v) => !v)}
+            />
+          )}
+          <SimpleTabBar active={simpleTab} onNavigate={setSimpleTab} />
+        </>
       );
     }
 

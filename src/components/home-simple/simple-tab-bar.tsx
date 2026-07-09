@@ -1,27 +1,42 @@
-import { Link } from "@tanstack/react-router";
-import { Home as HomeIcon, LineChart, Settings as Cog } from "lucide-react";
+import { Home as HomeIcon, TrendingUp, Receipt, MoreHorizontal } from "lucide-react";
 
-export function SimpleTabBar({ onDetails }: { onDetails: () => void }) {
+export type SimpleTab = "home" | "earnings" | "trades" | "more";
+
+const ITEMS: { k: SimpleTab; label: string; Icon: typeof HomeIcon }[] = [
+  { k: "home", label: "Home", Icon: HomeIcon },
+  { k: "earnings", label: "Earnings", Icon: TrendingUp },
+  { k: "trades", label: "Trades", Icon: Receipt },
+  { k: "more", label: "More", Icon: MoreHorizontal },
+];
+
+export function SimpleTabBar({
+  active,
+  onNavigate,
+}: {
+  active: SimpleTab;
+  onNavigate: (t: SimpleTab) => void;
+}) {
   return (
-    <nav aria-label="Simple primary" className="fixed bottom-4 inset-x-0 z-40 pointer-events-none px-6">
-      <div className="mx-auto grid h-14 max-w-[300px] grid-cols-3 rounded-full border bg-card/95 shadow-lg backdrop-blur pointer-events-auto">
-        <Link to="/" className="flex flex-col items-center justify-center gap-1 text-primary">
-          <HomeIcon className="size-[18px]" />
-          <span className="text-[10.5px] font-medium leading-none">Home</span>
-        </Link>
-        <button
-          type="button"
-          onClick={onDetails}
-          className="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground transition"
-          aria-label="Open detailed view"
-        >
-          <LineChart className="size-[18px]" />
-          <span className="text-[10.5px] font-medium leading-none">Details</span>
-        </button>
-        <Link to="/settings" className="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground transition">
-          <Cog className="size-[18px]" />
-          <span className="text-[10.5px] font-medium leading-none">Settings</span>
-        </Link>
+    <nav
+      aria-label="Simple primary"
+      className="fixed bottom-4 inset-x-0 z-40 pointer-events-none px-6"
+    >
+      <div className="mx-auto grid h-14 max-w-[340px] grid-cols-4 rounded-full border bg-card/95 shadow-lg backdrop-blur pointer-events-auto">
+        {ITEMS.map(({ k, label, Icon }) => {
+          const on = active === k;
+          return (
+            <button
+              key={k}
+              type="button"
+              onClick={() => onNavigate(k)}
+              aria-current={on ? "page" : undefined}
+              className={`flex flex-col items-center justify-center gap-1 transition ${on ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Icon className="size-[18px]" />
+              <span className="text-[10.5px] font-medium leading-none">{label}</span>
+            </button>
+          );
+        })}
       </div>
     </nav>
   );
