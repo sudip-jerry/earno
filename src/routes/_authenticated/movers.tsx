@@ -9,7 +9,8 @@ import { PageHeader, BrandEmptyState, ModePill } from "@/components/brand/brand-
 import { CoinSignalsList } from "@/components/coin-bot/coin-panels";
 import { CoinHero } from "@/components/coin-bot/coin-hero";
 import { useMarketMode } from "@/hooks/use-market-mode";
-import { useFirstSeen } from "@/hooks/use-first-seen";
+import { getSignalAges } from "@/lib/signal-age.functions";
+import { timeAgo } from "@/lib/time-ago";
 import { toast } from "sonner";
 import { Flame, RefreshCw, HelpCircle } from "lucide-react";
 import { useState } from "react";
@@ -78,10 +79,14 @@ function MoversPage() {
   const movers: Mover[] = q.data?.ok ? q.data.movers : [];
   const riskMeta = (q.data?.ok ? q.data.risk : null) ?? DEFAULT_RISK_META;
   const errorMsg = q.data && !q.data.ok ? q.data.error : null;
-  const firstSeen = useFirstSeen(
-    movers.map((m) => m.symbol),
-    "movers",
-  );
+  const agesFn = useServerFn(getSignalAges);
+  const agesQ = useQuery({
+    queryKey: ["signal_ages"],
+    queryFn: () => agesFn(),
+    refetchInterval: 60_000,
+  });
+  const ages = agesQ.data?.ages ?? {};
+  const lastScanAt = agesQ.data?.lastScanAt ?? null;
 
   // Coins are spot-only — never show Long/Short here. Show the top actionable
   // coin opportunities instead, matching the Coin Scanner.
@@ -130,6 +135,12 @@ function MoversPage() {
         }
       />
 
+      <div className="px-5 mt-1 text-[11px] text-muted-foreground">
+        {lastScanAt
+          ? `Last bot scan: ${timeAgo(lastScanAt)} · times show how long each pair has held its direction`
+          : "No bot scan in the last 4h — manual view (times shown as “manual”)"}
+      </div>
+
       {errorMsg ? (
         <div className="mx-5 mt-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
           {errorMsg}
@@ -151,7 +162,7 @@ function MoversPage() {
                 mover={m}
                 riskMeta={riskMeta}
                 booking={booking}
-                asOf={firstSeen[m.symbol] ?? null}
+                asOf={ages[m.symbol] ?? "manual"}
                 onBook={(s, ov) => book.mutate({ m, side: s, tpPct: ov.tpPct, slPct: ov.slPct })}
               />
             </li>

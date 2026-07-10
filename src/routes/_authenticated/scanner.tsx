@@ -9,7 +9,8 @@ import { OpportunityCard } from "@/components/opportunity-card";
 import { BrandEmptyState } from "@/components/brand/brand-ui";
 import { useStrictness } from "@/hooks/use-strictness";
 import { useMarketMode } from "@/hooks/use-market-mode";
-import { useFirstSeen } from "@/hooks/use-first-seen";
+import { getSignalAges } from "@/lib/signal-age.functions";
+import { timeAgo } from "@/lib/time-ago";
 import { CoinSignalsList } from "@/components/coin-bot/coin-panels";
 import { CoinHero } from "@/components/coin-bot/coin-hero";
 import { CoinKpiStrip } from "@/components/coin-bot/coin-kpi-strip";
@@ -97,10 +98,15 @@ function ScannerPage() {
   }, [all, tradableOnly, action, minConfidence]);
 
   const errorMsg = q.data && !q.data.ok ? q.data.error : null;
-  const firstSeen = useFirstSeen(
-    all.map((m) => m.symbol),
-    `scanner_${market}`,
-  );
+
+  const agesFn = useServerFn(getSignalAges);
+  const agesQ = useQuery({
+    queryKey: ["signal_ages"],
+    queryFn: () => agesFn(),
+    refetchInterval: 60_000,
+  });
+  const ages = agesQ.data?.ages ?? {};
+  const lastScanAt = agesQ.data?.lastScanAt ?? null;
 
   if (market === "spot") {
     return <CoinScannerView />;
@@ -109,6 +115,12 @@ function ScannerPage() {
   return (
     <BeginnerShell showMarketToggle>
       <PositionsStrip showMarketToggle={false} />
+
+      <div className="px-5 pb-1 text-[11px] text-muted-foreground">
+        {lastScanAt
+          ? `Last bot scan: ${timeAgo(lastScanAt)} · signals show how long each pair has held its direction`
+          : "No bot scan in the last 4h — manual view (times shown as “manual”)"}
+      </div>
 
       {/* Filters */}
       <div className="px-5 space-y-2">
@@ -166,7 +178,7 @@ function ScannerPage() {
                 mover={m}
                 riskMeta={riskMeta}
                 booking={booking}
-                asOf={firstSeen[m.symbol] ?? null}
+                asOf={ages[m.symbol] ?? "manual"}
                 onBook={(s, ov) => book.mutate({ m, side: s, tpPct: ov.tpPct, slPct: ov.slPct })}
               />
             </li>

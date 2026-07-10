@@ -26,8 +26,11 @@ type Props = {
   onBook: (side: "long" | "short", overrides: { tpPct: number; slPct: number }) => void;
   /** Compact layout for tables/scanner. */
   compact?: boolean;
-  /** When this scan was produced (ms epoch or ISO) — shown as a relative age. */
-  asOf?: number | string | null;
+  /**
+   * Signal age: a persisted bot-signal timestamp (ms epoch or ISO) shown as a
+   * relative age, or "manual" for an ad-hoc/live scan not backed by a bot signal.
+   */
+  asOf?: number | string | "manual" | null;
 };
 
 function timeAgo(v: number | string | null | undefined): string {
@@ -154,8 +157,10 @@ export function OpportunityCard({
             >
               {badge.label}
             </span>
-            {asOf ? (
-              <span className="text-[10px] text-muted-foreground">· {timeAgo(asOf)}</span>
+            {asOf != null ? (
+              <span className="text-[10px] text-muted-foreground">
+                · {asOf === "manual" ? "manual" : timeAgo(asOf)}
+              </span>
             ) : null}
           </div>
           <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
