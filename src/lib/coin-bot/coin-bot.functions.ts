@@ -151,7 +151,7 @@ export const getCoinHoldings = createServerFn({ method: "GET" })
       .eq("user_id", context.userId)
       .eq("status", "closed")
       .order("closed_at", { ascending: false })
-      .limit(50);
+      .limit(200);
 
     // Refresh mark prices from public ticker
     let priceMap = new Map<string, number>();

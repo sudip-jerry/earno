@@ -13,11 +13,8 @@ import { netPnl, tradeFee } from "@/lib/fees";
 import { toast } from "sonner";
 import { Briefcase, RefreshCw, HelpCircle, Pencil, Target, Shield, LineChart } from "lucide-react";
 import { useMarketMode } from "@/hooks/use-market-mode";
-import { CoinHoldingsCard, CoinSignalsList } from "@/components/coin-bot/coin-panels";
-import { PageHeader, BrandEmptyState, ModePill } from "@/components/brand/brand-ui";
-import { CoinHero } from "@/components/coin-bot/coin-hero";
-import { CoinKpiStrip } from "@/components/coin-bot/coin-kpi-strip";
-import { CoinBotHealth } from "@/components/coin-bot/coin-bot-health";
+import { CoinHoldingsCard } from "@/components/coin-bot/coin-panels";
+import { BrandEmptyState } from "@/components/brand/brand-ui";
 import { CoinRecentActivity } from "@/components/coin-bot/coin-recent-activity";
 import { lazy, Suspense } from "react";
 const PositionChartSheet = lazy(() =>
@@ -995,21 +992,31 @@ function ClosedList({
 
 function CoinPositionsSection() {
   const { market } = useMarketMode();
+  const [coinTab, setCoinTab] = useState<"open" | "closed">("open");
   // Show coins on the combined "All" view as well as the dedicated Coins view.
   if (market === "futures") return null;
   return (
-    <div className="px-5 pt-4 space-y-4">
-      <CoinHero />
-      <CoinKpiStrip />
-      <CoinBotHealth />
-      <div>
-        <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">
-          Coin holdings
-        </div>
-        <CoinHoldingsCard />
+    <div className="px-5 pt-3 space-y-3">
+      {/* Holdings / History toggle — parity with the neat futures Open/History tabs. */}
+      <div className="inline-flex rounded-full border bg-muted p-1">
+        {(["open", "closed"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setCoinTab(t)}
+            className={`px-4 h-8 text-xs font-medium rounded-full transition-colors ${
+              coinTab === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+            }`}
+          >
+            {t === "open" ? "Holdings" : "History"}
+          </button>
+        ))}
       </div>
-      <CoinRecentActivity />
-      <CoinSignalsList limit={10} />
+
+      {coinTab === "open" ? (
+        <CoinHoldingsCard />
+      ) : (
+        <CoinRecentActivity pageSize={12} title="All coin trades" />
+      )}
     </div>
   );
 }
