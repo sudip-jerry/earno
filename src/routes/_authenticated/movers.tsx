@@ -9,6 +9,7 @@ import { PageHeader, BrandEmptyState, ModePill } from "@/components/brand/brand-
 import { CoinSignalsList } from "@/components/coin-bot/coin-panels";
 import { CoinHero } from "@/components/coin-bot/coin-hero";
 import { useMarketMode } from "@/hooks/use-market-mode";
+import { useFirstSeen } from "@/hooks/use-first-seen";
 import { toast } from "sonner";
 import { Flame, RefreshCw, HelpCircle } from "lucide-react";
 import { useState } from "react";
@@ -77,6 +78,10 @@ function MoversPage() {
   const movers: Mover[] = q.data?.ok ? q.data.movers : [];
   const riskMeta = (q.data?.ok ? q.data.risk : null) ?? DEFAULT_RISK_META;
   const errorMsg = q.data && !q.data.ok ? q.data.error : null;
+  const firstSeen = useFirstSeen(
+    movers.map((m) => m.symbol),
+    "movers",
+  );
 
   // Coins are spot-only — never show Long/Short here. Show the top actionable
   // coin opportunities instead, matching the Coin Scanner.
@@ -146,7 +151,7 @@ function MoversPage() {
                 mover={m}
                 riskMeta={riskMeta}
                 booking={booking}
-                asOf={q.dataUpdatedAt || null}
+                asOf={firstSeen[m.symbol] ?? null}
                 onBook={(s, ov) => book.mutate({ m, side: s, tpPct: ov.tpPct, slPct: ov.slPct })}
               />
             </li>
