@@ -59,7 +59,11 @@ export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
     targetMult: 1.5,
     minRR: 3.0,
     tp1Pct: 0.55,
-    trailPct: 0.30,
+    // Widened from 0.30: after TP1 the runner's stop is at breakeven, so a wider
+    // trail only lets winners run toward target (worst case breakeven, never a
+    // loss). The tight 0.30 trailed runners out at ~+2.3% ROE and no trade reached
+    // the full target — the +8%+ take-profits that carried the book disappeared.
+    trailPct: 0.70,
     profitFadeMinPct: 0.6,
     profitFadeGivebackPct: 0.4,
     weakProgressMinPct: 0.3,
@@ -81,7 +85,8 @@ export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
     targetMult: 1.7,
     minRR: 1.5,
     tp1Pct: 0.70,
-    trailPct: 0.42,
+    // Widened from 0.42 — let the post-TP1 runner (stop already at breakeven) reach target.
+    trailPct: 0.90,
     profitFadeMinPct: 0.6,
     profitFadeGivebackPct: 0.4,
     weakProgressMinPct: 0.3,
@@ -103,7 +108,8 @@ export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
     targetMult: 2,
     minRR: 1.5,
     tp1Pct: 0.70,
-    trailPct: 0.62,
+    // Widened from 0.62 — let the post-TP1 runner (stop already at breakeven) reach target.
+    trailPct: 1.30,
     profitFadeMinPct: 0.6,
     profitFadeGivebackPct: 0.4,
     weakProgressMinPct: 0.3,
