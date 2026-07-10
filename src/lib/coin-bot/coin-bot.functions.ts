@@ -423,6 +423,66 @@ export const paperSellCoin = createServerFn({ method: "POST" })
     return { ok: true as const, realized_pnl_usdt: realized };
   });
 
+/**
+ * Emergency stop for the coin side — mirror of the futures kill switch.
+ * Pauses the wealth engine and force-closes every open holding at the
+ * latest mark price, crediting proceeds back to available cash. Like the
+ * futures kill switch this is a DB-level halt; it does not place exchange
+ * orders.
+ */
+export const coinKillAll = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: open } = await context.supabase
+      .from("coin_positions")
+      .select("*")
+      .eq("user_id", context.userId)
+      .eq("status", "open");
+    const positions = (open ?? []) as Holding[];
+
+    // Best-effort mark prices; fall back to last known price / avg buy.
+    let priceMap = new Map<string, number>();
+    try {
+      const tickers = await fetchFuturesTickers();
+      priceMap = new Map(tickers.map((t) => [t.symbol, t.price]));
+    } catch {
+      // tolerate transient public-api hiccup — fall back below
+    }
+
+    let proceedsTotal = 0;
+    const now = new Date().toISOString();
+    for (const p of positions) {
+      const price = priceMap.get(p.symbol) ?? p.last_price ?? p.avg_buy_price;
+      const proceeds = Number(p.qty) * price;
+      const realized = proceeds - Number(p.invested_usdt);
+      proceedsTotal += proceeds;
+      await context.supabase
+        .from("coin_positions")
+        .update({
+          status: "closed",
+          closed_at: now,
+          exit_price: price,
+          exit_reason: "kill_switch",
+          last_price: price,
+          current_value_usdt: proceeds,
+          realized_pnl_usdt: realized,
+          unrealized_pnl_usdt: 0,
+        })
+        .eq("id", p.id);
+    }
+
+    const cfg = await ensureConfig(context);
+    await context.supabase
+      .from("coin_bot_config")
+      .update({
+        enabled: false,
+        available_cash_usdt: Number(cfg.available_cash_usdt) + proceedsTotal,
+      })
+      .eq("user_id", context.userId);
+
+    return { ok: true as const, closed: positions.length };
+  });
+
 // -------- Scan ----------
 
 export const runCoinScan = createServerFn({ method: "POST" })

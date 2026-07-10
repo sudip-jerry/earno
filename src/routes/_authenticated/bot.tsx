@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AlertTriangle, ChevronRight, Power, Zap } from "lucide-react";
 import { PageHeader, ModePill } from "@/components/brand/brand-ui";
+import { GoLiveDialog } from "@/components/go-live-dialog";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/bot")({
@@ -38,6 +39,7 @@ export const Route = createFileRoute("/_authenticated/bot")({
 type ConfigRow = {
   mode: "paper" | "live";
   is_running: boolean;
+  auto_book: boolean;
   daily_loss_cap_pct: number;
 };
 
@@ -57,7 +59,7 @@ function BotPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bot_config")
-        .select("mode,is_running,daily_loss_cap_pct")
+        .select("mode,is_running,auto_book,daily_loss_cap_pct")
         .maybeSingle();
       if (error) throw error;
       return data as ConfigRow | null;
@@ -72,6 +74,7 @@ function BotPage() {
 
   const isLive = cfg.data?.mode === "live";
   const isRunning = cfg.data?.is_running ?? false;
+  const autoBook = cfg.data?.auto_book ?? false;
   const dailyCap = Number(cfg.data?.daily_loss_cap_pct ?? 6);
 
   const toggleMode = useMutation({
@@ -87,7 +90,7 @@ function BotPage() {
   });
 
   const toggleRun = useMutation({
-    mutationFn: async (run: boolean) => updateFn({ data: { is_running: run, auto_book: run } }),
+    mutationFn: async (run: boolean) => updateFn({ data: { is_running: run } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["bot_config"] }),
     onError: (e) => {
       const msg = e instanceof Error ? e.message : "Update failed";
@@ -121,7 +124,11 @@ function BotPage() {
                 Wealth Engine {isRunning ? "running" : "paused"}
               </p>
               <p className="text-xs text-muted-foreground">
-                {isRunning ? "Auto-booking is active" : "Tap to resume auto-booking"}
+                {!isRunning
+                  ? "Tap to resume"
+                  : autoBook
+                    ? "Auto-booking is active"
+                    : "Running · auto-book off (manual approval)"}
               </p>
             </div>
           </div>
@@ -228,29 +235,13 @@ function BotPage() {
 
       <TabBar />
 
-      <AlertDialog open={confirmLive} onOpenChange={setConfirmLive}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="size-5 text-destructive" />
-              Switch to Live trading?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Real orders will be placed on CoinDCX using your funds. Your daily-loss cap is{" "}
-              {dailyCap}%. You can switch back to Paper anytime.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Stay on Paper</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => toggleMode.mutate(true)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Go Live
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <GoLiveDialog
+        open={confirmLive}
+        onOpenChange={setConfirmLive}
+        onConfirm={() => toggleMode.mutate(true)}
+        dailyCapPct={dailyCap}
+        what="Real orders on CoinDCX"
+      />
 
       <AlertDialog open={confirmStop} onOpenChange={setConfirmStop}>
         <AlertDialogContent>

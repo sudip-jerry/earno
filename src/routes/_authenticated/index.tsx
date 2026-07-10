@@ -61,7 +61,12 @@ import { CoinKpiStrip } from "@/components/coin-bot/coin-kpi-strip";
 import { CoinBotHealth } from "@/components/coin-bot/coin-bot-health";
 import { CoinRecentActivity } from "@/components/coin-bot/coin-recent-activity";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
-import { getCoinPortfolio, getCoinHoldings } from "@/lib/coin-bot/coin-bot.functions";
+import {
+  getCoinPortfolio,
+  getCoinHoldings,
+  updateCoinConfig,
+} from "@/lib/coin-bot/coin-bot.functions";
+import { GoLiveDialog } from "@/components/go-live-dialog";
 import { SimpleView } from "@/components/home-simple/simple-view";
 import { SimpleEarnings } from "@/components/home-simple/simple-earnings";
 import { SimpleTrades } from "@/components/home-simple/simple-trades";
@@ -140,6 +145,8 @@ function Home() {
   }, [viewMode]);
   const [simpleTab, setSimpleTab] = useState<SimpleTab>("home");
   const [goLiveOpen, setGoLiveOpen] = useState(false);
+  const [confirmCoinLive, setConfirmCoinLive] = useState(false);
+  const updateCoinFn = useServerFn(updateCoinConfig);
 
   const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
 
@@ -228,6 +235,32 @@ function Home() {
       qc.invalidateQueries({ queryKey: ["dashboard_stats"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
+  });
+
+  const coinCfg = useQuery({
+    queryKey: ["coin_config_mode"],
+    queryFn: async () => {
+      const { data } = await supabase.from("coin_bot_config").select("live_mode").maybeSingle();
+      return data as { live_mode?: boolean } | null;
+    },
+    enabled: market === "spot",
+  });
+  const coinLive = coinCfg.data?.live_mode === true;
+
+  const toggleCoinMode = useMutation({
+    mutationFn: async (live: boolean) => updateCoinFn({ data: { live_mode: live } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["coin_config_mode"] });
+      qc.invalidateQueries({ queryKey: ["coin_cfg"] });
+      qc.invalidateQueries({ queryKey: ["coin_portfolio"] });
+    },
+    onError: (e) => {
+      const msg = e instanceof Error ? e.message : "Update failed";
+      if (msg.startsWith("PAYMENT_REQUIRED")) {
+        toast.error("Upgrade required to go live");
+        navigate({ to: "/upgrade" });
+      } else toast.error(msg);
+    },
   });
 
   const togglePause = useMutation({
@@ -619,6 +652,16 @@ function Home() {
             <div className="ml-auto flex items-center gap-1.5">
               <ModePill market="coin" />
               <MarketTogglePill />
+              <IconBtn
+                ariaLabel="Refresh"
+                onClick={() => {
+                  qc.invalidateQueries({ queryKey: ["coin_portfolio"] });
+                  qc.invalidateQueries({ queryKey: ["coin_holdings"] });
+                  qc.invalidateQueries({ queryKey: ["coin_config_mode"] });
+                }}
+              >
+                <RefreshCw className="size-4" />
+              </IconBtn>
               <IconBtn ariaLabel="Settings" onClick={() => navigate({ to: "/settings" })}>
                 <Cog className="size-4" />
               </IconBtn>
@@ -634,9 +677,60 @@ function Home() {
             </button>
           )}
           <p className="mt-3 text-[11px] text-muted-foreground">
-            Live CoinDCX prices · practice trades, no real orders
+            {coinLive
+              ? "Live CoinDCX prices · real orders active"
+              : "Live CoinDCX prices · practice trades, no real orders"}
           </p>
         </header>
+
+        {/* ===== Mode banner — parity with the futures dashboard ===== */}
+        <div className="px-5 mt-4">
+          <button
+            type="button"
+            onClick={() => {
+              if (coinLive) toggleCoinMode.mutate(false);
+              else setConfirmCoinLive(true);
+            }}
+            className={`w-full text-left flex items-center gap-3 rounded-2xl border px-4 py-3 transition ${
+              coinLive
+                ? "border-destructive/30 bg-destructive/5 hover:bg-destructive/10"
+                : "border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/15"
+            }`}
+            aria-label="Toggle paper or live trading"
+          >
+            <span
+              className={`inline-flex items-center justify-center size-9 rounded-full shrink-0 ${
+                coinLive
+                  ? "bg-destructive/15 text-destructive"
+                  : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+              }`}
+            >
+              {coinLive ? <BadgeCheck className="size-4" /> : <FlaskConical className="size-4" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p
+                className={`text-[13px] font-semibold leading-tight ${
+                  coinLive ? "text-destructive" : "text-amber-700 dark:text-amber-300"
+                }`}
+              >
+                {coinLive ? "LIVE trading active" : "PAPER — practice mode"}
+              </p>
+              <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                {coinLive
+                  ? "Real funds are at risk. Tap to switch back to Paper."
+                  : "All numbers reflect simulated trading. Tap to go Live."}
+              </p>
+            </div>
+            <span
+              className={`text-[10px] font-semibold tracking-wider px-2 h-6 inline-flex items-center rounded-full ${
+                coinLive ? "bg-destructive text-destructive-foreground" : "bg-amber-500 text-white"
+              }`}
+            >
+              {coinLive ? "LIVE" : "PAPER"}
+            </span>
+          </button>
+        </div>
+
         <div className="px-5 mt-4 space-y-4">
           <CoinHero />
           <CoinKpiStrip />
@@ -660,6 +754,15 @@ function Home() {
           </section>
           <CoinRecentActivity />
         </div>
+        <GoLiveDialog
+          open={confirmCoinLive}
+          onOpenChange={setConfirmCoinLive}
+          onConfirm={() => {
+            toggleCoinMode.mutate(true);
+            setConfirmCoinLive(false);
+          }}
+          what="Real orders on CoinDCX"
+        />
         <TabBar />
       </div>
     );

@@ -2,11 +2,21 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Activity, Settings as Cog } from "lucide-react";
+import { Activity, Settings as Cog, AlertTriangle } from "lucide-react";
 
-import { getCoinConfig, updateCoinConfig } from "@/lib/coin-bot/coin-bot.functions";
+import { getCoinConfig, updateCoinConfig, coinKillAll } from "@/lib/coin-bot/coin-bot.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useCurrency } from "@/hooks/use-currency";
 
 export function CoinBotHealth() {
@@ -14,9 +24,11 @@ export function CoinBotHealth() {
   const { fmt, rate, code } = useCurrency();
   const cfgFn = useServerFn(getCoinConfig);
   const updFn = useServerFn(updateCoinConfig);
+  const killFn = useServerFn(coinKillAll);
   const cfg = useQuery({ queryKey: ["coin_cfg"], queryFn: () => cfgFn() });
   const c = cfg.data;
   const [open, setOpen] = useState(false);
+  const [confirmStop, setConfirmStop] = useState(false);
   const [allocated, setAllocated] = useState<string>("");
   const [maxHoldings, setMaxHoldings] = useState<string>("");
   const [minConf, setMinConf] = useState<string>("");
@@ -39,6 +51,22 @@ export function CoinBotHealth() {
       toast.success("Settings saved");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+  });
+
+  const kill = useMutation({
+    mutationFn: () => killFn({ data: undefined }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["coin_cfg"] });
+      qc.invalidateQueries({ queryKey: ["coin_portfolio"] });
+      qc.invalidateQueries({ queryKey: ["coin_holdings"] });
+      const n = (r as { closed?: number } | undefined)?.closed ?? 0;
+      toast.success(
+        n > 0
+          ? `Emergency stop: engine paused, ${n} holding${n === 1 ? "" : "s"} sold.`
+          : "Emergency stop: engine paused.",
+      );
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Stop failed"),
   });
 
   if (!c) {
@@ -97,6 +125,38 @@ export function CoinBotHealth() {
           Swing
         </Button>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setConfirmStop(true)}
+        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-destructive/30 py-2 text-xs font-medium text-destructive hover:bg-destructive/5"
+      >
+        <AlertTriangle className="size-3.5" /> Emergency stop — pause &amp; sell everything
+      </button>
+
+      <AlertDialog open={confirmStop} onOpenChange={setConfirmStop}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-destructive" />
+              Emergency stop
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This pauses the wealth engine and sells every open holding at the current price. You
+              can start it again anytime.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => kill.mutate()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Stop &amp; sell all
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {open && (
         <div className="mt-4 space-y-3 border-t pt-3">
