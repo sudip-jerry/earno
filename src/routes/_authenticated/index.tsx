@@ -55,11 +55,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMarketMode, type MarketMode } from "@/hooks/use-market-mode";
-import {
-  CoinPortfolioCard,
-  CoinHoldingsCard,
-  CoinSignalsList,
-} from "@/components/coin-bot/coin-panels";
+import { CoinHoldingsCard, CoinSignalsList } from "@/components/coin-bot/coin-panels";
 import { CoinHero } from "@/components/coin-bot/coin-hero";
 import { CoinKpiStrip } from "@/components/coin-bot/coin-kpi-strip";
 import { CoinBotHealth } from "@/components/coin-bot/coin-bot-health";

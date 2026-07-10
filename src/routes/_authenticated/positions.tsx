@@ -13,11 +13,7 @@ import { netPnl, tradeFee } from "@/lib/fees";
 import { toast } from "sonner";
 import { Briefcase, RefreshCw, HelpCircle, Pencil, Target, Shield, LineChart } from "lucide-react";
 import { useMarketMode } from "@/hooks/use-market-mode";
-import {
-  CoinPortfolioCard,
-  CoinHoldingsCard,
-  CoinSignalsList,
-} from "@/components/coin-bot/coin-panels";
+import { CoinHoldingsCard, CoinSignalsList } from "@/components/coin-bot/coin-panels";
 import { PageHeader, BrandEmptyState, ModePill } from "@/components/brand/brand-ui";
 import { CoinHero } from "@/components/coin-bot/coin-hero";
 import { CoinKpiStrip } from "@/components/coin-bot/coin-kpi-strip";

@@ -533,7 +533,7 @@ function SettingsPage() {
               to="/help"
               icon={<HelpCircle className="size-4 text-muted-foreground" />}
               label={"Help & Support"}
-              hint="FAQs and how-to guides"
+              hint="How earn'O works — get started"
             />
             <AccountRow
               to="/about"
@@ -1097,6 +1097,9 @@ function SettingsPage() {
         </Link>
         <Link to="/terms" className="block rounded-xl border bg-card p-3 text-sm hover:bg-muted">
           Terms & Disclaimer
+        </Link>
+        <Link to="/privacy" className="block rounded-xl border bg-card p-3 text-sm hover:bg-muted">
+          Privacy Policy
         </Link>
         <Button variant="ghost" className="w-full text-muted-foreground" onClick={signOut}>
           <LogOut className="size-4 mr-2" />

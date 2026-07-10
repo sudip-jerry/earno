@@ -387,7 +387,7 @@ export function RecentActivity({ items }: { items: ActivityItem[] }) {
       <div className="divide-y">
         {items.length === 0 && (
           <p className="px-4 py-6 text-center text-xs text-muted-foreground">
-            No activity yet. Start the bot to see live actions here.
+            Nothing yet — earn'O acts automatically and shows what it does here.
           </p>
         )}
         {items.map((it) => (
@@ -424,7 +424,7 @@ export function RecentActivityFeed({ pageSize = 6 }: { pageSize?: number }) {
         )}
         {!q.isLoading && items.length === 0 && (
           <p className="px-4 py-6 text-center text-xs text-muted-foreground">
-            No activity yet. Start the bot to see live actions here.
+            Nothing yet — earn'O acts automatically and shows what it does here.
           </p>
         )}
         {items.map((it) => (
