@@ -118,8 +118,8 @@ function ScannerPage() {
 
       <div className="px-5 pb-1 text-[11px] text-muted-foreground">
         {lastScanAt
-          ? `Last bot scan: ${timeAgo(lastScanAt)} · signals show how long each pair has held its direction`
-          : "No bot scan in the last 4h — manual view (times shown as “manual”)"}
+          ? `Last bot scan: ${timeAgo(lastScanAt)} · showing the 10 latest bot signals`
+          : "No recent bot scan — manual view (times shown as “manual”)"}
       </div>
 
       {/* Filters */}
