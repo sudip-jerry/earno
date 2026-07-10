@@ -177,6 +177,16 @@ function ScannerPage() {
           </li>
         ) : null}
       </ul>
+
+      {/* On the combined "All" view, surface coin signals below futures. */}
+      {market === "all" ? (
+        <div className="px-5 mt-6">
+          <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">
+            Coins
+          </div>
+          <CoinSignalsList hideHeader limit={10} />
+        </div>
+      ) : null}
     </BeginnerShell>
   );
 }

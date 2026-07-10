@@ -995,7 +995,8 @@ function ClosedList({
 
 function CoinPositionsSection() {
   const { market } = useMarketMode();
-  if (market !== "spot") return null;
+  // Show coins on the combined "All" view as well as the dedicated Coins view.
+  if (market === "futures") return null;
   return (
     <div className="px-5 pt-4 space-y-4">
       <CoinHero />
