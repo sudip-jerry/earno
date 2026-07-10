@@ -28,7 +28,13 @@ type ClosedCoinTrade = {
   realized_pnl_usdt?: number | null;
 };
 
-export function CoinRecentActivity({ pageSize = 6 }: { pageSize?: number }) {
+export function CoinRecentActivity({
+  pageSize = 6,
+  title = "Recent coin activity",
+}: {
+  pageSize?: number;
+  title?: string;
+}) {
   const { fmt } = useCurrency();
   const fn = useServerFn(getCoinHoldings);
   const q = useQuery({ queryKey: ["coin_holdings"], queryFn: () => fn(), refetchInterval: 20_000 });
@@ -38,8 +44,11 @@ export function CoinRecentActivity({ pageSize = 6 }: { pageSize?: number }) {
 
   return (
     <section>
-      <div className="px-1 pb-2 text-xs uppercase tracking-wide text-muted-foreground">
-        Recent coin activity
+      <div className="px-1 pb-2 flex items-center justify-between">
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">{title}</span>
+        {all.length > 0 && (
+          <span className="text-[11px] text-muted-foreground tabular-nums">{all.length} total</span>
+        )}
       </div>
       {closed.length === 0 ? (
         <div className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
