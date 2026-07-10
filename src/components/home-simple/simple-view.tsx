@@ -186,8 +186,10 @@ export function SimpleView(props: SimpleViewProps) {
             >
               <span aria-hidden="true">{derived.totalPos ? "↗" : "↘"}</span>
               <span>
-                {fmt(totalTodayPnl, { signed: true })} ({derived.dayPct >= 0 ? "+" : ""}
-                {derived.dayPct.toFixed(2)}%) today
+                {hideBalance
+                  ? "••••"
+                  : `${fmt(totalTodayPnl, { signed: true })} (${derived.dayPct >= 0 ? "+" : ""}${derived.dayPct.toFixed(2)}%)`}{" "}
+                today
               </span>
             </div>
             <p className="mt-2 text-[12.5px] leading-relaxed text-white/70">
@@ -203,8 +205,8 @@ export function SimpleView(props: SimpleViewProps) {
                 <div className="flex-1 bg-rose-400" />
               </div>
               <div className="mt-3 flex items-center justify-between gap-4 text-[11px] text-white/60">
-                <span>Gained {fmt(derived.todayGained)} today</span>
-                <span>Lost {fmt(derived.todayLost)} today</span>
+                <span>Gained {hideBalance ? "••••" : fmt(derived.todayGained)} today</span>
+                <span>Lost {hideBalance ? "••••" : fmt(derived.todayLost)} today</span>
               </div>
             </div>
           </section>
@@ -264,11 +266,14 @@ export function SimpleView(props: SimpleViewProps) {
                 <div className="text-[11px] text-muted-foreground">{futuresPositionsLabel}</div>
               </div>
               <div className="text-right">
-                <div className="text-[13px] font-semibold tabular-nums">{fmt(futuresValue)}</div>
+                <div className="text-[13px] font-semibold tabular-nums">
+                  {hideBalance ? "••••" : fmt(futuresValue)}
+                </div>
                 <div
                   className={`mt-1 text-[11px] tabular-nums ${futuresTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
                 >
-                  {futuresTodayPnl >= 0 ? "↗" : "↘"} {fmt(futuresTodayPnl, { signed: true })} today
+                  {futuresTodayPnl >= 0 ? "↗" : "↘"}{" "}
+                  {hideBalance ? "••••" : fmt(futuresTodayPnl, { signed: true })} today
                 </div>
               </div>
               <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
@@ -283,11 +288,14 @@ export function SimpleView(props: SimpleViewProps) {
                 <div className="text-[11px] text-muted-foreground">{coinHoldingsLabel}</div>
               </div>
               <div className="text-right">
-                <div className="text-[13px] font-semibold tabular-nums">{fmt(coinEquity)}</div>
+                <div className="text-[13px] font-semibold tabular-nums">
+                  {hideBalance ? "••••" : fmt(coinEquity)}
+                </div>
                 <div
                   className={`mt-1 text-[11px] tabular-nums ${coinTodayPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
                 >
-                  {coinTodayPnl >= 0 ? "↗" : "↘"} {fmt(coinTodayPnl, { signed: true })} today
+                  {coinTodayPnl >= 0 ? "↗" : "↘"}{" "}
+                  {hideBalance ? "••••" : fmt(coinTodayPnl, { signed: true })} today
                 </div>
               </div>
               <ChevronRight className="size-4 shrink-0 text-muted-foreground" />

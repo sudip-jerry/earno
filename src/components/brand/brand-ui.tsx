@@ -98,18 +98,36 @@ export function PageHeader({
 
 /**
  * Single, consistent PAPER / LIVE indicator for the app's trading mode.
- * Reads the shared bot_config cache so every screen shows it identically.
+ * Futures and coins have separate live modes, so the pill reads the correct one
+ * per market (default = futures / bot_config). This prevents the coin screens
+ * from showing "LIVE" just because the futures bot is live.
  */
-export function ModePill({ className = "" }: { className?: string }) {
-  const { data } = useQuery({
+export function ModePill({
+  className = "",
+  market = "futures",
+}: {
+  className?: string;
+  market?: "futures" | "coin";
+}) {
+  const futures = useQuery({
     queryKey: ["bot_config"],
     queryFn: async () => {
       const { data } = await supabase.from("bot_config").select("mode").maybeSingle();
       return data as { mode?: string } | null;
     },
     staleTime: 15_000,
+    enabled: market === "futures",
   });
-  const isLive = data?.mode === "live";
+  const coin = useQuery({
+    queryKey: ["coin_config_mode"],
+    queryFn: async () => {
+      const { data } = await supabase.from("coin_bot_config").select("live_mode").maybeSingle();
+      return data as { live_mode?: boolean } | null;
+    },
+    staleTime: 15_000,
+    enabled: market === "coin",
+  });
+  const isLive = market === "coin" ? coin.data?.live_mode === true : futures.data?.mode === "live";
   return (
     <span
       className={`text-[10px] font-semibold tracking-wider px-2 h-5 inline-flex items-center rounded-full ${
