@@ -445,7 +445,13 @@ function SettingsPage() {
       qc.invalidateQueries({ queryKey: ["bot_config_full"] });
       toast.success("Settings saved");
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+    onError: (e) => {
+      const msg = e instanceof Error ? e.message : "Save failed";
+      if (msg.startsWith("PAYMENT_REQUIRED")) {
+        toast.error("Upgrade required to go live");
+        navigate({ to: "/upgrade" });
+      } else toast.error(msg);
+    },
   });
 
   const signOut = async () => {

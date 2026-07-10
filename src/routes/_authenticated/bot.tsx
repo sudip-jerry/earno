@@ -77,7 +77,13 @@ function BotPage() {
   const toggleMode = useMutation({
     mutationFn: async (live: boolean) => updateFn({ data: { mode: live ? "live" : "paper" } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["bot_config"] }),
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
+    onError: (e) => {
+      const msg = e instanceof Error ? e.message : "Update failed";
+      if (msg.startsWith("PAYMENT_REQUIRED")) {
+        toast.error("Upgrade required to go live");
+        navigate({ to: "/upgrade" });
+      } else toast.error(msg);
+    },
   });
 
   const toggleRun = useMutation({
