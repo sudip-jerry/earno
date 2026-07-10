@@ -105,7 +105,7 @@ function MoversPage() {
       <PageHeader
         icon={<Flame className="size-5 text-orange-500" />}
         title="Top Movers"
-        subtitle="Long / Short / Wait / Avoid with confidence"
+        subtitle={`${market === "all" ? "Futures · " : ""}Long / Short / Wait / Avoid with confidence`}
         actions={
           <>
             <Link

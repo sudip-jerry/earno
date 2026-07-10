@@ -84,7 +84,9 @@ export function SimpleTrades({ fmt, hideBalance }: SimpleTradesProps) {
   const futuresRows = futures.data ?? [];
   const coinRows = ((coins.data as { open?: CoinHolding[] } | undefined)?.open ??
     []) as CoinHolding[];
-  const nothingOpen = futuresRows.length === 0 && coinRows.length === 0;
+  const loading = futures.isLoading || coins.isLoading;
+  const errored = futures.isError || coins.isError;
+  const nothingOpen = !loading && !errored && futuresRows.length === 0 && coinRows.length === 0;
 
   return (
     <div className="min-h-svh bg-background pb-28">
@@ -98,6 +100,24 @@ export function SimpleTrades({ fmt, hideBalance }: SimpleTradesProps) {
             Everything open right now, and what just happened.
           </p>
         </header>
+
+        {loading && (
+          <div className="px-5 mt-4 space-y-2">
+            <div className="h-16 rounded-2xl border bg-card animate-pulse" />
+            <div className="h-16 rounded-2xl border bg-card animate-pulse" />
+          </div>
+        )}
+
+        {errored && !loading && (
+          <div className="px-5 mt-4">
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-6 text-center">
+              <p className="text-[13px] font-medium">Couldn't load your trades</p>
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                Check your connection — this will refresh on its own.
+              </p>
+            </div>
+          </div>
+        )}
 
         {nothingOpen && (
           <div className="px-5 mt-4">

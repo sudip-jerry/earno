@@ -201,8 +201,14 @@ export function SimpleView(props: SimpleViewProps) {
                 className="flex h-2.5 overflow-hidden rounded-full bg-white/15"
                 aria-label="Today's gained and lost split"
               >
-                <div className="bg-emerald-400" style={{ width: `${derived.gainedShare}%` }} />
-                <div className="flex-1 bg-rose-400" />
+                {derived.todayLost === 0 ? (
+                  derived.todayGained > 0 && <div className="flex-1 bg-emerald-400" />
+                ) : (
+                  <>
+                    <div className="bg-emerald-400" style={{ width: `${derived.gainedShare}%` }} />
+                    <div className="flex-1 bg-rose-400" />
+                  </>
+                )}
               </div>
               <div className="mt-3 flex items-center justify-between gap-4 text-[11px] text-white/60">
                 <span>Gained {hideBalance ? "••••" : fmt(derived.todayGained)} today</span>

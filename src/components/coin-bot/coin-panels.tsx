@@ -356,7 +356,7 @@ export function CoinSignalsList({
                 </div>
               )}
               <div className="mt-2 flex gap-2">
-                {(s.action === "buy" || s.action === "wait" || s.action === "hold") && (
+                {s.action === "buy" && (
                   <Button
                     size="sm"
                     onClick={() =>
