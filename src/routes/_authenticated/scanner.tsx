@@ -1,12 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.functions";
-import { TabBar } from "@/components/tab-bar";
+import { BeginnerShell } from "@/components/beginner-shell";
 import { PositionsStrip } from "@/components/positions-strip";
 import { OpportunityCard } from "@/components/opportunity-card";
-import { PageHeader, BrandEmptyState, ModePill } from "@/components/brand/brand-ui";
+import { BrandEmptyState } from "@/components/brand/brand-ui";
 import { useStrictness } from "@/hooks/use-strictness";
 import { useMarketMode } from "@/hooks/use-market-mode";
 import { CoinSignalsList } from "@/components/coin-bot/coin-panels";
@@ -14,7 +14,7 @@ import { CoinHero } from "@/components/coin-bot/coin-hero";
 import { CoinKpiStrip } from "@/components/coin-bot/coin-kpi-strip";
 import { CoinScannerToolbar, type CoinFilter } from "@/components/coin-bot/coin-scanner-toolbar";
 import { toast } from "sonner";
-import { Radar, RefreshCw, HelpCircle, Filter } from "lucide-react";
+import { Filter } from "lucide-react";
 import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/scanner")({
@@ -102,31 +102,8 @@ function ScannerPage() {
   }
 
   return (
-    <div className="min-h-svh bg-background pb-28">
-      <PositionsStrip />
-      <PageHeader
-        icon={<Radar className="size-5 text-primary" />}
-        title="Scanner"
-        subtitle={`${market === "all" ? "Futures · " : ""}${filtered.length} match · ranked by confidence`}
-        actions={
-          <>
-            <ModePill className="mr-1" />
-            <Link
-              to="/help"
-              className="size-10 grid place-items-center rounded-full hover:bg-muted"
-            >
-              <HelpCircle className="size-5 text-muted-foreground" />
-            </Link>
-            <button
-              onClick={() => q.refetch()}
-              className="size-10 grid place-items-center rounded-full hover:bg-muted"
-              aria-label="Refresh"
-            >
-              <RefreshCw className={`size-4 ${q.isFetching ? "animate-spin" : ""}`} />
-            </button>
-          </>
-        }
-      />
+    <BeginnerShell showMarketToggle>
+      <PositionsStrip showMarketToggle={false} />
 
       {/* Filters */}
       <div className="px-5 space-y-2">
@@ -200,9 +177,7 @@ function ScannerPage() {
           </li>
         ) : null}
       </ul>
-
-      <TabBar />
-    </div>
+    </BeginnerShell>
   );
 }
 
@@ -210,31 +185,14 @@ function CoinScannerView() {
   const [filter, setFilter] = useState<CoinFilter>("all");
   const [query, setQuery] = useState("");
   return (
-    <div className="min-h-svh bg-background pb-28">
-      <PositionsStrip />
-      <PageHeader
-        icon={<Radar className="size-5 text-primary" />}
-        title="Coin Scanner"
-        subtitle="Live CoinDCX coins · paper buy/sell"
-        actions={
-          <>
-            <ModePill className="mr-1" market="coin" />
-            <Link
-              to="/help"
-              className="size-10 grid place-items-center rounded-full hover:bg-muted"
-            >
-              <HelpCircle className="size-5 text-muted-foreground" />
-            </Link>
-          </>
-        }
-      />
-      <div className="px-5 space-y-4">
+    <BeginnerShell showMarketToggle>
+      <PositionsStrip showMarketToggle={false} />
+      <div className="px-5 mt-3 space-y-4">
         <CoinHero />
         <CoinKpiStrip />
         <CoinScannerToolbar filter={filter} onFilter={setFilter} query={query} onQuery={setQuery} />
         <CoinSignalsList hideHeader filterAction={filter} query={query} />
       </div>
-      <TabBar />
-    </div>
+    </BeginnerShell>
   );
 }
