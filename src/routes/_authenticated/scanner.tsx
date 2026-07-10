@@ -9,6 +9,7 @@ import { OpportunityCard } from "@/components/opportunity-card";
 import { BrandEmptyState } from "@/components/brand/brand-ui";
 import { useStrictness } from "@/hooks/use-strictness";
 import { useMarketMode } from "@/hooks/use-market-mode";
+import { useFirstSeen } from "@/hooks/use-first-seen";
 import { CoinSignalsList } from "@/components/coin-bot/coin-panels";
 import { CoinHero } from "@/components/coin-bot/coin-hero";
 import { CoinKpiStrip } from "@/components/coin-bot/coin-kpi-strip";
@@ -96,6 +97,10 @@ function ScannerPage() {
   }, [all, tradableOnly, action, minConfidence]);
 
   const errorMsg = q.data && !q.data.ok ? q.data.error : null;
+  const firstSeen = useFirstSeen(
+    all.map((m) => m.symbol),
+    `scanner_${market}`,
+  );
 
   if (market === "spot") {
     return <CoinScannerView />;
@@ -161,7 +166,7 @@ function ScannerPage() {
                 mover={m}
                 riskMeta={riskMeta}
                 booking={booking}
-                asOf={q.dataUpdatedAt || null}
+                asOf={firstSeen[m.symbol] ?? null}
                 onBook={(s, ov) => book.mutate({ m, side: s, tpPct: ov.tpPct, slPct: ov.slPct })}
               />
             </li>
