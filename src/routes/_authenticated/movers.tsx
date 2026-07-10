@@ -146,6 +146,7 @@ function MoversPage() {
                 mover={m}
                 riskMeta={riskMeta}
                 booking={booking}
+                asOf={q.dataUpdatedAt || null}
                 onBook={(s, ov) => book.mutate({ m, side: s, tpPct: ov.tpPct, slPct: ov.slPct })}
               />
             </li>
