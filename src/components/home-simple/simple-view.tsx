@@ -245,6 +245,11 @@ export function SimpleView(props: SimpleViewProps) {
                 {hideBalance ? "••••" : fmt(totalInvested)}
               </div>
             </div>
+            <p className="mt-2 text-[10.5px] leading-snug text-muted-foreground">
+              The {returnsPct >= 0 ? "+" : ""}
+              {returnsPct.toFixed(2)}% above is your total gain on money invested. The “today”
+              figure up top is measured against your whole balance — they use different bases.
+            </p>
           </section>
         </div>
 

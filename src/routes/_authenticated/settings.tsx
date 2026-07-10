@@ -29,6 +29,7 @@ import {
 import { toast } from "sonner";
 import { PageHeader } from "@/components/brand/brand-ui";
 import { TabBar } from "@/components/tab-bar";
+import { GoLiveDialog } from "@/components/go-live-dialog";
 import {
   HelpCircle,
   CheckCircle2,
@@ -365,6 +366,7 @@ function SettingsPage() {
   const [apiSecret, setApiSecret] = useState("");
   const [pending, setPending] = useState<Partial<Cfg>>({});
   const [showVersionDialog, setShowVersionDialog] = useState(false);
+  const [showGoLive, setShowGoLive] = useState(false);
 
   const status = useQuery({
     queryKey: ["cred_status"],
@@ -675,7 +677,10 @@ function SettingsPage() {
             <Select
               value={get("mode")}
               onValueChange={(v) => {
-                if (v === "live" && !confirm("Switch to LIVE? Real funds will be used.")) return;
+                if (v === "live") {
+                  setShowGoLive(true);
+                  return;
+                }
                 set("mode", v as "paper" | "live");
               }}
             >
@@ -1114,6 +1119,15 @@ function SettingsPage() {
         </Button>
       </section>
       <AppVersionDialog open={showVersionDialog} onClose={() => setShowVersionDialog(false)} />
+      <GoLiveDialog
+        open={showGoLive}
+        onOpenChange={setShowGoLive}
+        onConfirm={() => {
+          set("mode", "live");
+          setShowGoLive(false);
+        }}
+        dailyCapPct={Number(get("daily_loss_cap_pct")) || undefined}
+      />
       <TabBar />
     </div>
   );
