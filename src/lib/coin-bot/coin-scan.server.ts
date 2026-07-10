@@ -458,7 +458,7 @@ export async function runCoinScanFor(
 
     const { data: row } = await supabase
       .from("coin_positions")
-      .select("qty, invested_usdt, avg_buy_price, stop_price, mode")
+      .select("qty, invested_usdt, avg_buy_price, stop_price, target_price, mode")
       .eq("id", held.id)
       .maybeSingle();
     if (!row || !row.qty) continue;
@@ -475,14 +475,21 @@ export async function runCoinScanFor(
       updated_at: new Date().toISOString(),
     };
 
-    // Breakeven safety net (swing only): once a position is up +2.5%, ratchet the
-    // stop up to entry so a winner can't round-trip into a full -4% loss. Only ever
-    // tightens the stop on a winner — never loosens — so it cannot add risk.
+    // Breakeven safety net (swing only): ratchet the stop up to entry once the
+    // position is far enough in profit. The arm point scales to the position's own
+    // target (40% of the way to target, floor +0.8%) — so a low-vol major with a
+    // ~+2.5% target arms at +1% (a +1% pop no longer gives back to a loss), while a
+    // volatile alt with a +8% target arms at ~+3.2%. Only tightens a winner's stop.
     const avgBuy = Number(row.avg_buy_price);
     const stopPrice = row.stop_price != null ? Number(row.stop_price) : null;
+    const targetPrice = row.target_price != null ? Number(row.target_price) : null;
     if (row.mode === "swing" && avgBuy > 0 && stopPrice != null && stopPrice < avgBuy) {
       const pnlPct = ((currentPrice - avgBuy) / avgBuy) * 100;
-      if (pnlPct >= 2.5) {
+      const targetPct = targetPrice != null && targetPrice > avgBuy
+        ? ((targetPrice / avgBuy) - 1) * 100
+        : 8;
+      const beArmPct = Math.max(0.8, targetPct * 0.4);
+      if (pnlPct >= beArmPct) {
         update.stop_price = avgBuy;
       }
     }

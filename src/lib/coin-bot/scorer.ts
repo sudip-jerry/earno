@@ -108,6 +108,20 @@ function momentumOf(closes: number[]): "rising" | "fading" | "neutral" {
   return "neutral";
 }
 
+/** Average true range over the trailing `period`, as a % of the last close. */
+function atrPct(candles: Candle[], period = 14): number | null {
+  if (!candles || candles.length < period + 1) return null;
+  let trSum = 0;
+  for (let i = candles.length - period; i < candles.length; i++) {
+    const c = candles[i];
+    const prevClose = candles[i - 1].close;
+    trSum += Math.max(c.high - c.low, Math.abs(c.high - prevClose), Math.abs(c.low - prevClose));
+  }
+  const atr = trSum / period;
+  const lastClose = candles[candles.length - 1].close;
+  return lastClose > 0 ? (atr / lastClose) * 100 : null;
+}
+
 /** True when price has broken below the prior swing low on the entry (30m)
  *  timeframe — i.e. making a fresh lower low (downtrend structure). Used to
  *  block swing buys into a rollover the lagging D1/H4 EMA hasn't caught yet. */
@@ -189,8 +203,14 @@ export function scoreCoin(input: CoinScoreInput): CoinScore {
   }
 
   // Target/stop: swing uses multi-day ATR distances, intraday uses tight scalp distances
-  const targetPct = isSwing ? 8.0 : 1.6;
-  const stopPct = isSwing ? 4.0 : 0.9;
+  // Volatility-scaled exits. The fixed +8%/-4% (swing) is unreachable for low-vol
+  // majors — BTC/ETH never hit +8%, they drift and time out — so scale target/stop
+  // to the coin's own ATR. Majors get reachable targets (~+2.5%); volatile alts
+  // keep wide ones (clamped to the old bounds, so this only ever tightens calm coins).
+  const clampN = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+  const atrP = atrPct(isSwing ? input.m30 : input.m5) ?? (isSwing ? 1.2 : 0.3);
+  const targetPct = isSwing ? clampN(atrP * 6, 2.5, 8.0) : clampN(atrP * 4, 0.8, 1.6);
+  const stopPct = isSwing ? clampN(atrP * 3, 1.5, 4.0) : clampN(atrP * 2, 0.5, 0.9);
 
   let action: CoinAction = "wait";
   let confidence = 40;
