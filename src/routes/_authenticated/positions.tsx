@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { closeManualTrade, updatePositionTpSl } from "@/lib/movers.functions";
 import { Button } from "@/components/ui/button";
-import { TabBar } from "@/components/tab-bar";
+import { BeginnerShell } from "@/components/beginner-shell";
 import { PositionsStrip } from "@/components/positions-strip";
 import { useLivePrices } from "@/hooks/use-live-prices";
 import { useCurrency } from "@/hooks/use-currency";
@@ -182,39 +182,10 @@ function PositionsPage() {
   }, 0);
 
   return (
-    <div className="min-h-svh bg-background pb-28">
+    <BeginnerShell showMarketToggle>
       <PositionsStrip showMarketToggle={false} />
       <MarketAwarePositionsBody>
-        <PageHeader
-          icon={<Briefcase className="size-5 text-primary" />}
-          title="Positions"
-          subtitle="Open trades with live PNL and ROE"
-          actions={
-            <>
-              <ModePill className="mr-1" />
-              <Link
-                to="/help"
-                className="size-10 grid place-items-center rounded-full hover:bg-muted"
-              >
-                <HelpCircle className="size-5 text-muted-foreground" />
-              </Link>
-              <button
-                onClick={() => {
-                  q.refetch();
-                  refetchPrices();
-                }}
-                className="size-10 grid place-items-center rounded-full hover:bg-muted"
-                aria-label="Refresh positions"
-              >
-                <RefreshCw
-                  className={`size-4 ${q.isFetching || pricesFetching ? "animate-spin" : ""}`}
-                />
-              </button>
-            </>
-          }
-        />
-
-        <section className="px-5">
+        <section className="px-5 mt-3">
           <div className="inline-flex rounded-full border bg-muted p-1 mb-3">
             {(["open", "closed"] as const).map((t) => (
               <button
@@ -459,7 +430,6 @@ function PositionsPage() {
         )}
       </MarketAwarePositionsBody>
       <CoinPositionsSection />
-      <TabBar />
 
       {chartOpen ? (
         <Suspense fallback={null}>
@@ -481,7 +451,7 @@ function PositionsPage() {
           />
         </Suspense>
       ) : null}
-    </div>
+    </BeginnerShell>
   );
 }
 

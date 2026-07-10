@@ -7,7 +7,6 @@ import { killAll, triggerMyAutoBookNow, updateConfig } from "@/lib/bot.functions
 import { getDashboardStats } from "@/lib/stats.functions";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { TabBar } from "@/components/tab-bar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -232,8 +231,6 @@ function BotPage() {
           </p>
         </div>
       </section>
-
-      <TabBar />
 
       <GoLiveDialog
         open={confirmLive}

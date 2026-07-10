@@ -20,6 +20,7 @@ import { Route as AuthenticatedScannerRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPrivacyRouteImport } from './routes/_authenticated/privacy'
 import { Route as AuthenticatedPositionsRouteImport } from './routes/_authenticated/positions'
 import { Route as AuthenticatedMoversRouteImport } from './routes/_authenticated/movers'
+import { Route as AuthenticatedMoreRouteImport } from './routes/_authenticated/more'
 import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
 import { Route as AuthenticatedExitReplayRouteImport } from './routes/_authenticated/exit-replay'
 import { Route as AuthenticatedCoinBotRouteImport } from './routes/_authenticated/coin-bot'
@@ -92,6 +93,11 @@ const AuthenticatedPositionsRoute = AuthenticatedPositionsRouteImport.update({
 const AuthenticatedMoversRoute = AuthenticatedMoversRouteImport.update({
   id: '/movers',
   path: '/movers',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMoreRoute = AuthenticatedMoreRouteImport.update({
+  id: '/more',
+  path: '/more',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedHelpRoute = AuthenticatedHelpRouteImport.update({
@@ -210,6 +216,7 @@ export interface FileRoutesByFullPath {
   '/coin-bot': typeof AuthenticatedCoinBotRoute
   '/exit-replay': typeof AuthenticatedExitReplayRoute
   '/help': typeof AuthenticatedHelpRoute
+  '/more': typeof AuthenticatedMoreRoute
   '/movers': typeof AuthenticatedMoversRoute
   '/positions': typeof AuthenticatedPositionsRoute
   '/privacy': typeof AuthenticatedPrivacyRoute
@@ -240,6 +247,7 @@ export interface FileRoutesByTo {
   '/coin-bot': typeof AuthenticatedCoinBotRoute
   '/exit-replay': typeof AuthenticatedExitReplayRoute
   '/help': typeof AuthenticatedHelpRoute
+  '/more': typeof AuthenticatedMoreRoute
   '/movers': typeof AuthenticatedMoversRoute
   '/positions': typeof AuthenticatedPositionsRoute
   '/privacy': typeof AuthenticatedPrivacyRoute
@@ -273,6 +281,7 @@ export interface FileRoutesById {
   '/_authenticated/coin-bot': typeof AuthenticatedCoinBotRoute
   '/_authenticated/exit-replay': typeof AuthenticatedExitReplayRoute
   '/_authenticated/help': typeof AuthenticatedHelpRoute
+  '/_authenticated/more': typeof AuthenticatedMoreRoute
   '/_authenticated/movers': typeof AuthenticatedMoversRoute
   '/_authenticated/positions': typeof AuthenticatedPositionsRoute
   '/_authenticated/privacy': typeof AuthenticatedPrivacyRoute
@@ -307,6 +316,7 @@ export interface FileRouteTypes {
     | '/coin-bot'
     | '/exit-replay'
     | '/help'
+    | '/more'
     | '/movers'
     | '/positions'
     | '/privacy'
@@ -337,6 +347,7 @@ export interface FileRouteTypes {
     | '/coin-bot'
     | '/exit-replay'
     | '/help'
+    | '/more'
     | '/movers'
     | '/positions'
     | '/privacy'
@@ -369,6 +380,7 @@ export interface FileRouteTypes {
     | '/_authenticated/coin-bot'
     | '/_authenticated/exit-replay'
     | '/_authenticated/help'
+    | '/_authenticated/more'
     | '/_authenticated/movers'
     | '/_authenticated/positions'
     | '/_authenticated/privacy'
@@ -482,6 +494,13 @@ declare module '@tanstack/react-router' {
       path: '/movers'
       fullPath: '/movers'
       preLoaderRoute: typeof AuthenticatedMoversRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/more': {
+      id: '/_authenticated/more'
+      path: '/more'
+      fullPath: '/more'
+      preLoaderRoute: typeof AuthenticatedMoreRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/help': {
@@ -629,6 +648,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCoinBotRoute: typeof AuthenticatedCoinBotRoute
   AuthenticatedExitReplayRoute: typeof AuthenticatedExitReplayRoute
   AuthenticatedHelpRoute: typeof AuthenticatedHelpRoute
+  AuthenticatedMoreRoute: typeof AuthenticatedMoreRoute
   AuthenticatedMoversRoute: typeof AuthenticatedMoversRoute
   AuthenticatedPositionsRoute: typeof AuthenticatedPositionsRoute
   AuthenticatedPrivacyRoute: typeof AuthenticatedPrivacyRoute
@@ -648,6 +668,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCoinBotRoute: AuthenticatedCoinBotRoute,
   AuthenticatedExitReplayRoute: AuthenticatedExitReplayRoute,
   AuthenticatedHelpRoute: AuthenticatedHelpRoute,
+  AuthenticatedMoreRoute: AuthenticatedMoreRoute,
   AuthenticatedMoversRoute: AuthenticatedMoversRoute,
   AuthenticatedPositionsRoute: AuthenticatedPositionsRoute,
   AuthenticatedPrivacyRoute: AuthenticatedPrivacyRoute,

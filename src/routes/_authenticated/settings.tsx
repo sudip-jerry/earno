@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/brand/brand-ui";
-import { TabBar } from "@/components/tab-bar";
 import { GoLiveDialog } from "@/components/go-live-dialog";
 import {
   HelpCircle,
@@ -1070,7 +1069,7 @@ function SettingsPage() {
       </section>
 
       {hasChanges && (
-        <div className="fixed bottom-[76px] left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-4 flex gap-3 z-50">
+        <div className="fixed bottom-4 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-4 flex gap-3 z-50">
           <Button
             variant="outline"
             className="flex-1"
@@ -1128,7 +1127,6 @@ function SettingsPage() {
         }}
         dailyCapPct={Number(get("daily_loss_cap_pct")) || undefined}
       />
-      <TabBar />
     </div>
   );
 }
