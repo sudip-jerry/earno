@@ -334,7 +334,10 @@ function PositionsPage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      <p
+                        className="text-[10px] uppercase tracking-wider text-muted-foreground"
+                        title="Return on Equity — your profit as a % of the margin you put up"
+                      >
                         ROE
                       </p>
                       <p
@@ -358,7 +361,12 @@ function PositionsPage() {
                       <p className="tabular-nums font-medium mt-0.5">{fmt(size)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-muted-foreground">Margin</p>
+                      <p
+                        className="text-muted-foreground"
+                        title="The cash set aside as collateral for this trade"
+                      >
+                        Margin
+                      </p>
                       <p className="tabular-nums font-medium mt-0.5">{fmt(margin)}</p>
                     </div>
                     <div>
@@ -366,11 +374,21 @@ function PositionsPage() {
                       <p className="tabular-nums font-medium mt-0.5">{fmtNum(entry, 6)}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">LTP</p>
+                      <p
+                        className="text-muted-foreground"
+                        title="Last Traded Price — the coin's latest market price"
+                      >
+                        LTP
+                      </p>
                       <p className="tabular-nums font-medium mt-0.5">{fmtNum(mark, 6)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-muted-foreground">Leverage</p>
+                      <p
+                        className="text-muted-foreground"
+                        title="How many times your margin is multiplied"
+                      >
+                        Leverage
+                      </p>
                       <p className="tabular-nums font-medium mt-0.5">{lev}x</p>
                     </div>
                   </div>
@@ -966,11 +984,21 @@ function ClosedList({
                     <p className="tabular-nums font-medium mt-0.5">{fmt(size)}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Margin</p>
+                    <p
+                      className="text-muted-foreground"
+                      title="The cash set aside as collateral for this trade"
+                    >
+                      Margin
+                    </p>
                     <p className="tabular-nums font-medium mt-0.5">{fmt(margin)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-muted-foreground">Leverage</p>
+                    <p
+                      className="text-muted-foreground"
+                      title="How many times your margin is multiplied"
+                    >
+                      Leverage
+                    </p>
                     <p className="tabular-nums font-medium mt-0.5">{lev}x</p>
                   </div>
                 </div>

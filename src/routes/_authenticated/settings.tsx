@@ -321,7 +321,7 @@ const DEFAULTS: Cfg = {
   trailing_enabled: true,
   risk_per_trade_pct: 1,
   max_open_positions: 2,
-  daily_loss_cap_pct: 3,
+  daily_loss_cap_pct: 6,
   allow_short: true,
   allow_long: true,
   auto_book: false,

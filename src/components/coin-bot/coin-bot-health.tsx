@@ -42,7 +42,11 @@ export function CoinBotHealth() {
   });
 
   if (!c) {
-    return <div className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">Loading bot…</div>;
+    return (
+      <div className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
+        Loading bot…
+      </div>
+    );
   }
 
   const enabled = c.enabled;
@@ -50,13 +54,16 @@ export function CoinBotHealth() {
   return (
     <section className="rounded-2xl border bg-card p-4">
       <div className="flex items-center gap-2.5">
-        <span className={`size-8 grid place-items-center rounded-full ${enabled ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+        <span
+          className={`size-8 grid place-items-center rounded-full ${enabled ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
+        >
           <Activity className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">Coin Bot · {enabled ? "Running" : "Paused"}</p>
+          <p className="text-sm font-semibold">Wealth Engine · {enabled ? "Running" : "Paused"}</p>
           <p className="text-[11px] text-muted-foreground capitalize">
-            {c.mode} mode · scan every {c.scan_interval_min}m · up to {c.max_holdings} holdings · min {c.min_confidence}% conf
+            {c.mode} mode · scan every {c.scan_interval_min}m · up to {c.max_holdings} holdings ·
+            min {c.min_confidence}% conf
           </p>
         </div>
         <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
@@ -65,13 +72,28 @@ export function CoinBotHealth() {
       </div>
 
       <div className="mt-3 flex gap-2">
-        <Button size="sm" className="flex-1" variant={enabled ? "outline" : "default"} onClick={() => upd.mutate({ enabled: !enabled })}>
+        <Button
+          size="sm"
+          className="flex-1"
+          variant={enabled ? "outline" : "default"}
+          onClick={() => upd.mutate({ enabled: !enabled })}
+        >
           {enabled ? "Pause bot" : "Start bot"}
         </Button>
-        <Button size="sm" className="flex-1" variant={c.mode === "intraday" ? "default" : "outline"} onClick={() => upd.mutate({ mode: "intraday" })}>
+        <Button
+          size="sm"
+          className="flex-1"
+          variant={c.mode === "intraday" ? "default" : "outline"}
+          onClick={() => upd.mutate({ mode: "intraday" })}
+        >
           Intraday
         </Button>
-        <Button size="sm" className="flex-1" variant={c.mode === "swing" ? "default" : "outline"} onClick={() => upd.mutate({ mode: "swing" })}>
+        <Button
+          size="sm"
+          className="flex-1"
+          variant={c.mode === "swing" ? "default" : "outline"}
+          onClick={() => upd.mutate({ mode: "swing" })}
+        >
           Swing
         </Button>
       </div>
@@ -80,9 +102,9 @@ export function CoinBotHealth() {
         <div className="mt-4 space-y-3 border-t pt-3">
           {/* Currency helper */}
           <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-200">
-            <span className="font-medium">All capital fields are in USDT.</span>
-            {" "}If your budget is in {code}, divide by {rate.toFixed(2)} to get USDT.
-            {" "}Example: ₹50,000 ÷ {Math.round(rate)} ≈ ${Math.round(50000 / rate)} USDT.
+            <span className="font-medium">All capital fields are in USDT.</span> If your budget is
+            in {code}, divide by {rate.toFixed(2)} to get USDT. Example: ₹50,000 ÷{" "}
+            {Math.round(rate)} ≈ ${Math.round(50000 / rate)} USDT.
           </div>
           <div>
             <Field
@@ -107,11 +129,27 @@ export function CoinBotHealth() {
               ≈ {fmt(Number(c.available_cash_usdt) || 0)} in {code} · Auto-managed by bot
             </p>
           </div>
-          <Field label="Max holdings" value={maxHoldings} onChange={setMaxHoldings} onSave={() => upd.mutate({ max_holdings: Number(maxHoldings) })} />
-          <Field label="Min confidence (%)" value={minConf} onChange={setMinConf} onSave={() => upd.mutate({ min_confidence: Number(minConf) })} />
-          <Field label="Scan interval (min)" value={scanMin} onChange={setScanMin} onSave={() => upd.mutate({ scan_interval_min: Number(scanMin) })} />
+          <Field
+            label="Max holdings"
+            value={maxHoldings}
+            onChange={setMaxHoldings}
+            onSave={() => upd.mutate({ max_holdings: Number(maxHoldings) })}
+          />
+          <Field
+            label="Min confidence (%)"
+            value={minConf}
+            onChange={setMinConf}
+            onSave={() => upd.mutate({ min_confidence: Number(minConf) })}
+          />
+          <Field
+            label="Scan interval (min)"
+            value={scanMin}
+            onChange={setScanMin}
+            onSave={() => upd.mutate({ scan_interval_min: Number(scanMin) })}
+          />
           <p className="text-[11px] text-muted-foreground">
-            Intraday: short-term momentum, can carry overnight. Swing: holds up to {c.max_holding_days} days.
+            Intraday: short-term momentum, can carry overnight. Swing: holds up to{" "}
+            {c.max_holding_days} days.
           </p>
         </div>
       )}
@@ -119,12 +157,29 @@ export function CoinBotHealth() {
   );
 }
 
-function Field({ label, value, onChange, onSave }: { label: string; value: string; onChange: (v: string) => void; onSave: () => void }) {
+function Field({
+  label,
+  value,
+  onChange,
+  onSave,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onSave: () => void;
+}) {
   return (
     <div className="flex items-center gap-2">
       <label className="text-xs text-muted-foreground flex-1">{label}</label>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} className="h-8 w-24 text-xs" inputMode="decimal" />
-      <Button size="sm" variant="outline" onClick={onSave}>Save</Button>
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-8 w-24 text-xs"
+        inputMode="decimal"
+      />
+      <Button size="sm" variant="outline" onClick={onSave}>
+        Save
+      </Button>
     </div>
   );
 }
