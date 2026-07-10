@@ -42,6 +42,20 @@ function fmtRaw(n: number | null | undefined, d = 2) {
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: d });
 }
 
+function timeAgo(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "";
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (s < 60) return "just now";
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24);
+  return `${d}d ago`;
+}
+
 function useCoinQueries() {
   const portfolioFn = useServerFn(getCoinPortfolio);
   const signalsFn = useServerFn(getCoinSignals);
@@ -276,6 +290,10 @@ export function CoinSignalsList({
           .includes(q),
     );
   }
+  // Always show the newest signal first.
+  sigs = [...sigs].sort(
+    (a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime(),
+  );
   if (limit) sigs = sigs.slice(0, limit);
 
   return (
@@ -319,6 +337,11 @@ export function CoinSignalsList({
                     {ACTION_LABEL[s.action as Action]}
                   </span>
                   <span className="text-[10px] text-muted-foreground">{s.confidence}%</span>
+                  {s.created_at && (
+                    <span className="text-[10px] text-muted-foreground">
+                      · {timeAgo(s.created_at)}
+                    </span>
+                  )}
                 </div>
                 <Button
                   size="sm"
