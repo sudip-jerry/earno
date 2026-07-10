@@ -13,9 +13,8 @@ import { netPnl, tradeFee } from "@/lib/fees";
 import { toast } from "sonner";
 import { Briefcase, RefreshCw, HelpCircle, Pencil, Target, Shield, LineChart } from "lucide-react";
 import { useMarketMode } from "@/hooks/use-market-mode";
-import { CoinHoldingsCard } from "@/components/coin-bot/coin-panels";
 import { BrandEmptyState } from "@/components/brand/brand-ui";
-import { CoinRecentActivity } from "@/components/coin-bot/coin-recent-activity";
+import { CoinPositionsView } from "@/components/coin-bot/coin-positions";
 import { lazy, Suspense } from "react";
 const PositionChartSheet = lazy(() =>
   import("@/components/position-chart-sheet").then((m) => ({ default: m.PositionChartSheet })),
@@ -992,33 +991,9 @@ function ClosedList({
 
 function CoinPositionsSection() {
   const { market } = useMarketMode();
-  const [coinTab, setCoinTab] = useState<"open" | "closed">("open");
   // Show coins on the combined "All" view as well as the dedicated Coins view.
   if (market === "futures") return null;
-  return (
-    <div className="px-5 pt-3 space-y-3">
-      {/* Holdings / History toggle — parity with the neat futures Open/History tabs. */}
-      <div className="inline-flex rounded-full border bg-muted p-1">
-        {(["open", "closed"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setCoinTab(t)}
-            className={`px-4 h-8 text-xs font-medium rounded-full transition-colors ${
-              coinTab === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
-            }`}
-          >
-            {t === "open" ? "Holdings" : "History"}
-          </button>
-        ))}
-      </div>
-
-      {coinTab === "open" ? (
-        <CoinHoldingsCard />
-      ) : (
-        <CoinRecentActivity pageSize={12} title="All coin trades" />
-      )}
-    </div>
-  );
+  return <CoinPositionsView />;
 }
 
 function MarketAwarePositionsBody({ children }: { children: ReactNode }) {
