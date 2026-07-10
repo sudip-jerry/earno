@@ -628,6 +628,15 @@ function Home() {
               </IconBtn>
             </div>
           </div>
+          {viewMode === "simple" && (
+            <button
+              type="button"
+              onClick={() => setMarket("all")}
+              className="mt-2 inline-flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground transition"
+            >
+              ‹ Back to Home
+            </button>
+          )}
           <p className="mt-3 text-[11px] text-muted-foreground">
             Live CoinDCX prices · practice trades, no real orders
           </p>
@@ -745,6 +754,15 @@ function Home() {
             </DropdownMenu>
           </div>
         </div>
+        {viewMode === "simple" && (
+          <button
+            type="button"
+            onClick={() => setMarket("all")}
+            className="mt-2 inline-flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground transition"
+          >
+            ‹ Back to Home
+          </button>
+        )}
       </header>
 
       {/* ===== Mode banner — prominent ===== */}

@@ -107,7 +107,7 @@ function ScannerPage() {
       <PageHeader
         icon={<Radar className="size-5 text-primary" />}
         title="Scanner"
-        subtitle={`${filtered.length} match · ranked by confidence`}
+        subtitle={`${market === "all" ? "Futures · " : ""}${filtered.length} match · ranked by confidence`}
         actions={
           <>
             <ModePill className="mr-1" />

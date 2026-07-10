@@ -102,7 +102,7 @@ export function SimpleMore({
               <span
                 className={`text-[10px] font-semibold tracking-wider px-2 h-5 inline-flex items-center rounded-full shrink-0 ${isLive ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"}`}
               >
-                {isLive ? "LIVE" : "PAPER"}
+                {isLive ? "LIVE" : "PRACTICE"}
               </span>
             </button>
             <LinkRow
