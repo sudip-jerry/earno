@@ -5,7 +5,9 @@ import { getTopMovers, bookManualTrade, type Mover } from "@/lib/movers.function
 import { TabBar } from "@/components/tab-bar";
 import { PositionsStrip } from "@/components/positions-strip";
 import { OpportunityCard } from "@/components/opportunity-card";
-import { PageHeader, BrandEmptyState } from "@/components/brand/brand-ui";
+import { PageHeader, BrandEmptyState, ModePill } from "@/components/brand/brand-ui";
+import { CoinSignalsList } from "@/components/coin-bot/coin-panels";
+import { CoinHero } from "@/components/coin-bot/coin-hero";
 import { useMarketMode } from "@/hooks/use-market-mode";
 import { toast } from "sonner";
 import { Flame, RefreshCw, HelpCircle } from "lucide-react";
@@ -75,6 +77,27 @@ function MoversPage() {
   const movers: Mover[] = q.data?.ok ? q.data.movers : [];
   const riskMeta = (q.data?.ok ? q.data.risk : null) ?? DEFAULT_RISK_META;
   const errorMsg = q.data && !q.data.ok ? q.data.error : null;
+
+  // Coins are spot-only — never show Long/Short here. Show the top actionable
+  // coin opportunities instead, matching the Coin Scanner.
+  if (market === "spot") {
+    return (
+      <div className="min-h-svh bg-background pb-28">
+        <PositionsStrip />
+        <PageHeader
+          icon={<Flame className="size-5 text-orange-500" />}
+          title="Top Coins"
+          subtitle="Best coin opportunities by confidence"
+          actions={<ModePill market="coin" />}
+        />
+        <div className="px-5 mt-3 space-y-4">
+          <CoinHero />
+          <CoinSignalsList hideHeader actionableOnly />
+        </div>
+        <TabBar />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-svh bg-background pb-28">

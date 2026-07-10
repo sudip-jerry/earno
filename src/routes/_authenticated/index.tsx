@@ -292,7 +292,11 @@ function Home() {
           }
         | undefined
     )?.summary;
-    const futuresValue = Number(s?.portfolioValue ?? c?.paper_equity ?? 0);
+    // Mark futures to market (include open unrealized PnL) so it matches the coin
+    // side, which is already mark-to-market. Otherwise the combined total is wrong
+    // whenever a futures trade is open and Invested + Returns ≠ Current.
+    const futuresValue =
+      Number(s?.portfolioValue ?? c?.paper_equity ?? 0) + Number(s?.openPnl ?? 0);
     const coinEquity =
       Number(coinPortfolio.data?.available_cash_usdt ?? 0) +
       Number(coinSummary?.current_value_usdt ?? 0);
@@ -617,7 +621,7 @@ function Home() {
               />
             </button>
             <div className="ml-auto flex items-center gap-1.5">
-              <ModePill />
+              <ModePill market="coin" />
               <MarketTogglePill />
               <IconBtn ariaLabel="Settings" onClick={() => navigate({ to: "/settings" })}>
                 <Cog className="size-4" />

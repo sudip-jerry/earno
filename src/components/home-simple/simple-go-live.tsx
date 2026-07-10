@@ -80,6 +80,10 @@ export function SimpleGoLive({
                       earn'O never holds your funds — you stay in control and can switch back to
                       Practice any time.
                     </Point>
+                    <Point>
+                      Your <b>Coins</b> stay in practice for now — only automated Futures trading
+                      goes live.
+                    </Point>
                     <Point>Start small. Real markets move, and losses are possible.</Point>
                   </ul>
                   <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2">

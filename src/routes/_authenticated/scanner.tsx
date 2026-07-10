@@ -218,7 +218,7 @@ function CoinScannerView() {
         subtitle="Live CoinDCX coins · paper buy/sell"
         actions={
           <>
-            <ModePill className="mr-1" />
+            <ModePill className="mr-1" market="coin" />
             <Link
               to="/help"
               className="size-10 grid place-items-center rounded-full hover:bg-muted"
