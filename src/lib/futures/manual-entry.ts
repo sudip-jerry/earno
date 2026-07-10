@@ -147,14 +147,22 @@ export function supertrend(
   return trendUp;
 }
 
-/** True when the last `lookback` closes are strictly rising (higher closes). */
-function lastClosesRising(candles: MECandle[], lookback: number): boolean {
+/**
+ * True when the last `lookback` candles are in an UPTREND — net higher over the
+ * window AND a majority are green. This matches the discretionary "last N candles
+ * up" (a rising trend), not a literal strictly-monotonic close sequence (which is
+ * rare and rejected ~everything).
+ */
+function isUptrend(candles: MECandle[], lookback: number): boolean {
   if (candles.length < lookback + 1) return false;
-  const slice = candles.slice(-(lookback + 1));
+  const slice = candles.slice(-(lookback + 1)); // lookback bars + the prior anchor
+  const netUp = slice[slice.length - 1].close > slice[0].close;
+  let green = 0;
   for (let i = 1; i < slice.length; i++) {
-    if (slice[i].close <= slice[i - 1].close) return false;
+    if (slice[i].close >= slice[i].open) green += 1;
   }
-  return true;
+  const majorityGreen = green >= Math.ceil(lookback / 2);
+  return netUp && majorityGreen;
 }
 
 /**
@@ -168,8 +176,8 @@ export function evaluateManualEntry(
 ): ManualEntryResult {
   const reasons: string[] = [];
 
-  const trend30Up = lastClosesRising(c30m, params.trend30Lookback);
-  if (!trend30Up) reasons.push(`30m not up (last ${params.trend30Lookback} closes not rising)`);
+  const trend30Up = isUptrend(c30m, params.trend30Lookback);
+  if (!trend30Up) reasons.push(`30m not in uptrend (last ${params.trend30Lookback})`);
 
   const closes1 = c1m.map((c) => c.close);
   const rsi1m = rsi(closes1, params.rsiPeriod);
@@ -177,8 +185,8 @@ export function evaluateManualEntry(
   if (rsi1m == null) reasons.push("1m RSI unavailable");
   else if (!rsiOk) reasons.push(`1m RSI overbought (${rsi1m.toFixed(0)} >= ${params.rsiOverbought})`);
 
-  const trend1Up = lastClosesRising(c1m, params.trend1Lookback);
-  if (!trend1Up) reasons.push(`1m not up (last ${params.trend1Lookback} closes not rising)`);
+  const trend1Up = isUptrend(c1m, params.trend1Lookback);
+  if (!trend1Up) reasons.push(`1m not in uptrend (last ${params.trend1Lookback})`);
 
   const stSeries = supertrend(c1m, params.stPeriod, params.stMultiplier);
   const supertrendUp = stSeries.length ? stSeries[stSeries.length - 1] : null;
