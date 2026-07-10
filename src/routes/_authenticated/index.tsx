@@ -1127,7 +1127,10 @@ function PerformanceStrip({
           </p>
         </div>
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
+          <p
+            className="text-[10px] uppercase tracking-wider text-muted-foreground truncate"
+            title="Profit factor — money won ÷ money lost. Above 1.0 means you're ahead."
+          >
             Profit factor
           </p>
           <p
