@@ -239,18 +239,10 @@ export function SimpleView(props: SimpleViewProps) {
                 {returnsPct.toFixed(2)}%
               </span>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-3 border-t pt-3">
-              <div>
-                <div className="text-[11px] text-muted-foreground">Invested</div>
-                <div className="text-[13px] font-semibold tabular-nums">
-                  {hideBalance ? "••••" : fmt(totalInvested)}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-[11px] text-muted-foreground">Current value</div>
-                <div className="text-[13px] font-semibold tabular-nums">
-                  {hideBalance ? "••••" : fmt(totalValue)}
-                </div>
+            <div className="mt-3 flex items-center justify-between border-t pt-3">
+              <div className="text-[11px] text-muted-foreground">Invested since you started</div>
+              <div className="text-[13px] font-semibold tabular-nums">
+                {hideBalance ? "••••" : fmt(totalInvested)}
               </div>
             </div>
           </section>

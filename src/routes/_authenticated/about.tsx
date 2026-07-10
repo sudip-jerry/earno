@@ -32,9 +32,9 @@ function AboutPage() {
             Wealth, Engineered.
           </p>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Earn'O is an automated, quantitative trading assistant for CoinDCX Futures. It scans the
-            market, scores opportunities, and executes a disciplined strategy on your behalf — so
-            decisions are driven by data and rules, not emotion.
+            Earn'O is an automated, quantitative trading assistant for CoinDCX futures and spot
+            (coins). It scans the market, scores opportunities, and executes a disciplined strategy
+            on your behalf — so decisions are driven by data and rules, not emotion.
           </p>
           <Button variant="outline" size="sm" onClick={() => setShowVersionDialog(true)}>
             Version & build info
