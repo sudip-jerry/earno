@@ -108,6 +108,17 @@ function momentumOf(closes: number[]): "rising" | "fading" | "neutral" {
   return "neutral";
 }
 
+/** True when price has broken below the prior swing low on the entry (30m)
+ *  timeframe — i.e. making a fresh lower low (downtrend structure). Used to
+ *  block swing buys into a rollover the lagging D1/H4 EMA hasn't caught yet. */
+function makingLowerLow(m30: Candle[]): boolean {
+  const lows = m30.map((c) => c.low).filter((n) => n > 0);
+  if (lows.length < 12) return false;
+  const recentLow = Math.min(...lows.slice(-3)); // last 3 bars
+  const priorLow = Math.min(...lows.slice(-12, -3)); // prior 9 bars
+  return recentLow < priorLow;
+}
+
 export function scoreCoin(input: CoinScoreInput): CoinScore {
   const closes5 = input.m5.map((c) => c.close).filter((n) => n > 0);
   const closes30 = input.m30.map((c) => c.close).filter((n) => n > 0);
@@ -145,17 +156,31 @@ export function scoreCoin(input: CoinScoreInput): CoinScore {
     swingTrendH4 = trendOf(closesH4);
     const volH4 = volumeStrength(input.h4);
     swingReady = true;
+
+    // Price-structure confirmation. The D1/H4 EMA cross (trendOf) lags: it stays
+    // "up" for hours after price has already rolled over, so the bot kept buying
+    // coins making lower lows (9:1 stops:targets). Require current structure to be
+    // intact — price above its H4 trendline, no active intraday breakdown, and not
+    // breaking a fresh lower low — before a swing BUY.
+    const h4Ema = ema(closesH4, 21);
+    const h4Ema21 = h4Ema.length ? h4Ema[h4Ema.length - 1] : null;
+    const aboveH4Trendline = h4Ema21 != null && input.price >= h4Ema21;
+    const noIntradayBreakdown = trend5 !== "down" && mom !== "fading";
+    const structureIntact = aboveH4Trendline && noIntradayBreakdown && !makingLowerLow(input.m30);
+
     swingBullish =
       swingTrendD1 === "up" &&
       swingTrendH4 !== "down" &&
       trend30 !== "down" &&
-      volH4 !== "weak";
+      volH4 !== "weak" &&
+      structureIntact;
     swingStrongBullish =
       swingTrendD1 === "up" &&
       swingTrendH4 === "up" &&
       trend30 === "up" &&
       trend5 !== "down" &&
-      volH4 === "strong";
+      volH4 === "strong" &&
+      structureIntact;
   }
 
   if (isSwing && swingReady) {
