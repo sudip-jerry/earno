@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Coins, TrendingUp, TrendingDown } from "lucide-react";
 import { getCoinPortfolio, getCoinHoldings } from "@/lib/coin-bot/coin-bot.functions";
 import { useCurrency } from "@/hooks/use-currency";
+import { DailyBars } from "@/components/market/daily-bars";
 
 export function CoinHero() {
   const { fmt } = useCurrency();
@@ -25,6 +26,20 @@ export function CoinHero() {
   const equity = Number(p?.available_cash_usdt ?? 0) + Number(sum?.current_value_usdt ?? 0);
   const totalPnl = unrealized + Number(p?.realized_today_usdt ?? 0);
   const pnlPos = totalPnl >= 0;
+
+  // Daily realized-PnL series from closed trades, for the bar chart.
+  const dailyPnl = (() => {
+    const bucket = new Map<string, number>();
+    for (const c of holdings.data?.closed ?? []) {
+      if (!c.closed_at) continue;
+      const d = new Date(c.closed_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      bucket.set(key, (bucket.get(key) ?? 0) + Number(c.realized_pnl_usdt ?? 0));
+    }
+    return [...bucket.entries()]
+      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .map(([date, pnl]) => ({ date, pnl }));
+  })();
 
   return (
     <section className="brand-hero rounded-2xl p-5 shadow-md">
@@ -60,6 +75,7 @@ export function CoinHero() {
           tone={Number(p?.realized_today_usdt ?? 0) >= 0 ? "pos" : "neg"}
         />
       </div>
+      <DailyBars series={dailyPnl} />
     </section>
   );
 }
