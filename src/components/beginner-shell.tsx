@@ -1,51 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
-import {
-  Crown,
-  Settings as Cog,
-  MoreVertical,
-  Home as HomeIcon,
-  Radar,
-  Receipt,
-  MoreHorizontal,
-  HelpCircle,
-  Info,
-  LineChart,
-} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Home as HomeIcon, Radar, Receipt, MoreHorizontal } from "lucide-react";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
-import { getMyEntitlements } from "@/lib/plans.functions";
-import { PLAN_NAME, type PlanTier } from "@/lib/plans";
 import { SimpleMarketTabs } from "@/components/home-simple/simple-market-tabs";
-
-function IconBtn({
-  children,
-  ariaLabel,
-  onClick,
-}: {
-  children: React.ReactNode;
-  ariaLabel: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      onClick={onClick}
-      className="size-8 grid place-items-center rounded-full hover:bg-muted text-foreground"
-    >
-      {children}
-    </button>
-  );
-}
 
 export function BeginnerShell({
   showMarketToggle = false,
@@ -55,10 +11,6 @@ export function BeginnerShell({
   children: React.ReactNode;
 }) {
   const navigate = useNavigate();
-  const entFn = useServerFn(getMyEntitlements);
-  const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
-  const tier: PlanTier = ent.data?.tier ?? "free";
-  const isAdmin = !!ent.data?.isAdmin;
 
   return (
     <div className="min-h-svh bg-background pb-28">
@@ -77,48 +29,6 @@ export function BeginnerShell({
               draggable={false}
             />
           </button>
-          <div className="ml-auto flex items-center gap-1">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="More"
-                  className="size-8 grid place-items-center rounded-full hover:bg-muted text-foreground"
-                >
-                  <MoreVertical className="size-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                  {PLAN_NAME[tier]} plan {isAdmin && "· Admin"}
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate({ to: "/upgrade" })}>
-                  <Crown className="size-4 mr-2" /> Plan & Upgrade
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate({ to: "/movers" })}>
-                  <LineChart className="size-4 mr-2" /> Movers
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate({ to: "/help" })}>
-                  <HelpCircle className="size-4 mr-2" /> Help & Support
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate({ to: "/about" })}>
-                  <Info className="size-4 mr-2" /> About
-                </DropdownMenuItem>
-                {isAdmin && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate({ to: "/admin" })}>
-                      <Crown className="size-4 mr-2 text-primary" /> Admin console
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <IconBtn ariaLabel="Settings" onClick={() => navigate({ to: "/settings" })}>
-              <Cog className="size-4" />
-            </IconBtn>
-          </div>
         </div>
       </header>
 

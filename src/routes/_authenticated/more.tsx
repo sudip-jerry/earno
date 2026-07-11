@@ -1,7 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyEntitlements } from "@/lib/plans.functions";
 import { BeginnerShell } from "@/components/beginner-shell";
 import { SimpleMore } from "@/components/home-simple/simple-more";
 
@@ -32,6 +34,10 @@ function MorePage() {
   });
   const currentMode = (cfg.data?.mode ?? "paper") as "paper" | "live";
 
+  const entFn = useServerFn(getMyEntitlements);
+  const ent = useQuery({ queryKey: ["entitlements"], queryFn: () => entFn() });
+  const isAdmin = !!ent.data?.isAdmin;
+
   return (
     <BeginnerShell>
       <SimpleMore
@@ -45,6 +51,7 @@ function MorePage() {
         onToggleHideBalance={() => setHideBalance((v) => !v)}
         currentMode={currentMode}
         onManageMode={() => navigate({ to: "/bot" })}
+        isAdmin={isAdmin}
       />
     </BeginnerShell>
   );
