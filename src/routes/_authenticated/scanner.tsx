@@ -12,8 +12,6 @@ import { useMarketMode } from "@/hooks/use-market-mode";
 import { getSignalAges } from "@/lib/signal-age.functions";
 import { timeAgo } from "@/lib/time-ago";
 import { CoinSignalsList } from "@/components/coin-bot/coin-panels";
-import { CoinHero } from "@/components/coin-bot/coin-hero";
-import { CoinKpiStrip } from "@/components/coin-bot/coin-kpi-strip";
 import { CoinScannerToolbar, type CoinFilter } from "@/components/coin-bot/coin-scanner-toolbar";
 import { toast } from "sonner";
 import { Filter } from "lucide-react";
@@ -216,8 +214,6 @@ function CoinScannerView() {
     <BeginnerShell showMarketToggle>
       <PositionsStrip showMarketToggle={false} />
       <div className="px-5 mt-3 space-y-4">
-        <CoinHero />
-        <CoinKpiStrip />
         <CoinScannerToolbar filter={filter} onFilter={setFilter} query={query} onQuery={setQuery} />
         <CoinSignalsList hideHeader filterAction={filter} query={query} />
       </div>
