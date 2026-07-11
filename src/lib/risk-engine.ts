@@ -45,6 +45,11 @@ export type StylePreset = {
   lossesBeforeSymbolCooldown: number;
   /** Cooldown duration (hours) once `lossesBeforeSymbolCooldown` triggers. */
   symbolCooldownHours: number;
+  /** Auto-book confidence threshold — a signal below this is shown, not booked.
+   *  Mode-driven: conservative is pickiest, aggressive trades most. */
+  autoBookConfidence: number;
+  /** Leverage applied to positions for this mode. */
+  leverage: number;
 };
 
 export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
@@ -73,6 +78,8 @@ export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
     maxTradesPerSymbolPerDay: 2,
     lossesBeforeSymbolCooldown: 2,
     symbolCooldownHours: 6,
+    autoBookConfidence: 78,
+    leverage: 2,
   },
   balanced: {
     key: "balanced",
@@ -96,6 +103,8 @@ export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
     maxTradesPerSymbolPerDay: 3,
     lossesBeforeSymbolCooldown: 2,
     symbolCooldownHours: 5,
+    autoBookConfidence: 72,
+    leverage: 3,
   },
   aggressive: {
     key: "aggressive",
@@ -119,6 +128,8 @@ export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
     maxTradesPerSymbolPerDay: 4,
     lossesBeforeSymbolCooldown: 3,
     symbolCooldownHours: 3,
+    autoBookConfidence: 66,
+    leverage: 3,
   },
 };
 
@@ -131,9 +142,13 @@ export function presetFromConfig(cfg: {
   target_multiplier?: number | null;
   min_rr?: number | null;
   risk_per_trade_pct?: number | null;
+  auto_book_confidence_threshold?: number | null;
+  leverage?: number | null;
 } | null | undefined): StylePreset {
   const styleKey = (cfg?.trading_style as TradingStyle) ?? "balanced";
   const base = STYLE_PRESETS[styleKey] ?? STYLE_PRESETS.balanced;
+  // The mode is the source of truth; a stored column only overrides when an
+  // admin has set it (finite > 0), otherwise the mode default wins.
   return {
     ...base,
     riskPct: numOr(cfg?.risk_per_trade_pct, base.riskPct),
@@ -142,6 +157,8 @@ export function presetFromConfig(cfg: {
     maxAutoSL: numOr(cfg?.max_auto_sl_pct, base.maxAutoSL),
     targetMult: numOr(cfg?.target_multiplier, base.targetMult),
     minRR: numOr(cfg?.min_rr, base.minRR),
+    autoBookConfidence: numOr(cfg?.auto_book_confidence_threshold, base.autoBookConfidence),
+    leverage: numOr(cfg?.leverage, base.leverage),
   };
 }
 

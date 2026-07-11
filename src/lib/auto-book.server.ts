@@ -713,7 +713,11 @@ export async function runAutoBookPass(
     let opened = 0;
     let skipped = 0;
     const userName = nameByUser.get(cfg.user_id) ?? "";
-    const autoConfThreshold = Number(cfg.auto_book_confidence_threshold ?? 70);
+    // Mode is the source of truth for the confidence threshold (conservative 78
+    // / balanced 72 / aggressive 66); an admin column value still overrides via
+    // presetFromConfig. Strictness does not affect confidence, so deriving it
+    // here (before the full preset build below) is equivalent.
+    const autoConfThreshold = presetFromConfig(cfg).autoBookConfidence;
     const displayConfThreshold = Number(cfg.display_confidence_threshold ?? 55);
 
     const signalRows: Record<string, unknown>[] = [];
@@ -1484,7 +1488,7 @@ export async function runAutoBookPass(
         // Book.
         const side = a.side_bias as "long" | "short";
         const { tpPct, slPct } = plan;
-        const lev = Number(cfg.leverage ?? 3);
+        const lev = preset.leverage; // mode-driven (admin column overrides via preset)
         const notional = plan.positionSize;
         if (notional <= 0 || a.price <= 0) {
           rejection = "Position sizing failed";

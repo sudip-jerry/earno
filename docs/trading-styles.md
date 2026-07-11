@@ -4,12 +4,16 @@ EarnO runs **one algorithm** with three risk profiles. The style does **not** ch
 *what* the bot looks for — it changes *how much it risks, how wide it lets trades run,
 and how often it trades*. Every cohort is pinned to one style.
 
+> **Mode is the single source of truth.** The trading mode is the only risk setting a user
+> configures — risk %, stops, target, R:R, **confidence threshold, and leverage** all derive
+> from it via `STYLE_PRESETS`. The fine numeric fields are admin-only overrides (a `bot_config`
+> column only overrides the preset when an admin sets it; otherwise the mode default wins).
+
 > **Naming:** the code and database use `balanced`; in the UI and these notes it's also
 > called **Moderate**. They are the same style.
 
 The numeric settings live in [`src/lib/risk-engine.ts`](../src/lib/risk-engine.ts)
-(`STYLE_PRESETS`). Per-cohort overrides (leverage, confidence threshold) live in the
-`bot_config` table. This doc is the human-readable reference for both.
+(`STYLE_PRESETS`). This doc is the human-readable reference.
 
 ---
 
@@ -18,8 +22,9 @@ The numeric settings live in [`src/lib/risk-engine.ts`](../src/lib/risk-engine.t
 | | **Conservative** | **Moderate** (balanced) | **Aggressive** |
 |---|---|---|---|
 | Intent | Preserve capital | Everyday default | Chase volatile setups |
+| Confidence to book | **≥ 78** (pickiest) | **≥ 72** | **≥ 66** (most trades) |
 | Risk per trade | **0.35%** of equity | **1.0%** | **1.5%** |
-| Leverage (live) | 2× | 2–3× | 3× |
+| Leverage | 2× | 3× | 3× |
 | Trades / day (cap) | 10 | 15 | 25 |
 | Lets winners run | Least (trail 0.70%) | Medium (0.90%) | **Most (1.30%)** |
 | Books | Rarely, only A+ setups | Regularly | Often, tolerates noise |
@@ -30,6 +35,8 @@ The numeric settings live in [`src/lib/risk-engine.ts`](../src/lib/risk-engine.t
 
 | Parameter | Conservative | Moderate | Aggressive | What it controls |
 |---|---|---|---|---|
+| `autoBookConfidence` | **78** | **72** | **66** | Signal must clear this to auto-book (else shown, not traded) |
+| `leverage` | **2×** | **3×** | **3×** | Position leverage |
 | `riskPct` | 0.35% | 1.0% | 1.5% | Equity risked per trade → position size |
 | `minSL` | 1.5% | 1.5% | 1.8% | Floor on the stop distance |
 | `atrMult` | 2.0× | 2.2× | 2.4× | Stop = ATR × this (volatility-scaled) |
@@ -48,14 +55,16 @@ The numeric settings live in [`src/lib/risk-engine.ts`](../src/lib/risk-engine.t
 | `lossesBeforeSymbolCooldown` | 2 | 2 | 3 | Stop-losses on a symbol before it's benched |
 | `symbolCooldownHours` | 6h | 5h | 3h | How long a benched symbol sits out |
 
-### Config-level settings (`bot_config`, current live values)
+### Config-level settings (`bot_config`)
 
-| | Conservative | Moderate | Aggressive |
-|---|---|---|---|
-| Leverage | 2× | 2–3× | 3× |
-| Auto-book confidence threshold | 84 | 80–90 | 90 |
-| Daily loss cap | 5% | 5% | 5% |
-| Structure filters (shadow A/B) | off | on (1 of 3 cohorts) | on (1 of 2 cohorts) |
+These are **not** mode-derived — they're set per cohort (defaults / admin), independent of style:
+
+| | Notes |
+|---|---|
+| Daily loss cap | 5% (all modes) |
+| Max open positions, cooldown, auto-close | per-cohort defaults |
+| Structure filters (shadow A/B) | admin flags on the treatment cohorts |
+| Strategy, timeframe, allow long/short | orthogonal user choices, not risk-mode |
 
 ---
 

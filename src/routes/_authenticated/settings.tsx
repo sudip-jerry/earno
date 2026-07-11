@@ -48,7 +48,6 @@ import {
   Monitor,
 } from "lucide-react";
 import { useTheme, type ThemeMode } from "@/hooks/use-theme";
-import { useStrictness, STRICTNESS_PRESETS, type Strictness } from "@/hooks/use-strictness";
 import {
   useCurrency,
   CURRENCY_OPTIONS,
@@ -80,99 +79,6 @@ function CurrencyControl() {
           </button>
         );
       })}
-    </div>
-  );
-}
-
-function StrictnessControl() {
-  const { strictness, setStrictness } = useStrictness();
-  const updateFn = useServerFn(updateConfig);
-  const qc = useQueryClient();
-  const keys: Strictness[] = ["less", "moderate", "strict"];
-
-  const presetPatch = (k: Strictness) => {
-    const p = STRICTNESS_PRESETS[k];
-    // Reset auto-tunable fields back to sane defaults for the chosen strictness.
-    return {
-      auto_book_confidence_threshold: p.autoConf,
-      max_trades_per_day: 50,
-      cooldown_minutes: k === "strict" ? 30 : k === "moderate" ? 20 : 15,
-      risk_per_trade_pct: k === "strict" ? 0.75 : 1,
-      symbol_blacklist_threshold: 3,
-      symbol_sl_cooldown_minutes: 180,
-    } as Record<string, unknown>;
-  };
-
-  const handleChange = async (k: Strictness) => {
-    setStrictness(k);
-    try {
-      await updateFn({
-        data: { auto_book_confidence_threshold: STRICTNESS_PRESETS[k].autoConf } as never,
-      });
-      toast.success(`Auto-book threshold set to ${STRICTNESS_PRESETS[k].autoConf}%`);
-      qc.invalidateQueries();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to update threshold");
-    }
-  };
-
-  const handleReset = async () => {
-    const ok = window.confirm(
-      `Reset to "${STRICTNESS_PRESETS[strictness].label}" defaults? This will undo any auto-tune improvements.`,
-    );
-    if (!ok) return;
-    try {
-      await updateFn({ data: presetPatch(strictness) as never });
-      toast.success(`Reset auto-tuned values to "${STRICTNESS_PRESETS[strictness].label}"`);
-      qc.invalidateQueries();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Reset failed");
-    }
-  };
-
-  return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-3 gap-1.5 rounded-lg bg-muted p-1">
-        {keys.map((k) => {
-          const p = STRICTNESS_PRESETS[k];
-          const active = strictness === k;
-          return (
-            <button
-              key={k}
-              type="button"
-              onClick={() => handleChange(k)}
-              className={`h-9 rounded-md text-xs font-medium transition ${
-                active
-                  ? "bg-background shadow text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {p.label}
-              <span className="ml-1 text-[10px] opacity-70">({p.autoConf}%)</span>
-            </button>
-          );
-        })}
-      </div>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] text-muted-foreground flex-1">
-          {STRICTNESS_PRESETS[strictness].description}
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleReset}
-          className="h-7 px-2 text-[11px] gap-1 shrink-0"
-        >
-          <RotateCcw className="w-3 h-3" />
-          Reset auto-tuned
-        </Button>
-      </div>
-      <p className="text-[10px] text-muted-foreground/70">
-        Resets threshold, trades/day, cooldown, risk %, and blacklist back to "
-        {STRICTNESS_PRESETS[strictness].label}" defaults — undoes any tightening from Earno's
-        auto-tune.
-      </p>
     </div>
   );
 }
@@ -812,13 +718,10 @@ function SettingsPage() {
                 key={k}
                 type="button"
                 onClick={() => {
+                  // Mode is the single source of truth — the engine derives risk,
+                  // confidence, leverage, etc. from the style. We only persist the
+                  // choice; no per-field seeding (which used to drift).
                   set("trading_style", k);
-                  set("risk_per_trade_pct", p.riskPct);
-                  set("min_sl_pct", p.minSL);
-                  set("atr_multiplier", p.atrMult);
-                  set("max_auto_sl_pct", p.maxAutoSL);
-                  set("target_multiplier", p.targetMult);
-                  set("min_rr", p.minRR);
                 }}
                 className={`text-left rounded-2xl border bg-card p-3 transition ${
                   active ? "border-primary ring-2 ring-primary/30" : "hover:bg-muted/40"
@@ -827,10 +730,18 @@ function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <p className="font-medium text-sm">{p.label}</p>
                   <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Risk {p.riskPct}% · Max SL {p.maxAutoSL}%
+                    Confidence ≥ {p.autoBookConfidence} · {p.leverage}× lev
                   </span>
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1">{p.description}</p>
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground tabular-nums">
+                  <span>Risk {p.riskPct}%</span>
+                  <span>Max SL {p.maxAutoSL}%</span>
+                  <span>Target {p.targetMult}× SL</span>
+                  <span>Min R:R {p.minRR}</span>
+                  <span>Trail {p.trailPct}%</span>
+                  <span>{p.maxTradesPerDay}/day</span>
+                </div>
               </button>
             );
           })}
@@ -850,63 +761,11 @@ function SettingsPage() {
             <span className="text-[11px] text-muted-foreground hidden group-open:inline">Hide</span>
           </summary>
           <div className="px-4 pb-4 pt-1 space-y-5">
-            <SliderField
-              label="Minimum SL"
-              unit="%"
-              min={0.5}
-              max={5}
-              step={0.1}
-              value={get("min_sl_pct")}
-              onChange={(v) => set("min_sl_pct", v)}
-            />
-            <SliderField
-              label="ATR Multiplier"
-              unit="x"
-              min={0.5}
-              max={4}
-              step={0.1}
-              value={get("atr_multiplier")}
-              onChange={(v) => set("atr_multiplier", v)}
-            />
-            <SliderField
-              label="Maximum Auto-book SL"
-              unit="%"
-              min={1}
-              max={10}
-              step={0.5}
-              value={get("max_auto_sl_pct")}
-              onChange={(v) => set("max_auto_sl_pct", v)}
-            />
-            <SliderField
-              label="Risk per Trade"
-              unit="%"
-              min={0.25}
-              max={3}
-              step={0.25}
-              value={get("risk_per_trade_pct")}
-              onChange={(v) => set("risk_per_trade_pct", v)}
-            />
-            <p className="text-[11px] text-muted-foreground -mt-2">
-              Risk per trade controls the maximum money lost if stop loss is hit.
+            <p className="text-[11px] text-muted-foreground">
+              Stop-loss width, risk per trade, target, R:R, confidence and leverage are set by
+              your <span className="font-medium text-foreground">Trading Style</span> above. Pick a
+              mode to change them.
             </p>
-            <SliderField
-              label="Target Multiplier"
-              unit="x"
-              min={1}
-              max={4}
-              step={0.1}
-              value={get("target_multiplier")}
-              onChange={(v) => set("target_multiplier", v)}
-            />
-            <SliderField
-              label="Minimum Risk-Reward"
-              unit=" : 1"
-              min={1}
-              max={4}
-              step={0.1}
-              value={get("min_rr")}
-              onChange={(v) => set("min_rr", v)}
-            />
             <SliderField
               label="Daily Loss Cap"
               unit="%"
@@ -951,15 +810,6 @@ function SettingsPage() {
               step={1}
               value={get("auto_close_minutes")}
               onChange={(v) => set("auto_close_minutes", v)}
-            />
-            <SliderField
-              label="Leverage"
-              unit="x"
-              min={2}
-              max={5}
-              step={1}
-              value={get("leverage")}
-              onChange={(v) => set("leverage", v)}
             />
             <Row label="Trailing stop" inset={false}>
               <Switch
@@ -1028,15 +878,6 @@ function SettingsPage() {
             </div>
           </div>
         </details>
-      </section>
-
-      <section className="px-5 mt-6">
-        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-          Recommendation strictness
-        </h2>
-        <div className="rounded-2xl border bg-card p-4">
-          <StrictnessControl />
-        </div>
       </section>
 
       <section className="px-5 mt-6">
