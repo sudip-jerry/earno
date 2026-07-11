@@ -1533,9 +1533,13 @@ export async function runAutoBookPass(
             // the position. On failure we skip the booking so the local DB and
             // the exchange never disagree. Paper mode is unchanged.
             let liveOrderId: string | null = null;
-            // Records how the live entry actually filled so exit fee accounting
-            // can pick the right model. Paper always books at taker (market sim).
-            let entryFillType: "maker" | "taker" = "taker";
+            // Records how the entry filled so exit fee accounting can pick the
+            // right model. Live sets this from the actual fill below. Paper models
+            // maker-first entry (post-only limit) when maker_entry_enabled — the
+            // maker entry fee (0.02% vs 0.05% taker) is ~30% of the round-trip cost,
+            // and fees run ~2x the gross trading loss on the futures book.
+            let entryFillType: "maker" | "taker" =
+              cfg.mode !== "live" && cfg.maker_entry_enabled === true ? "maker" : "taker";
             if (cfg.mode === "live") {
               const creds = await loadLiveCreds(supabase, cfg.user_id);
               if (!creds) {
