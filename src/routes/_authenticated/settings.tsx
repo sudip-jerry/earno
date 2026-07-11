@@ -205,6 +205,7 @@ type Cfg = {
   max_auto_sl_pct: number;
   target_multiplier: number;
   min_rr: number;
+  auto_book_confidence_threshold: number;
   live_wallet_source: "futures" | "spot";
   live_allocation_mode: "full" | "amount" | "percent";
   live_allocation_amount: number;
@@ -244,6 +245,7 @@ const DEFAULTS: Cfg = {
   max_auto_sl_pct: 4,
   target_multiplier: 1.7,
   min_rr: 1.5,
+  auto_book_confidence_threshold: 72,
   live_wallet_source: "futures",
   live_allocation_mode: "amount",
   live_allocation_amount: 0,
@@ -718,10 +720,18 @@ function SettingsPage() {
                 key={k}
                 type="button"
                 onClick={() => {
-                  // Mode is the single source of truth — the engine derives risk,
-                  // confidence, leverage, etc. from the style. We only persist the
-                  // choice; no per-field seeding (which used to drift).
+                  // Picking a mode applies its full default set. Every field below
+                  // stays editable afterward — mode is a "sensible defaults" action,
+                  // not a lock.
                   set("trading_style", k);
+                  set("auto_book_confidence_threshold", p.autoBookConfidence);
+                  set("leverage", p.leverage);
+                  set("risk_per_trade_pct", p.riskPct);
+                  set("min_sl_pct", p.minSL);
+                  set("atr_multiplier", p.atrMult);
+                  set("max_auto_sl_pct", p.maxAutoSL);
+                  set("target_multiplier", p.targetMult);
+                  set("min_rr", p.minRR);
                 }}
                 className={`text-left rounded-2xl border bg-card p-3 transition ${
                   active ? "border-primary ring-2 ring-primary/30" : "hover:bg-muted/40"
@@ -762,10 +772,78 @@ function SettingsPage() {
           </summary>
           <div className="px-4 pb-4 pt-1 space-y-5">
             <p className="text-[11px] text-muted-foreground">
-              Stop-loss width, risk per trade, target, R:R, confidence and leverage are set by
-              your <span className="font-medium text-foreground">Trading Style</span> above. Pick a
-              mode to change them.
+              Your <span className="font-medium text-foreground">Trading Style</span> above seeds
+              sensible defaults for these. Adjust any of them to fine-tune your mode.
             </p>
+            <SliderField
+              label="Auto-book confidence"
+              unit="%"
+              min={60}
+              max={95}
+              step={1}
+              value={get("auto_book_confidence_threshold")}
+              onChange={(v) => set("auto_book_confidence_threshold", v)}
+            />
+            <p className="text-[11px] text-muted-foreground -mt-2">
+              A signal must reach this confidence to auto-book; below it is shown but not traded.
+            </p>
+            <SliderField
+              label="Minimum SL"
+              unit="%"
+              min={0.5}
+              max={5}
+              step={0.1}
+              value={get("min_sl_pct")}
+              onChange={(v) => set("min_sl_pct", v)}
+            />
+            <SliderField
+              label="ATR Multiplier"
+              unit="x"
+              min={0.5}
+              max={4}
+              step={0.1}
+              value={get("atr_multiplier")}
+              onChange={(v) => set("atr_multiplier", v)}
+            />
+            <SliderField
+              label="Maximum Auto-book SL"
+              unit="%"
+              min={1}
+              max={10}
+              step={0.5}
+              value={get("max_auto_sl_pct")}
+              onChange={(v) => set("max_auto_sl_pct", v)}
+            />
+            <SliderField
+              label="Risk per Trade"
+              unit="%"
+              min={0.25}
+              max={3}
+              step={0.25}
+              value={get("risk_per_trade_pct")}
+              onChange={(v) => set("risk_per_trade_pct", v)}
+            />
+            <p className="text-[11px] text-muted-foreground -mt-2">
+              Risk per trade controls the maximum money lost if stop loss is hit.
+            </p>
+            <SliderField
+              label="Target Multiplier"
+              unit="x"
+              min={1}
+              max={4}
+              step={0.1}
+              value={get("target_multiplier")}
+              onChange={(v) => set("target_multiplier", v)}
+            />
+            <SliderField
+              label="Minimum Risk-Reward"
+              unit=" : 1"
+              min={1}
+              max={4}
+              step={0.1}
+              value={get("min_rr")}
+              onChange={(v) => set("min_rr", v)}
+            />
             <SliderField
               label="Daily Loss Cap"
               unit="%"
@@ -810,6 +888,15 @@ function SettingsPage() {
               step={1}
               value={get("auto_close_minutes")}
               onChange={(v) => set("auto_close_minutes", v)}
+            />
+            <SliderField
+              label="Leverage"
+              unit="x"
+              min={2}
+              max={5}
+              step={1}
+              value={get("leverage")}
+              onChange={(v) => set("leverage", v)}
             />
             <Row label="Trailing stop" inset={false}>
               <Switch

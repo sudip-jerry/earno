@@ -4,10 +4,11 @@ EarnO runs **one algorithm** with three risk profiles. The style does **not** ch
 *what* the bot looks for — it changes *how much it risks, how wide it lets trades run,
 and how often it trades*. Every cohort is pinned to one style.
 
-> **Mode is the single source of truth.** The trading mode is the only risk setting a user
-> configures — risk %, stops, target, R:R, **confidence threshold, and leverage** all derive
-> from it via `STYLE_PRESETS`. The fine numeric fields are admin-only overrides (a `bot_config`
-> column only overrides the preset when an admin sets it; otherwise the mode default wins).
+> **Mode seeds sensible defaults.** Picking a mode writes its full preset — risk %, stops,
+> target, R:R, **confidence threshold, and leverage** (`STYLE_PRESETS`) — into the config. Every
+> field stays editable in Advanced settings afterward, so you can fine-tune any value on top of
+> the mode. Mode is an "apply defaults" action, not a lock. The engine reads the stored value,
+> falling back to the mode default if a field is unset.
 
 > **Naming:** the code and database use `balanced`; in the UI and these notes it's also
 > called **Moderate**. They are the same style.
