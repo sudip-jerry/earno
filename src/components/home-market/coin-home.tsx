@@ -3,20 +3,24 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { updateCoinConfig } from "@/lib/coin-bot/coin-bot.functions";
+import { updateCoinConfig, getCoinHoldings } from "@/lib/coin-bot/coin-bot.functions";
 import { CoinHoldingsCard, CoinSignalsList } from "@/components/coin-bot/coin-panels";
 import { CoinHero } from "@/components/coin-bot/coin-hero";
 import { CoinKpiStrip } from "@/components/coin-bot/coin-kpi-strip";
 import { CoinBotHealth } from "@/components/coin-bot/coin-bot-health";
 import { CoinRecentActivity } from "@/components/coin-bot/coin-recent-activity";
 import { GoLiveDialog } from "@/components/go-live-dialog";
-import { FlaskConical, BadgeCheck } from "lucide-react";
+import { ModeBanner } from "@/components/market/mode-banner";
+import { OpenPositionsBanner } from "@/components/market/open-positions-banner";
+import { useCurrency } from "@/hooks/use-currency";
 import { toast } from "sonner";
 
 export function CoinHome() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const updateCoinFn = useServerFn(updateCoinConfig);
+  const holdingsFn = useServerFn(getCoinHoldings);
+  const { fmt } = useCurrency();
   const [confirmCoinLive, setConfirmCoinLive] = useState(false);
 
   const coinCfg = useQuery({
@@ -27,6 +31,17 @@ export function CoinHome() {
     },
   });
   const coinLive = coinCfg.data?.live_mode === true;
+
+  const holdings = useQuery({
+    queryKey: ["coin_holdings"],
+    queryFn: () => holdingsFn(),
+    refetchInterval: 20_000,
+  });
+  const holdingsSum = holdings.data?.summary;
+  const openHoldings = Number(holdingsSum?.active_holdings ?? 0);
+  const openUnrealized = Number(holdingsSum?.unrealized_pnl_usdt ?? 0);
+  const openInvested = Number(holdingsSum?.invested_usdt ?? 0);
+  const openUnrealizedPct = openInvested > 0 ? (openUnrealized / openInvested) * 100 : null;
 
   const toggleCoinMode = useMutation({
     mutationFn: async (live: boolean) => updateCoinFn({ data: { live_mode: live } }),
@@ -46,53 +61,20 @@ export function CoinHome() {
 
   return (
     <>
-      {/* ===== Mode banner — parity with the futures dashboard ===== */}
-      <div className="px-5 mt-4">
-        <button
-          type="button"
-          onClick={() => {
-            if (coinLive) toggleCoinMode.mutate(false);
-            else setConfirmCoinLive(true);
-          }}
-          className={`w-full text-left flex items-center gap-3 rounded-2xl border px-4 py-3 transition ${
-            coinLive
-              ? "border-destructive/30 bg-destructive/5 hover:bg-destructive/10"
-              : "border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/15"
-          }`}
-          aria-label="Toggle paper or live trading"
-        >
-          <span
-            className={`inline-flex items-center justify-center size-9 rounded-full shrink-0 ${
-              coinLive
-                ? "bg-destructive/15 text-destructive"
-                : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
-            }`}
-          >
-            {coinLive ? <BadgeCheck className="size-4" /> : <FlaskConical className="size-4" />}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p
-              className={`text-[13px] font-semibold leading-tight ${
-                coinLive ? "text-destructive" : "text-amber-700 dark:text-amber-300"
-              }`}
-            >
-              {coinLive ? "LIVE trading active" : "PAPER — practice mode"}
-            </p>
-            <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-              {coinLive
-                ? "Real funds are at risk. Tap to switch back to Paper."
-                : "All numbers reflect simulated trading. Tap to go Live."}
-            </p>
-          </div>
-          <span
-            className={`text-[10px] font-semibold tracking-wider px-2 h-6 inline-flex items-center rounded-full ${
-              coinLive ? "bg-destructive text-destructive-foreground" : "bg-amber-500 text-white"
-            }`}
-          >
-            {coinLive ? "LIVE" : "PAPER"}
-          </span>
-        </button>
-      </div>
+      {/* ===== Mode banner — shared across All / Futures / Coins ===== */}
+      <ModeBanner
+        isLive={coinLive}
+        onToggle={() => (coinLive ? toggleCoinMode.mutate(false) : setConfirmCoinLive(true))}
+      />
+
+      {/* ===== Open holdings banner — unrealized PnL + count ===== */}
+      <OpenPositionsBanner
+        count={openHoldings}
+        pnl={openUnrealized}
+        pnlPct={openUnrealizedPct}
+        noun="holding"
+        fmt={fmt}
+      />
 
       <div className="px-5 mt-4 space-y-4">
         <CoinHero />

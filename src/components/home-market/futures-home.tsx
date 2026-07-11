@@ -20,19 +20,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { RecentActivityFeed } from "@/components/recent-activity";
 import { KpiStrip } from "@/components/market/market-hero";
+import { ModeBanner } from "@/components/market/mode-banner";
+import { OpenPositionsBanner } from "@/components/market/open-positions-banner";
 import { useCurrency } from "@/hooks/use-currency";
-import {
-  AlertTriangle,
-  ChevronRight,
-  ShieldCheck,
-  Activity,
-  Crown,
-  Briefcase,
-  Pause,
-  Play,
-  FlaskConical,
-  BadgeCheck,
-} from "lucide-react";
+import { AlertTriangle, ShieldCheck, Activity, Crown, Pause, Play } from "lucide-react";
 import { toast } from "sonner";
 import { DailyChart, CompactRiskRow, RiskRow, timeAgo, type StatsExtras } from "./futures-widgets";
 
@@ -141,92 +132,19 @@ export function FuturesHome() {
 
   return (
     <>
-      {/* ===== Mode banner — prominent ===== */}
-      <div className="px-5 mt-4">
-        <button
-          type="button"
-          onClick={() => {
-            if (isLive) toggleMode.mutate(false);
-            else setConfirmLive(true);
-          }}
-          className={`w-full text-left flex items-center gap-3 rounded-2xl border px-4 py-3 transition ${
-            isLive
-              ? "border-destructive/30 bg-destructive/5 hover:bg-destructive/10"
-              : "border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/15"
-          }`}
-          aria-label="Toggle paper or live trading"
-        >
-          <span
-            className={`inline-flex items-center justify-center size-9 rounded-full shrink-0 ${
-              isLive
-                ? "bg-destructive/15 text-destructive"
-                : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
-            }`}
-          >
-            {isLive ? <BadgeCheck className="size-4" /> : <FlaskConical className="size-4" />}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p
-              className={`text-[13px] font-semibold leading-tight ${
-                isLive ? "text-destructive" : "text-amber-700 dark:text-amber-300"
-              }`}
-            >
-              {isLive ? "LIVE trading active" : "PAPER — practice mode"}
-            </p>
-            <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-              {isLive
-                ? "Real funds are at risk. Tap to switch back to Paper."
-                : "All numbers reflect simulated trading. Tap to go Live."}
-            </p>
-          </div>
-          <span
-            className={`text-[10px] font-semibold tracking-wider px-2 h-6 inline-flex items-center rounded-full ${
-              isLive ? "bg-destructive text-destructive-foreground" : "bg-amber-500 text-white"
-            }`}
-          >
-            {isLive ? "LIVE" : "PAPER"}
-          </span>
-        </button>
-      </div>
+      {/* ===== Mode banner — shared across All / Futures / Coins ===== */}
+      <ModeBanner
+        isLive={isLive}
+        onToggle={() => (isLive ? toggleMode.mutate(false) : setConfirmLive(true))}
+      />
 
       {/* ===== Open positions banner — unrealized PnL + count ===== */}
-      {openCount > 0 && (
-        <div className="px-5 mt-3">
-          <Link
-            to="/positions"
-            className="w-full flex items-center gap-3 rounded-xl border bg-card px-4 py-2.5 hover:bg-muted/40 transition"
-          >
-            <span
-              className={`inline-flex items-center justify-center size-8 rounded-full shrink-0 ${
-                (s?.openPnl ?? 0) >= 0
-                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                  : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-              }`}
-            >
-              <Briefcase className="size-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] text-muted-foreground leading-tight">
-                {openCount} open position{openCount === 1 ? "" : "s"} · unrealized
-              </p>
-              <p
-                className={`text-[14px] font-semibold leading-tight tabular-nums mt-0.5 ${
-                  (s?.openPnl ?? 0) >= 0
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-rose-600 dark:text-rose-400"
-                }`}
-              >
-                {fmt(s?.openPnl ?? 0, { signed: true })}
-                <span className="ml-1.5 text-[11px] font-medium opacity-80">
-                  ({(s?.openPnlPct ?? 0) >= 0 ? "+" : ""}
-                  {(s?.openPnlPct ?? 0).toFixed(2)}%)
-                </span>
-              </p>
-            </div>
-            <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-          </Link>
-        </div>
-      )}
+      <OpenPositionsBanner
+        count={openCount}
+        pnl={Number(s?.openPnl ?? 0)}
+        pnlPct={Number(s?.openPnlPct ?? 0)}
+        fmt={fmt}
+      />
 
       {/* ===== Portfolio summary card — equity + line chart ===== */}
       <div className="px-5 mt-3">
