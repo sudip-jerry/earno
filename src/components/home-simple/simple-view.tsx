@@ -182,7 +182,10 @@ export function SimpleView(props: SimpleViewProps) {
 
       {embedded && (
         <div className="px-5 mt-4">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          <p
+            suppressHydrationWarning
+            className="text-[11px] uppercase tracking-wider text-muted-foreground"
+          >
             {derived.greeting}
           </p>
           <p className="mt-0.5 text-[19px] font-semibold text-foreground">{derived.firstName}</p>
