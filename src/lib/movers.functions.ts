@@ -783,9 +783,9 @@ export const bookManualTrade = createServerFn({ method: "POST" })
     }
 
     const equity = Number(cfg.paper_equity ?? 0);
-    const lev = Number(cfg.leverage ?? 3);
     const { presetFromConfig } = await import("@/lib/risk-engine");
     const style = presetFromConfig(cfg);
+    const lev = style.leverage; // mode-driven (admin column overrides via preset)
     // When user did not override, fall back to the preset floor (volatility-aware
     // values come from the Scanner card itself and are passed in via overrides).
     const sl = data.slPct ?? style.minSL;
