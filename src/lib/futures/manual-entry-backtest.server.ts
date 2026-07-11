@@ -12,6 +12,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   evaluateManualEntry,
+  evaluateManualEntryShort,
   DEFAULT_MANUAL_ENTRY_PARAMS,
   type ManualEntryParams,
   type MECandle,
@@ -302,6 +303,179 @@ export async function runManualEntryGeneration(supabase: SupabaseClient, opts: M
     mode: "generate" as const,
     scope: { sinceHours, symbols: symbols.length, symbolsWithData, tpPct, slPct, maxHoldBars },
     result: summarize(g),
+    perSymbol,
+  };
+}
+
+const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
+
+/** Fetch the current futures top movers by |24h change| with a volume floor —
+ *  the universe the manual method actually trades (biggest movers, real liquidity). */
+async function fetchMoversUniverse(
+  minVolume: number,
+  maxSymbols: number,
+): Promise<string[]> {
+  try {
+    const res = await fetch(FUTURES_TICKER, { headers: HEADERS, signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return [];
+    const raw = (await res.json()) as Record<string, unknown> | unknown[];
+    const dict =
+      raw && typeof raw === "object" && !Array.isArray(raw) && "prices" in raw
+        ? (raw as { prices: Record<string, Record<string, unknown>> }).prices
+        : raw;
+    const rows: Array<{ symbol: string; change: number; vol: number }> = [];
+    const consume = (sym: string | undefined, r: Record<string, unknown>) => {
+      const symbol = sym ?? (r.s as string) ?? (r.pair as string);
+      if (!symbol || !symbol.startsWith("B-") || !symbol.endsWith("_USDT")) return;
+      const change = num(r.cp ?? r.pc);
+      const vol = num(r.qv ?? r.v);
+      if (vol < minVolume) return;
+      rows.push({ symbol, change, vol });
+    };
+    if (Array.isArray(dict)) dict.forEach((r) => consume(undefined, r as Record<string, unknown>));
+    else
+      Object.entries(dict as Record<string, Record<string, unknown>>).forEach(
+        ([k, v]) => v && typeof v === "object" && consume(k, v),
+      );
+    return rows
+      .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
+      .slice(0, maxSymbols)
+      .map((r) => r.symbol);
+  } catch {
+    return [];
+  }
+}
+
+/** Trailing 24h % change at bar i from a 1m series (falls back to since-start). */
+function change24hAt(c1: MECandle[], i: number): number {
+  const back = i - 1440 >= 0 ? i - 1440 : 0;
+  const base = c1[back].close;
+  return base > 0 ? ((c1[i].close - base) / base) * 100 : 0;
+}
+
+export type MoversBacktestOpts = {
+  sinceHours?: number;
+  minVolume?: number; // 24h quote-volume floor for the universe
+  maxSymbols?: number;
+  moverGatePct?: number; // |trailing-24h change| a symbol must have to qualify as a "mover"
+  tpPct?: number;
+  slPct?: number;
+  maxHoldBars?: number;
+  cooldownBars?: number;
+  side?: "long" | "short" | "both";
+  params?: ManualEntryParams;
+};
+
+/**
+ * MOVERS momentum backtest (both directions). Universe = current futures top
+ * movers by |24h change| with a volume floor. Walks 1m candles and, with NO
+ * look-ahead, recomputes trailing-24h change at each bar:
+ *   • LONG  when the symbol is up >= +moverGate AND the manual long rule fires
+ *     (30m up · 1m RSI not overbought · 1m up · Supertrend bullish)
+ *   • SHORT when the symbol is a high mover (|24h| >= moverGate) AND the manual
+ *     short rule fires (30m down · 1m RSI not oversold · 1m down · Supertrend bearish)
+ * Simulates a fixed TP/SL/max-hold exit per entry. Measures the entry edge.
+ */
+export async function runMoversMomentumBacktest(supabase: SupabaseClient, opts: MoversBacktestOpts = {}) {
+  void supabase;
+  const sinceHours = Math.min(opts.sinceHours ?? 72, 168);
+  const minVolume = opts.minVolume ?? 10_000_000;
+  const maxSymbols = opts.maxSymbols ?? 15;
+  const moverGatePct = opts.moverGatePct ?? 4;
+  const tpPct = opts.tpPct ?? 1.5;
+  const slPct = opts.slPct ?? 1.0;
+  const maxHoldBars = opts.maxHoldBars ?? 240;
+  const cooldownBars = opts.cooldownBars ?? 15;
+  const side = opts.side ?? "both";
+  const params = opts.params ?? DEFAULT_MANUAL_ENTRY_PARAMS;
+
+  const symbols = await fetchMoversUniverse(minVolume, maxSymbols);
+  const nowSec = Math.floor(Date.now() / 1000);
+  const fromSec = nowSec - sinceHours * 3600;
+
+  const groups = {
+    long: { n: 0, wins: 0, grossWin: 0, grossLoss: 0, net: 0 } as Group,
+    short: { n: 0, wins: 0, grossWin: 0, grossLoss: 0, net: 0 } as Group,
+  };
+  const perSymbol: Record<string, { long: number; short: number; net: number }> = {};
+  let symbolsWithData = 0;
+
+  const simulate = (c1: MECandle[], i: number, dir: "long" | "short") => {
+    const entry = c1[i].close;
+    const tp = dir === "long" ? entry * (1 + tpPct / 100) : entry * (1 - tpPct / 100);
+    const sl = dir === "long" ? entry * (1 - slPct / 100) : entry * (1 + slPct / 100);
+    let outcomePct: number | null = null;
+    let exitIdx = i;
+    for (let j = i + 1; j < c1.length && j <= i + maxHoldBars; j++) {
+      exitIdx = j;
+      if (dir === "long") {
+        if (c1[j].low <= sl) { outcomePct = -slPct; break; }
+        if (c1[j].high >= tp) { outcomePct = tpPct; break; }
+      } else {
+        if (c1[j].high >= sl) { outcomePct = -slPct; break; }
+        if (c1[j].low <= tp) { outcomePct = tpPct; break; }
+      }
+    }
+    if (outcomePct == null) {
+      const last = c1[Math.min(i + maxHoldBars, c1.length - 1)].close;
+      outcomePct = ((last - entry) / entry) * 100 * (dir === "long" ? 1 : -1);
+    }
+    return { outcomePct, exitIdx };
+  };
+
+  for (const sym of symbols) {
+    const c1 = await fetch1mWindow(sym, fromSec, nowSec);
+    if (c1.length < 60) continue;
+    symbolsWithData += 1;
+    const c30 = aggregate30m(c1);
+    perSymbol[sym] = { long: 0, short: 0, net: 0 };
+    let nextAllowed = 30;
+
+    for (let i = 30; i < c1.length - 1; i++) {
+      if (i < nextAllowed) continue;
+      const tNow = c1[i].time ?? 0;
+      const c30Slice = c30.filter((c) => (c.time ?? 0) <= tNow);
+      if (c30Slice.length < params.trend30Lookback + 1) continue;
+      const c1Slice = c1.slice(0, i + 1);
+      const ch24 = change24hAt(c1, i);
+
+      let dir: "long" | "short" | null = null;
+      if ((side === "long" || side === "both") && ch24 >= moverGatePct) {
+        if (evaluateManualEntry(c30Slice, c1Slice, params).enterLong) dir = "long";
+      }
+      if (!dir && (side === "short" || side === "both") && Math.abs(ch24) >= moverGatePct) {
+        if (evaluateManualEntryShort(c30Slice, c1Slice, params).enterShort) dir = "short";
+      }
+      if (!dir) continue;
+
+      const { outcomePct, exitIdx } = simulate(c1, i, dir);
+      const g = groups[dir];
+      g.n += 1;
+      g.net += outcomePct;
+      perSymbol[sym][dir] += 1;
+      perSymbol[sym].net += outcomePct;
+      if (outcomePct > 0) { g.wins += 1; g.grossWin += outcomePct; }
+      else g.grossLoss += -outcomePct;
+      nextAllowed = exitIdx + cooldownBars;
+    }
+  }
+
+  const combined: Group = {
+    n: groups.long.n + groups.short.n,
+    wins: groups.long.wins + groups.short.wins,
+    grossWin: groups.long.grossWin + groups.short.grossWin,
+    grossLoss: groups.long.grossLoss + groups.short.grossLoss,
+    net: groups.long.net + groups.short.net,
+  };
+
+  return {
+    ok: true as const,
+    mode: "movers" as const,
+    scope: { sinceHours, minVolume, moverGatePct, tpPct, slPct, side, universe: symbols.length, symbolsWithData },
+    universe: symbols,
+    long: summarize(groups.long),
+    short: summarize(groups.short),
+    combined: summarize(combined),
     perSymbol,
   };
 }

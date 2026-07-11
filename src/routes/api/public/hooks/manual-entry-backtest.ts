@@ -32,18 +32,31 @@ export const Route = createFileRoute("/api/public/hooks/manual-entry-backtest")(
         }
         try {
           const body = (await request.json().catch(() => ({}))) as {
-            mode?: "filter" | "generate";
+            mode?: "filter" | "generate" | "movers";
             sinceHours?: number;
             limit?: number;
             symbols?: string[];
             maxSymbols?: number;
             tpPct?: number;
             slPct?: number;
+            minVolume?: number;
+            moverGatePct?: number;
+            side?: "long" | "short" | "both";
           };
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const mod = await import("@/lib/futures/manual-entry-backtest.server");
           const result =
-            body.mode === "generate"
+            body.mode === "movers"
+              ? await mod.runMoversMomentumBacktest(supabaseAdmin, {
+                  sinceHours: body.sinceHours,
+                  minVolume: body.minVolume,
+                  maxSymbols: body.maxSymbols,
+                  moverGatePct: body.moverGatePct,
+                  tpPct: body.tpPct,
+                  slPct: body.slPct,
+                  side: body.side,
+                })
+              : body.mode === "generate"
               ? await mod.runManualEntryGeneration(supabaseAdmin, {
                   sinceHours: body.sinceHours,
                   symbols: body.symbols,

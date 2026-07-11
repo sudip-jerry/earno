@@ -165,6 +165,20 @@ function isUptrend(candles: MECandle[], lookback: number): boolean {
   return netUp && majorityGreen;
 }
 
+/** Mirror of isUptrend for the short side: net lower over the window AND a
+ *  majority of candles red. Used to short a former mover once it turns down. */
+function isDowntrend(candles: MECandle[], lookback: number): boolean {
+  if (candles.length < lookback + 1) return false;
+  const slice = candles.slice(-(lookback + 1));
+  const netDown = slice[slice.length - 1].close < slice[0].close;
+  let red = 0;
+  for (let i = 1; i < slice.length; i++) {
+    if (slice[i].close < slice[i].open) red += 1;
+  }
+  const majorityRed = red >= Math.ceil(lookback / 2);
+  return netDown && majorityRed;
+}
+
 /**
  * Evaluate the manual long-entry rule. c30m and c1m are chronological candle
  * arrays ending at (and including) the candle at the decision moment.
@@ -199,5 +213,58 @@ export function evaluateManualEntry(
     enterLong,
     reasons,
     detail: { trend30Up, trend1Up, rsi1m, rsiOk, supertrendUp },
+  };
+}
+
+export type ManualShortResult = {
+  enterShort: boolean;
+  reasons: string[];
+  detail: {
+    trend30Down: boolean;
+    trend1Down: boolean;
+    rsi1m: number | null;
+    rsiOk: boolean;
+    supertrendDown: boolean | null;
+  };
+};
+
+/**
+ * Short mirror of evaluateManualEntry: short the highest movers once they roll
+ * over — 30m downtrend, 1m RSI not oversold (avoid capitulation bottoms, the
+ * short-side analogue of "not overbought"), 1m downtrend, Supertrend bearish.
+ * `rsiOverbought` is reused as the symmetric oversold floor (100 - rsiOverbought).
+ */
+export function evaluateManualEntryShort(
+  c30m: MECandle[],
+  c1m: MECandle[],
+  params: ManualEntryParams = DEFAULT_MANUAL_ENTRY_PARAMS,
+): ManualShortResult {
+  const reasons: string[] = [];
+
+  const trend30Down = isDowntrend(c30m, params.trend30Lookback);
+  if (!trend30Down) reasons.push(`30m not in downtrend (last ${params.trend30Lookback})`);
+
+  const closes1 = c1m.map((c) => c.close);
+  const rsi1m = rsi(closes1, params.rsiPeriod);
+  const oversold = 100 - params.rsiOverbought;
+  const rsiOk = rsi1m != null && rsi1m > oversold;
+  if (rsi1m == null) reasons.push("1m RSI unavailable");
+  else if (!rsiOk) reasons.push(`1m RSI oversold (${rsi1m.toFixed(0)} <= ${oversold})`);
+
+  const trend1Down = isDowntrend(c1m, params.trend1Lookback);
+  if (!trend1Down) reasons.push(`1m not in downtrend (last ${params.trend1Lookback})`);
+
+  const stSeries = supertrend(c1m, params.stPeriod, params.stMultiplier);
+  const st = stSeries.length ? stSeries[stSeries.length - 1] : null;
+  const supertrendDown = st == null ? null : st === false;
+  if (supertrendDown !== true) reasons.push("Supertrend not bearish");
+
+  const enterShort = trend30Down && rsiOk && trend1Down && supertrendDown === true;
+  if (enterShort) reasons.push("All conditions met — enter short");
+
+  return {
+    enterShort,
+    reasons,
+    detail: { trend30Down, trend1Down, rsi1m, rsiOk, supertrendDown },
   };
 }

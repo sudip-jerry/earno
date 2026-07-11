@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   evaluateManualEntry,
+  evaluateManualEntryShort,
   supertrend,
   rsi,
   type MECandle,
@@ -75,6 +76,32 @@ describe("evaluateManualEntry", () => {
     const r = evaluateManualEntry(c30, c1);
     expect(r.detail.trend1Up).toBe(false);
     expect(r.enterLong).toBe(false);
+  });
+});
+
+describe("evaluateManualEntryShort", () => {
+  it("enters short when 30m down, 1m down, RSI not oversold, supertrend bearish", () => {
+    const c30 = candles([110, 108, 106, 104, 102, 100]);
+    const c1 = candles(uptrend(40, 100, 0.05).reverse()); // gentle decline
+    const r = evaluateManualEntryShort(c30, c1);
+    expect(r.detail.trend30Down).toBe(true);
+    expect(r.detail.supertrendDown).toBe(true);
+  });
+
+  it("blocks a short when the 30m trend is up", () => {
+    const c30 = candles(uptrend(6, 100, 1));
+    const c1 = candles(uptrend(40, 100, 0.05).reverse());
+    const r = evaluateManualEntryShort(c30, c1);
+    expect(r.detail.trend30Down).toBe(false);
+    expect(r.enterShort).toBe(false);
+  });
+
+  it("blocks a short when 1m RSI is oversold (capitulation)", () => {
+    const c30 = candles([110, 108, 106, 104, 102, 100]);
+    const c1 = candles(uptrend(40, 100, 2).reverse()); // sharp drop → RSI pinned low
+    const r = evaluateManualEntryShort(c30, c1);
+    expect(r.detail.rsiOk).toBe(false);
+    expect(r.enterShort).toBe(false);
   });
 });
 
