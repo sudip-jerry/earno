@@ -39,11 +39,14 @@ import {
 } from "@/lib/futures/live-execution.server";
 
 const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
-// Scan-universe liquidity gates. Coins below this 24h quote-volume are never
-// scanned (keeps out thin/choppy names like a low-volume 24h decliner). The
-// movers arm also needs a genuine 24h move so flat tickers aren't ranked as movers.
+// Scan-universe gates. Coins below this 24h quote-volume are never scanned
+// (keeps out thin/choppy names). The movers arm takes top GAINERS only (>= this
+// positive 24h %) — both live strategies target gainers (longs ride them,
+// mean-reversion shorts fade the overextended ones), so the universe no longer
+// feeds in big decliners/crashers. The volume arm is kept so majors stay
+// scannable; the structure filter gates any weak major longs.
 const MIN_SCAN_VOLUME_USDT = 20_000_000;
-const MIN_SCAN_ABS_CHANGE_PCT = 2;
+const MIN_SCAN_GAIN_PCT = 2;
 const CANDLES = (pair: string, interval: string, limit: number) =>
   `https://public.coindcx.com/market_data/candles?pair=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
 const PUB_HEADERS = {
@@ -183,17 +186,22 @@ async function fetchScanUniverse(
 
   // Liquidity floor: never scan thin coins. A low-volume name with a big % swing
   // (e.g. a choppy 24h decliner) otherwise slipped into the movers arm and got
-  // traded/squeezed. Require real 24h quote volume for BOTH arms, and a genuine
-  // move for the movers arm so flat tickers aren't ranked as "movers".
+  // traded/squeezed. Require real 24h quote volume for BOTH arms.
   const liquid = rows.filter((r) => r.volume24h >= MIN_SCAN_VOLUME_USDT);
-  const byChange = [...liquid]
-    .filter((r) => Math.abs(r.change24h) >= MIN_SCAN_ABS_CHANGE_PCT)
-    .sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h))
+  // Movers arm: top GAINERS only (>= MIN_SCAN_GAIN_PCT). Both live strategies
+  // target gainers — longs ride them; the mean-reversion short fades the
+  // overextended ones as they roll over — so the universe no longer feeds in
+  // big decliners/crashers that the abs-change arm used to surface.
+  const byGainers = [...liquid]
+    .filter((r) => r.change24h >= MIN_SCAN_GAIN_PCT)
+    .sort((a, b) => b.change24h - a.change24h)
     .slice(0, nChange);
+  // Volume arm: keep the biggest names scannable (majors like BTC/ETH) even on a
+  // flat day; the structure filter gates any weak major longs.
   const byVolume = [...liquid].sort((a, b) => b.volume24h - a.volume24h).slice(0, nVolume);
   const seen = new Set<string>();
   const union: typeof rows = [];
-  for (const r of [...byChange, ...byVolume]) {
+  for (const r of [...byGainers, ...byVolume]) {
     if (seen.has(r.symbol)) continue;
     seen.add(r.symbol);
     union.push(r);
