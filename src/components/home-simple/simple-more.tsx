@@ -11,6 +11,8 @@ import {
   ChevronRight,
   FlaskConical,
   BadgeCheck,
+  LineChart,
+  Crown,
 } from "lucide-react";
 
 export type SimpleMoreProps = {
@@ -19,6 +21,7 @@ export type SimpleMoreProps = {
   onToggleHideBalance: () => void;
   currentMode: "paper" | "live";
   onManageMode: () => void;
+  isAdmin?: boolean;
 };
 
 function LinkRow({
@@ -52,6 +55,7 @@ export function SimpleMore({
   onToggleHideBalance,
   currentMode,
   onManageMode,
+  isAdmin = false,
 }: SimpleMoreProps) {
   const isLive = currentMode === "live";
   return (
@@ -117,6 +121,12 @@ export function SimpleMore({
               label="Plan & upgrade"
               hint="See your plan and options"
             />
+            <LinkRow
+              to="/movers"
+              icon={<LineChart className="size-4" />}
+              label="Top movers"
+              hint="Biggest moves right now"
+            />
             <button
               type="button"
               onClick={onToggleHideBalance}
@@ -150,6 +160,14 @@ export function SimpleMore({
               label="About earn'O"
               hint="What this app is"
             />
+            {isAdmin && (
+              <LinkRow
+                to="/admin"
+                icon={<Crown className="size-4" />}
+                label="Admin console"
+                hint="Manage users and beta reports"
+              />
+            )}
           </section>
         </div>
       </div>
