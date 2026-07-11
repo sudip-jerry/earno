@@ -30,7 +30,7 @@ import { classifySetup } from "@/lib/futures/setup-classifier";
 import { isGloballyBlacklisted } from "@/lib/global-symbol-blacklist";
 import { getBackendStrategyPolicy } from "@/lib/futures/strategy-policy";
 import { evaluateTradeEligibility } from "@/lib/futures/trade-eligibility";
-import { evaluateManualEntry } from "@/lib/futures/manual-entry";
+import { evaluateManualEntry, evaluateMeanReversionShort } from "@/lib/futures/manual-entry";
 import {
   loadLiveCreds,
   placeLiveEntry,
@@ -88,6 +88,31 @@ async function fetchStructureCandles(
     const c1 = aggregateCandles(raw1 as any, 1).sort((a, b) => a.time - b.time);
     if (c30.length < 4 || c1.length < 20) return null;
     return { c30, c1 };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch 15m candles (with volume) for the mean-reversion short filter. Returns
+ * chronological ascending, or null on any failure so the caller skips
+ * conservatively rather than short on a blind filter.
+ */
+async function fetchMeanRevCandles(
+  pair: string,
+): Promise<{ open: number; high: number; low: number; close: number; volume: number; time: number }[] | null> {
+  try {
+    const { aggregateCandles } = await import("@/lib/candle-aggregator");
+    const res = await fetch(CANDLES(pair, "15m", 45), {
+      headers: PUB_HEADERS,
+      signal: AbortSignal.timeout(3500),
+    });
+    if (!res.ok) return null;
+    const raw = (await res.json()) as Array<Record<string, unknown>>;
+    if (!Array.isArray(raw)) return null;
+    const c15 = aggregateCandles(raw as any, 1).sort((a, b) => a.time - b.time);
+    if (c15.length < 24) return null;
+    return c15;
   } catch {
     return null;
   }
@@ -441,6 +466,10 @@ type BotConfig = {
   // structural rule (30m higher-highs · 1m not overbought · 1m rising ·
   // Supertrend). Default false — control cohorts run unchanged.
   structure_entry_filter_enabled?: boolean | null;
+  // Mean-reversion SHORT filter (shadow A/B): gate SHORT entries on a fade of an
+  // overextended, overbought, volume-spiking 15m move that has rolled over.
+  // Default false — control cohorts run unchanged.
+  structure_short_filter_enabled?: boolean | null;
 };
 
 /** Returns the USDT capital to size positions against. Paper uses paper_equity.
@@ -549,7 +578,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,minimum_expected_edge_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms,structure_entry_filter_enabled",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,minimum_expected_edge_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms,structure_entry_filter_enabled,structure_short_filter_enabled",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -1559,6 +1588,48 @@ export async function runAutoBookPass(
             }
           }
 
+          // Mean-reversion SHORT filter (shadow A/B). When the cohort has the
+          // flag on, gate SHORT entries on a fade of an overextended, overbought,
+          // volume-spiking 15m move that has rolled over. Longs and flag-off
+          // cohorts are unaffected. Backtest: 56% win / PF 1.52 on liquid coins.
+          let structureShortFilterApplied = false;
+          if (!rejection && side === "short" && cfg.structure_short_filter_enabled === true) {
+            const c15 = await fetchMeanRevCandles(a.symbol);
+            if (!c15) {
+              rejection = "Mean-rev short filter: candle data unavailable";
+              final = "skip";
+              void logEvent(
+                supabase,
+                cfg.user_id,
+                "info",
+                `Auto-book skipped ${a.symbol}: ${rejection}`,
+                { kind: "short_filter_no_data", symbol: a.symbol },
+              ).catch(() => {});
+            } else {
+              const mr = evaluateMeanReversionShort(c15);
+              structureShortFilterApplied = true;
+              if (!mr.enterShort) {
+                rejection = `Mean-rev short filter blocked: ${mr.reasons.join("; ")}`;
+                final = "skip";
+                void logEvent(
+                  supabase,
+                  cfg.user_id,
+                  "info",
+                  `Auto-book skipped ${a.symbol}: ${rejection}`,
+                  {
+                    kind: "short_filter_blocked",
+                    symbol: a.symbol,
+                    ext_above_pct: mr.detail.extAbovePct,
+                    rsi: mr.detail.rsi,
+                    vol_spike: mr.detail.volSpike,
+                    stretched: mr.detail.stretched,
+                    bear_trigger: mr.detail.bearTrigger,
+                  },
+                ).catch(() => {});
+              }
+            }
+          }
+
           // FK requires the signal row to exist first.
           const { error: sigErr } = await supabase.from("bot_signals").insert({
             id: signalId,
@@ -1803,6 +1874,7 @@ export async function runAutoBookPass(
                   signal_age_seconds: signalAgeSeconds,
                   entry_fill_type: entryFillType,
                   structure_filter_applied: structureFilterApplied,
+                  structure_short_filter_applied: structureShortFilterApplied,
 
                   // New exit-management fields:
                   tp1_price,
