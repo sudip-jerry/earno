@@ -56,7 +56,7 @@ function BeginnerTabBar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   return (
     <nav aria-label="Primary" className="fixed bottom-4 inset-x-0 z-40 pointer-events-none px-6">
-      <div className="mx-auto grid h-14 max-w-[340px] grid-cols-4 rounded-full border bg-card/95 shadow-lg backdrop-blur pointer-events-auto">
+      <div className="mx-auto grid h-16 max-w-[360px] grid-cols-4 rounded-full border border-border bg-card ring-1 ring-black/5 dark:ring-white/10 shadow-[0_12px_32px_-6px_rgba(13,27,61,0.35)] pointer-events-auto">
         {TABS.map(({ to, label, Icon }) => {
           const active = pathname === to;
           return (
@@ -64,10 +64,20 @@ function BeginnerTabBar() {
               key={to}
               to={to}
               aria-current={active ? "page" : undefined}
-              className={`flex flex-col items-center justify-center gap-1 transition ${active ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              className="relative flex flex-col items-center justify-center gap-1"
             >
-              <Icon className="size-[18px]" />
-              <span className="text-[10.5px] font-medium leading-none">{label}</span>
+              <span
+                aria-hidden="true"
+                className={`absolute inset-x-3 inset-y-2 rounded-full transition ${active ? "bg-primary/10" : ""}`}
+              />
+              <Icon
+                className={`relative size-[19px] ${active ? "text-primary" : "text-muted-foreground"}`}
+              />
+              <span
+                className={`relative text-[10.5px] font-medium leading-none ${active ? "text-primary" : "text-muted-foreground"}`}
+              >
+                {label}
+              </span>
             </Link>
           );
         })}

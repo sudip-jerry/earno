@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RecentActivityFeed } from "@/components/recent-activity";
-import { RecommendationsPanel } from "@/components/recommendations-panel";
+import { KpiStrip } from "@/components/market/market-hero";
 import { useCurrency } from "@/hooks/use-currency";
 import {
   AlertTriangle,
@@ -34,14 +34,7 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  DailyChart,
-  PerformanceStrip,
-  CompactRiskRow,
-  RiskRow,
-  timeAgo,
-  type StatsExtras,
-} from "./futures-widgets";
+import { DailyChart, CompactRiskRow, RiskRow, timeAgo, type StatsExtras } from "./futures-widgets";
 
 type ConfigRow = {
   mode: "paper" | "live";
@@ -139,6 +132,13 @@ export function FuturesHome() {
     return s?.noTradeReason?.trim() || "Scanning markets calmly.";
   }, [isRunning, s, openCount]);
 
+  // KPI values, mapped to the same 4-up shape the Coins screen uses.
+  const futInvested = Number(s?.baselineEquity ?? c?.paper_equity ?? 0);
+  const futRealized = Number(s?.realizedPnlAllTime ?? 0);
+  const futRetPct = futInvested > 0 ? (futRealized / futInvested) * 100 : 0;
+  const futWinPct =
+    (s?.closedAllTime ?? 0) > 0 ? Math.round(Number(s?.winRateAllTime ?? 0) * 100) : null;
+
   return (
     <>
       {/* ===== Mode banner — prominent ===== */}
@@ -228,7 +228,7 @@ export function FuturesHome() {
         </div>
       )}
 
-      {/* ===== Portfolio summary card ===== */}
+      {/* ===== Portfolio summary card — equity + line chart ===== */}
       <div className="px-5 mt-3">
         <DailyChart
           portfolioValue={Number(s?.portfolioValue ?? c?.paper_equity ?? 0)}
@@ -245,6 +245,22 @@ export function FuturesHome() {
         />
       </div>
 
+      {/* ===== KPI strip — uniform with the Coins screen ===== */}
+      <div className="px-5 mt-3">
+        <KpiStrip
+          items={[
+            { label: "Win rate", value: futWinPct == null ? "—" : `${futWinPct}%` },
+            { label: "Trades today", value: String(s?.tradesToday ?? 0) },
+            { label: "Open", value: String(openCount) },
+            {
+              label: "Return",
+              value: `${futRetPct >= 0 ? "+" : ""}${futRetPct.toFixed(1)}%`,
+              tone: futRetPct >= 0 ? "pos" : "neg",
+            },
+          ]}
+        />
+      </div>
+
       {tier === "free" && (
         <Link
           to="/upgrade"
@@ -257,12 +273,6 @@ export function FuturesHome() {
           <span className="text-[11px] font-semibold text-primary shrink-0">Upgrade →</span>
         </Link>
       )}
-
-      {/* ===== Weekly performance strip ===== */}
-      <PerformanceStrip s={s} fmt={fmt} />
-
-      {/* ===== Personalized recommendations (RAG) ===== */}
-      <RecommendationsPanel />
 
       {/* ===== Wealth Engine status ===== */}
       <section className="px-5 mt-5">
