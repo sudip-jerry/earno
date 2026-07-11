@@ -6,8 +6,10 @@
  * - One bulk call returns every spot market; cached in-memory for 30s with
  *   in-flight dedup, so concurrent lookups in a pass share a single request.
  * - Never used for execution (execution stays on the user's CoinDCX account).
- * - Silent-fail: returns an empty map on any error, warns at most once per
- *   cache window.
+ * - Resilient-fail: on a transient fetch error it serves the last-good prices
+ *   (stale) and backs off ~5s rather than caching an empty map for the full TTL
+ *   — a single failure otherwise nulled the funding/premium signal for every
+ *   booking in that 30s window.
  *
  * The endpoint + response shape (`{ market, last_price }`) is the same one
  * already consumed by movers.functions.ts / fx.functions.ts.
@@ -15,10 +17,12 @@
 
 const SPOT_TICKER_URL = "https://api.coindcx.com/exchange/ticker";
 const SPOT_TTL_MS = 30_000;
+const FAIL_BACKOFF_MS = 5_000; // after a failure, retry this soon (serving stale meanwhile)
 
 type SpotRow = { market?: string; last_price?: string | number };
 
 let cache: { at: number; data: Map<string, number> } | null = null;
+let lastGood: Map<string, number> | null = null; // most recent non-empty result
 let inflight: Promise<Map<string, number>> | null = null;
 let warned = false;
 
@@ -36,7 +40,7 @@ export async function fetchSpotPrices(): Promise<Map<string, number>> {
   inflight = (async () => {
     try {
       const res = await fetch(SPOT_TICKER_URL, {
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(4500),
         headers: { accept: "application/json" },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -49,17 +53,24 @@ export async function fetchSpotPrices(): Promise<Map<string, number>> {
           if (Number.isFinite(px) && px > 0) map.set(r.market, px);
         }
       }
-      cache = { at: Date.now(), data: map };
-      warned = false;
-      return map;
+      // Only treat a non-empty result as good; an empty array is a soft failure.
+      if (map.size > 0) {
+        lastGood = map;
+        cache = { at: Date.now(), data: map };
+        warned = false;
+        return map;
+      }
+      throw new Error("empty ticker");
     } catch (e) {
       if (!warned) {
         warned = true;
         console.warn("[coindcx-spot] ticker fetch failed:", e instanceof Error ? e.message : e);
       }
-      const empty = new Map<string, number>();
-      cache = { at: Date.now(), data: empty };
-      return empty;
+      // Serve last-good prices (stale) instead of poisoning the cache with an
+      // empty map for the whole TTL; back off ~5s so coverage recovers quickly.
+      const fallback = lastGood ?? new Map<string, number>();
+      cache = { at: Date.now() - (SPOT_TTL_MS - FAIL_BACKOFF_MS), data: fallback };
+      return fallback;
     } finally {
       inflight = null;
     }
