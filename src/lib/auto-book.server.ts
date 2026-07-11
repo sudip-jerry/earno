@@ -30,6 +30,7 @@ import { classifySetup } from "@/lib/futures/setup-classifier";
 import { isGloballyBlacklisted } from "@/lib/global-symbol-blacklist";
 import { getBackendStrategyPolicy } from "@/lib/futures/strategy-policy";
 import { evaluateTradeEligibility } from "@/lib/futures/trade-eligibility";
+import { evaluateManualEntry } from "@/lib/futures/manual-entry";
 import {
   loadLiveCreds,
   placeLiveEntry,
@@ -59,6 +60,34 @@ async function fetchAtrPct(pair: string): Promise<number | null> {
     const agg = aggregateCandles(raw as any, group);
     if (agg.length < 16) return null;
     return atrPctFromCandles(agg, 14);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch 30m + 1m candles for the structure entry filter (shadow A/B). Returns
+ * chronological ascending arrays, or null on any fetch/shape failure so the
+ * caller can skip conservatively rather than book on a blind filter.
+ */
+async function fetchStructureCandles(
+  pair: string,
+): Promise<{ c30: { open: number; high: number; low: number; close: number }[]; c1: { open: number; high: number; low: number; close: number }[] } | null> {
+  try {
+    const { resolveInterval, aggregateCandles } = await import("@/lib/candle-aggregator");
+    const [b30, g30] = resolveInterval("30m"); // ["15m", 2]
+    const [res30, res1] = await Promise.all([
+      fetch(CANDLES(pair, b30, 24), { headers: PUB_HEADERS, signal: AbortSignal.timeout(3500) }),
+      fetch(CANDLES(pair, "1m", 45), { headers: PUB_HEADERS, signal: AbortSignal.timeout(3500) }),
+    ]);
+    if (!res30.ok || !res1.ok) return null;
+    const raw30 = (await res30.json()) as Array<Record<string, unknown>>;
+    const raw1 = (await res1.json()) as Array<Record<string, unknown>>;
+    if (!Array.isArray(raw30) || !Array.isArray(raw1)) return null;
+    const c30 = aggregateCandles(raw30 as any, g30);
+    const c1 = aggregateCandles(raw1 as any, 1).sort((a, b) => a.time - b.time);
+    if (c30.length < 4 || c1.length < 20) return null;
+    return { c30, c1 };
   } catch {
     return null;
   }
@@ -408,6 +437,10 @@ type BotConfig = {
   // Maker-first live entry (dormant unless explicitly enabled). Live-only.
   maker_entry_enabled?: boolean | null;
   maker_entry_wait_ms?: number | null;
+  // Structure entry filter (shadow A/B): gate LONG entries on the manual
+  // structural rule (30m higher-highs · 1m not overbought · 1m rising ·
+  // Supertrend). Default false — control cohorts run unchanged.
+  structure_entry_filter_enabled?: boolean | null;
 };
 
 /** Returns the USDT capital to size positions against. Paper uses paper_equity.
@@ -516,7 +549,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,minimum_expected_edge_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,minimum_expected_edge_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms,structure_entry_filter_enabled",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -1485,6 +1518,47 @@ export async function runAutoBookPass(
             }
           }
 
+          // Structure entry filter (shadow A/B). When the cohort has the flag
+          // on, gate LONG entries on the manual structural rule (30m higher-highs
+          // · 1m not overbought · 1m rising · Supertrend bullish). Shorts and
+          // flag-off cohorts are unaffected. Backtested PF ~3 as a long filter.
+          let structureFilterApplied = false;
+          if (!rejection && side === "long" && cfg.structure_entry_filter_enabled === true) {
+            const sc = await fetchStructureCandles(a.symbol);
+            if (!sc) {
+              rejection = "Structure filter: candle data unavailable";
+              final = "skip";
+              void logEvent(
+                supabase,
+                cfg.user_id,
+                "info",
+                `Auto-book skipped ${a.symbol}: ${rejection}`,
+                { kind: "structure_filter_no_data", symbol: a.symbol },
+              ).catch(() => {});
+            } else {
+              const me = evaluateManualEntry(sc.c30, sc.c1);
+              structureFilterApplied = true;
+              if (!me.enterLong) {
+                rejection = `Structure filter blocked long: ${me.reasons.join("; ")}`;
+                final = "skip";
+                void logEvent(
+                  supabase,
+                  cfg.user_id,
+                  "info",
+                  `Auto-book skipped ${a.symbol}: ${rejection}`,
+                  {
+                    kind: "structure_filter_blocked",
+                    symbol: a.symbol,
+                    trend30_up: me.detail.trend30Up,
+                    trend1_up: me.detail.trend1Up,
+                    rsi_ok: me.detail.rsiOk,
+                    supertrend_up: me.detail.supertrendUp,
+                  },
+                ).catch(() => {});
+              }
+            }
+          }
+
           // FK requires the signal row to exist first.
           const { error: sigErr } = await supabase.from("bot_signals").insert({
             id: signalId,
@@ -1728,6 +1802,7 @@ export async function runAutoBookPass(
                   symbol_1h_trend: symbol1hTrend,
                   signal_age_seconds: signalAgeSeconds,
                   entry_fill_type: entryFillType,
+                  structure_filter_applied: structureFilterApplied,
 
                   // New exit-management fields:
                   tp1_price,
