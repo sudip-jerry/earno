@@ -39,6 +39,11 @@ import {
 } from "@/lib/futures/live-execution.server";
 
 const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices/futures/rt";
+// Scan-universe liquidity gates. Coins below this 24h quote-volume are never
+// scanned (keeps out thin/choppy names like a low-volume 24h decliner). The
+// movers arm also needs a genuine 24h move so flat tickers aren't ranked as movers.
+const MIN_SCAN_VOLUME_USDT = 20_000_000;
+const MIN_SCAN_ABS_CHANGE_PCT = 2;
 const CANDLES = (pair: string, interval: string, limit: number) =>
   `https://public.coindcx.com/market_data/candles?pair=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
 const PUB_HEADERS = {
@@ -176,10 +181,16 @@ async function fetchScanUniverse(
   if (Array.isArray(dict)) dict.forEach((r) => consume(undefined, r));
   else Object.entries(dict).forEach(([k, v]) => v && typeof v === "object" && consume(k, v));
 
-  const byChange = [...rows]
+  // Liquidity floor: never scan thin coins. A low-volume name with a big % swing
+  // (e.g. a choppy 24h decliner) otherwise slipped into the movers arm and got
+  // traded/squeezed. Require real 24h quote volume for BOTH arms, and a genuine
+  // move for the movers arm so flat tickers aren't ranked as "movers".
+  const liquid = rows.filter((r) => r.volume24h >= MIN_SCAN_VOLUME_USDT);
+  const byChange = [...liquid]
+    .filter((r) => Math.abs(r.change24h) >= MIN_SCAN_ABS_CHANGE_PCT)
     .sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h))
     .slice(0, nChange);
-  const byVolume = [...rows].sort((a, b) => b.volume24h - a.volume24h).slice(0, nVolume);
+  const byVolume = [...liquid].sort((a, b) => b.volume24h - a.volume24h).slice(0, nVolume);
   const seen = new Set<string>();
   const union: typeof rows = [];
   for (const r of [...byChange, ...byVolume]) {
