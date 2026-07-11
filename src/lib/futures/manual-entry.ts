@@ -281,6 +281,104 @@ function isLowerHigh(candles: MECandle[], lookback: number): boolean {
   return recent < prior;
 }
 
+/** Rolling VWAP over the last `lookback` bars: sum(typical*vol)/sum(vol),
+ *  typical = (high+low+close)/3. Falls back to close-average if volume is absent. */
+function rollingVwap(candles: MECandle[], lookback: number): number | null {
+  if (candles.length < lookback) return null;
+  const slice = candles.slice(-lookback);
+  let pv = 0;
+  let vol = 0;
+  for (const c of slice) {
+    const typ = (c.high + c.low + c.close) / 3;
+    const v = c.volume ?? 0;
+    pv += typ * v;
+    vol += v;
+  }
+  if (vol <= 0) return slice.reduce((a, c) => a + c.close, 0) / slice.length;
+  return pv / vol;
+}
+
+export type MeanReversionShortParams = {
+  vwapLookback: number; // bars for the rolling VWAP
+  extPct: number; // price must be this % above VWAP (overextended)
+  rsiPeriod: number;
+  rsiOverbought: number; // slow-timeframe RSI must be >= this
+  volLookback: number; // bars to average volume over
+  volMult: number; // last bar volume must be >= volMult × average (the volume filter)
+};
+
+export const DEFAULT_MEANREV_SHORT_PARAMS: MeanReversionShortParams = {
+  vwapLookback: 20,
+  extPct: 1.2,
+  rsiPeriod: 14,
+  rsiOverbought: 68,
+  volLookback: 20,
+  volMult: 1.5,
+};
+
+export type MeanReversionShortResult = {
+  enterShort: boolean;
+  reasons: string[];
+  detail: {
+    extAbovePct: number | null;
+    rsi: number | null;
+    volSpike: number | null;
+    stretched: boolean;
+    volOk: boolean;
+    bearTrigger: boolean;
+  };
+};
+
+/**
+ * Mean-reversion fade short (the leading-algo edge): fade an OVEREXTENDED move on
+ * a LIQUID coin, gated by a volume filter, once it starts to turn. Runs on a slow
+ * timeframe (15m) to avoid noise:
+ *   1. price >= extPct above rolling VWAP  (overextended)
+ *   2. RSI >= rsiOverbought                 (overbought confirmation)
+ *   3. last-bar volume >= volMult × avg     (the volume filter — biggest win-rate lift)
+ *   4. bar rolls over (bearish close below prior close)  (don't fade a still-rising move)
+ * Point this at BTC/ETH/majors (ranging, high-liquidity) where mean reversion works,
+ * NOT microcap breakouts.
+ */
+export function evaluateMeanReversionShort(
+  c15m: MECandle[],
+  params: MeanReversionShortParams = DEFAULT_MEANREV_SHORT_PARAMS,
+): MeanReversionShortResult {
+  const reasons: string[] = [];
+  const vwap = rollingVwap(c15m, params.vwapLookback);
+  const last = c15m[c15m.length - 1];
+  const extAbovePct = vwap && vwap > 0 ? ((last.close - vwap) / vwap) * 100 : null;
+  const stretchedByVwap = extAbovePct != null && extAbovePct >= params.extPct;
+
+  const rsiVal = rsi(c15m.map((c) => c.close), params.rsiPeriod);
+  const overbought = rsiVal != null && rsiVal >= params.rsiOverbought;
+  const stretched = stretchedByVwap && overbought;
+  if (!stretchedByVwap) reasons.push(`not extended above VWAP (${extAbovePct?.toFixed(2) ?? "?"}% < ${params.extPct}%)`);
+  if (!overbought) reasons.push(`RSI not overbought (${rsiVal?.toFixed(0) ?? "?"} < ${params.rsiOverbought})`);
+
+  let volSpike: number | null = null;
+  if (c15m.length >= params.volLookback + 1) {
+    const win = c15m.slice(-(params.volLookback + 1), -1);
+    const avg = win.reduce((a, c) => a + (c.volume ?? 0), 0) / win.length;
+    volSpike = avg > 0 ? (last.volume ?? 0) / avg : null;
+  }
+  const volOk = volSpike != null && volSpike >= params.volMult;
+  if (!volOk) reasons.push(`no volume spike (${volSpike?.toFixed(2) ?? "?"}× < ${params.volMult}×)`);
+
+  const prev = c15m[c15m.length - 2];
+  const bearTrigger = !!prev && last.close < last.open && last.close < prev.close;
+  if (!bearTrigger) reasons.push("no bearish rollover candle");
+
+  const enterShort = stretched && volOk && bearTrigger;
+  if (enterShort) reasons.push("All conditions met — mean-reversion short");
+
+  return {
+    enterShort,
+    reasons,
+    detail: { extAbovePct, rsi: rsiVal, volSpike, stretched, volOk, bearTrigger },
+  };
+}
+
 export type ExhaustionShortParams = {
   gainerPct: number; // 24h change must exceed this (the coin actually ran)
   rsi30Overbought: number; // 30m RSI must be >= this (coarse "it's stretched" check)

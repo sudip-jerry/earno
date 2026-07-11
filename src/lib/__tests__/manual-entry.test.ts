@@ -3,6 +3,7 @@ import {
   evaluateManualEntry,
   evaluateManualEntryShort,
   evaluateExhaustionShort,
+  evaluateMeanReversionShort,
   supertrend,
   rsi,
   type MECandle,
@@ -128,6 +129,42 @@ describe("evaluateExhaustionShort", () => {
     const stillUp = candles(uptrend(26, 100, 1));
     const r = evaluateExhaustionShort(c30, stillUp, 12);
     expect(r.detail.lowerHigh).toBe(false);
+    expect(r.enterShort).toBe(false);
+  });
+});
+
+describe("evaluateMeanReversionShort", () => {
+  // Build a run-up (overextended above VWAP, high RSI, rising volume) then a
+  // bearish rollover candle with a volume spike.
+  function withVol(closes: number[], vols: number[]): MECandle[] {
+    return closes.map((close, i) => ({
+      open: i > 0 ? closes[i - 1] : close,
+      high: Math.max(close, i > 0 ? closes[i - 1] : close) + 0.1,
+      low: Math.min(close, i > 0 ? closes[i - 1] : close) - 0.1,
+      close, volume: vols[i], time: i * 900,
+    }));
+  }
+
+  it("fades an overextended, overbought move on a volume spike + bearish candle", () => {
+    // 24 rising bars (prev close 113.8), then a bearish rollover closing at 113.0.
+    const closes = [...Array.from({ length: 24 }, (_, i) => 100 + i * 0.6), 113.0];
+    const vols = [...Array(24).fill(100), 400]; // last bar volume spike
+    const c = withVol(closes, vols);
+    c[c.length - 1] = { ...c[c.length - 1], open: 114.2, close: 113.0, high: 114.3, low: 112.9, volume: 400 };
+    const r = evaluateMeanReversionShort(c);
+    expect(r.detail.volOk).toBe(true);
+    expect(r.detail.bearTrigger).toBe(true);
+    expect(r.detail.stretched).toBe(true);
+    expect(r.enterShort).toBe(true);
+  });
+
+  it("does NOT short without a volume spike", () => {
+    const closes = [...Array.from({ length: 24 }, (_, i) => 100 + i * 0.6), 113.0];
+    const vols = Array(25).fill(100); // flat volume
+    const c = withVol(closes, vols);
+    c[c.length - 1] = { ...c[c.length - 1], open: 114.2, close: 113.0 };
+    const r = evaluateMeanReversionShort(c);
+    expect(r.detail.volOk).toBe(false);
     expect(r.enterShort).toBe(false);
   });
 });

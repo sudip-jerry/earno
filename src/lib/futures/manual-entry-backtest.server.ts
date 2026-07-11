@@ -14,8 +14,10 @@ import {
   evaluateManualEntry,
   evaluateManualEntryShort,
   evaluateExhaustionShort,
+  evaluateMeanReversionShort,
   DEFAULT_MANUAL_ENTRY_PARAMS,
   DEFAULT_EXHAUSTION_SHORT_PARAMS,
+  DEFAULT_MEANREV_SHORT_PARAMS,
   type ManualEntryParams,
   type MECandle,
 } from "@/lib/futures/manual-entry";
@@ -55,6 +57,7 @@ async function fetchCandles(
           high: num(r.high),
           low: num(r.low),
           close: num(r.close),
+          volume: num(r.volume ?? r.v),
         };
       })
       .filter((c) => c.time > 0 && c.close > 0)
@@ -208,6 +211,7 @@ function aggregateTf(c1: MECandle[], widthSec: number): MECandle[] {
       high: Math.max(...g.map((x) => x.high)),
       low: Math.min(...g.map((x) => x.low)),
       close: g[g.length - 1].close,
+      volume: g.reduce((a, x) => a + (x.volume ?? 0), 0),
     });
   }
   return out;
@@ -392,8 +396,9 @@ export type MoversBacktestOpts = {
   maxHoldBars?: number;
   cooldownBars?: number;
   side?: "long" | "short" | "both";
-  shortRule?: "continuation" | "exhaustion"; // continuation = downtrend momentum; exhaustion = fade an overbought rollover (15m/30m)
+  shortRule?: "continuation" | "exhaustion" | "meanrev"; // meanrev = fade overextension + volume filter on liquid coins
   gainerPct?: number; // exhaustion: 24h change floor to qualify as a faded mover
+  symbols?: string[]; // explicit universe (e.g. majors) — overrides the movers fetch
   params?: ManualEntryParams;
 };
 
@@ -422,7 +427,10 @@ export async function runMoversMomentumBacktest(supabase: SupabaseClient, opts: 
   const params = opts.params ?? DEFAULT_MANUAL_ENTRY_PARAMS;
   const exhaustionParams = { ...DEFAULT_EXHAUSTION_SHORT_PARAMS, gainerPct: opts.gainerPct ?? DEFAULT_EXHAUSTION_SHORT_PARAMS.gainerPct };
 
-  const symbols = await fetchMoversUniverse(minVolume, maxSymbols);
+  const symbols =
+    opts.symbols && opts.symbols.length > 0
+      ? opts.symbols.slice(0, maxSymbols)
+      : await fetchMoversUniverse(minVolume, maxSymbols);
   const nowSec = Math.floor(Date.now() / 1000);
   const fromSec = nowSec - sinceHours * 3600;
 
@@ -478,7 +486,14 @@ export async function runMoversMomentumBacktest(supabase: SupabaseClient, opts: 
         if (evaluateManualEntry(c30Slice, c1Slice, params).enterLong) dir = "long";
       }
       if (!dir && (side === "short" || side === "both")) {
-        if (shortRule === "exhaustion") {
+        if (shortRule === "meanrev") {
+          // Mean-reversion fade: overextension above VWAP + overbought + volume
+          // spike + bearish rollover, on 15m. Liquidity-agnostic gate (no mover
+          // requirement) — meant for an explicit liquid universe.
+          const c15Slice = c15.filter((c) => (c.time ?? 0) <= tNow);
+          if (c15Slice.length >= DEFAULT_MEANREV_SHORT_PARAMS.vwapLookback + 2 &&
+              evaluateMeanReversionShort(c15Slice).enterShort) dir = "short";
+        } else if (shortRule === "exhaustion") {
           // Exhaustion short fades an overbought GAINER rolling over on 15m/30m;
           // it applies its own 24h-gainer gate, so no abs-mover gate here.
           const c15Slice = c15.filter((c) => (c.time ?? 0) <= tNow);
