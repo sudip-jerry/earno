@@ -67,6 +67,7 @@ export const Route = createFileRoute("/api/public/hooks/manual-entry-backtest")(
               : await mod.runManualEntryBacktest(supabaseAdmin, {
                   sinceHours: body.sinceHours,
                   limit: body.limit,
+                  side: body.side === "short" ? "short" : "long",
                 });
           return Response.json(result);
         } catch (e) {

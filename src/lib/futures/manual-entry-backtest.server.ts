@@ -84,6 +84,7 @@ function summarize(g: Group): Summary {
 export type ManualBacktestOpts = {
   sinceHours?: number;
   limit?: number;
+  side?: "long" | "short";
   params?: ManualEntryParams;
 };
 
@@ -93,6 +94,7 @@ export async function runManualEntryBacktest(
 ) {
   const sinceHours = opts.sinceHours ?? 24 * 30; // 30 days
   const limit = Math.min(opts.limit ?? 400, 1500);
+  const side = opts.side ?? "long";
   const params = opts.params ?? DEFAULT_MANUAL_ENTRY_PARAMS;
   const sinceIso = new Date(Date.now() - sinceHours * 3600_000).toISOString();
 
@@ -100,7 +102,7 @@ export async function runManualEntryBacktest(
     .from("positions")
     .select("id,symbol,side,opened_at,pnl,instrument")
     .eq("status", "closed")
-    .eq("side", "long")
+    .eq("side", side)
     .gte("opened_at", sinceIso)
     .order("opened_at", { ascending: false })
     .limit(limit);
@@ -141,15 +143,18 @@ export async function runManualEntryBacktest(
           return;
         }
         evaluated += 1;
-        const res = evaluateManualEntry(c30, c1, params);
-        add(res.enterLong ? pass : fail, num(t.pnl));
+        const enter =
+          side === "short"
+            ? evaluateManualEntryShort(c30, c1, params).enterShort
+            : evaluateManualEntry(c30, c1, params).enterLong;
+        add(enter ? pass : fail, num(t.pnl));
       }),
     );
   }
 
   return {
     ok: true as const,
-    scope: { sinceHours, limit, trades: trades.length, evaluated, noData },
+    scope: { sinceHours, limit, side, trades: trades.length, evaluated, noData },
     rulePass: summarize(pass),
     ruleFail: summarize(fail),
     baseline: summarize({
