@@ -2114,9 +2114,10 @@ export async function runMarkPass(
 
     // Fee-aware evaluation (unchanged).
     const grossPctPrice = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul : 0;
-    // A maker-filled entry pays the lower maker fee on the way in; the exit is
-    // still a market (taker) close. Everything else keeps the taker/taker model.
-    const exitFeeModel = p.entry_fill_type === "maker" ? "maker_taker_with_gst" : DEFAULT_FEE_MODEL;
+    // CoinDCX charges maker == taker on futures (no maker discount — validated
+    // against real trades), so both legs use the taker/taker model regardless of
+    // how the entry filled. See src/lib/fees.ts header note.
+    const exitFeeModel = DEFAULT_FEE_MODEL;
     const feeRates = feeModelRates(exitFeeModel);
     const roundTripFeePct =
       (feeRates.entry_fee_pct + feeRates.exit_fee_pct) * (1 + feeRates.gst_pct / 100);

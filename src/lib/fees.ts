@@ -1,9 +1,13 @@
 // CoinDCX INR-M Futures fee model.
-// maker 0.02%, taker 0.05%, GST 18% on fees.
-// Default for paper simulation: taker_taker_with_gst (market order both sides).
-// Effective fee per side incl. GST: 0.059% (0.05% × 1.18).
-// Fee is calculated on notional = qty × price (not on margin).
-// Do not add TDS for INR-M Futures.
+// IMPORTANT (validated against real CoinDCX trades, Jul 2026): CoinDCX charges the
+// SAME rate for maker and taker futures orders — the official fee table has a single
+// "Maker & Taker Fee" column. There is NO maker discount. Reconciling four real
+// closed trades (US/DEXE/VELVET/SKL) gives 0.05% per side + 18% GST = 0.059%/side
+// incl. GST, ~0.118% round-trip. So both entry and exit are modelled at 0.05%.
+// Fee is calculated on notional = qty × price (not on margin). No TDS for INR-M Futures.
+//
+// MAKER_FEE_PCT is retained only for legacy/spot models; for CoinDCX futures it is
+// NOT used — maker == taker == 0.05%.
 
 export const MAKER_FEE_PCT = 0.02;
 export const TAKER_FEE_PCT = 0.05;
@@ -17,17 +21,11 @@ export type FeeModel =
 
 export const DEFAULT_FEE_MODEL: FeeModel = "taker_taker_with_gst";
 
-// Reporting basis for FUTURES (perps). Dashboards and reports show net PnL on a
-// maker-fee basis to reflect the maker-first entry strategy: maker on the way in
-// (post-only limit, 0.02%), taker on the way out (market close, 0.05%) — hence
-// maker_taker, NOT maker_maker (which would understate the real exit cost).
-//
-// This is a REPORTING/display default only: netPnl/computeFees/tradeFee resolve
-// to it when no explicit model is passed. Trading/exit logic (auto-book,
-// entry-gates) keeps DEFAULT_FEE_MODEL (taker) so trade decisions stay
-// conservative and are not loosened by an optimistic fee assumption. Spot trades
-// keep the taker default. Override per-call by passing an explicit model.
-export const REPORTING_FEE_MODEL_FUTURES: FeeModel = "maker_taker_with_gst";
+// Reporting basis for FUTURES (perps). CoinDCX charges maker == taker on futures
+// (see header note; validated against real trades), so reporting uses taker/taker —
+// identical to the real cost and to DEFAULT_FEE_MODEL. A maker basis here would
+// understate fees ~2.5× and inflate reported net PnL; that mistake was reverted.
+export const REPORTING_FEE_MODEL_FUTURES: FeeModel = "taker_taker_with_gst";
 
 /** True when a trade row is a futures/perp trade (explicit instrument, or the
  *  CoinDCX perp symbol prefix "B-" when instrument isn't on the row). */
