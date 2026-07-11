@@ -268,3 +268,95 @@ export function evaluateManualEntryShort(
     detail: { trend30Down, trend1Down, rsi1m, rsiOk, supertrendDown },
   };
 }
+
+/**
+ * True when recent price fails to make a new high — the last 2 bars' peak is
+ * below the highest high of the prior `lookback` bars (a "lower high", the first
+ * crack in an up-move). Structure signal on a slow timeframe (15m), NOT 1m noise.
+ */
+function isLowerHigh(candles: MECandle[], lookback: number): boolean {
+  if (candles.length < lookback + 2) return false;
+  const recent = Math.max(candles[candles.length - 1].high, candles[candles.length - 2].high);
+  const prior = Math.max(...candles.slice(-(lookback + 2), -2).map((c) => c.high));
+  return recent < prior;
+}
+
+export type ExhaustionShortParams = {
+  gainerPct: number; // 24h change must exceed this (the coin actually ran)
+  rsi30Overbought: number; // 30m RSI must be >= this (coarse "it's stretched" check)
+  rsiPeriod: number;
+  swingLookback: number; // 15m bars to check for a lower high
+  stPeriod: number;
+  stMultiplier: number;
+  freshFlipBars: number; // Supertrend must have been UP within this many 15m bars (fresh rollover)
+};
+
+export const DEFAULT_EXHAUSTION_SHORT_PARAMS: ExhaustionShortParams = {
+  gainerPct: 8,
+  rsi30Overbought: 65,
+  rsiPeriod: 14,
+  swingLookback: 6,
+  stPeriod: 10,
+  stMultiplier: 3,
+  freshFlipBars: 4,
+};
+
+export type ExhaustionShortResult = {
+  enterShort: boolean;
+  reasons: string[];
+  detail: {
+    ranUp: boolean;
+    rsi30: number | null;
+    stretched: boolean;
+    lowerHigh: boolean;
+    freshFlipDown: boolean;
+  };
+};
+
+/**
+ * Exhaustion short — fade an overbought mover as it ROLLS OVER (the manual method
+ * the user actually trades), all on slow timeframes to avoid 1m noise:
+ *   1. 24h change >= gainerPct        — the coin ran up (worth fading)
+ *   2. 30m RSI >= rsi30Overbought     — stretched/overbought (coarse extended check)
+ *   3. 15m lower high                 — the up-move stalled (first failed new high)
+ *   4. 15m Supertrend just flipped up→down (fresh, within freshFlipBars) — the turn
+ * This is the OPPOSITE of evaluateManualEntryShort (which shorts an already-
+ * established downtrend and gets squeezed). Here we short the top forming.
+ */
+export function evaluateExhaustionShort(
+  c30m: MECandle[],
+  c15m: MECandle[],
+  change24h: number,
+  params: ExhaustionShortParams = DEFAULT_EXHAUSTION_SHORT_PARAMS,
+): ExhaustionShortResult {
+  const reasons: string[] = [];
+
+  const ranUp = change24h >= params.gainerPct;
+  if (!ranUp) reasons.push(`24h change ${change24h.toFixed(1)}% < gainer ${params.gainerPct}%`);
+
+  const rsi30 = rsi(c30m.map((c) => c.close), params.rsiPeriod);
+  const stretched = rsi30 != null && rsi30 >= params.rsi30Overbought;
+  if (rsi30 == null) reasons.push("30m RSI unavailable");
+  else if (!stretched) reasons.push(`30m RSI not overbought (${rsi30.toFixed(0)} < ${params.rsi30Overbought})`);
+
+  const lowerHigh = isLowerHigh(c15m, params.swingLookback);
+  if (!lowerHigh) reasons.push("15m still making higher highs (no rollover)");
+
+  const st15 = supertrend(c15m, params.stPeriod, params.stMultiplier);
+  const nowDown = st15.length ? st15[st15.length - 1] === false : false;
+  let wasUp = false;
+  for (let i = Math.max(0, st15.length - 1 - params.freshFlipBars); i < st15.length - 1; i++) {
+    if (st15[i] === true) wasUp = true;
+  }
+  const freshFlipDown = nowDown && wasUp;
+  if (!freshFlipDown) reasons.push("15m Supertrend not a fresh up→down flip");
+
+  const enterShort = ranUp && stretched && lowerHigh && freshFlipDown;
+  if (enterShort) reasons.push("All conditions met — exhaustion short");
+
+  return {
+    enterShort,
+    reasons,
+    detail: { ranUp, rsi30, stretched, lowerHigh, freshFlipDown },
+  };
+}

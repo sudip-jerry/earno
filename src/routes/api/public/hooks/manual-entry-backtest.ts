@@ -42,6 +42,8 @@ export const Route = createFileRoute("/api/public/hooks/manual-entry-backtest")(
             minVolume?: number;
             moverGatePct?: number;
             side?: "long" | "short" | "both";
+            shortRule?: "continuation" | "exhaustion";
+            gainerPct?: number;
           };
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const mod = await import("@/lib/futures/manual-entry-backtest.server");
@@ -55,6 +57,8 @@ export const Route = createFileRoute("/api/public/hooks/manual-entry-backtest")(
                   tpPct: body.tpPct,
                   slPct: body.slPct,
                   side: body.side,
+                  shortRule: body.shortRule,
+                  gainerPct: body.gainerPct,
                 })
               : body.mode === "generate"
               ? await mod.runManualEntryGeneration(supabaseAdmin, {

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   evaluateManualEntry,
   evaluateManualEntryShort,
+  evaluateExhaustionShort,
   supertrend,
   rsi,
   type MECandle,
@@ -101,6 +102,32 @@ describe("evaluateManualEntryShort", () => {
     const c1 = candles(uptrend(40, 100, 2).reverse()); // sharp drop → RSI pinned low
     const r = evaluateManualEntryShort(c30, c1);
     expect(r.detail.rsiOk).toBe(false);
+    expect(r.enterShort).toBe(false);
+  });
+});
+
+describe("evaluateExhaustionShort", () => {
+  // 30m overbought after a run, then 15m rolls over (peak then decline).
+  const c30 = candles(uptrend(20, 100, 1.5)); // strong 30m up → high RSI
+  // 15m: rise to a peak, then a clear lower-high decline (rollover)
+  const c15 = candles([...uptrend(18, 100, 1), 118, 116.5, 115, 113.5, 112, 110.5]);
+
+  it("shorts an overbought gainer that rolls over on 15m", () => {
+    const r = evaluateExhaustionShort(c30, c15, 12, { gainerPct: 8, rsi30Overbought: 60, rsiPeriod: 14, swingLookback: 6, stPeriod: 10, stMultiplier: 3, freshFlipBars: 6 });
+    expect(r.detail.ranUp).toBe(true);
+    expect(r.detail.lowerHigh).toBe(true);
+  });
+
+  it("does NOT short when the coin hasn't run (24h change below gainer floor)", () => {
+    const r = evaluateExhaustionShort(c30, c15, 3, { gainerPct: 8, rsi30Overbought: 60, rsiPeriod: 14, swingLookback: 6, stPeriod: 10, stMultiplier: 3, freshFlipBars: 6 });
+    expect(r.detail.ranUp).toBe(false);
+    expect(r.enterShort).toBe(false);
+  });
+
+  it("does NOT short while 15m is still making higher highs", () => {
+    const stillUp = candles(uptrend(26, 100, 1));
+    const r = evaluateExhaustionShort(c30, stillUp, 12);
+    expect(r.detail.lowerHigh).toBe(false);
     expect(r.enterShort).toBe(false);
   });
 });

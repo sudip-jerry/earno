@@ -13,7 +13,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   evaluateManualEntry,
   evaluateManualEntryShort,
+  evaluateExhaustionShort,
   DEFAULT_MANUAL_ENTRY_PARAMS,
+  DEFAULT_EXHAUSTION_SHORT_PARAMS,
   type ManualEntryParams,
   type MECandle,
 } from "@/lib/futures/manual-entry";
@@ -180,6 +182,28 @@ function aggregate30m(c1: MECandle[]): MECandle[] {
     const g = buckets.get(key)!;
     out.push({
       time: (key + 1) * 1800,
+      open: g[0].open,
+      high: Math.max(...g.map((x) => x.high)),
+      low: Math.min(...g.map((x) => x.low)),
+      close: g[g.length - 1].close,
+    });
+  }
+  return out;
+}
+
+/** Aggregate a 1m series into fixed-width buckets (bucket time = bucket end second). */
+function aggregateTf(c1: MECandle[], widthSec: number): MECandle[] {
+  const buckets = new Map<number, MECandle[]>();
+  for (const c of c1) {
+    const key = Math.floor((c.time ?? 0) / widthSec);
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key)!.push(c);
+  }
+  const out: MECandle[] = [];
+  for (const key of [...buckets.keys()].sort((a, b) => a - b)) {
+    const g = buckets.get(key)!;
+    out.push({
+      time: (key + 1) * widthSec,
       open: g[0].open,
       high: Math.max(...g.map((x) => x.high)),
       low: Math.min(...g.map((x) => x.low)),
@@ -368,6 +392,8 @@ export type MoversBacktestOpts = {
   maxHoldBars?: number;
   cooldownBars?: number;
   side?: "long" | "short" | "both";
+  shortRule?: "continuation" | "exhaustion"; // continuation = downtrend momentum; exhaustion = fade an overbought rollover (15m/30m)
+  gainerPct?: number; // exhaustion: 24h change floor to qualify as a faded mover
   params?: ManualEntryParams;
 };
 
@@ -392,7 +418,9 @@ export async function runMoversMomentumBacktest(supabase: SupabaseClient, opts: 
   const maxHoldBars = opts.maxHoldBars ?? 240;
   const cooldownBars = opts.cooldownBars ?? 15;
   const side = opts.side ?? "both";
+  const shortRule = opts.shortRule ?? "continuation";
   const params = opts.params ?? DEFAULT_MANUAL_ENTRY_PARAMS;
+  const exhaustionParams = { ...DEFAULT_EXHAUSTION_SHORT_PARAMS, gainerPct: opts.gainerPct ?? DEFAULT_EXHAUSTION_SHORT_PARAMS.gainerPct };
 
   const symbols = await fetchMoversUniverse(minVolume, maxSymbols);
   const nowSec = Math.floor(Date.now() / 1000);
@@ -433,6 +461,7 @@ export async function runMoversMomentumBacktest(supabase: SupabaseClient, opts: 
     if (c1.length < 60) continue;
     symbolsWithData += 1;
     const c30 = aggregate30m(c1);
+    const c15 = aggregateTf(c1, 900);
     perSymbol[sym] = { long: 0, short: 0, net: 0 };
     let nextAllowed = 30;
 
@@ -448,8 +477,16 @@ export async function runMoversMomentumBacktest(supabase: SupabaseClient, opts: 
       if ((side === "long" || side === "both") && ch24 >= moverGatePct) {
         if (evaluateManualEntry(c30Slice, c1Slice, params).enterLong) dir = "long";
       }
-      if (!dir && (side === "short" || side === "both") && Math.abs(ch24) >= moverGatePct) {
-        if (evaluateManualEntryShort(c30Slice, c1Slice, params).enterShort) dir = "short";
+      if (!dir && (side === "short" || side === "both")) {
+        if (shortRule === "exhaustion") {
+          // Exhaustion short fades an overbought GAINER rolling over on 15m/30m;
+          // it applies its own 24h-gainer gate, so no abs-mover gate here.
+          const c15Slice = c15.filter((c) => (c.time ?? 0) <= tNow);
+          if (c15Slice.length >= exhaustionParams.swingLookback + 2 &&
+              evaluateExhaustionShort(c30Slice, c15Slice, ch24, exhaustionParams).enterShort) dir = "short";
+        } else if (Math.abs(ch24) >= moverGatePct) {
+          if (evaluateManualEntryShort(c30Slice, c1Slice, params).enterShort) dir = "short";
+        }
       }
       if (!dir) continue;
 
@@ -476,7 +513,7 @@ export async function runMoversMomentumBacktest(supabase: SupabaseClient, opts: 
   return {
     ok: true as const,
     mode: "movers" as const,
-    scope: { sinceHours, minVolume, moverGatePct, tpPct, slPct, side, universe: symbols.length, symbolsWithData },
+    scope: { sinceHours, minVolume, moverGatePct, tpPct, slPct, side, shortRule, gainerPct: exhaustionParams.gainerPct, universe: symbols.length, symbolsWithData },
     universe: symbols,
     long: summarize(groups.long),
     short: summarize(groups.short),
