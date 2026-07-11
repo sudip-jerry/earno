@@ -343,6 +343,7 @@ function Home() {
             coinTodayPnl={coinTodayPnl}
             openCount={openCount}
             coinHoldingCount={coinHoldingCount}
+            openPnl={Number(s?.openPnl ?? 0) + Number(coinSummary?.unrealized_pnl_usdt ?? 0)}
             onManageMode={() => setGoLiveOpen(true)}
           />
         ) : market === "futures" ? (

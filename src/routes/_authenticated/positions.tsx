@@ -6,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { closeManualTrade, updatePositionTpSl } from "@/lib/movers.functions";
 import { Button } from "@/components/ui/button";
 import { BeginnerShell } from "@/components/beginner-shell";
-import { PositionsStrip } from "@/components/positions-strip";
 import { useLivePrices } from "@/hooks/use-live-prices";
 import { useCurrency } from "@/hooks/use-currency";
 import { netPnl, tradeFee } from "@/lib/fees";
@@ -179,7 +178,6 @@ function PositionsPage() {
 
   return (
     <BeginnerShell showMarketToggle>
-      <PositionsStrip showMarketToggle={false} />
       <MarketAwarePositionsBody>
         <section className="px-5 mt-3">
           <div className="inline-flex rounded-full border bg-muted p-1 mb-3">

@@ -4,6 +4,8 @@ import { ChevronRight, Settings as Cog, FlaskConical, Info, BadgeCheck } from "l
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
 import earneyWave from "@/assets/earney-wave.png.asset.json";
 import { RecentActivityFeed } from "@/components/recent-activity";
+import { ModeBanner } from "@/components/market/mode-banner";
+import { OpenPositionsBanner } from "@/components/market/open-positions-banner";
 import { useMarketMode } from "@/hooks/use-market-mode";
 import type { useCurrency } from "@/hooks/use-currency";
 import { SimpleMarketTabs } from "./simple-market-tabs";
@@ -26,6 +28,7 @@ export type SimpleViewProps = {
   coinTodayPnl: number;
   openCount: number;
   coinHoldingCount: number;
+  openPnl?: number;
   onManageMode: () => void;
   embedded?: boolean;
 };
@@ -68,6 +71,7 @@ export function SimpleView(props: SimpleViewProps) {
     coinTodayPnl,
     openCount,
     coinHoldingCount,
+    openPnl = 0,
     onManageMode,
     embedded,
   } = props;
@@ -177,29 +181,22 @@ export function SimpleView(props: SimpleViewProps) {
       )}
 
       {embedded && (
-        <div className="px-5 mt-4 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              {derived.greeting}
-            </p>
-            <p className="mt-0.5 text-[19px] font-semibold text-foreground">{derived.firstName}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onManageMode}
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 h-6 text-[11px] font-medium transition ${currentMode === "live" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15" : "bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/15"}`}
-          >
-            {currentMode === "live" ? (
-              <BadgeCheck className="size-3" />
-            ) : (
-              <FlaskConical className="size-3" />
-            )}
-            {currentMode === "live"
-              ? "Live — real money · manage"
-              : "Practice mode · tap to go live"}
-          </button>
+        <div className="px-5 mt-4">
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            {derived.greeting}
+          </p>
+          <p className="mt-0.5 text-[19px] font-semibold text-foreground">{derived.firstName}</p>
         </div>
       )}
+
+      {/* Mode banner + open positions — shared across All / Futures / Coins */}
+      <ModeBanner isLive={currentMode === "live"} onToggle={onManageMode} />
+      <OpenPositionsBanner
+        count={openCount + coinHoldingCount}
+        pnl={openPnl}
+        noun="position"
+        fmt={fmt}
+      />
 
       <div className="px-5 mt-4">
         <section className="brand-hero rounded-2xl px-5 py-4 shadow-md">
