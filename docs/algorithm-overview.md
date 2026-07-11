@@ -17,7 +17,7 @@ A/B-tested, what's only backtested, and what's still a known weakness.
 
 | Stage | Status | Detail |
 |---|---|---|
-| **Universe** | `LIVE` `ISSUE` | Each scan rebuilds a watchlist: top by `\|24h % change\|` ∪ top by 24h volume. **Weakness:** the volume arm permanently pulls in low-vol majors (BTC/ETH/BNB) and the abs-change arm pulls in crashers. Longing majors is the biggest historical bleed (−501 / 30d). |
+| **Universe** | `LIVE` | Each scan rebuilds a watchlist: top by `\|24h % change\|` ∪ top by 24h volume, gated by a **≥ 20M USDT 24h-volume floor** and a **≥ 2% move** on the movers arm — so thin, choppy coins (e.g. a low-volume 24h decliner) are never scanned. **Remaining:** the volume arm can still surface low-vol majors (BTC/ETH); the fuller "gainer-bias" reshape is deferred. |
 | **Signal / direction** | `LIVE` `ISSUE` | 8-component confidence score (0–100); long/short from EMA/VWAP/trend votes on 1m·5m·30m. **Weakness:** confidence is anti-predictive at the top — 80+ trades win only ~52% yet are 90% of the book. Direction flips on candle noise. |
 | **Auto-book gate** | `LIVE` | Books only when confidence clears the cohort threshold (80–90). Below that, shown in the feed but not traded. |
 | **Entry gates** | `LIVE` | Regime filter · spread cap · momentum-exhaustion block · per-symbol post-stop cooldown · major-coin confidence floor · min-net-profit-to-enter · blocked session hours. |
@@ -41,14 +41,14 @@ A/B-tested, what's only backtested, and what's still a known weakness.
 
 **Still weak (`ISSUE`)**
 - Confidence model is anti-predictive at the top — the core ranker doesn't separate winners from losers.
-- Universe pulls in majors & crashers — longing low-vol majors is the biggest bleed.
+- Universe: thin/choppy coins now excluded (20M volume floor + min-move); a low-vol-majors bias on the volume arm remains until the gainer-bias reshape.
 - Shorts base logic chases weakness → squeezed (mean-reversion fix now live in shadow A/B).
 - Direction flip-flops on candle noise (a long & a short on one coin within 30 min).
 
 **Next (`PROPOSED`)**
 1. Judge the long + short structure-filter A/Bs over 1–2 weeks; if they hold, make them default. Tune the fade's target (wider suits a fade).
 2. Fix funding-signal population (done — transient spot-fetch failures no longer null it).
-3. Reshape the universe to 24h movers + volume floor; drop low-vol major longs.
+3. Universe volume floor (≥20M) shipped; still to do — bias toward gainers and drop low-vol major longs from the volume arm.
 4. Add a funding-rate gate for shorts (crowded longs).
 
 _Live = running in production. Shadow = live on a subset of cohorts for A/B. Backtested =
