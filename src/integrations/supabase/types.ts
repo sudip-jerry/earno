@@ -69,9 +69,9 @@ export type Database = {
         Row: {
           allow_long: boolean
           allow_short: boolean
-          atr_multiplier: number
+          atr_multiplier: number | null
           auto_book: boolean
-          auto_book_confidence_threshold: number
+          auto_book_confidence_threshold: number | null
           auto_close_minutes: number
           blocked_session_hours_ist: number[]
           breakeven_arm_roe_pct: number | null
@@ -83,7 +83,7 @@ export type Database = {
           ema_slow: number
           fee_aware_exits_enabled: boolean
           is_running: boolean
-          leverage: number
+          leverage: number | null
           live_allocation_amount: number
           live_allocation_mode: string
           live_allocation_pct: number
@@ -91,14 +91,14 @@ export type Database = {
           major_coin_confidence_floor: number
           maker_entry_enabled: boolean
           maker_entry_wait_ms: number
-          max_auto_sl_pct: number
+          max_auto_sl_pct: number | null
           max_open_positions: number
           max_sl_atr_pct: number
           max_trades_per_day: number
           min_ev_ratio: number
-          min_rr: number
+          min_rr: number | null
           min_scalp_score: number
-          min_sl_pct: number
+          min_sl_pct: number | null
           minimum_expected_edge_pct: number | null
           minimum_gross_profit_before_profit_fade_exit_pct: number
           minimum_gross_profit_before_weak_progress_exit_pct: number
@@ -108,29 +108,32 @@ export type Database = {
           move_to_breakeven: boolean
           paper_equity: number
           regime_filter_enabled: boolean
-          risk_per_trade_pct: number
+          risk_per_trade_pct: number | null
           scan_interval_minutes: number
           scanner_top_n: number
           slippage_buffer_pct: number
           stop_loss_pct: number
           strategy: string
+          structure_entry_filter_enabled: boolean
+          structure_short_filter_enabled: boolean
           symbol_blacklist_threshold: number
           symbol_blocklist: string[]
           symbol_sl_cooldown_minutes: number
           take_profit_pct: number
-          target_multiplier: number
+          target_multiplier: number | null
           timeframe: string
           trading_style: string
           trailing_enabled: boolean
           updated_at: string
           user_id: string
+          v2_long_gate_enabled: boolean | null
         }
         Insert: {
           allow_long?: boolean
           allow_short?: boolean
-          atr_multiplier?: number
+          atr_multiplier?: number | null
           auto_book?: boolean
-          auto_book_confidence_threshold?: number
+          auto_book_confidence_threshold?: number | null
           auto_close_minutes?: number
           blocked_session_hours_ist?: number[]
           breakeven_arm_roe_pct?: number | null
@@ -142,7 +145,7 @@ export type Database = {
           ema_slow?: number
           fee_aware_exits_enabled?: boolean
           is_running?: boolean
-          leverage?: number
+          leverage?: number | null
           live_allocation_amount?: number
           live_allocation_mode?: string
           live_allocation_pct?: number
@@ -150,14 +153,14 @@ export type Database = {
           major_coin_confidence_floor?: number
           maker_entry_enabled?: boolean
           maker_entry_wait_ms?: number
-          max_auto_sl_pct?: number
+          max_auto_sl_pct?: number | null
           max_open_positions?: number
           max_sl_atr_pct?: number
           max_trades_per_day?: number
           min_ev_ratio?: number
-          min_rr?: number
+          min_rr?: number | null
           min_scalp_score?: number
-          min_sl_pct?: number
+          min_sl_pct?: number | null
           minimum_expected_edge_pct?: number | null
           minimum_gross_profit_before_profit_fade_exit_pct?: number
           minimum_gross_profit_before_weak_progress_exit_pct?: number
@@ -167,29 +170,32 @@ export type Database = {
           move_to_breakeven?: boolean
           paper_equity?: number
           regime_filter_enabled?: boolean
-          risk_per_trade_pct?: number
+          risk_per_trade_pct?: number | null
           scan_interval_minutes?: number
           scanner_top_n?: number
           slippage_buffer_pct?: number
           stop_loss_pct?: number
           strategy?: string
+          structure_entry_filter_enabled?: boolean
+          structure_short_filter_enabled?: boolean
           symbol_blacklist_threshold?: number
           symbol_blocklist?: string[]
           symbol_sl_cooldown_minutes?: number
           take_profit_pct?: number
-          target_multiplier?: number
+          target_multiplier?: number | null
           timeframe?: string
           trading_style?: string
           trailing_enabled?: boolean
           updated_at?: string
           user_id: string
+          v2_long_gate_enabled?: boolean | null
         }
         Update: {
           allow_long?: boolean
           allow_short?: boolean
-          atr_multiplier?: number
+          atr_multiplier?: number | null
           auto_book?: boolean
-          auto_book_confidence_threshold?: number
+          auto_book_confidence_threshold?: number | null
           auto_close_minutes?: number
           blocked_session_hours_ist?: number[]
           breakeven_arm_roe_pct?: number | null
@@ -201,7 +207,7 @@ export type Database = {
           ema_slow?: number
           fee_aware_exits_enabled?: boolean
           is_running?: boolean
-          leverage?: number
+          leverage?: number | null
           live_allocation_amount?: number
           live_allocation_mode?: string
           live_allocation_pct?: number
@@ -209,14 +215,14 @@ export type Database = {
           major_coin_confidence_floor?: number
           maker_entry_enabled?: boolean
           maker_entry_wait_ms?: number
-          max_auto_sl_pct?: number
+          max_auto_sl_pct?: number | null
           max_open_positions?: number
           max_sl_atr_pct?: number
           max_trades_per_day?: number
           min_ev_ratio?: number
-          min_rr?: number
+          min_rr?: number | null
           min_scalp_score?: number
-          min_sl_pct?: number
+          min_sl_pct?: number | null
           minimum_expected_edge_pct?: number | null
           minimum_gross_profit_before_profit_fade_exit_pct?: number
           minimum_gross_profit_before_weak_progress_exit_pct?: number
@@ -226,22 +232,25 @@ export type Database = {
           move_to_breakeven?: boolean
           paper_equity?: number
           regime_filter_enabled?: boolean
-          risk_per_trade_pct?: number
+          risk_per_trade_pct?: number | null
           scan_interval_minutes?: number
           scanner_top_n?: number
           slippage_buffer_pct?: number
           stop_loss_pct?: number
           strategy?: string
+          structure_entry_filter_enabled?: boolean
+          structure_short_filter_enabled?: boolean
           symbol_blacklist_threshold?: number
           symbol_blocklist?: string[]
           symbol_sl_cooldown_minutes?: number
           take_profit_pct?: number
-          target_multiplier?: number
+          target_multiplier?: number | null
           timeframe?: string
           trading_style?: string
           trailing_enabled?: boolean
           updated_at?: string
           user_id?: string
+          v2_long_gate_enabled?: boolean | null
         }
         Relationships: []
       }
@@ -766,6 +775,30 @@ export type Database = {
         }
         Relationships: []
       }
+      entry_confirmations: {
+        Row: {
+          confirms: number
+          side: string
+          symbol: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confirms?: number
+          side: string
+          symbol: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          confirms?: number
+          side?: string
+          symbol?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       fx_rates: {
         Row: {
           currency: string
@@ -899,6 +932,8 @@ export type Database = {
           spread_pct_at_entry: number | null
           status: string
           stop_loss: number | null
+          structure_filter_applied: boolean | null
+          structure_short_filter_applied: boolean | null
           symbol: string
           symbol_1h_trend: string | null
           take_profit: number | null
@@ -993,6 +1028,8 @@ export type Database = {
           spread_pct_at_entry?: number | null
           status?: string
           stop_loss?: number | null
+          structure_filter_applied?: boolean | null
+          structure_short_filter_applied?: boolean | null
           symbol: string
           symbol_1h_trend?: string | null
           take_profit?: number | null
@@ -1087,6 +1124,8 @@ export type Database = {
           spread_pct_at_entry?: number | null
           status?: string
           stop_loss?: number | null
+          structure_filter_applied?: boolean | null
+          structure_short_filter_applied?: boolean | null
           symbol?: string
           symbol_1h_trend?: string | null
           take_profit?: number | null
@@ -1235,6 +1274,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      confirm_entry: {
+        Args: {
+          _min_gap_secs?: number
+          _side: string
+          _symbol: string
+          _user: string
+          _window_secs?: number
+        }
+        Returns: number
+      }
       current_plan_tier: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["plan_tier"]

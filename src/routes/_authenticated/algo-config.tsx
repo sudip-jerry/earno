@@ -251,7 +251,7 @@ type CfgRow = {
   min_scalp_score: number;
   allow_long: boolean;
   allow_short: boolean;
-  leverage: number;
+  leverage: number | null;
   cooldown_minutes: number;
   daily_loss_cap_pct: number;
   scan_interval_minutes: number;
@@ -323,7 +323,7 @@ function UserConfigCard({ c }: { c: CfgRow }) {
 
   const startEdit = () => {
     setDraft({
-      leverage: c.leverage,
+      leverage: c.leverage ?? 0,
       risk_per_trade_pct: c.risk_per_trade_pct,
       max_open_positions: c.max_open_positions,
       max_trades_per_day: c.max_trades_per_day,
