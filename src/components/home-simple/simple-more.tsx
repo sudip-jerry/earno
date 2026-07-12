@@ -56,101 +56,99 @@ export function SimpleMore({
 }: SimpleMoreProps) {
   const isLive = currentMode === "live";
   return (
-    <div className="min-h-svh bg-background pb-28">
-      <div className="mx-auto max-w-md">
-        <header className="px-5 pt-5">
-          <h1 className="text-[19px] font-semibold">More</h1>
-          <p className="mt-1 text-[12.5px] text-muted-foreground">Help, your plan, and settings.</p>
-        </header>
+    <>
+      <header className="px-5 pt-5">
+        <h1 className="text-[19px] font-semibold">More</h1>
+        <p className="mt-1 text-[12.5px] text-muted-foreground">Help, your plan, and settings.</p>
+      </header>
 
-        <div className="px-5 mt-4">
-          <section className="rounded-2xl border bg-card shadow-sm divide-y overflow-hidden">
-            <button
-              type="button"
-              onClick={onManageMode}
-              className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted/40 transition"
+      <div className="px-5 mt-4">
+        <section className="rounded-2xl border bg-card shadow-sm divide-y overflow-hidden">
+          <button
+            type="button"
+            onClick={onManageMode}
+            className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted/40 transition"
+          >
+            <span
+              className={`size-8 grid place-items-center rounded-lg shrink-0 ${isLive ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/15 text-amber-600 dark:text-amber-400"}`}
             >
-              <span
-                className={`size-8 grid place-items-center rounded-lg shrink-0 ${isLive ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/15 text-amber-600 dark:text-amber-400"}`}
-              >
-                {isLive ? <BadgeCheck className="size-4" /> : <FlaskConical className="size-4" />}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-medium">Trading mode</div>
-                <div className="text-[11px] text-muted-foreground">
-                  {isLive
-                    ? "Live — trading with real money. Tap to manage."
-                    : "Practice — simulated money. Tap to go live."}
-                </div>
+              {isLive ? <BadgeCheck className="size-4" /> : <FlaskConical className="size-4" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-medium">Trading mode</div>
+              <div className="text-[11px] text-muted-foreground">
+                {isLive
+                  ? "Live — trading with real money. Tap to manage."
+                  : "Practice — simulated money. Tap to go live."}
               </div>
-              <span
-                className={`text-[10px] font-semibold tracking-wider px-2 h-5 inline-flex items-center rounded-full shrink-0 ${isLive ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"}`}
-              >
-                {isLive ? "LIVE" : "PRACTICE"}
-              </span>
-            </button>
-            <LinkRow
-              to="/help"
-              icon={<HelpCircle className="size-4" />}
-              label="Help & how it works"
-              hint="Plain-English answers"
-            />
-            <LinkRow
-              to="/upgrade"
-              icon={<CreditCard className="size-4" />}
-              label="Plan & upgrade"
-              hint="See your plan and options"
-            />
-            <LinkRow
-              to="/movers"
-              icon={<LineChart className="size-4" />}
-              label="Top movers"
-              hint="Biggest moves right now"
-            />
-            <button
-              type="button"
-              onClick={onToggleHideBalance}
-              className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted/40 transition"
+            </div>
+            <span
+              className={`text-[10px] font-semibold tracking-wider px-2 h-5 inline-flex items-center rounded-full shrink-0 ${isLive ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"}`}
             >
-              <span className="size-8 grid place-items-center rounded-lg bg-muted text-foreground/80 shrink-0">
-                {hideBalance ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-medium">Hide balances</div>
-                <div className="text-[11px] text-muted-foreground">
-                  {hideBalance ? "On — amounts are hidden" : "Off — amounts are shown"}
-                </div>
+              {isLive ? "LIVE" : "PRACTICE"}
+            </span>
+          </button>
+          <LinkRow
+            to="/help"
+            icon={<HelpCircle className="size-4" />}
+            label="Help & how it works"
+            hint="Plain-English answers"
+          />
+          <LinkRow
+            to="/upgrade"
+            icon={<CreditCard className="size-4" />}
+            label="Plan & upgrade"
+            hint="See your plan and options"
+          />
+          <LinkRow
+            to="/movers"
+            icon={<LineChart className="size-4" />}
+            label="Top movers"
+            hint="Biggest moves right now"
+          />
+          <button
+            type="button"
+            onClick={onToggleHideBalance}
+            className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted/40 transition"
+          >
+            <span className="size-8 grid place-items-center rounded-lg bg-muted text-foreground/80 shrink-0">
+              {hideBalance ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-medium">Hide balances</div>
+              <div className="text-[11px] text-muted-foreground">
+                {hideBalance ? "On — amounts are hidden" : "Off — amounts are shown"}
               </div>
-            </button>
+            </div>
+          </button>
+          <LinkRow
+            to="/settings"
+            icon={<Cog className="size-4" />}
+            label="Settings"
+            hint="Currency, appearance, exchange keys"
+          />
+          <LinkRow
+            to="/privacy"
+            icon={<Shield className="size-4" />}
+            label="Safety & privacy"
+            hint="How your money stays yours"
+          />
+          <LinkRow
+            to="/about"
+            icon={<Info className="size-4" />}
+            label="About earn'O"
+            hint="What this app is"
+          />
+          {isAdmin && (
             <LinkRow
-              to="/settings"
-              icon={<Cog className="size-4" />}
-              label="Settings"
-              hint="Currency, appearance, exchange keys"
+              to="/admin"
+              icon={<Crown className="size-4" />}
+              label="Admin console"
+              hint="Manage users and beta reports"
             />
-            <LinkRow
-              to="/privacy"
-              icon={<Shield className="size-4" />}
-              label="Safety & privacy"
-              hint="How your money stays yours"
-            />
-            <LinkRow
-              to="/about"
-              icon={<Info className="size-4" />}
-              label="About earn'O"
-              hint="What this app is"
-            />
-            {isAdmin && (
-              <LinkRow
-                to="/admin"
-                icon={<Crown className="size-4" />}
-                label="Admin console"
-                hint="Manage users and beta reports"
-              />
-            )}
-          </section>
-        </div>
+          )}
+        </section>
       </div>
-    </div>
+    </>
   );
 }
