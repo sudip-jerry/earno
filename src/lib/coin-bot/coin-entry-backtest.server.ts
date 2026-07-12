@@ -46,10 +46,10 @@ function sma(vals: number[], n: number, i: number): number | null {
   return s / n;
 }
 
-function rsi14(closes: number[], i: number): number | null {
-  if (i < 15) return null;
+function rsiN(closes: number[], i: number, period: number): number | null {
+  if (i < period + 1) return null;
   let g = 0, l = 0;
-  for (let k = i - 13; k <= i; k++) {
+  for (let k = i - period + 1; k <= i; k++) {
     const d = closes[k] - closes[k - 1];
     if (d >= 0) g += d;
     else l -= d;
@@ -57,6 +57,43 @@ function rsi14(closes: number[], i: number): number | null {
   if (l === 0) return 100;
   const rs = g / l;
   return 100 - 100 / (1 + rs);
+}
+const rsi14 = (closes: number[], i: number) => rsiN(closes, i, 14);
+
+/** Std-dev of the last n closes ending at i (for Bollinger bands). */
+function stdev(vals: number[], n: number, i: number, mean: number): number | null {
+  if (i + 1 < n) return null;
+  let s = 0;
+  for (let k = i - n + 1; k <= i; k++) s += (vals[k] - mean) ** 2;
+  return Math.sqrt(s / n);
+}
+
+/** Supertrend(10,3) direction per bar: true = uptrend. Standard band-flip logic. */
+function supertrendUp(c: C[]): boolean[] {
+  const n = c.length;
+  const up = new Array<boolean>(n).fill(false);
+  if (n < 12) return up;
+  const atr: number[] = new Array(n).fill(0);
+  for (let i = 1; i < n; i++) {
+    const tr = Math.max(
+      c[i].high - c[i].low,
+      Math.abs(c[i].high - c[i - 1].close),
+      Math.abs(c[i].low - c[i - 1].close),
+    );
+    atr[i] = i <= 10 ? (atr[i - 1] * (i - 1) + tr) / i : (atr[i - 1] * 9 + tr) / 10;
+  }
+  let ub = 0, lb = 0, trend = true;
+  for (let i = 1; i < n; i++) {
+    const mid = (c[i].high + c[i].low) / 2;
+    const bub = mid + 3 * atr[i];
+    const blb = mid - 3 * atr[i];
+    ub = i === 1 ? bub : bub < ub || c[i - 1].close > ub ? bub : ub;
+    lb = i === 1 ? blb : blb > lb || c[i - 1].close < lb ? blb : lb;
+    if (trend && c[i].close < lb) trend = false;
+    else if (!trend && c[i].close > ub) trend = true;
+    up[i] = trend;
+  }
+  return up;
 }
 
 /** Deterministic pseudo-random in [0,1) from symbol+bar (replay-stable). */
@@ -111,7 +148,15 @@ export async function runCoinEntryBacktest(opts: CoinBacktestOpts = {}) {
 
   const bars1h = sinceDays * 24;
   // Strategy keys — one shared simulate() so entries compete on equal terms.
-  const strategies = ["climax", "v2spot", "random", "ema_cross_4h", "donchian"] as const;
+  // The last four port the open-source community's consensus shapes:
+  // nfi_dip = NostalgiaForInfinity-style dip-buy in an uptrend (guarded mean
+  // reversion — the most-forked Freqtrade strategy's core); bb_meanrev =
+  // Bollinger lower-band buy with trend filter; supertrend = ST(10,3) flip
+  // long (TradingView staple); rsi2 = Connors RSI-2 pullback with trend guard.
+  const strategies = [
+    "climax", "v2spot", "random", "ema_cross_4h", "donchian",
+    "nfi_dip", "bb_meanrev", "supertrend", "rsi2",
+  ] as const;
   const groups: Record<string, Group> = Object.fromEntries(strategies.map((s) => [s, g0()]));
   const holdBench: { sum: number; n: number } = { sum: 0, n: 0 };
   let btcHold: number | null = null;
@@ -157,6 +202,7 @@ export async function runCoinEntryBacktest(opts: CoinBacktestOpts = {}) {
     if (sym === "B-BTC_USDT") btcHold = Number(holdPct.toFixed(2));
 
     const nextAllowed: Record<string, number> = Object.fromEntries(strategies.map((s) => [s, 0]));
+    const stUp = supertrendUp(c1h);
 
     for (let i = Math.max(start, 60); i < c1h.length - 2; i++) {
       const r = rsi14(closes, i);
@@ -172,6 +218,10 @@ export async function runCoinEntryBacktest(opts: CoinBacktestOpts = {}) {
       let hi80 = 0;
       for (let k = Math.max(0, i - 80); k < i; k++) hi80 = Math.max(hi80, c1h[k].high);
 
+      const s100 = sma(closes, 100, i);
+      const r2 = rsiN(closes, i, 2);
+      const sd20 = s20 != null ? stdev(closes, 20, i, s20) : null;
+
       const fires: Record<(typeof strategies)[number], boolean> = {
         // Current bot's workhorse shape: aligned trend + surging momentum/volume.
         climax: d1Up && h4Up && vRatio >= 1.5 && r != null && r >= 60,
@@ -185,6 +235,21 @@ export async function runCoinEntryBacktest(opts: CoinBacktestOpts = {}) {
           ema9 != null && ema21 != null && ema9p != null && ema21p != null &&
           ema9p <= ema21p && ema9 > ema21,
         donchian: closes[i] > hi80 && hi80 > 0,
+        // NFI-style guarded dip-buy: long-term uptrend intact, price dipped >=3%
+        // below the 20-SMA, RSI oversold-ish, and volume NOT panicking (avoid
+        // catching a crash knife) — the community's most-validated spot shape.
+        nfi_dip:
+          s100 != null && closes[i] > s100 &&
+          s20 != null && closes[i] < s20 * 0.97 &&
+          r != null && r < 36 && vRatio < 2.0,
+        // Bollinger(20,2) lower-band touch with the same long-term trend guard.
+        bb_meanrev:
+          s100 != null && closes[i] > s100 &&
+          s20 != null && sd20 != null && closes[i] < s20 - 2 * sd20,
+        // Supertrend(10,3) flip to up on this bar.
+        supertrend: i > 0 && stUp[i] && !stUp[i - 1],
+        // Connors RSI-2: deep short-term pullback inside a long-term uptrend.
+        rsi2: s100 != null && closes[i] > s100 && r2 != null && r2 < 10,
       };
 
       for (const st of strategies) {
