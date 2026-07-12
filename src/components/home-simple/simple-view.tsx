@@ -353,12 +353,8 @@ export function SimpleView(props: SimpleViewProps) {
   );
 
   if (embedded) {
-    return <div className="mx-auto max-w-md">{content}</div>;
+    return content;
   }
 
-  return (
-    <div className="min-h-svh bg-background pb-28">
-      <div className="mx-auto max-w-md">{content}</div>
-    </div>
-  );
+  return <div className="min-h-svh bg-background pb-28">{content}</div>;
 }
