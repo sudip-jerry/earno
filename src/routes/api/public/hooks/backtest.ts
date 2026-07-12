@@ -37,6 +37,7 @@ export const Route = createFileRoute("/api/public/hooks/backtest")({
             sinceHours?: number;
             limit?: number;
             label?: string;
+            variants?: import("@/lib/futures/backtest.server").BacktestVariant[];
           };
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { runBacktest } = await import("@/lib/futures/backtest.server");
@@ -46,6 +47,7 @@ export const Route = createFileRoute("/api/public/hooks/backtest")({
             sinceHours: body.sinceHours,
             limit: body.limit,
             label: body.label,
+            variants: Array.isArray(body.variants) && body.variants.length ? body.variants : undefined,
           });
           // Return compact summaries (drop per-trade details from the response).
           const compact = summaries.map((s) => {

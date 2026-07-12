@@ -167,6 +167,27 @@ export type BacktestVariant = {
    * culls. Undefined = no entry filter.
    */
   minExpectedEdgePct?: number;
+  /**
+   * 2026-07-12 change: once breakeven arms, the stop sits at NET breakeven
+   * (entry shifted by round-trip fees + slippage in the trade's favor) instead
+   * of raw entry, so a protected round-trip closes at ≈0 instead of −fees.
+   */
+  netBreakeven?: boolean;
+  /**
+   * 2026-07-12 change: micro peak-lock for the pre-TP1 dead zone — once peak
+   * ROE ≥ 1.2%, a giveback to ≤ max(0.35, 0.4·peak) exits instead of
+   * round-tripping to the breakeven stop.
+   */
+  microPeakLock?: boolean;
+  /**
+   * 2026-07-12 change: side-aware stop geometry. Shorts' SL/TP distances scale
+   * to 60% of the stored (long-preset) plan, SL capped at 1.3% price — exactly
+   * what computeRiskPlan(side:"short") now produces, since the stored TP is
+   * SL·targetMult and both scale together (R:R preserved). Longs untouched.
+   */
+  shortGeometry?: boolean;
+  /** Restrict the replay to one side (for side-scoped comparisons). */
+  sideFilter?: "long" | "short";
 };
 
 /** Gross target move % of a position (the quantity the edge gate compares). */
@@ -221,9 +242,20 @@ export function replayPosition(
   const scaleFromEntry = (price: number | null, scale: number): number | null =>
     price == null ? null : entry + (num(price) - entry) * scale;
 
-  const tp = scaleFromEntry(pos.take_profit, tpScale);
-  const tp1 = scaleFromEntry(pos.tp1_price, tpScale);
-  const slBase = scaleFromEntry(pos.stop_loss, slScale);
+  let tp = scaleFromEntry(pos.take_profit, tpScale);
+  let tp1 = scaleFromEntry(pos.tp1_price, tpScale);
+  let slBase = scaleFromEntry(pos.stop_loss, slScale);
+
+  // Side-aware short geometry (2026-07-12): shrink the whole plan to the fade
+  // scale. min(dist·0.6, 1.3% SL cap) with TP/TP1 scaled by the SAME factor —
+  // reproduces computeRiskPlan(side:"short") exactly on stored plans.
+  if (variant.shortGeometry && side === "short" && slBase != null) {
+    const slDistPct = (Math.abs(slBase - entry) / entry) * 100;
+    const scale = slDistPct > 0 ? Math.min(0.6, 1.3 / slDistPct) : 0.6;
+    slBase = scaleFromEntry(slBase, scale);
+    tp = scaleFromEntry(tp, scale);
+    tp1 = scaleFromEntry(tp1, scale);
+  }
   const trailPct = pos.trail_pct != null ? num(pos.trail_pct) : null;
   const trailingEnabled = trailPct != null && trailPct > 0;
 
@@ -259,6 +291,13 @@ export function replayPosition(
   const slippageBufferPct = variant.slippageBufferPct ?? num(cfg.slippage_buffer_pct ?? 0.05);
   const feeModel = feeModelFor(variant.entryFill);
   const feeRates = feeModelRates(feeModel);
+  const roundTripFeePct =
+    (feeRates.entry_fee_pct + feeRates.exit_fee_pct) * (1 + feeRates.gst_pct / 100);
+  // NET breakeven price (2026-07-12): entry shifted by fees+slippage in the
+  // trade's favor — mirrors runMarkPass exactly.
+  const feeFloorPct = roundTripFeePct + slippageBufferPct;
+  const netBreakevenPrice =
+    side === "long" ? entry * (1 + feeFloorPct / 100) : entry * (1 - feeFloorPct / 100);
 
   const openedAtMs = new Date(pos.opened_at).getTime();
 
@@ -322,8 +361,13 @@ export function replayPosition(
 
       // §2 final TP.
       const hitTp = tp != null && (side === "long" ? mark >= tp : mark <= tp);
-      // §3 SL (moves to entry once breakeven armed).
-      const effSlPrice = breakevenMoved ? entry : slBase;
+      // §3 SL (moves to entry — or NET breakeven under the variant — once
+      // breakeven arms).
+      const effSlPrice = breakevenMoved
+        ? variant.netBreakeven
+          ? netBreakevenPrice
+          : entry
+        : slBase;
       const hitSl =
         effSlPrice != null && (side === "long" ? mark <= effSlPrice : mark >= effSlPrice);
 
@@ -343,6 +387,14 @@ export function replayPosition(
       const givebackFromPeakFrac = peakRoe > 0 ? (peakRoe - currentRoe) / peakRoe : 0;
       const hitRunnerProtect =
         postTp1 && peakRoe >= runnerProt.minPeak && givebackFromPeakFrac >= runnerProt.givebackFrac;
+
+      // §4c micro peak-lock (2026-07-12, variant-gated): pre-TP1 giveback
+      // protection — mirrors runMarkPass thresholds exactly.
+      const hitMicroLock =
+        !!variant.microPeakLock &&
+        !postTp1 &&
+        peakRoe >= 1.2 &&
+        currentRoe <= Math.max(0.35, peakRoe * 0.4);
 
       // §5a profit fade (post-TP1).
       const giveback = peak >= preset.profitFadeMinPct ? Math.max(0, peak - currentRoe) : 0;
@@ -373,8 +425,6 @@ export function replayPosition(
 
       // Fee-aware gross for the blocking checks (price %, not ROE — matches live).
       const grossPctPrice = ((mark - entry) / entry) * 100 * sideMul;
-      const roundTripFeePct =
-        (feeRates.entry_fee_pct + feeRates.exit_fee_pct) * (1 + feeRates.gst_pct / 100);
       const netPctPrice = grossPctPrice - roundTripFeePct - slippageBufferPct;
 
       // ----- priority-ordered resolution (mirrors runMarkPass) -----
@@ -386,6 +436,7 @@ export function replayPosition(
         reason = breakevenMoved || tp1Hit || tp1JustHit ? "breakeven_exit" : "stop_loss";
       else if (hitRunnerProtect) reason = "profit_fade_exit";
       else if (hitTrail) reason = "trailing_exit";
+      else if (hitMicroLock) reason = "micro_peak_lock";
       else if (hitProfitFade) {
         const isLosing = grossPctPrice < 0;
         const blocked =
@@ -600,7 +651,10 @@ export async function runBacktest(
     // the floor are "eligible" — the rest are culled at entry, exactly as the
     // live gate would. eligible.length is the post-gate trade count.
     const eligible = positions.filter(
-      (p) => variant.minExpectedEdgePct == null || targetEdgePct(p) >= variant.minExpectedEdgePct,
+      (p) =>
+        (variant.minExpectedEdgePct == null ||
+          targetEdgePct(p) >= variant.minExpectedEdgePct) &&
+        (variant.sideFilter == null || p.side === variant.sideFilter),
     );
     const results: ReplayResult[] = [];
     for (const p of eligible) {
