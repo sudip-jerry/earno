@@ -206,11 +206,27 @@ export type ComputeRiskInput = {
   capital: number;
   /** True when the setup has no tradable bias (bias === "wait" / avoid). */
   unsupported?: boolean;
+  /** Trade direction. Shorts get a tighter stop geometry (see SHORT_STOP_SCALE). */
+  side?: "long" | "short";
 };
 
-export function computeRiskPlan({ atrPct, preset, capital, unsupported }: ComputeRiskInput): RiskPlan {
-  const atrComponent = atrPct != null && atrPct > 0 ? atrPct * preset.atrMult : 0;
-  const requiredSL = Math.max(preset.minSL, atrComponent);
+// Side-aware stop geometry. The 2026-07-12 fade-short sweep (mean-rev shorts,
+// 30-symbol live universe, net of fees) was monotonic: sl/tp 0.85/1.45 → PF 0.90,
+// 1.0/1.5 → 0.84, while the LONG-preset scale 1.5/2.55 → PF 0.61 at 26% win.
+// Fades resolve fast or get squeezed — wide stops just fund the squeeze — so
+// shorts run the same per-style R:R ratio at ~60% of the long stop scale, with
+// a hard volatility cap. (Risk-based sizing note: a tighter stop means larger
+// notional at the same money risk — the $ loss per stop is unchanged; the trade
+// simply resolves faster. Longs are untouched pending the July-19 review.)
+const SHORT_STOP_SCALE = 0.6;
+const SHORT_MAX_SL_PCT = 1.3;
+
+export function computeRiskPlan({ atrPct, preset, capital, unsupported, side }: ComputeRiskInput): RiskPlan {
+  const stopScale = side === "short" ? SHORT_STOP_SCALE : 1;
+  const maxAutoSL =
+    side === "short" ? Math.min(preset.maxAutoSL * SHORT_STOP_SCALE, SHORT_MAX_SL_PCT) : preset.maxAutoSL;
+  const atrComponent = atrPct != null && atrPct > 0 ? atrPct * preset.atrMult * stopScale : 0;
+  const requiredSL = Math.max(preset.minSL * stopScale, atrComponent);
   // Cap stop-loss for display purposes, but flag the breach via status.
   const slPct = Number(requiredSL.toFixed(2));
   const tpPct = Number((slPct * preset.targetMult).toFixed(2));
@@ -224,7 +240,7 @@ export function computeRiskPlan({ atrPct, preset, capital, unsupported }: Comput
   if (unsupported) {
     status = "avoid";
     reason = "No tradable setup";
-  } else if (requiredSL > preset.maxAutoSL) {
+  } else if (requiredSL > maxAutoSL) {
     status = "manual_review";
     reason = "Volatility too high for auto-book";
   } else if (rr < preset.minRR) {
@@ -238,7 +254,7 @@ export function computeRiskPlan({ atrPct, preset, capital, unsupported }: Comput
   return {
     slPct,
     requiredSL: Number(requiredSL.toFixed(2)),
-    maxAllowedSL: preset.maxAutoSL,
+    maxAllowedSL: maxAutoSL,
     tpPct,
     rr,
     atrPct: atrPct != null ? Number(atrPct.toFixed(2)) : null,

@@ -1191,11 +1191,13 @@ export async function runAutoBookPass(
           Date.now() - (lastSlClose.get(sym) as number) < symbolSlCooldownMs);
 
       // Compute risk plan up front so we can include rr on every row.
+      // Side-aware: shorts get the tighter fade geometry (see risk-engine).
       const plan = computeRiskPlan({
         atrPct: a.atr_pct,
         preset,
         capital: equity,
         unsupported: a.side_bias === "neutral",
+        side: a.side_bias === "short" ? "short" : "long",
       });
 
       // Decide gating.
