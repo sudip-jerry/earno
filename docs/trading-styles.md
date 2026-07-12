@@ -42,7 +42,7 @@ The numeric settings live in [`src/lib/risk-engine.ts`](../src/lib/risk-engine.t
 | `minSL` | 1.5% | 1.5% | 1.8% | Floor on the stop distance |
 | `atrMult` | 2.0× | 2.2× | 2.4× | Stop = ATR × this (volatility-scaled) |
 | `maxAutoSL` | 2.5% | 4.0% | 5.0% | Cap on the stop distance |
-| `targetMult` | 1.5× | 1.7× | 2.0× | Take-profit = stop × this |
+| `targetMult` | **3.3×** | 1.7× | 2.0× | Take-profit = stop × this. **Must be ≥ `minRR`** — the plan's R:R *is* targetMult, so an incoherent pair (e.g. 1.5×/3.0) rejects every booking as "Risk-reward weak" (this exact pair silently killed the conservative cohorts for a day on 2026-07-11/12). Conservative pairs a far target with a tight trail: winners are usually realized via trail/fade exits, not the full target |
 | `minRR` | **3.0** | 1.5 | 1.5 | Reject a booking below this reward:risk |
 | `tp1Pct` | 0.55% | 0.70% | 0.70% | Partial-profit level (books part of the position) |
 | `trailPct` | 0.70% | 0.90% | 1.30% | Trailing-stop distance after TP1 |
