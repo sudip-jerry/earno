@@ -1158,6 +1158,31 @@ export async function runAutoBookPass(
             symbol: a.symbol,
           },
         ).catch(() => {});
+      } else if (
+        // Continuation-short gate: shorts are FADE-ONLY. Measured on 14d of the
+        // live book (227 closed shorts): shorting a symbol already in a bearish
+        // 24h regime won 34.1% (−$72) and shorting RSI<40 (already dumped) won
+        // 31.8% — chased weakness gets squeezed. Shorts against a bullish or
+        // sideways 24h symbol with RSI≥40 (the fade shape) won 45.6% (+$18).
+        // Note this deliberately outranks the global-regime floor below, which
+        // *lowers* the bar for with-trend shorts in a bearish market.
+        a.side_bias === "short" &&
+        (a.market_regime === "Bearish 24h" || (a.rsi != null && a.rsi < 40))
+      ) {
+        rejection = "Continuation-short gate (fade-only shorts)";
+        final = "skip";
+        void logEvent(
+          supabase,
+          cfg.user_id,
+          "info",
+          `Auto-book skipped ${a.symbol}: ${rejection}`,
+          {
+            kind: "continuation_short_gate",
+            symbol: a.symbol,
+            market_regime: a.market_regime,
+            rsi: a.rsi,
+          },
+        ).catch(() => {});
       } else if (a.side_bias === "long" && cfg.allow_long === false) {
         rejection = "Longs disabled in config";
         final = "skip";
