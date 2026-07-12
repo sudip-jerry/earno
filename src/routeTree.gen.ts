@@ -26,6 +26,7 @@ import { Route as AuthenticatedExitReplayRouteImport } from './routes/_authentic
 import { Route as AuthenticatedCoinBotRouteImport } from './routes/_authenticated/coin-bot'
 import { Route as AuthenticatedBotRouteImport } from './routes/_authenticated/bot'
 import { Route as AuthenticatedBetaReportRouteImport } from './routes/_authenticated/beta-report'
+import { Route as AuthenticatedBacktestLabRouteImport } from './routes/_authenticated/backtest-lab'
 import { Route as AuthenticatedAlgoConfigRouteImport } from './routes/_authenticated/algo-config'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAboutRouteImport } from './routes/_authenticated/about'
@@ -126,6 +127,12 @@ const AuthenticatedBetaReportRoute = AuthenticatedBetaReportRouteImport.update({
   path: '/beta-report',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedBacktestLabRoute =
+  AuthenticatedBacktestLabRouteImport.update({
+    id: '/backtest-lab',
+    path: '/backtest-lab',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAlgoConfigRoute = AuthenticatedAlgoConfigRouteImport.update({
   id: '/algo-config',
   path: '/algo-config',
@@ -218,6 +225,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AuthenticatedAboutRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/algo-config': typeof AuthenticatedAlgoConfigRoute
+  '/backtest-lab': typeof AuthenticatedBacktestLabRoute
   '/beta-report': typeof AuthenticatedBetaReportRoute
   '/bot': typeof AuthenticatedBotRoute
   '/coin-bot': typeof AuthenticatedCoinBotRoute
@@ -250,6 +258,7 @@ export interface FileRoutesByTo {
   '/about': typeof AuthenticatedAboutRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/algo-config': typeof AuthenticatedAlgoConfigRoute
+  '/backtest-lab': typeof AuthenticatedBacktestLabRoute
   '/beta-report': typeof AuthenticatedBetaReportRoute
   '/bot': typeof AuthenticatedBotRoute
   '/coin-bot': typeof AuthenticatedCoinBotRoute
@@ -285,6 +294,7 @@ export interface FileRoutesById {
   '/_authenticated/about': typeof AuthenticatedAboutRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/algo-config': typeof AuthenticatedAlgoConfigRoute
+  '/_authenticated/backtest-lab': typeof AuthenticatedBacktestLabRoute
   '/_authenticated/beta-report': typeof AuthenticatedBetaReportRoute
   '/_authenticated/bot': typeof AuthenticatedBotRoute
   '/_authenticated/coin-bot': typeof AuthenticatedCoinBotRoute
@@ -321,6 +331,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/algo-config'
+    | '/backtest-lab'
     | '/beta-report'
     | '/bot'
     | '/coin-bot'
@@ -353,6 +364,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/algo-config'
+    | '/backtest-lab'
     | '/beta-report'
     | '/bot'
     | '/coin-bot'
@@ -387,6 +399,7 @@ export interface FileRouteTypes {
     | '/_authenticated/about'
     | '/_authenticated/admin'
     | '/_authenticated/algo-config'
+    | '/_authenticated/backtest-lab'
     | '/_authenticated/beta-report'
     | '/_authenticated/bot'
     | '/_authenticated/coin-bot'
@@ -552,6 +565,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBetaReportRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/backtest-lab': {
+      id: '/_authenticated/backtest-lab'
+      path: '/backtest-lab'
+      fullPath: '/backtest-lab'
+      preLoaderRoute: typeof AuthenticatedBacktestLabRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/algo-config': {
       id: '/_authenticated/algo-config'
       path: '/algo-config'
@@ -664,6 +684,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAboutRoute: typeof AuthenticatedAboutRoute
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAlgoConfigRoute: typeof AuthenticatedAlgoConfigRoute
+  AuthenticatedBacktestLabRoute: typeof AuthenticatedBacktestLabRoute
   AuthenticatedBetaReportRoute: typeof AuthenticatedBetaReportRoute
   AuthenticatedBotRoute: typeof AuthenticatedBotRoute
   AuthenticatedCoinBotRoute: typeof AuthenticatedCoinBotRoute
@@ -684,6 +705,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAboutRoute: AuthenticatedAboutRoute,
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAlgoConfigRoute: AuthenticatedAlgoConfigRoute,
+  AuthenticatedBacktestLabRoute: AuthenticatedBacktestLabRoute,
   AuthenticatedBetaReportRoute: AuthenticatedBetaReportRoute,
   AuthenticatedBotRoute: AuthenticatedBotRoute,
   AuthenticatedCoinBotRoute: AuthenticatedCoinBotRoute,
