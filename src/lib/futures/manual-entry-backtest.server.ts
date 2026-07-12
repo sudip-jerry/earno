@@ -371,9 +371,14 @@ async function fetchMoversUniverse(
       Object.entries(dict as Record<string, Record<string, unknown>>).forEach(
         ([k, v]) => v && typeof v === "object" && consume(k, v),
       );
-    // Gainers-only, to mirror the live scan universe (fetchScanUniverse now takes
-    // top gainers + flat-to-up liquid names; decliners are excluded). Ranks by the
-    // largest positive 24h move. Research on decliner shorts uses the symbols[] override.
+    // Gainers-only, APPROXIMATING the live scan universe's shape (decliners
+    // excluded, ranked by largest positive 24h move). Known divergences from
+    // live fetchScanUniverse: the gain gate here is moverGatePct (default 4 —
+    // which also gates entries; one knob, two meanings) vs live's 2, and there
+    // is no flat-to-up volume arm, so live trades symbols this backtest never
+    // samples. Sharing one universe builder is deferred; until then treat
+    // movers-backtest results as a stricter-universe approximation. Research
+    // on decliner shorts uses the symbols[] override.
     return rows
       .filter((r) => r.change >= gainerGatePct)
       .sort((a, b) => b.change - a.change)

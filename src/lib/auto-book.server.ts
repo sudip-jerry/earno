@@ -173,16 +173,25 @@ function num(x: unknown, d = 0): number {
  *   • top `nVolume` symbols by 24h quote volume
  * Returns the de-duplicated union — keeps the watchlist fresh each tick.
  */
+/** Returns null when the ticker itself is unreachable (fetch/parse failure) so
+ *  the caller can tell "API down" apart from a legitimately empty universe on
+ *  a broad red day — both used to return [] and look identical in monitoring. */
 async function fetchScanUniverse(
   nChange = 20,
   nVolume = 20,
-): Promise<Array<{ symbol: string; price: number; change24h: number; volume24h: number }>> {
-  const res = await fetch(FUTURES_TICKER, { headers: PUB_HEADERS, cache: "no-store" });
-  if (!res.ok) return [];
-  const raw = (await res.json()) as
-    | { prices: Record<string, TickerEntry> }
-    | Record<string, TickerEntry>
-    | TickerEntry[];
+): Promise<Array<{ symbol: string; price: number; change24h: number; volume24h: number }> | null> {
+  let raw: { prices: Record<string, TickerEntry> } | Record<string, TickerEntry> | TickerEntry[];
+  try {
+    const res = await fetch(FUTURES_TICKER, { headers: PUB_HEADERS, cache: "no-store" });
+    if (!res.ok) {
+      console.error(`[auto-book] futures ticker fetch failed: HTTP ${res.status}`);
+      return null;
+    }
+    raw = (await res.json()) as typeof raw;
+  } catch (e) {
+    console.error("[auto-book] futures ticker fetch failed:", e instanceof Error ? e.message : e);
+    return null;
+  }
   const dict =
     raw && typeof raw === "object" && !Array.isArray(raw) && "prices" in raw
       ? (raw as { prices: Record<string, TickerEntry> }).prices
@@ -192,7 +201,13 @@ async function fetchScanUniverse(
     const symbol = sym ?? r.s ?? r.pair;
     if (!symbol || !symbol.startsWith("B-") || !symbol.endsWith("_USDT")) return;
     const price = num(r.ls ?? r.c);
-    const change = num(r.cp ?? r.pc);
+    // Direction gates below (gainers-only, flat-to-up) need a REAL change
+    // value: num() would default a missing/malformed field to 0, letting an
+    // actually-falling coin pass the `change24h >= 0` volume arm as "flat".
+    const changeRaw = r.cp ?? r.pc;
+    const change =
+      typeof changeRaw === "string" ? parseFloat(changeRaw) : typeof changeRaw === "number" ? changeRaw : NaN;
+    if (!Number.isFinite(change)) return;
     const vol = num(r.qv ?? r.v);
     if (!price) return;
     rows.push({ symbol, price, change24h: change, volume24h: vol });
@@ -239,15 +254,27 @@ async function fetchScanUniverse(
  * has been wide across >= SPREAD_EXCLUDE_MIN_SCANS scans. These are dropped from
  * the scan universe entirely so they never slip in on the odd sub-cap tick and
  * whip to a full stop. Best-effort: on any failure, returns an empty set.
+ *
+ * Known, accepted limits of this v1 (redesign deferred): (a) an excluded symbol
+ * stops producing spread_skip events, so its old events age out of the lookback
+ * and it auto-re-enters after ~SPREAD_EXCLUDE_LOOKBACK_MIN minutes — a coin that
+ * is STILL wide then needs ~3 more wide scans to be re-excluded (a bounded
+ * exclude/re-enter cycle, during which the per-candidate hard-spread block is
+ * the backstop); (b) a symbol usually rejected by an earlier gate (neutral
+ * bias, cooldown, ...) logs no spread_skip and evades the count — again the
+ * per-candidate spread block still protects at booking time.
  */
 async function fetchPersistentWideSpreadSymbols(supabase: SupabaseClient): Promise<Set<string>> {
   try {
     const sinceIso = new Date(Date.now() - SPREAD_EXCLUDE_LOOKBACK_MIN * 60_000).toISOString();
+    // meta->>kind equality (not JSONB containment) so the partial index
+    // bot_events_spread_skip_idx (WHERE meta->>'kind' = 'spread_skip') applies —
+    // containment forced a seq-scan of bot_events on every 2-minute pass.
     const { data } = await supabase
       .from("bot_events")
       .select("meta, created_at")
       .gte("created_at", sinceIso)
-      .contains("meta", { kind: "spread_skip" })
+      .eq("meta->>kind", "spread_skip")
       .limit(5000);
     if (!data) return new Set();
     const minutesBySym = new Map<string, Set<string>>();
@@ -677,9 +704,27 @@ async function confirmEntry(
       _side: side,
       _window_secs: ENTRY_CONFIRM_WINDOW_SECS,
     });
-    if (error || typeof data !== "number") return ENTRY_CONFIRM_REQUIRED;
+    if (error || typeof data !== "number") {
+      // Fail-open, but LOUDLY: without this event a missing/broken RPC would
+      // silently disable the debounce forever (every call would report 2/2).
+      void logEvent(
+        supabase,
+        userId,
+        "warn",
+        `Entry-confirmation RPC failed for ${symbol} — booking without debounce (fail-open)`,
+        { kind: "entry_confirm_rpc_error", symbol, side, error: error?.message ?? "non-numeric result" },
+      ).catch(() => {});
+      return ENTRY_CONFIRM_REQUIRED;
+    }
     return data;
-  } catch {
+  } catch (e) {
+    void logEvent(
+      supabase,
+      userId,
+      "warn",
+      `Entry-confirmation RPC failed for ${symbol} — booking without debounce (fail-open)`,
+      { kind: "entry_confirm_rpc_error", symbol, side, error: e instanceof Error ? e.message : String(e) },
+    ).catch(() => {});
     return ENTRY_CONFIRM_REQUIRED;
   }
 }
@@ -732,7 +777,13 @@ export async function runAutoBookPass(
     .eq("is_running", true);
 
   if (opts.userId) q = q.eq("user_id", opts.userId);
-  const { data: cfgs } = await q;
+  const { data: cfgs, error: cfgErr } = await q;
+  if (cfgErr) {
+    // A failed config select (e.g. schema drift: a column in the select string
+    // missing from the DB) must be LOUD — otherwise the whole pass silently
+    // no-ops with users=0 and the bot looks dead with no error anywhere.
+    console.error("[auto-book] bot_config select failed — pass aborted:", cfgErr.message);
+  }
 
   const users = (cfgs ?? []) as BotConfig[];
   const result = {
@@ -761,22 +812,29 @@ export async function runAutoBookPass(
   );
 
   // Universe + per-timeframe per-symbol analysis (shared across users with the same timeframe).
-  const universeRaw = await fetchScanUniverse(25, 25);
+  const universeFetched = await fetchScanUniverse(25, 25); // null = ticker unreachable
+  const universeRaw = universeFetched ?? [];
   // Quality gate: drop coins that have been persistently wide-spread lately. A
   // one-off wide tick is fine; a coin that keeps tripping the spread block across
   // scans is illiquid junk that otherwise slips in on a lucky sub-cap tick.
   const wideSpread = await fetchPersistentWideSpreadSymbols(supabase);
-  const universe = wideSpread.size
-    ? universeRaw.filter((u) => !wideSpread.has(u.symbol))
-    : universeRaw;
-  if (universe.length !== universeRaw.length) {
+  const dropped = universeRaw.filter((u) => wideSpread.has(u.symbol));
+  const universe = dropped.length ? universeRaw.filter((u) => !wideSpread.has(u.symbol)) : universeRaw;
+  if (dropped.length) {
     console.log(
-      `[auto-book] universe quality gate dropped ${universeRaw.length - universe.length} wide-spread symbol(s): ${universeRaw
-        .filter((u) => wideSpread.has(u.symbol))
+      `[auto-book] universe quality gate dropped ${dropped.length} wide-spread symbol(s): ${dropped
         .map((u) => u.symbol)
         .join(", ")}`,
     );
   }
+  // An empty universe is ambiguous without this: "ticker API down" and "broad
+  // red day (no gainers, nothing flat-to-up)" both used to look like scanned=0.
+  const universeEmptyReason =
+    universeFetched === null
+      ? "Scan universe unavailable: futures ticker fetch failed"
+      : universe.length === 0
+        ? "Scan universe empty: no gainers or flat-to-up liquid names (broad red market?)"
+        : null;
   const scannedCount = universe.length;
   const distinctTimeframes = Array.from(
     new Set(users.map((u) => (u.timeframe && u.timeframe.trim()) || "5m")),
@@ -1201,8 +1259,10 @@ export async function runAutoBookPass(
         // 24h regime won 34.1% (−$72) and shorting RSI<40 (already dumped) won
         // 31.8% — chased weakness gets squeezed. Shorts against a bullish or
         // sideways 24h symbol with RSI≥40 (the fade shape) won 45.6% (+$18).
-        // Note this deliberately outranks the global-regime floor below, which
-        // *lowers* the bar for with-trend shorts in a bearish market.
+        // The global-regime floor below is reconciled with this gate: bearish
+        // regimes hold surviving fade shorts to the counter-trend floor (the old
+        // with-trend discount was removed — it was calibrated for shorting
+        // falling symbols, which the gainers-only universe no longer contains).
         a.side_bias === "short" &&
         (a.market_regime === "Bearish 24h" || (a.rsi != null && a.rsi < 40))
       ) {
@@ -1451,17 +1511,23 @@ export async function runAutoBookPass(
           if (isLong && conf < counterTrendFloor) {
             regimeFloor = counterTrendFloor;
             regimeReason = `Regime: bearish — ${style} counter-trend longs need ${counterTrendFloor}+`;
-          } else if (isShort && conf < withTrendFloor) {
-            regimeFloor = withTrendFloor;
-            regimeReason = `Regime: bearish — ${style} shorts need ${withTrendFloor}+`;
+          } else if (isShort && conf < counterTrendFloor) {
+            // No with-trend discount for shorts anymore: the continuation-short
+            // gate means every surviving short is a FADE of a per-symbol gainer,
+            // i.e. counter-trend to that symbol — and squeezes on relative-
+            // strength names are most violent in a bearish tape. The old
+            // withTrendFloor discount was calibrated for shorting falling
+            // symbols, which the gainers-only universe no longer contains.
+            regimeFloor = counterTrendFloor;
+            regimeReason = `Regime: bearish — ${style} fade shorts need ${counterTrendFloor}+`;
           }
         } else if (marketRegime === "strong_bearish") {
           if (isLong) {
             regimeFloor = counterTrendFloor + 3;
             regimeReason = `Regime: strong_bearish — ${style} longs need ${regimeFloor}+`;
-          } else if (isShort && conf < withTrendFloor) {
-            regimeFloor = withTrendFloor;
-            regimeReason = `Regime: strong_bearish — ${style} shorts need ${withTrendFloor}+`;
+          } else if (isShort) {
+            regimeFloor = counterTrendFloor + 3;
+            regimeReason = `Regime: strong_bearish — ${style} fade shorts need ${regimeFloor}+`;
           }
         }
 
@@ -1776,28 +1842,6 @@ export async function runAutoBookPass(
                     supertrend_up: me.detail.supertrendUp,
                   },
                 ).catch(() => {});
-              } else {
-                // Debounce: the filter must pass on two consecutive scans before we
-                // book, so a coin can't slip in on a single lucky 1m tick and whip
-                // to the full stop (the HMSTR/VELVET failure mode).
-                const confirms = await confirmEntry(supabase, cfg.user_id, a.symbol, "long");
-                if (confirms < ENTRY_CONFIRM_REQUIRED) {
-                  rejection = `Awaiting entry confirmation (${confirms}/${ENTRY_CONFIRM_REQUIRED})`;
-                  final = "skip";
-                  void logEvent(
-                    supabase,
-                    cfg.user_id,
-                    "info",
-                    `Auto-book skipped ${a.symbol}: ${rejection}`,
-                    {
-                      kind: "entry_awaiting_confirmation",
-                      symbol: a.symbol,
-                      side: "long",
-                      confirms,
-                      required: ENTRY_CONFIRM_REQUIRED,
-                    },
-                  ).catch(() => {});
-                }
               }
             }
           }
@@ -1867,29 +1911,36 @@ export async function runAutoBookPass(
                     bear_trigger: mr.detail.bearTrigger,
                   },
                 ).catch(() => {});
-              } else {
-                // Debounce: fade must confirm on two consecutive scans before we
-                // short, so a thin coin can't slip in on a single lucky tick and
-                // squeeze to the full stop (the VELVET failure mode).
-                const confirms = await confirmEntry(supabase, cfg.user_id, a.symbol, "short");
-                if (confirms < ENTRY_CONFIRM_REQUIRED) {
-                  rejection = `Awaiting entry confirmation (${confirms}/${ENTRY_CONFIRM_REQUIRED})`;
-                  final = "skip";
-                  void logEvent(
-                    supabase,
-                    cfg.user_id,
-                    "info",
-                    `Auto-book skipped ${a.symbol}: ${rejection}`,
-                    {
-                      kind: "entry_awaiting_confirmation",
-                      symbol: a.symbol,
-                      side: "short",
-                      confirms,
-                      required: ENTRY_CONFIRM_REQUIRED,
-                    },
-                  ).catch(() => {});
-                }
               }
+            }
+          }
+
+          // 2-scan entry confirmation — ALL cohorts, BOTH sides, LAST entry gate.
+          // An entry must survive every gate above (threshold, regime, spread,
+          // structure/v2/mean-rev filters where enabled) on two consecutive scans
+          // before it books, so a coin can't slip in on a single lucky 1m tick
+          // and whip to the full stop (the HMSTR/VELVET failure mode). Running
+          // last means the streak only accrues for fully-approved candidates —
+          // a filter or v2 flip can never book on its first passing scan. The
+          // RPC enforces a min-gap so overlapping passes can't double-count.
+          if (!rejection) {
+            const confirms = await confirmEntry(supabase, cfg.user_id, a.symbol, side);
+            if (confirms < ENTRY_CONFIRM_REQUIRED) {
+              rejection = `Awaiting entry confirmation (${confirms}/${ENTRY_CONFIRM_REQUIRED})`;
+              final = "skip";
+              void logEvent(
+                supabase,
+                cfg.user_id,
+                "info",
+                `Auto-book skipped ${a.symbol}: ${rejection}`,
+                {
+                  kind: "entry_awaiting_confirmation",
+                  symbol: a.symbol,
+                  side,
+                  confirms,
+                  required: ENTRY_CONFIRM_REQUIRED,
+                },
+              ).catch(() => {});
             }
           }
 
@@ -2263,6 +2314,12 @@ export async function runAutoBookPass(
       skipped,
       topConfidenceOverall,
     );
+    // Distinguish "market red / API down" from "bot broken" in the feed.
+    // logPauseEvent dedupes the same message within 30 min, so this doesn't
+    // spam during a long red stretch or outage.
+    if (universeEmptyReason) {
+      await logPauseEvent(supabase, cfg.user_id, universeEmptyReason).catch(() => {});
+    }
   }
 
   return result;
