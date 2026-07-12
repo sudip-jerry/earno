@@ -2033,9 +2033,12 @@ export async function runAutoBookPass(
             let liveOrderId: string | null = null;
             // Records how the entry filled so exit fee accounting can pick the
             // right model. Live sets this from the actual fill below. Paper models
-            // maker-first entry (post-only limit) when maker_entry_enabled — the
-            // maker entry fee (0.02% vs 0.05% taker) is ~30% of the round-trip cost,
-            // and fees run ~2x the gross trading loss on the futures book.
+            // maker-first entry (post-only limit) when maker_entry_enabled.
+            // NOTE: CoinDCX charges maker == taker on futures (validated against
+            // the user's fee schedule + real trades — see fees.ts header), so a
+            // post-only entry saves NO fees here; its only value is execution
+            // quality (not crossing the spread). Do not build fee logic on a
+            // maker discount.
             let entryFillType: "maker" | "taker" =
               cfg.mode !== "live" && cfg.maker_entry_enabled === true ? "maker" : "taker";
             if (cfg.mode === "live") {
