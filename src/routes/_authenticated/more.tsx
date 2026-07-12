@@ -41,12 +41,6 @@ function MorePage() {
   return (
     <BeginnerShell>
       <SimpleMore
-        onSwitchToPro={() => {
-          try {
-            window.localStorage.setItem("earno_home_view_mode_v2", "detail");
-          } catch {}
-          navigate({ to: "/" });
-        }}
         hideBalance={hideBalance}
         onToggleHideBalance={() => setHideBalance((v) => !v)}
         currentMode={currentMode}

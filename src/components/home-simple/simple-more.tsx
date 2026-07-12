@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import {
-  Zap,
   HelpCircle,
   CreditCard,
   Eye,
@@ -16,7 +15,6 @@ import {
 } from "lucide-react";
 
 export type SimpleMoreProps = {
-  onSwitchToPro: () => void;
   hideBalance: boolean;
   onToggleHideBalance: () => void;
   currentMode: "paper" | "live";
@@ -50,7 +48,6 @@ function LinkRow({
 }
 
 export function SimpleMore({
-  onSwitchToPro,
   hideBalance,
   onToggleHideBalance,
   currentMode,
@@ -65,23 +62,6 @@ export function SimpleMore({
           <h1 className="text-[19px] font-semibold">More</h1>
           <p className="mt-1 text-[12.5px] text-muted-foreground">Help, your plan, and settings.</p>
         </header>
-
-        {/* Switch to Pro — the deliberate mode switch */}
-        <div className="px-5 mt-4">
-          <button
-            type="button"
-            onClick={onSwitchToPro}
-            className="w-full text-left rounded-2xl bg-primary text-primary-foreground px-5 py-4 shadow-sm"
-          >
-            <div className="flex items-center gap-2">
-              <Zap className="size-4" />
-              <span className="text-[14px] font-semibold">Switch to Pro mode</span>
-            </div>
-            <p className="mt-1 text-[12px] opacity-90">
-              Scanner, full positions table and bot controls. You can switch back any time.
-            </p>
-          </button>
-        </div>
 
         <div className="px-5 mt-4">
           <section className="rounded-2xl border bg-card shadow-sm divide-y overflow-hidden">
