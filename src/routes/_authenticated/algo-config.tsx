@@ -251,7 +251,7 @@ type CfgRow = {
   min_scalp_score: number;
   allow_long: boolean;
   allow_short: boolean;
-  leverage: number;
+  leverage: number | null;
   cooldown_minutes: number;
   daily_loss_cap_pct: number;
   scan_interval_minutes: number;
