@@ -347,6 +347,7 @@ const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices
 async function fetchMoversUniverse(
   minVolume: number,
   maxSymbols: number,
+  gainerGatePct: number,
 ): Promise<string[]> {
   try {
     const res = await fetch(FUTURES_TICKER, { headers: HEADERS, signal: AbortSignal.timeout(8000) });
@@ -370,8 +371,12 @@ async function fetchMoversUniverse(
       Object.entries(dict as Record<string, Record<string, unknown>>).forEach(
         ([k, v]) => v && typeof v === "object" && consume(k, v),
       );
+    // Gainers-only, to mirror the live scan universe (fetchScanUniverse now takes
+    // top gainers + flat-to-up liquid names; decliners are excluded). Ranks by the
+    // largest positive 24h move. Research on decliner shorts uses the symbols[] override.
     return rows
-      .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
+      .filter((r) => r.change >= gainerGatePct)
+      .sort((a, b) => b.change - a.change)
       .slice(0, maxSymbols)
       .map((r) => r.symbol);
   } catch {
@@ -430,7 +435,7 @@ export async function runMoversMomentumBacktest(supabase: SupabaseClient, opts: 
   const symbols =
     opts.symbols && opts.symbols.length > 0
       ? opts.symbols.slice(0, maxSymbols)
-      : await fetchMoversUniverse(minVolume, maxSymbols);
+      : await fetchMoversUniverse(minVolume, maxSymbols, moverGatePct);
   const nowSec = Math.floor(Date.now() / 1000);
   const fromSec = nowSec - sinceHours * 3600;
 

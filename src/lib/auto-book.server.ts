@@ -196,9 +196,15 @@ async function fetchScanUniverse(
     .filter((r) => r.change24h >= MIN_SCAN_GAIN_PCT)
     .sort((a, b) => b.change24h - a.change24h)
     .slice(0, nChange);
-  // Volume arm: keep the biggest names scannable (majors like BTC/ETH) even on a
-  // flat day; the structure filter gates any weak major longs.
-  const byVolume = [...liquid].sort((a, b) => b.volume24h - a.volume24h).slice(0, nVolume);
+  // Volume arm: keep the biggest names scannable (majors like BTC/ETH) on a
+  // flat-to-up day — but never a *falling* major. A bleeding major is useless to
+  // a long-only cohort and only feeds the losing continuation short, so decliners
+  // are now excluded from BOTH arms. Stays dynamic (no hardcoded majors list); the
+  // structure filter + 90% major-coin floor still gate any weak major longs.
+  const byVolume = [...liquid]
+    .filter((r) => r.change24h >= 0)
+    .sort((a, b) => b.volume24h - a.volume24h)
+    .slice(0, nVolume);
   const seen = new Set<string>();
   const union: typeof rows = [];
   for (const r of [...byGainers, ...byVolume]) {

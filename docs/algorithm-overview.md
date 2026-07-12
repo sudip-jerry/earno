@@ -17,7 +17,7 @@ A/B-tested, what's only backtested, and what's still a known weakness.
 
 | Stage | Status | Detail |
 |---|---|---|
-| **Universe** | `LIVE` | Each scan rebuilds a watchlist: **top 24h gainers (≥ +2%)** ∪ top by 24h volume, both gated by a **≥ 20M USDT 24h-volume floor**. The movers arm is now **gainer-biased** — it takes only positive movers (was `\|24h % change\|`, which fed in big decliners/crashers), since both live strategies target gainers (longs ride them, mean-reversion shorts fade the overextended ones). The volume arm is kept so majors (BTC/ETH) stay scannable; the structure filter gates weak major longs. |
+| **Universe** | `LIVE` | Each scan rebuilds a watchlist from two arms, both gated by a **≥ 20M USDT 24h-volume floor** and both now **decliner-free**: (1) **top 24h gainers (≥ +2%)** and (2) **top by volume among flat-to-up names (24h change ≥ 0)**. Every live edge keys off an upside move — longs ride gainers, mean-reversion shorts fade the overextended ones — and a falling coin can't even book on a long-only cohort (it votes short → blocked), so decliners are excluded from **both** arms. Stays fully dynamic (no hardcoded majors list); the 90% major-coin floor + structure filter gate any weak major longs. Direction is chosen per-coin by indicator vote, not by `change24h`. |
 | **Signal / direction** | `LIVE` `ISSUE` | 8-component confidence score (0–100); long/short from EMA/VWAP/trend votes on 1m·5m·30m. **Weakness:** confidence is anti-predictive at the top — 80+ trades win only ~52% yet are 90% of the book. Direction flips on candle noise. |
 | **Auto-book gate** | `LIVE` | Books only when confidence clears the cohort threshold (80–90). Below that, shown in the feed but not traded. |
 | **Entry gates** | `LIVE` | Regime filter · spread cap · momentum-exhaustion block · per-symbol post-stop cooldown · major-coin confidence floor · min-net-profit-to-enter · blocked session hours. |
@@ -41,15 +41,16 @@ A/B-tested, what's only backtested, and what's still a known weakness.
 
 **Still weak (`ISSUE`)**
 - Confidence model is anti-predictive at the top — the core ranker doesn't separate winners from losers.
-- Universe: thin/choppy coins excluded (20M volume floor) and the movers arm is now gainer-biased (positive movers only); a low-vol-majors bias on the volume arm remains, gated by the structure filter.
+- Universe: thin/choppy coins excluded (20M volume floor) and **both** arms are now decliner-free (gainers arm ≥ +2%; volume arm only flat-to-up names). Remaining gap: ranking is 24h-based, so a coin breaking out *intraday* but flat on 24h can be missed until it clears the 24h gate (see the freshness arm below).
 - Shorts base logic chases weakness → squeezed (mean-reversion fix now live in shadow A/B).
 - Direction flip-flops on candle noise (a long & a short on one coin within 30 min).
 
 **Next (`PROPOSED`)**
 1. Judge the long + short structure-filter A/Bs over 1–2 weeks; if they hold, make them default. Tune the fade's target (wider suits a fade).
 2. Fix funding-signal population (done — transient spot-fetch failures no longer null it).
-3. Universe volume floor (≥20M) and gainer-bias (positive movers only) shipped; still to do — drop residual low-vol major longs from the volume arm.
-4. Add a funding-rate gate for shorts (crowded longs).
+3. Universe volume floor (≥20M) and full decliner exclusion (both arms) shipped; the backtest universe was aligned to the same gainers-only selection so validation matches live.
+4. **Freshness arm (`PROPOSED`)** — rank a universe arm by *recent* (1h/4h) momentum so fresh intraday breakouts get scanned before they clear the 24h gate (that's where the long edge is earliest). Cost: the futures ticker exposes no intraday field, so this needs a candle-fetch pass over the candidate pool (the universe is built before candle analysis today) — a heavier, deliberate change, not yet built.
+5. Add a funding-rate gate for shorts (crowded longs).
 
 _Live = running in production. Shadow = live on a subset of cohorts for A/B. Backtested =
 validated on refetched CoinDCX candles, not yet trading. No live-trading change ships
