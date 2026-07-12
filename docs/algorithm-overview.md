@@ -55,6 +55,7 @@ A/B-tested, what's only backtested, and what's still a known weakness.
 3. Universe volume floor (≥20M) and full decliner exclusion (both arms) shipped; the backtest universe was aligned to the same gainers-only selection so validation matches live.
 4. **Freshness arm (`PROPOSED`)** — rank a universe arm by *recent* (1h/4h) momentum so fresh intraday breakouts get scanned before they clear the 24h gate (that's where the long edge is earliest). Cost: the futures ticker exposes no intraday field, so this needs a candle-fetch pass over the candidate pool (the universe is built before candle analysis today) — a heavier, deliberate change, not yet built.
 5. Add a funding-rate gate for shorts (crowded longs).
+6. **Stop-geometry retune (July-19 agenda, replay-validated):** MAE analysis showed 95% of winners never dip below −2.2% ROE while stops sit at −3.6..−5.6% ROE. Replay sweep (longs, 30-symbol universe, both windows): the moderate **1.1%/1.9% price (≈ −3.3/+5.7 ROE)** geometry beat the current-scale baseline in BOTH windows (7d: net +78.9 vs +54.6, PF 1.18 vs 1.11 · 14d: +54.9 vs +28.4, PF 1.13 vs 1.06), while the naive MAE-fitted −2.5 ROE stop LOST to baseline (whipsaws dominate). Note the winning R:R ≈ 1.73:1 — the same ratio as the balanced preset's targetMult — so the candidate change is scaling DOWN the absolute stop (min_sl/atr_mult/max_auto_sl), not changing the ratio. |
 
 _Live = running in production. Shadow = live on a subset of cohorts for A/B. Backtested =
 validated on refetched CoinDCX candles, not yet trading. No live-trading change ships
