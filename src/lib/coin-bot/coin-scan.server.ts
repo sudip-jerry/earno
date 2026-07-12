@@ -31,6 +31,16 @@ export type CoinCfg = {
   symbol_blocklist?: string[];
   symbol_stop_cooldown_minutes?: number;
   live_mode?: boolean;
+  // Universe-breadth regime gate: when true, NO new buys while most of the coin
+  // universe is falling (24h breadth < 45%). Two-window replay showed every
+  // long-only entry rule bleeds in a red week (−$268/7d live) while sitting in
+  // USDT is free — regime is the first-order effect, entry choice second-order.
+  regime_gate_enabled?: boolean | null;
+  // Entry-rule A/B: 'donchian' requires a fresh N-bar-high breakout (top of the
+  // replay table in every window: PF 1.48-1.51 in up-tapes) instead of the
+  // default climax trigger, which replay showed is indistinguishable from
+  // random entries. Null/other = current behavior (control arm).
+  entry_rule?: string | null;
 };
 
 async function logCoinEvent(
@@ -194,6 +204,9 @@ export async function runCoinScanFor(
   }
 
   const signalsToInsert: any[] = [];
+  // Fresh-high (Donchian) flags per symbol for the 'donchian' entry-rule arm —
+  // computed here where candles are in scope; NOT persisted on coin_signals.
+  const freshHighOk = new Map<string, boolean>();
   let errCount = 0;
   const BATCH = 6;
   for (let i = 0; i < universe.length; i += BATCH) {
@@ -228,6 +241,20 @@ export async function runCoinScanFor(
             mode: cfg.mode,
             holdUntilTrendReversal: cfg.hold_until_trend_reversal,
           });
+          // Fresh-high check for the donchian entry arm: price breaking above the
+          // prior 20-bar high on the highest-timeframe series available (h4 in
+          // swing mode, m30 fallback) — catches expansion early instead of buying
+          // stretched momentum late.
+          {
+            const series = h4.length >= 12 ? h4 : m30;
+            if (series.length >= 12) {
+              const prior = series.slice(0, -1).slice(-20);
+              const hi = Math.max(...prior.map((c) => c.high));
+              freshHighOk.set(t.symbol, hi > 0 && t.price > hi);
+            } else {
+              freshHighOk.set(t.symbol, false);
+            }
+          }
           signalsToInsert.push({
             user_id: userId,
             symbol: t.symbol,
@@ -529,7 +556,20 @@ export async function runCoinScanFor(
     // Block a symbol after its FIRST stop within the cooldown window — re-buying a
     // coin that just stopped (on a falling tape) was the dominant loss driver.
     const MAX_STOPS_BEFORE_COOLDOWN = 1;
-    const buys = signalsToInsert
+
+    // Universe-breadth regime gate: share of the scanned universe with a positive
+    // 24h change. When most of the universe is falling, long-only entries bleed
+    // regardless of entry rule (two-window replay: every rule −25..−75 in the red
+    // week while USDT was free) — so below the floor, no NEW buys; exits keep
+    // managing holdings. Uses ticker data already in hand: zero extra fetches.
+    const REGIME_BREADTH_FLOOR = 0.45;
+    const breadthUniverse = universe.filter((t) => Number.isFinite(t.change24hPct));
+    const breadth = breadthUniverse.length
+      ? breadthUniverse.filter((t) => t.change24hPct > 0).length / breadthUniverse.length
+      : 1;
+    const regimeBlocked = cfg.regime_gate_enabled === true && breadth < REGIME_BREADTH_FLOOR;
+
+    let buys = signalsToInsert
       .filter(
         (s) =>
           s.action === "buy" &&
@@ -539,6 +579,34 @@ export async function runCoinScanFor(
           (stopHitCount.get(s.symbol) ?? 0) < MAX_STOPS_BEFORE_COOLDOWN,
       )
       .sort((a, b) => b.confidence - a.confidence);
+
+    if (regimeBlocked && buys.length) {
+      await logCoinEvent(
+        supabase,
+        userId,
+        "info",
+        "regime_gate_skip",
+        `Regime gate: no new buys — only ${(breadth * 100).toFixed(0)}% of universe positive over 24h (< ${REGIME_BREADTH_FLOOR * 100}%)`,
+        { breadth: Number(breadth.toFixed(3)), floor: REGIME_BREADTH_FLOOR, blocked_buys: buys.length },
+      );
+      buys = [];
+    }
+
+    // Entry-rule A/B arm: 'donchian' books only fresh 20-bar-high breakouts.
+    if (cfg.entry_rule === "donchian" && buys.length) {
+      const rejected = buys.filter((s) => !freshHighOk.get(s.symbol));
+      buys = buys.filter((s) => freshHighOk.get(s.symbol) === true);
+      if (rejected.length) {
+        await logCoinEvent(
+          supabase,
+          userId,
+          "info",
+          "entry_rule_skip",
+          `Entry rule (donchian): ${rejected.length} buy signal(s) skipped — no fresh 20-bar high`,
+          { rule: "donchian", skipped: rejected.map((s) => s.symbol).slice(0, 10), passed: buys.length },
+        );
+      }
+    }
 
     // Log symbols skipped due to stop cooldown
     for (const s of signalsToInsert.filter(
