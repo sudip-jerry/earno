@@ -268,6 +268,10 @@ type CheckInput = {
   volumeSpike: boolean;
   tpPct: number;
   slPct: number;
+  // Engine-parity risk plan (futures): when set, the R:R row uses these instead
+  // of tpPct/slPct, so the checklist can never contradict the RISK CHECK panel.
+  planRr?: number | null;
+  rrBar?: number | null;
 };
 
 function buildChecks(ci: CheckInput): ChecklistSections {
@@ -358,8 +362,13 @@ function buildChecks(ci: CheckInput): ChecklistSections {
   // Risk
   const spreadCheck: CheckStatus =
     ci.spread === "tight" ? "pass" : ci.spread === "normal" ? "warn" : "fail";
-  const rr = ci.slPct > 0 ? ci.tpPct / ci.slPct : 0;
-  const rrCheck: CheckStatus = rr >= 1.5 ? "pass" : rr >= 1 ? "warn" : "fail";
+  // R:R from the engine-parity plan when available (futures). The legacy
+  // tpPct/slPct ratio compared confidence-derived TP (3-5%) against the flat
+  // 20% disaster stop — capped at 0.25:1, so the row failed on every coin and
+  // contradicted the RISK CHECK panel computed from the real volatility plan.
+  const rr = ci.planRr ?? (ci.slPct > 0 ? ci.tpPct / ci.slPct : 0);
+  const rrBar = ci.rrBar ?? 1.5;
+  const rrCheck: CheckStatus = rr >= rrBar ? "pass" : rr >= rrBar * 0.75 ? "warn" : "fail";
 
   const risk: Check[] = [
     { label: "Spread acceptable", status: spreadCheck },
@@ -450,6 +459,10 @@ async function enrichMover(
   _tpPctIgnored: number,
   _slPctIgnored: number,
   preset: StrictPreset,
+  // The user's real risk-plan params (futures): lets the checklist R:R and the
+  // auto-eligibility check use the same volatility plan as the engine + the
+  // RISK CHECK panel, instead of the legacy flat-20%-stop heuristic.
+  riskCfg?: { minSL: number; atrMult: number; maxAutoSL: number; targetMult: number; minRR: number },
 ): Promise<Mover> {
   // Auto TP/SL is derived from confidence below; these are provisional defaults.
   let tpPct = 5;
@@ -470,6 +483,8 @@ async function enrichMover(
       bias, change1m: null, change5m: null, rsi: null,
       emaTrend: "unknown", vwapStatus: "unknown", vwapDistPct: null,
       spread, volumeSpike: false, tpPct, slPct,
+      planRr: riskCfg ? riskCfg.targetMult : null,
+      rrBar: riskCfg ? riskCfg.minRR : null,
     });
     const reasonLabel = deriveReasonLabel({
       tier, spreadTier: spread, volumeTier, rsi: null, bias,
@@ -559,8 +574,14 @@ async function enrichMover(
   // Liquidity hard floor — too thin even for watchlist
   else if (base.volume24h < 250_000) rejectReason = "Liquidity too low";
 
-  // Strict risk-OK check for auto-book eligibility
-  const rr = slPct > 0 ? tpPct / slPct : 0;
+  // Strict risk-OK check for auto-book eligibility.
+  // Engine-parity R:R (futures): the plan's target is stop × targetMult, so its
+  // R:R is targetMult — matching the RISK CHECK panel and the booking engine.
+  // The legacy tpPct/slPct ratio (confidence TP ÷ flat 20% stop, max 0.25:1)
+  // made `rr >= preset.rrMin` unconditionally false, so the "auto" tier was
+  // structurally unreachable. Spot keeps the disaster-stop defaults for booking
+  // but no longer fails eligibility on that meaningless ratio.
+  const planRr = riskCfg ? riskCfg.targetMult : null;
   const rsiOkForAuto =
     rsi == null
       ? true
@@ -573,7 +594,7 @@ async function enrichMover(
     bias !== "wait" &&
     spread !== "wide" &&
     volumeTier !== "low" &&
-    rr >= preset.rrMin &&
+    (planRr == null || planRr >= preset.rrMin) &&
     rsiOkForAuto &&
     pullbackOkForAuto &&
     volumeRatio >= preset.volRatio &&
@@ -591,6 +612,7 @@ async function enrichMover(
   const checks = buildChecks({
     bias, change1m: c1, change5m: c5, rsi, emaTrend, vwapStatus, vwapDistPct,
     spread, volumeSpike, tpPct, slPct,
+    planRr, rrBar: riskCfg ? riskCfg.minRR : null,
   });
 
   return {
@@ -704,14 +726,17 @@ export const getTopMovers = createServerFn({ method: "GET" })
       if (Array.isArray(dict)) dict.forEach((r) => consume(undefined, r));
       else if (dict && typeof dict === "object") Object.entries(dict).forEach(([k, v]) => v && typeof v === "object" && consume(k, v as TickerRow));
 
-      // Hybrid universe: deepest pairs by volume PLUS biggest 24h movers
-      // (abs change %) with a minimum 50M quote-volume liquidity gate so
-      // small/mid-cap rockets aren't excluded by a pure volume ranking.
+      // Hybrid universe: deepest pairs by volume PLUS top 24h GAINERS with a
+      // minimum 50M quote-volume liquidity gate. The movers arm mirrors the
+      // bot's gainer-biased scan universe (longs ride gainers; shorts only
+      // fade overextended gainers) — big decliners are no longer surfaced as
+      // "movers" the bot can never trade. The volume arm still shows majors
+      // (including red ones) for market context.
       const MIN_MOVER_VOLUME = 50_000_000;
       const byVolume = [...rows].sort((a, b) => b.volume24h - a.volume24h).slice(0, 30);
       const byChange = [...rows]
-        .filter((r) => r.volume24h >= MIN_MOVER_VOLUME)
-        .sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h))
+        .filter((r) => r.volume24h >= MIN_MOVER_VOLUME && r.change24h >= 0)
+        .sort((a, b) => b.change24h - a.change24h)
         .slice(0, 20);
       const seen = new Set<string>();
       const merged: typeof rows = [];
@@ -721,7 +746,7 @@ export const getTopMovers = createServerFn({ method: "GET" })
         merged.push(r);
       }
       const top = merged.map((r, i) => ({ ...r, rank24h: i + 1 }));
-      const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 30, tpPct, slPct, preset)));
+      const enriched = await Promise.all(top.map((r, i) => enrichMover(r, r.symbol, "futures", i < 30, tpPct, slPct, preset, riskSummary)));
       // Sort enriched output by confidence so highest setups surface first.
       enriched.sort((a, b) => b.confidence - a.confidence);
       return { ok: true, movers: enriched, risk: riskSummary };
