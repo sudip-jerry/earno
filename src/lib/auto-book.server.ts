@@ -59,12 +59,12 @@ const MIN_SCAN_GAIN_PCT = 2;
 // so a scan blocked in between (e.g. by a wide-spread tick) breaks confirmation.
 const ENTRY_CONFIRM_REQUIRED = 2;
 const ENTRY_CONFIRM_WINDOW_SECS = 210;
-// Min seconds between counted passes. 45 (not 60) because the hot-list pass
-// re-checks pending candidates ~60s after the full scan saw them; scan
-// processing jitter would otherwise round a legitimate +60s look down below
-// the gap and block it. 45s still guarantees the two looks sit on different
-// 1-minute candles, which is all the debounce needs.
-const ENTRY_CONFIRM_MIN_GAP_SECS = 45;
+// Min seconds between counted passes. Was briefly 45 for the 1-min hot-list
+// pass (2026-07-12, killed same day by its pre-registered bar: 4 hot-only
+// admissions in the first hour, −$23.6 — confidence flicker, not climax; see
+// docs/algorithm-overview.md). The 2-minute spacing IS part of the debounce's
+// value: a 60s re-look is not an independent observation on fast indicators.
+const ENTRY_CONFIRM_MIN_GAP_SECS = 60;
 
 // Universe quality gate. A coin whose spread repeatedly trips the hard block in
 // the recent past is illiquid junk (thin meme micro-caps) — drop it from the

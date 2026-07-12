@@ -14,21 +14,13 @@ Futures P&L is USD/USDT (never INR).
 - Short bookings: tight fade geometry live (stop ≈0.9–1.3% price, per-style R:R
   unchanged); continuation-short gate holding (no bearish-24h/RSI<40 shorts).
 
-## Hot-list quality (decides the pre-registered bar)
-- **Hot-pass bookings**: futures positions with odd `extract(minute from opened_at)`
-  since last pass, joined to their booked signal (confidence, volume_spike_ratio).
-- **Hot-only admissions** (the deciding metric): for each hot booking, the same
-  symbol+user's next full-scan signal (+1 min). If its confidence < cohort threshold,
-  the old 2-min cadence would NOT have booked it — count these and track their PnL.
-  (Reference case: HYPE 2026-07-12 17:13 was NOT one — next look was 67 ≥ 66.)
-- **Climax share**: % of hot bookings with volume_spike_ratio ≥ 1.5 vs full-scan
-  bookings' share.
-- **Adverse drift** pending→booked, hot vs full (the benefit side; baseline median
-  0.048% cost at the 2-min cadence, 28/38 against).
-- **Pre-approved decision bar**: hot-only admissions > ~3/day AND aggregate PnL
-  negative → apply the climax guard (hot pass confirms only when
-  volume_spike_ratio < 1.5, in the hot-pass branch of runAutoBookPass) or set
-  `hotlist_enabled=false`, and tell the user. Otherwise keep — the drift saving is free.
+## Hot-list pass — KILLED 2026-07-12 (bar crossed in 1st hour)
+- The 1-min hot pass admitted 4 flicker trades/hour (conf 88→64 at the next look,
+  −$23.6 aggregate; vol spikes 0.19–0.67x so a climax guard couldn't catch them).
+  Cron `earno-hotlist-pass` unscheduled; `hotlist_enabled=false` all cohorts,
+  default false.
+- Watch only: no futures bookings should cluster on odd minutes anymore; if the
+  cron reappears in `cron.job`, flag it to the user.
 
 ## Coins
 - Regime gate blocks (breadth <45%) vs buys; exits still managing holdings.
