@@ -34,6 +34,8 @@ A/B-tested, what's only backtested, and what's still a known weakness.
 |---|---|---|
 | **Scorer** | `LIVE` | Intraday m1·m5·m30; swing adds h4·d1. Trend from an EMA 9/21 crossover. |
 | **Regime / structure gate** | `LIVE` | Swing entries require intact structure — price above h4 EMA21, no lower-lows on m30, momentum not fading. |
+| **Regime gate** | `LIVE` | No NEW buys while <45% of the scanned universe is positive over 24h (breadth from ticker data, zero extra fetches). Two-window replay: every long-only entry rule bled −25..−75 in a red week while USDT was free — regime is first-order, entry rule second-order. Exits keep managing holdings. |
+| **Entry A/B (3 arms)** | `SHADOW` | Replay on 30 real traded symbols (shared exits, fees, regime-gated) showed the original "rising momentum and volume" entry is statistically indistinguishable from RANDOM entries. Arms: **control** (original entry, 4 cohorts) · **donchian** (fresh 20-bar-high breakout — best offense: +16.9/14d, 2 cohorts) · **nfi_dip** (NostalgiaForInfinity-style guarded dip-buy — best defense: −5.9 in the red week, smallest of all rules incl. random, 2 cohorts). |
 | **Re-entry guardrail** | `LIVE` | After 1 stop-loss a symbol goes on a 6-hour cooldown — stops re-buying a falling coin. |
 | **Exits** | `LIVE` | Volatility-scaled TP/SL/breakeven — each coin's targets scale to its own ATR, so calm majors get reachable ~2.5% targets and volatile alts keep wide ones. |
 

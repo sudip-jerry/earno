@@ -204,9 +204,29 @@ export async function runCoinScanFor(
   }
 
   const signalsToInsert: any[] = [];
-  // Fresh-high (Donchian) flags per symbol for the 'donchian' entry-rule arm —
-  // computed here where candles are in scope; NOT persisted on coin_signals.
+  // Entry-rule arm flags per symbol — computed here where candles are in scope;
+  // NOT persisted on coin_signals. 'donchian' = fresh 20-bar-high breakout;
+  // 'nfi_dip' = NostalgiaForInfinity-style guarded dip-buy (uptrend intact,
+  // >=3% dip below the 20-bar mean, RSI<36, volume not panicking) — the
+  // benchmark replay's defense champion (smallest red-week loss of all rules).
   const freshHighOk = new Map<string, boolean>();
+  const nfiDipOk = new Map<string, boolean>();
+  const smaLast = (vals: number[], n: number): number | null => {
+    if (vals.length < n) return null;
+    let s = 0;
+    for (let k = vals.length - n; k < vals.length; k++) s += vals[k];
+    return s / n;
+  };
+  const rsi14Last = (closes: number[]): number | null => {
+    if (closes.length < 15) return null;
+    let g = 0, l = 0;
+    for (let k = closes.length - 14; k < closes.length; k++) {
+      const d = closes[k] - closes[k - 1];
+      if (d >= 0) g += d;
+      else l -= d;
+    }
+    return l === 0 ? 100 : 100 - 100 / (1 + g / l);
+  };
   let errCount = 0;
   const BATCH = 6;
   for (let i = 0; i < universe.length; i += BATCH) {
@@ -254,6 +274,26 @@ export async function runCoinScanFor(
             } else {
               freshHighOk.set(t.symbol, false);
             }
+            // nfi_dip arm: all four guards must hold (see harness nfi_dip rule).
+            const m30Closes = m30.map((c) => c.close);
+            const trendGuard =
+              h4.length >= 13
+                ? t.price > (smaLast(h4.map((c) => c.close), 12) ?? Infinity)
+                : m30.length >= 48
+                  ? t.price > (smaLast(m30Closes, 48) ?? Infinity)
+                  : false;
+            const sma20 = smaLast(m30Closes, 20);
+            const dip = sma20 != null && t.price < sma20 * 0.97;
+            const rsi = rsi14Last(m30Closes);
+            const oversoldish = rsi != null && rsi < 36;
+            let calmEnough = false;
+            if (m30.length >= 21) {
+              const lastVol = m30[m30.length - 1].volume ?? 0;
+              const prev = m30.slice(-21, -1);
+              const avg = prev.reduce((a, b) => a + (b.volume ?? 0), 0) / prev.length;
+              calmEnough = avg > 0 ? lastVol / avg < 2.0 : false;
+            }
+            nfiDipOk.set(t.symbol, trendGuard && dip && oversoldish && calmEnough);
           }
           signalsToInsert.push({
             user_id: userId,
@@ -592,18 +632,21 @@ export async function runCoinScanFor(
       buys = [];
     }
 
-    // Entry-rule A/B arm: 'donchian' books only fresh 20-bar-high breakouts.
-    if (cfg.entry_rule === "donchian" && buys.length) {
-      const rejected = buys.filter((s) => !freshHighOk.get(s.symbol));
-      buys = buys.filter((s) => freshHighOk.get(s.symbol) === true);
+    // Entry-rule A/B arms: 'donchian' books only fresh 20-bar-high breakouts;
+    // 'nfi_dip' books only guarded dips in intact uptrends. Null/other = control.
+    const ruleOk =
+      cfg.entry_rule === "donchian" ? freshHighOk : cfg.entry_rule === "nfi_dip" ? nfiDipOk : null;
+    if (ruleOk && buys.length) {
+      const rejected = buys.filter((s) => !ruleOk.get(s.symbol));
+      buys = buys.filter((s) => ruleOk.get(s.symbol) === true);
       if (rejected.length) {
         await logCoinEvent(
           supabase,
           userId,
           "info",
           "entry_rule_skip",
-          `Entry rule (donchian): ${rejected.length} buy signal(s) skipped — no fresh 20-bar high`,
-          { rule: "donchian", skipped: rejected.map((s) => s.symbol).slice(0, 10), passed: buys.length },
+          `Entry rule (${cfg.entry_rule}): ${rejected.length} buy signal(s) skipped`,
+          { rule: cfg.entry_rule, skipped: rejected.map((s) => s.symbol).slice(0, 10), passed: buys.length },
         );
       }
     }
