@@ -78,6 +78,11 @@ export type CoinBacktestOpts = {
   maxHoldHours?: number; // default 26 (matches realized swing hold)
   feeRoundTripPct?: number; // default 0.5 spot taker both sides
   randomRatePct?: number; // random-entry probability per bar, default 1.5
+  /** When true, ALL strategies may only enter while BTC 3-day momentum is up —
+   * the missing reflex the two-window test exposed: every long-only entry rule
+   * bled in the red week because nothing told the bot to stop buying. Applied
+   * to every strategy equally (including random) so the comparison stays fair. */
+  regimeGate?: boolean;
 };
 
 type Group = { n: number; wins: number; gross: number; grossWin: number; grossLoss: number };
@@ -111,6 +116,26 @@ export async function runCoinEntryBacktest(opts: CoinBacktestOpts = {}) {
   const holdBench: { sum: number; n: number } = { sum: 0, n: 0 };
   let btcHold: number | null = null;
   let symbolsWithData = 0;
+
+  // Regime flags from BTC 1h: momentum up = close > close 72 bars (3 days) ago.
+  let regimeTimes: number[] = [];
+  let regimeUp: boolean[] = [];
+  if (opts.regimeGate) {
+    const btc = await fetchC("B-BTC_USDT", "1h", 480);
+    if (!btc) return { ok: false as const, error: "regimeGate: BTC candles unavailable" };
+    regimeTimes = btc.map((c) => c.time);
+    regimeUp = btc.map((c, i) => i >= 72 && c.close > btc[i - 72].close);
+  }
+  const regimeOkAt = (t: number): boolean => {
+    if (!opts.regimeGate) return true;
+    // Last BTC bar at or before t (both series are ascending 1h bars).
+    let lo = 0, hi = regimeTimes.length - 1, ans = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (regimeTimes[mid] <= t) { ans = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    return ans >= 0 ? regimeUp[ans] : false;
+  };
 
   for (const sym of symbols) {
     const c1h = await fetchC(sym, "1h", Math.min(bars1h + 60, 480));
@@ -163,7 +188,7 @@ export async function runCoinEntryBacktest(opts: CoinBacktestOpts = {}) {
       };
 
       for (const st of strategies) {
-        if (!fires[st] || i < nextAllowed[st]) continue;
+        if (!fires[st] || i < nextAllowed[st] || !regimeOkAt(c1h[i].time)) continue;
         // Enter next bar open; walk to stop/target/max-hold.
         const entry = c1h[i + 1].open;
         if (!entry) continue;
@@ -187,7 +212,7 @@ export async function runCoinEntryBacktest(opts: CoinBacktestOpts = {}) {
 
   return {
     ok: true as const,
-    scope: { sinceDays, tpPct, slPct, maxHoldBars, feeRoundTripPct: fee, symbols: symbols.length, symbolsWithData },
+    scope: { sinceDays, tpPct, slPct, maxHoldBars, feeRoundTripPct: fee, symbols: symbols.length, symbolsWithData, regimeGate: !!opts.regimeGate },
     strategies: Object.fromEntries(strategies.map((s) => [s, summarize(groups[s], fee)])),
     benchmarks: {
       hold_equal_weight_pct: holdBench.n ? Number((holdBench.sum / holdBench.n).toFixed(2)) : null,

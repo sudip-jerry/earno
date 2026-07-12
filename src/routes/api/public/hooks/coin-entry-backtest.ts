@@ -44,6 +44,7 @@ export const Route = createFileRoute("/api/public/hooks/coin-entry-backtest")({
             maxHoldHours: typeof body.maxHoldHours === "number" ? body.maxHoldHours : undefined,
             feeRoundTripPct: typeof body.feeRoundTripPct === "number" ? body.feeRoundTripPct : undefined,
             randomRatePct: typeof body.randomRatePct === "number" ? body.randomRatePct : undefined,
+            regimeGate: body.regimeGate === true,
           });
           return Response.json(result);
         } catch (e) {
