@@ -39,6 +39,7 @@ import { Route as ApiPublicHooksRefreshCoinUniverseRouteImport } from './routes/
 import { Route as ApiPublicHooksMarkPositionsRouteImport } from './routes/api/public/hooks/mark-positions'
 import { Route as ApiPublicHooksManualEntryBacktestRouteImport } from './routes/api/public/hooks/manual-entry-backtest'
 import { Route as ApiPublicHooksCoinScanRouteImport } from './routes/api/public/hooks/coin-scan'
+import { Route as ApiPublicHooksCoinEntryBacktestRouteImport } from './routes/api/public/hooks/coin-entry-backtest'
 import { Route as ApiPublicHooksCoinEnforceRouteImport } from './routes/api/public/hooks/coin-enforce'
 import { Route as ApiPublicHooksBacktestRouteImport } from './routes/api/public/hooks/backtest'
 import { Route as ApiPublicHooksAutoBookRouteImport } from './routes/api/public/hooks/auto-book'
@@ -199,6 +200,12 @@ const ApiPublicHooksCoinScanRoute = ApiPublicHooksCoinScanRouteImport.update({
   path: '/api/public/hooks/coin-scan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksCoinEntryBacktestRoute =
+  ApiPublicHooksCoinEntryBacktestRouteImport.update({
+    id: '/api/public/hooks/coin-entry-backtest',
+    path: '/api/public/hooks/coin-entry-backtest',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksCoinEnforceRoute =
   ApiPublicHooksCoinEnforceRouteImport.update({
     id: '/api/public/hooks/coin-enforce',
@@ -244,6 +251,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
   '/api/public/hooks/backtest': typeof ApiPublicHooksBacktestRoute
   '/api/public/hooks/coin-enforce': typeof ApiPublicHooksCoinEnforceRoute
+  '/api/public/hooks/coin-entry-backtest': typeof ApiPublicHooksCoinEntryBacktestRoute
   '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/manual-entry-backtest': typeof ApiPublicHooksManualEntryBacktestRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
@@ -278,6 +286,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
   '/api/public/hooks/backtest': typeof ApiPublicHooksBacktestRoute
   '/api/public/hooks/coin-enforce': typeof ApiPublicHooksCoinEnforceRoute
+  '/api/public/hooks/coin-entry-backtest': typeof ApiPublicHooksCoinEntryBacktestRoute
   '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/manual-entry-backtest': typeof ApiPublicHooksManualEntryBacktestRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
@@ -314,6 +323,7 @@ export interface FileRoutesById {
   '/api/public/hooks/auto-book': typeof ApiPublicHooksAutoBookRoute
   '/api/public/hooks/backtest': typeof ApiPublicHooksBacktestRoute
   '/api/public/hooks/coin-enforce': typeof ApiPublicHooksCoinEnforceRoute
+  '/api/public/hooks/coin-entry-backtest': typeof ApiPublicHooksCoinEntryBacktestRoute
   '/api/public/hooks/coin-scan': typeof ApiPublicHooksCoinScanRoute
   '/api/public/hooks/manual-entry-backtest': typeof ApiPublicHooksManualEntryBacktestRoute
   '/api/public/hooks/mark-positions': typeof ApiPublicHooksMarkPositionsRoute
@@ -350,6 +360,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/auto-book'
     | '/api/public/hooks/backtest'
     | '/api/public/hooks/coin-enforce'
+    | '/api/public/hooks/coin-entry-backtest'
     | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/manual-entry-backtest'
     | '/api/public/hooks/mark-positions'
@@ -384,6 +395,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/auto-book'
     | '/api/public/hooks/backtest'
     | '/api/public/hooks/coin-enforce'
+    | '/api/public/hooks/coin-entry-backtest'
     | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/manual-entry-backtest'
     | '/api/public/hooks/mark-positions'
@@ -419,6 +431,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/auto-book'
     | '/api/public/hooks/backtest'
     | '/api/public/hooks/coin-enforce'
+    | '/api/public/hooks/coin-entry-backtest'
     | '/api/public/hooks/coin-scan'
     | '/api/public/hooks/manual-entry-backtest'
     | '/api/public/hooks/mark-positions'
@@ -437,6 +450,7 @@ export interface RootRouteChildren {
   ApiPublicHooksAutoBookRoute: typeof ApiPublicHooksAutoBookRoute
   ApiPublicHooksBacktestRoute: typeof ApiPublicHooksBacktestRoute
   ApiPublicHooksCoinEnforceRoute: typeof ApiPublicHooksCoinEnforceRoute
+  ApiPublicHooksCoinEntryBacktestRoute: typeof ApiPublicHooksCoinEntryBacktestRoute
   ApiPublicHooksCoinScanRoute: typeof ApiPublicHooksCoinScanRoute
   ApiPublicHooksManualEntryBacktestRoute: typeof ApiPublicHooksManualEntryBacktestRoute
   ApiPublicHooksMarkPositionsRoute: typeof ApiPublicHooksMarkPositionsRoute
@@ -656,6 +670,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksCoinScanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/coin-entry-backtest': {
+      id: '/api/public/hooks/coin-entry-backtest'
+      path: '/api/public/hooks/coin-entry-backtest'
+      fullPath: '/api/public/hooks/coin-entry-backtest'
+      preLoaderRoute: typeof ApiPublicHooksCoinEntryBacktestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/coin-enforce': {
       id: '/api/public/hooks/coin-enforce'
       path: '/api/public/hooks/coin-enforce'
@@ -737,6 +758,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksAutoBookRoute: ApiPublicHooksAutoBookRoute,
   ApiPublicHooksBacktestRoute: ApiPublicHooksBacktestRoute,
   ApiPublicHooksCoinEnforceRoute: ApiPublicHooksCoinEnforceRoute,
+  ApiPublicHooksCoinEntryBacktestRoute: ApiPublicHooksCoinEntryBacktestRoute,
   ApiPublicHooksCoinScanRoute: ApiPublicHooksCoinScanRoute,
   ApiPublicHooksManualEntryBacktestRoute:
     ApiPublicHooksManualEntryBacktestRoute,
