@@ -61,7 +61,14 @@ export const STYLE_PRESETS: Record<TradingStyle, StylePreset> = {
     minSL: 1.5,
     atrMult: 2.0,
     maxAutoSL: 2.5,
-    targetMult: 1.5,
+    // INVARIANT: targetMult must be >= minRR. computeRiskPlan derives the plan's
+    // R:R as exactly targetMult (tp = sl × targetMult), so targetMult < minRR is
+    // a self-contradiction that rejects EVERY plan as "Risk-reward weak" — the
+    // cohort looks alive but can never book. This exact pair (1.5 vs 3.0) was
+    // seeded on 2026-07-11 and silently killed both conservative cohorts for a
+    // day (3,320 rr_too_low skips) until restored. 3.3 matches their proven
+    // working config: stretched targets, winners realized via trailing/fade.
+    targetMult: 3.3,
     minRR: 3.0,
     tp1Pct: 0.55,
     // Widened from 0.30: after TP1 the runner's stop is at breakeven, so a wider

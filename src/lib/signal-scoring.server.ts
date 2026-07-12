@@ -10,6 +10,16 @@
 import { atrPctFromCandles } from "@/lib/risk-engine";
 import { resolveInterval, aggregateCandles } from "@/lib/candle-aggregator";
 
+// Canonical labels. TRADING GATES key off these exact strings (the fade-only
+// continuation-short gate matches REGIME_BEARISH_24H; v2LongScore weights
+// TREND_STRONG_UP / REGIME_SIDEWAYS_24H / REGIME_BULLISH_24H). They double as
+// UI copy, so they invite wording edits — edit ONLY these constants; a renamed
+// literal in one place would silently disarm the gates with no error anywhere.
+export const REGIME_BULLISH_24H = "Bullish 24h";
+export const REGIME_BEARISH_24H = "Bearish 24h";
+export const REGIME_SIDEWAYS_24H = "Sideways 24h";
+export const TREND_STRONG_UP = "Strong uptrend";
+
 const CANDLES = (pair: string, interval: string, limit: number) =>
   `https://public.coindcx.com/market_data/candles?pair=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
 
@@ -95,7 +105,7 @@ function trendStatus(candles: Candle[]): { label: string; dir: "up" | "down" | "
   const last = candles.slice(-6);
   const greens = last.filter((c) => c.close > c.open).length;
   const reds = last.filter((c) => c.close < c.open).length;
-  if (greens >= 5) return { label: "Strong uptrend", dir: "up" };
+  if (greens >= 5) return { label: TREND_STRONG_UP, dir: "up" };
   if (reds >= 5) return { label: "Strong downtrend", dir: "down" };
   if (greens >= 4) return { label: "Uptrend", dir: "up" };
   if (reds >= 4) return { label: "Downtrend", dir: "down" };
@@ -243,7 +253,7 @@ export async function analyzeSymbol(
       distance_from_vwap_pct: null,
       distance_from_ema21_pct: null,
       impulse_candle_pct: null,
-      market_regime: change24h >= 0 ? "Bullish 24h" : "Bearish 24h",
+      market_regime: change24h >= 0 ? REGIME_BULLISH_24H : REGIME_BEARISH_24H,
       adx: null,
       rvol: null,
       breakdown: {},
@@ -447,7 +457,7 @@ export async function analyzeSymbol(
     distance_from_ema21_pct: distEma21 != null ? Number(distEma21.toFixed(3)) : null,
     impulse_candle_pct: impulse != null ? Number(impulse.toFixed(3)) : null,
     market_regime:
-      change24h >= 1 ? "Bullish 24h" : change24h <= -1 ? "Bearish 24h" : "Sideways 24h",
+      change24h >= 1 ? REGIME_BULLISH_24H : change24h <= -1 ? REGIME_BEARISH_24H : REGIME_SIDEWAYS_24H,
     adx: adx14 != null ? Number(adx14.toFixed(2)) : null,
     rvol: rvol20 != null ? Number(rvol20.toFixed(2)) : null,
     breakdown: {

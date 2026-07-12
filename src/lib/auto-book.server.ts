@@ -19,6 +19,10 @@ import {
   ALGO_ID,
   ALGO_NAME,
   ALGO_VERSION,
+  REGIME_BULLISH_24H,
+  REGIME_BEARISH_24H,
+  REGIME_SIDEWAYS_24H,
+  TREND_STRONG_UP,
   type SignalAnalysis,
 } from "@/lib/signal-scoring.server";
 import { feeModelRates, DEFAULT_FEE_MODEL } from "@/lib/fees";
@@ -94,9 +98,35 @@ async function fetchAtrPct(pair: string): Promise<number | null> {
  * chronological ascending arrays, or null on any fetch/shape failure so the
  * caller can skip conservatively rather than book on a blind filter.
  */
+/**
+ * Short-TTL cache for filter candles. The structure/mean-rev filters run inside
+ * the PER-COHORT loop, so without this the same symbol's candles are refetched
+ * for every filter-enabled cohort every scan (3 × candidates × cohorts requests
+ * against public.coindcx.com — the origin that rate-limits). Candles are
+ * user-independent and the filters fail CLOSED on fetch failure ("candle data
+ * unavailable" → skip), so a throttled origin would silently block bookings.
+ * 90s TTL < the 2-min scan cadence, so every scan still gets fresh candles.
+ */
+const FILTER_CANDLE_TTL_MS = 90_000;
+const filterCandleCache = new Map<string, { at: number; value: unknown }>();
+function candleCacheGet<T>(key: string): T | undefined {
+  const hit = filterCandleCache.get(key);
+  if (hit && Date.now() - hit.at < FILTER_CANDLE_TTL_MS) return hit.value as T;
+  if (hit) filterCandleCache.delete(key);
+  return undefined;
+}
+function candleCacheSet(key: string, value: unknown): void {
+  // Null results (fetch failure) are deliberately NOT cached: the next cohort
+  // retries instead of inheriting a blind skip for 90s.
+  if (value != null) filterCandleCache.set(key, { at: Date.now(), value });
+  if (filterCandleCache.size > 300) filterCandleCache.clear(); // bounded
+}
+
 async function fetchStructureCandles(
   pair: string,
 ): Promise<{ c30: { open: number; high: number; low: number; close: number }[]; c1: { open: number; high: number; low: number; close: number }[] } | null> {
+  const cached = candleCacheGet<{ c30: never[]; c1: never[] }>(`structure:${pair}`);
+  if (cached) return cached;
   try {
     const { resolveInterval, aggregateCandles } = await import("@/lib/candle-aggregator");
     const [b30, g30] = resolveInterval("30m"); // ["15m", 2]
@@ -111,7 +141,9 @@ async function fetchStructureCandles(
     const c30 = aggregateCandles(raw30 as any, g30);
     const c1 = aggregateCandles(raw1 as any, 1).sort((a, b) => a.time - b.time);
     if (c30.length < 4 || c1.length < 20) return null;
-    return { c30, c1 };
+    const out = { c30, c1 };
+    candleCacheSet(`structure:${pair}`, out);
+    return out;
   } catch {
     return null;
   }
@@ -125,6 +157,8 @@ async function fetchStructureCandles(
 async function fetchMeanRevCandles(
   pair: string,
 ): Promise<{ open: number; high: number; low: number; close: number; volume: number; time: number }[] | null> {
+  const cached = candleCacheGet<{ open: number; high: number; low: number; close: number; volume: number; time: number }[]>(`meanrev:${pair}`);
+  if (cached) return cached;
   try {
     const { aggregateCandles } = await import("@/lib/candle-aggregator");
     const res = await fetch(CANDLES(pair, "15m", 45), {
@@ -136,6 +170,7 @@ async function fetchMeanRevCandles(
     if (!Array.isArray(raw)) return null;
     const c15 = aggregateCandles(raw as any, 1).sort((a, b) => a.time - b.time);
     if (c15.length < 24) return null;
+    candleCacheSet(`meanrev:${pair}`, c15);
     return c15;
   } catch {
     return null;
@@ -603,7 +638,7 @@ function v2LongScore(a: {
   market_regime?: string | null;
 }): number {
   let score = 0;
-  if (a.trend_status === "Strong uptrend") score += 2;
+  if (a.trend_status === TREND_STRONG_UP) score += 2;
   const v = a.volume_spike_ratio;
   if (v != null) {
     if (v < 1.0) score += 1;
@@ -614,8 +649,8 @@ function v2LongScore(a: {
     if (r >= 40 && r < 55) score += 1;
     else if (r >= 55 && r < 65) score -= 1;
   }
-  if (a.market_regime === "Sideways 24h") score += 1;
-  else if (a.market_regime === "Bullish 24h") score -= 1;
+  if (a.market_regime === REGIME_SIDEWAYS_24H) score += 1;
+  else if (a.market_regime === REGIME_BULLISH_24H) score -= 1;
   return score;
 }
 
@@ -1240,7 +1275,11 @@ export async function runAutoBookPass(
         // scan) — it floods the feed and is not a gate rejection of a real
         // candidate. Still recorded in bot_signals for analysis; the per-scan
         // "Scan complete" event is the feed's heartbeat.
-      } else if (a.side_bias === "short" && !cfg.allow_short) {
+      } else if (a.side_bias === "short" && cfg.allow_short === false) {
+        // Symmetric with allow_long below: only an EXPLICIT false disables a
+        // side. The old falsy check (!cfg.allow_short) meant a NULL column —
+        // partial insert, old migration — silently ran the cohort long-only
+        // while the config read as symmetric.
         rejection = "Shorts disabled in config";
         final = "skip";
         void logEvent(
@@ -1264,7 +1303,7 @@ export async function runAutoBookPass(
         // with-trend discount was removed — it was calibrated for shorting
         // falling symbols, which the gainers-only universe no longer contains).
         a.side_bias === "short" &&
-        (a.market_regime === "Bearish 24h" || (a.rsi != null && a.rsi < 40))
+        (a.market_regime === REGIME_BEARISH_24H || (a.rsi != null && a.rsi < 40))
       ) {
         rejection = "Continuation-short gate (fade-only shorts)";
         final = "skip";

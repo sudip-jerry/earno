@@ -102,7 +102,19 @@ function prettySymbol(s: string): string {
   return m ? `${m[1]}/${m[2]}` : s.replace(/^B-/, "").replace("_", "/");
 }
 
+// 45s candle cache: getTopMovers fans out ~90 candle requests per invocation
+// against public.coindcx.com — the SAME origin the auto-book and mark passes
+// depend on — and is re-invoked per user page-load/poll. Candles are user-
+// independent and only change on bar close, so a short TTL collapses N users
+// polling to one upstream fan-out and keeps scanner traffic from rate-limiting
+// the trading hot path. Failures are not cached (next call retries).
+const MOVER_CANDLE_TTL_MS = 45_000;
+const moverCandleCache = new Map<string, { at: number; value: Candle[] }>();
+
 async function fetchCandles(pair: string, interval: string, limit: number): Promise<Candle[] | null> {
+  const key = `${pair}:${interval}:${limit}`;
+  const hit = moverCandleCache.get(key);
+  if (hit && Date.now() - hit.at < MOVER_CANDLE_TTL_MS) return hit.value;
   try {
     const [base, group] = resolveInterval(interval);
     const res = await fetch(CANDLES(pair, base, limit * group), {
@@ -113,9 +125,12 @@ async function fetchCandles(pair: string, interval: string, limit: number): Prom
     const json = (await res.json()) as Array<Record<string, unknown>>;
     if (!Array.isArray(json) || json.length < 1) return null;
     const agg = aggregateCandles(json as any, group);
-    return agg.map((k) => ({
+    const out = agg.map((k) => ({
       open: k.open, close: k.close, high: k.high, low: k.low, volume: k.volume,
     }));
+    moverCandleCache.set(key, { at: Date.now(), value: out });
+    if (moverCandleCache.size > 400) moverCandleCache.clear(); // bounded
+    return out;
   } catch {
     return null;
   }
