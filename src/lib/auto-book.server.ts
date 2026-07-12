@@ -59,6 +59,12 @@ const MIN_SCAN_GAIN_PCT = 2;
 // so a scan blocked in between (e.g. by a wide-spread tick) breaks confirmation.
 const ENTRY_CONFIRM_REQUIRED = 2;
 const ENTRY_CONFIRM_WINDOW_SECS = 210;
+// Min seconds between counted passes. 45 (not 60) because the hot-list pass
+// re-checks pending candidates ~60s after the full scan saw them; scan
+// processing jitter would otherwise round a legitimate +60s look down below
+// the gap and block it. 45s still guarantees the two looks sit on different
+// 1-minute candles, which is all the debounce needs.
+const ENTRY_CONFIRM_MIN_GAP_SECS = 45;
 
 // Universe quality gate. A coin whose spread repeatedly trips the hard block in
 // the recent past is illiquid junk (thin meme micro-caps) — drop it from the
@@ -619,6 +625,11 @@ type BotConfig = {
   // v2LongScore >= 2 to book. Weights are from a 14d component analysis of the
   // live book; flip this flag only after the out-of-sample window validates.
   v2_long_gate_enabled?: boolean | null;
+  // Hot-list pass participation (default ON; explicit false disables). The
+  // 1-minute pass re-checks a cohort's awaiting-confirmation candidates so the
+  // 2nd look lands ~60s after the 1st instead of ~120s. Measured cost of the
+  // wait: median 0.048% price adverse drift per booking (28/38 against).
+  hotlist_enabled?: boolean | null;
 };
 
 /**
@@ -738,6 +749,7 @@ async function confirmEntry(
       _symbol: symbol,
       _side: side,
       _window_secs: ENTRY_CONFIRM_WINDOW_SECS,
+      _min_gap_secs: ENTRY_CONFIRM_MIN_GAP_SECS,
     });
     if (error || typeof data !== "number") {
       // Fail-open, but LOUDLY: without this event a missing/broken RPC would
@@ -796,7 +808,7 @@ async function logPauseEvent(supabase: SupabaseClient, userId: string, message: 
 /** Run one auto-book pass. Optionally restrict to a single user (manual trigger). */
 export async function runAutoBookPass(
   supabase: SupabaseClient,
-  opts: { userId?: string } = {},
+  opts: { userId?: string; hotlistOnly?: boolean } = {},
 ): Promise<{
   users: number;
   opened: number;
@@ -806,7 +818,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,minimum_expected_edge_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms,structure_entry_filter_enabled,structure_short_filter_enabled,v2_long_gate_enabled",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,minimum_expected_edge_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms,structure_entry_filter_enabled,structure_short_filter_enabled,v2_long_gate_enabled,hotlist_enabled",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -828,6 +840,41 @@ export async function runAutoBookPass(
     details: [] as Array<{ user: string; opened: number; skipped: number; reason?: string }>,
   };
   if (!users.length) return result;
+
+  // Hot-list pass: re-evaluate ONLY candidates already awaiting their 2nd
+  // confirmation, through the IDENTICAL gate chain below, ~60s after the full
+  // scan first saw them (instead of ~120s on the next full scan). Cron runs it
+  // on odd minutes (full scan runs even minutes) so the two passes never share
+  // a minute — that interleave, not locking, is what prevents a double-book
+  // race on the same tick. An empty queue exits here, before any market fetch,
+  // so the extra per-minute cron is nearly free. Measured prize: median 0.048%
+  // price adverse drift per booking during the 2-minute wait (28/38 against).
+  let hotSymbolsByUser: Map<string, Set<string>> | null = null;
+  if (opts.hotlistOnly) {
+    const cutoffIso = new Date(Date.now() - ENTRY_CONFIRM_WINDOW_SECS * 1000).toISOString();
+    const { data: pendingRows, error: pendErr } = await supabase
+      .from("entry_confirmations")
+      .select("user_id,symbol")
+      .gte("updated_at", cutoffIso)
+      .lt("confirms", ENTRY_CONFIRM_REQUIRED);
+    if (pendErr) {
+      // Loud abort, same rationale as the config select above.
+      console.error("[auto-book] hotlist pending select failed — pass aborted:", pendErr.message);
+      return result;
+    }
+    hotSymbolsByUser = new Map();
+    for (const r of pendingRows ?? []) {
+      const cfg = users.find((u) => u.user_id === (r.user_id as string));
+      if (!cfg || cfg.hotlist_enabled === false) continue;
+      let set = hotSymbolsByUser.get(r.user_id as string);
+      if (!set) {
+        set = new Set();
+        hotSymbolsByUser.set(r.user_id as string, set);
+      }
+      set.add(r.symbol as string);
+    }
+    if (!hotSymbolsByUser.size) return result;
+  }
 
   const scanId = crypto.randomUUID();
 
@@ -854,13 +901,24 @@ export async function runAutoBookPass(
   // scans is illiquid junk that otherwise slips in on a lucky sub-cap tick.
   const wideSpread = await fetchPersistentWideSpreadSymbols(supabase);
   const dropped = universeRaw.filter((u) => wideSpread.has(u.symbol));
-  const universe = dropped.length ? universeRaw.filter((u) => !wideSpread.has(u.symbol)) : universeRaw;
+  let universe = dropped.length ? universeRaw.filter((u) => !wideSpread.has(u.symbol)) : universeRaw;
   if (dropped.length) {
     console.log(
       `[auto-book] universe quality gate dropped ${dropped.length} wide-spread symbol(s): ${dropped
         .map((u) => u.symbol)
         .join(", ")}`,
     );
+  }
+  if (hotSymbolsByUser) {
+    // Restrict to the pending candidates — but only AFTER the normal universe
+    // build + quality gate, so a symbol that fell out of the universe (or got
+    // spread-blacklisted) since the first look cannot book via the hot pass.
+    const allHot = new Set<string>();
+    for (const set of hotSymbolsByUser.values()) for (const sym of set) allHot.add(sym);
+    universe = universe.filter((u) => allHot.has(u.symbol));
+    // Empty here means the candidates dropped out of the universe or the
+    // ticker fetch failed — exit quietly; the full scan owns alerting.
+    if (!universe.length) return result;
   }
   // An empty universe is ambiguous without this: "ticker API down" and "broad
   // red day (no gainers, nothing flat-to-up)" both used to look like scanned=0.
@@ -966,6 +1024,9 @@ export async function runAutoBookPass(
   }
 
   for (const cfg of users) {
+    // Hot-list pass: only cohorts with a pending candidate participate; other
+    // cohorts see this pass as if it never ran (no signals, no scan events).
+    if (hotSymbolsByUser && !hotSymbolsByUser.get(cfg.user_id)?.size) continue;
     let opened = 0;
     let skipped = 0;
     const userName = nameByUser.get(cfg.user_id) ?? "";
@@ -1176,7 +1237,13 @@ export async function runAutoBookPass(
     void openedToday;
 
     const cfgTimeframe = (cfg.timeframe && cfg.timeframe.trim()) || "5m";
-    const analyses = analysesByTf.get(cfgTimeframe) ?? [];
+    let analyses = analysesByTf.get(cfgTimeframe) ?? [];
+    if (hotSymbolsByUser) {
+      // Each cohort re-checks only ITS OWN pending candidates — another
+      // cohort's streak must not start early off this pass.
+      const mine = hotSymbolsByUser.get(cfg.user_id) as Set<string>;
+      analyses = analyses.filter((a) => mine.has(a.symbol));
+    }
     const backendPolicy = getBackendStrategyPolicy({
       strategy: cfg.strategy,
       trading_style: cfg.trading_style,

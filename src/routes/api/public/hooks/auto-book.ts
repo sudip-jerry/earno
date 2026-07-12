@@ -23,9 +23,14 @@ export const Route = createFileRoute("/api/public/hooks/auto-book")({
           return new Response("Unauthorized", { status: 401 });
         }
         try {
+          const body = (await request.json().catch(() => ({}))) as { mode?: string };
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { runAutoBookPass } = await import("@/lib/auto-book.server");
-          const result = await runAutoBookPass(supabaseAdmin);
+          // "hotlist": 1-minute light pass over awaiting-confirmation candidates
+          // only (odd minutes); default: the full universe scan (even minutes).
+          const result = await runAutoBookPass(supabaseAdmin, {
+            hotlistOnly: body.mode === "hotlist",
+          });
           return Response.json({ ok: true, ...result });
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
