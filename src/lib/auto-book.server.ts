@@ -553,7 +553,44 @@ type BotConfig = {
   // overextended, overbought, volume-spiking 15m move that has rolled over.
   // Default false — control cohorts run unchanged.
   structure_short_filter_enabled?: boolean | null;
+  // V2 confluence gate for LONGS (dormant until enabled per cohort). Requires
+  // v2LongScore >= 2 to book. Weights are from a 14d component analysis of the
+  // live book; flip this flag only after the out-of-sample window validates.
+  v2_long_gate_enabled?: boolean | null;
 };
+
+/**
+ * V2 long-confluence score, from the 14d signal→outcome component analysis:
+ * trend STRENGTH is the dominant positive (strong uptrend 47.5% win vs 33.9%
+ * plain); entering ON a volume spike is penalized (climax bar — 34-37% win at
+ * >=1.5x vs 43% calm); RSI is scored as pullback quality (40-55 best, 55-65
+ * worst); a symbol already labeled Bullish 24h is late (37.7% win) while
+ * Sideways is early (43.5%). Book longs only at score >= 2. Replay on 424
+ * trades: selected 52.6% win (+$32.74) vs rejected 35.8% (−$87.86); still
+ * separates within structure-filter survivors (43.8% vs 33.6%).
+ */
+function v2LongScore(a: {
+  trend_status?: string | null;
+  volume_spike_ratio?: number | null;
+  rsi?: number | null;
+  market_regime?: string | null;
+}): number {
+  let score = 0;
+  if (a.trend_status === "Strong uptrend") score += 2;
+  const v = a.volume_spike_ratio;
+  if (v != null) {
+    if (v < 1.0) score += 1;
+    else if (v >= 1.5) score -= 2;
+  }
+  const r = a.rsi;
+  if (r != null) {
+    if (r >= 40 && r < 55) score += 1;
+    else if (r >= 55 && r < 65) score -= 1;
+  }
+  if (a.market_regime === "Sideways 24h") score += 1;
+  else if (a.market_regime === "Bullish 24h") score -= 1;
+  return score;
+}
 
 /** Returns the USDT capital to size positions against. Paper uses paper_equity.
  * Live reads the user's CoinDCX wallet (futures or spot) and applies the
@@ -689,7 +726,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,minimum_expected_edge_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms,structure_entry_filter_enabled,structure_short_filter_enabled",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,minimum_expected_edge_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms,structure_entry_filter_enabled,structure_short_filter_enabled,v2_long_gate_enabled",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -1762,6 +1799,33 @@ export async function runAutoBookPass(
                   ).catch(() => {});
                 }
               }
+            }
+          }
+
+          // V2 confluence gate (dormant until enabled per cohort). Books a LONG
+          // only when the measured-component score clears the bar — composes on
+          // top of the structure filter (it separated 43.8% vs 33.6% even within
+          // filter survivors). See v2LongScore for weights and evidence.
+          if (!rejection && side === "long" && cfg.v2_long_gate_enabled === true) {
+            const score = v2LongScore(a);
+            if (score < 2) {
+              rejection = `V2 confluence gate: score ${score} < 2`;
+              final = "skip";
+              void logEvent(
+                supabase,
+                cfg.user_id,
+                "info",
+                `Auto-book skipped ${a.symbol}: ${rejection}`,
+                {
+                  kind: "v2_long_gate_blocked",
+                  symbol: a.symbol,
+                  v2_score: score,
+                  trend_status: a.trend_status,
+                  volume_spike_ratio: a.volume_spike_ratio,
+                  rsi: a.rsi,
+                  market_regime: a.market_regime,
+                },
+              ).catch(() => {});
             }
           }
 
