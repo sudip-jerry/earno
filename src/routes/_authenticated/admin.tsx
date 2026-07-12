@@ -156,8 +156,14 @@ function AdminPage() {
         </Link>
         <h1 className="text-xl font-semibold">Admin</h1>
         <Link
-          to="/beta-report"
+          to="/backtest-lab"
           className="ml-auto text-xs px-3 h-8 inline-flex items-center rounded-full border bg-card hover:bg-muted"
+        >
+          Backtest Lab →
+        </Link>
+        <Link
+          to="/beta-report"
+          className="text-xs px-3 h-8 inline-flex items-center rounded-full border bg-card hover:bg-muted"
         >
           Beta Report →
         </Link>
