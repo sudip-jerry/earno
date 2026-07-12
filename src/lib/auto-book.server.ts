@@ -2549,10 +2549,24 @@ export async function runMarkPass(
     // Breakeven only armed when TP1 fires (or by early-breakeven above).
     const profitProtected = newBreakeven || tp1Hit || tp1JustHit;
 
+    // Fee constants (hoisted — also used by the fee-aware evaluation below).
+    const exitFeeModel = DEFAULT_FEE_MODEL;
+    const feeRates = feeModelRates(exitFeeModel);
+    const roundTripFeePct =
+      (feeRates.entry_fee_pct + feeRates.exit_fee_pct) * (1 + feeRates.gst_pct / 100);
+    const slippageBufferPct = Number(cfgRow?.slippage_buffer_pct ?? 0.05);
+
     // 2) Final TP.
     const hitTp = tp != null && (side === "long" ? mark >= tp : mark <= tp);
-    // 3) SL: before TP1 use original SL; after TP1 SL has moved to entry (breakeven).
-    const effSlPrice = newBreakeven ? entry : (sl ?? null);
+    // 3) SL: before TP1 use original SL; after breakeven arms, the stop sits at
+    // NET breakeven — entry shifted by round-trip fees + slippage in the trade's
+    // favor — so a "Breakeven Protected" round-trip closes at net ≈ 0 instead of
+    // gross 0 minus the full fee (measured: −₹96/trade on ₹81.7k notional, 29
+    // such round-trips in the prior 7d).
+    const feeFloorPct = roundTripFeePct + slippageBufferPct;
+    const netBreakevenPrice =
+      side === "long" ? entry * (1 + feeFloorPct / 100) : entry * (1 - feeFloorPct / 100);
+    const effSlPrice = newBreakeven ? netBreakevenPrice : (sl ?? null);
     const hitSl =
       effSlPrice != null &&
       (side === "long" ? mark <= (effSlPrice as number) : mark >= (effSlPrice as number));
@@ -2584,6 +2598,16 @@ export async function runMarkPass(
     const givebackFromPeakFrac = peakRoe > 0 ? (peakRoe - currentRoe) / peakRoe : 0;
     const hitRunnerProtect =
       postTp1 && peakRoe >= runnerProt.minPeak && givebackFromPeakFrac >= runnerProt.givebackFrac;
+
+    // 4c) Micro peak-lock: PRE-TP1 giveback protection for the dead zone where
+    // a trade peaks below TP1 (2.65% ROE) so no partial is banked, the fade exit
+    // can't fire (it requires postTp1), and a fast reversal skips the 1-minute
+    // marks straight to the breakeven stop. Measured failure mode: peaks of
+    // +1.6-1.7% ROE (≈₹400 unrealized) round-tripping to net ≈ 0. Once peak ROE
+    // >= 1.2, lock ~40% of the peak (floor 0.35% ROE); the net-breakeven stop
+    // above backstops the worst case.
+    const hitMicroLock =
+      !postTp1 && peakRoe >= 1.2 && currentRoe <= Math.max(0.35, peakRoe * 0.4);
 
     // 5a) Price-% profit fade: only allowed after TP1 has been hit.
     const hitProfitFade =
@@ -2618,16 +2642,11 @@ export async function runMarkPass(
       Number.isFinite(openedAt) &&
       Date.now() - openedAt >= autoCloseMinutes * 60_000;
 
-    // Fee-aware evaluation (unchanged).
-    const grossPctPrice = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul : 0;
+    // Fee-aware evaluation (fee constants hoisted above the SL section).
     // CoinDCX charges maker == taker on futures (no maker discount — validated
     // against real trades), so both legs use the taker/taker model regardless of
     // how the entry filled. See src/lib/fees.ts header note.
-    const exitFeeModel = DEFAULT_FEE_MODEL;
-    const feeRates = feeModelRates(exitFeeModel);
-    const roundTripFeePct =
-      (feeRates.entry_fee_pct + feeRates.exit_fee_pct) * (1 + feeRates.gst_pct / 100);
-    const slippageBufferPct = Number(cfgRow?.slippage_buffer_pct ?? 0.05);
+    const grossPctPrice = entry > 0 ? ((mark - entry) / entry) * 100 * sideMul : 0;
     const fundingEstimatePct = 0;
     const netPctPrice = grossPctPrice - roundTripFeePct - slippageBufferPct - fundingEstimatePct;
     const feeAwareEnabled = cfgRow?.fee_aware_exits_enabled !== false;
@@ -2686,6 +2705,11 @@ export async function runMarkPass(
       exitProtectionReason = "runner_protection";
     } else if (hitTrail) {
       finalExitReason = "trailing_exit";
+    } else if (hitMicroLock) {
+      // No fee gate: at the trigger floor the trade is at worst ≈ net 0, and
+      // the net-breakeven stop backstops anything faster.
+      finalExitReason = "profit_fade_exit";
+      exitProtectionReason = "micro_peak_lock";
     } else if (hitProfitFade) {
       const isActuallyLosing = grossPctPrice < 0;
       if (

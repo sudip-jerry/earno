@@ -557,7 +557,10 @@ export async function runCoinScanFor(
         : 8;
       const beArmPct = Math.max(0.8, targetPct * 0.4);
       if (pnlPct >= beArmPct) {
-        update.stop_price = avgBuy;
+        // NET breakeven: 0.1%/side spot fees mean a stop at exactly avgBuy still
+        // loses the round-trip fee. Shift the floor 0.2% in the trade's favor so
+        // a "breakeven protected" round-trip closes at net ≈ 0.
+        update.stop_price = avgBuy * 1.002;
       }
     }
 
