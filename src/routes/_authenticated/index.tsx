@@ -117,16 +117,14 @@ function Home() {
   const [confirmStop, setConfirmStop] = useState(false);
   const [riskOpen, setRiskOpen] = useState(false);
   const [hideBalance, setHideBalance] = useState(false);
-  const [viewMode, setViewMode] = useState<"simple" | "detail">(() => {
-    if (typeof window === "undefined") return "simple";
-    const v = window.localStorage.getItem(HOME_VIEW_MODE_KEY);
-    return v === "detail" ? "detail" : "simple";
-  });
+  // Pro/detail mode is retired — everyone gets the one unified shell. Ignore any
+  // previously-stored "detail" so users who had switched to Pro are brought back.
+  const [viewMode, setViewMode] = useState<"simple" | "detail">("simple");
   useEffect(() => {
     try {
-      window.localStorage.setItem(HOME_VIEW_MODE_KEY, viewMode);
+      window.localStorage.setItem(HOME_VIEW_MODE_KEY, "simple");
     } catch {}
-  }, [viewMode]);
+  }, []);
   const [goLiveOpen, setGoLiveOpen] = useState(false);
   const [confirmCoinLive, setConfirmCoinLive] = useState(false);
   const updateCoinFn = useServerFn(updateCoinConfig);
