@@ -47,6 +47,22 @@ const FUTURES_TICKER = "https://public.coindcx.com/market_data/v3/current_prices
 // scannable; the structure filter gates any weak major longs.
 const MIN_SCAN_VOLUME_USDT = 20_000_000;
 const MIN_SCAN_GAIN_PCT = 2;
+
+// Entry confirmation (debounce). A filtered entry must clear its structure/short
+// filter on TWO consecutive scans before it books, so a coin can't slip in on a
+// single lucky 1-minute tick and then whip to the full stop. The window is a bit
+// under two scan intervals (~2 min each); a pass older than this resets the streak,
+// so a scan blocked in between (e.g. by a wide-spread tick) breaks confirmation.
+const ENTRY_CONFIRM_REQUIRED = 2;
+const ENTRY_CONFIRM_WINDOW_SECS = 210;
+
+// Universe quality gate. A coin whose spread repeatedly trips the hard block in
+// the recent past is illiquid junk (thin meme micro-caps) — drop it from the
+// universe entirely rather than let it slip in on the odd sub-cap tick. Counted
+// as distinct scan-minutes so a single wide scan (logged once per cohort) doesn't
+// trigger it; persistent wide spread across scans does.
+const SPREAD_EXCLUDE_LOOKBACK_MIN = 20;
+const SPREAD_EXCLUDE_MIN_SCANS = 3;
 const CANDLES = (pair: string, interval: string, limit: number) =>
   `https://public.coindcx.com/market_data/candles?pair=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
 const PUB_HEADERS = {
@@ -213,6 +229,48 @@ async function fetchScanUniverse(
     union.push(r);
   }
   return union;
+}
+
+/**
+ * Symbols whose spread has repeatedly tripped the hard-spread block in the recent
+ * window — i.e. persistently illiquid junk (thin meme micro-caps). We count the
+ * distinct scan-minutes a symbol was spread-blocked (a single wide scan logs one
+ * `spread_skip` per cohort, so we dedupe by minute) and exclude a symbol once it
+ * has been wide across >= SPREAD_EXCLUDE_MIN_SCANS scans. These are dropped from
+ * the scan universe entirely so they never slip in on the odd sub-cap tick and
+ * whip to a full stop. Best-effort: on any failure, returns an empty set.
+ */
+async function fetchPersistentWideSpreadSymbols(supabase: SupabaseClient): Promise<Set<string>> {
+  try {
+    const sinceIso = new Date(Date.now() - SPREAD_EXCLUDE_LOOKBACK_MIN * 60_000).toISOString();
+    const { data } = await supabase
+      .from("bot_events")
+      .select("meta, created_at")
+      .gte("created_at", sinceIso)
+      .contains("meta", { kind: "spread_skip" })
+      .limit(5000);
+    if (!data) return new Set();
+    const minutesBySym = new Map<string, Set<string>>();
+    for (const row of data) {
+      const meta = (row as { meta?: Record<string, unknown> }).meta;
+      const sym = meta && typeof meta.symbol === "string" ? meta.symbol : null;
+      if (!sym) continue;
+      const minute = String((row as { created_at?: string }).created_at ?? "").slice(0, 16);
+      let mins = minutesBySym.get(sym);
+      if (!mins) {
+        mins = new Set<string>();
+        minutesBySym.set(sym, mins);
+      }
+      mins.add(minute);
+    }
+    const out = new Set<string>();
+    for (const [sym, mins] of minutesBySym) {
+      if (mins.size >= SPREAD_EXCLUDE_MIN_SCANS) out.add(sym);
+    }
+    return out;
+  } catch {
+    return new Set();
+  }
 }
 
 /** Last 1m close for a single futures pair (fallback price source). Uses the
@@ -561,6 +619,34 @@ async function logEvent(
   await supabase.from("bot_events").insert({ user_id: userId, level, message, meta: meta ?? null });
 }
 
+/**
+ * Records that a filtered entry passed on this scan and returns the current
+ * consecutive-pass count (via the `confirm_entry` RPC). The count resets to 1 if
+ * the previous pass is older than ENTRY_CONFIRM_WINDOW_SECS, so only genuinely
+ * consecutive scans accumulate. Caller books only once the count reaches
+ * ENTRY_CONFIRM_REQUIRED. On any RPC error, returns ENTRY_CONFIRM_REQUIRED so a
+ * transient DB blip never blocks all entries (fail-open).
+ */
+async function confirmEntry(
+  supabase: SupabaseClient,
+  userId: string,
+  symbol: string,
+  side: "long" | "short",
+): Promise<number> {
+  try {
+    const { data, error } = await supabase.rpc("confirm_entry", {
+      _user: userId,
+      _symbol: symbol,
+      _side: side,
+      _window_secs: ENTRY_CONFIRM_WINDOW_SECS,
+    });
+    if (error || typeof data !== "number") return ENTRY_CONFIRM_REQUIRED;
+    return data;
+  } catch {
+    return ENTRY_CONFIRM_REQUIRED;
+  }
+}
+
 async function logScanEvent(
   supabase: SupabaseClient,
   userId: string,
@@ -638,7 +724,22 @@ export async function runAutoBookPass(
   );
 
   // Universe + per-timeframe per-symbol analysis (shared across users with the same timeframe).
-  const universe = await fetchScanUniverse(25, 25);
+  const universeRaw = await fetchScanUniverse(25, 25);
+  // Quality gate: drop coins that have been persistently wide-spread lately. A
+  // one-off wide tick is fine; a coin that keeps tripping the spread block across
+  // scans is illiquid junk that otherwise slips in on a lucky sub-cap tick.
+  const wideSpread = await fetchPersistentWideSpreadSymbols(supabase);
+  const universe = wideSpread.size
+    ? universeRaw.filter((u) => !wideSpread.has(u.symbol))
+    : universeRaw;
+  if (universe.length !== universeRaw.length) {
+    console.log(
+      `[auto-book] universe quality gate dropped ${universeRaw.length - universe.length} wide-spread symbol(s): ${universeRaw
+        .filter((u) => wideSpread.has(u.symbol))
+        .map((u) => u.symbol)
+        .join(", ")}`,
+    );
+  }
   const scannedCount = universe.length;
   const distinctTimeframes = Array.from(
     new Set(users.map((u) => (u.timeframe && u.timeframe.trim()) || "5m")),
@@ -1613,6 +1714,28 @@ export async function runAutoBookPass(
                     supertrend_up: me.detail.supertrendUp,
                   },
                 ).catch(() => {});
+              } else {
+                // Debounce: the filter must pass on two consecutive scans before we
+                // book, so a coin can't slip in on a single lucky 1m tick and whip
+                // to the full stop (the HMSTR/VELVET failure mode).
+                const confirms = await confirmEntry(supabase, cfg.user_id, a.symbol, "long");
+                if (confirms < ENTRY_CONFIRM_REQUIRED) {
+                  rejection = `Awaiting entry confirmation (${confirms}/${ENTRY_CONFIRM_REQUIRED})`;
+                  final = "skip";
+                  void logEvent(
+                    supabase,
+                    cfg.user_id,
+                    "info",
+                    `Auto-book skipped ${a.symbol}: ${rejection}`,
+                    {
+                      kind: "entry_awaiting_confirmation",
+                      symbol: a.symbol,
+                      side: "long",
+                      confirms,
+                      required: ENTRY_CONFIRM_REQUIRED,
+                    },
+                  ).catch(() => {});
+                }
               }
             }
           }
@@ -1655,6 +1778,28 @@ export async function runAutoBookPass(
                     bear_trigger: mr.detail.bearTrigger,
                   },
                 ).catch(() => {});
+              } else {
+                // Debounce: fade must confirm on two consecutive scans before we
+                // short, so a thin coin can't slip in on a single lucky tick and
+                // squeeze to the full stop (the VELVET failure mode).
+                const confirms = await confirmEntry(supabase, cfg.user_id, a.symbol, "short");
+                if (confirms < ENTRY_CONFIRM_REQUIRED) {
+                  rejection = `Awaiting entry confirmation (${confirms}/${ENTRY_CONFIRM_REQUIRED})`;
+                  final = "skip";
+                  void logEvent(
+                    supabase,
+                    cfg.user_id,
+                    "info",
+                    `Auto-book skipped ${a.symbol}: ${rejection}`,
+                    {
+                      kind: "entry_awaiting_confirmation",
+                      symbol: a.symbol,
+                      side: "short",
+                      confirms,
+                      required: ENTRY_CONFIRM_REQUIRED,
+                    },
+                  ).catch(() => {});
+                }
               }
             }
           }
