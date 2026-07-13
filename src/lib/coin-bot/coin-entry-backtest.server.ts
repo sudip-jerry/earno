@@ -142,6 +142,12 @@ export type CoinBacktestOpts = {
    * defensive tier — the candidate live behavior.
    */
   breadthTiers?: { full: number; defensive: number };
+  /**
+   * Volume confirmation for donchian breakouts: when set, a fresh 20-bar high
+   * only fires if bar volume >= donchianVolMin x the 20-bar average (the
+   * standard breakout-quality rule; live donchian arm has no volume check).
+   */
+  donchianVolMin?: number;
 };
 
 type Group = { n: number; wins: number; gross: number; grossWin: number; grossLoss: number };
@@ -319,7 +325,9 @@ export async function runCoinEntryBacktest(opts: CoinBacktestOpts = {}) {
         ema_cross_4h:
           ema9 != null && ema21 != null && ema9p != null && ema21p != null &&
           ema9p <= ema21p && ema9 > ema21,
-        donchian: closes[i] > hi80 && hi80 > 0,
+        donchian:
+          closes[i] > hi80 && hi80 > 0 &&
+          (opts.donchianVolMin == null || vRatio >= opts.donchianVolMin),
         // NFI-style guarded dip-buy: long-term uptrend intact, price dipped >=3%
         // below the 20-SMA, RSI oversold-ish, and volume NOT panicking (avoid
         // catching a crash knife) — the community's most-validated spot shape.
