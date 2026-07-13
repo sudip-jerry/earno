@@ -120,6 +120,28 @@ export type CoinBacktestOpts = {
    * bled in the red week because nothing told the bot to stop buying. Applied
    * to every strategy equally (including random) so the comparison stays fair. */
   regimeGate?: boolean;
+  /**
+   * Injectable candle source (defaults to the CoinDCX fetch). Lets the replay
+   * run where CoinDCX is unreachable (sandbox) with candles supplied via
+   * pg_net — same pattern as the futures replay driver.
+   */
+  candleProvider?: (pair: string, interval: string, limit: number) => Promise<C[] | null>;
+  /**
+   * Binary universe-breadth gate, mirroring the LIVE coin regime gate: no
+   * entries while breadth (share of replay symbols whose close is above their
+   * close 24h earlier) < floor. Live floor is 0.45. Backtest breadth is over
+   * the replay universe (~30 symbols) — an approximation of the live
+   * scan-universe breadth.
+   */
+  breadthFloor?: number;
+  /**
+   * Tiered breadth gate: breadth >= full → all strategies may enter;
+   * defensive <= breadth < full → only the guarded dip-buy (nfi_dip) may
+   * enter; below defensive → nothing. Also activates the synthetic
+   * `switched` strategy row: donchian in the full tier, nfi_dip in the
+   * defensive tier — the candidate live behavior.
+   */
+  breadthTiers?: { full: number; defensive: number };
 };
 
 type Group = { n: number; wins: number; gross: number; grossWin: number; grossLoss: number };
@@ -155,18 +177,19 @@ export async function runCoinEntryBacktest(opts: CoinBacktestOpts = {}) {
   // long (TradingView staple); rsi2 = Connors RSI-2 pullback with trend guard.
   const strategies = [
     "climax", "v2spot", "random", "ema_cross_4h", "donchian",
-    "nfi_dip", "bb_meanrev", "supertrend", "rsi2",
+    "nfi_dip", "bb_meanrev", "supertrend", "rsi2", "switched",
   ] as const;
   const groups: Record<string, Group> = Object.fromEntries(strategies.map((s) => [s, g0()]));
   const holdBench: { sum: number; n: number } = { sum: 0, n: 0 };
   let btcHold: number | null = null;
   let symbolsWithData = 0;
+  const provider = opts.candleProvider ?? fetchC;
 
   // Regime flags from BTC 1h: momentum up = close > close 72 bars (3 days) ago.
   let regimeTimes: number[] = [];
   let regimeUp: boolean[] = [];
   if (opts.regimeGate) {
-    const btc = await fetchC("B-BTC_USDT", "1h", 480);
+    const btc = await provider("B-BTC_USDT", "1h", 480);
     if (!btc) return { ok: false as const, error: "regimeGate: BTC candles unavailable" };
     regimeTimes = btc.map((c) => c.time);
     regimeUp = btc.map((c, i) => i >= 72 && c.close > btc[i - 72].close);
@@ -182,9 +205,71 @@ export async function runCoinEntryBacktest(opts: CoinBacktestOpts = {}) {
     return ans >= 0 ? regimeUp[ans] : false;
   };
 
+  // Prefetch every symbol's 1h series once — the breadth series below needs
+  // the whole universe before any strategy replay starts.
+  const seriesBySym = new Map<string, C[]>();
   for (const sym of symbols) {
-    const c1h = await fetchC(sym, "1h", Math.min(bars1h + 60, 480));
-    if (!c1h || c1h.length < 120) continue;
+    const c1h = await provider(sym, "1h", Math.min(bars1h + 60, 480));
+    if (c1h && c1h.length >= 120) seriesBySym.set(sym, c1h);
+  }
+
+  // Hourly breadth series over the replay universe: breadth(t) = share of
+  // symbols whose close at t is above their close 24h earlier. Mirrors the
+  // live regime gate's ticker breadth (approximation: replay universe, not
+  // the full scan universe). Time unit auto-detected (CoinDCX candles are ms).
+  const tiersEnabled = !!opts.breadthTiers;
+  const breadthEnabled = opts.breadthFloor != null || tiersEnabled;
+  let bTimes: number[] = [];
+  let bVals: (number | null)[] = [];
+  if (breadthEnabled) {
+    const closeBySymTime = new Map<string, Map<number, number>>();
+    const grid = new Set<number>();
+    for (const [sym, c1h] of seriesBySym) {
+      const m = new Map<number, number>();
+      for (const c of c1h) { m.set(c.time, c.close); grid.add(c.time); }
+      closeBySymTime.set(sym, m);
+    }
+    bTimes = Array.from(grid).sort((a, b) => a - b);
+    bVals = bTimes.map((t) => {
+      const day = t > 1e12 ? 86_400_000 : 86_400;
+      let pos = 0, counted = 0;
+      for (const m of closeBySymTime.values()) {
+        const now = m.get(t);
+        const then = m.get(t - day);
+        if (now == null || then == null) continue;
+        counted++;
+        if (now > then) pos++;
+      }
+      return counted >= 5 ? pos / counted : null;
+    });
+  }
+  const breadthAt = (t: number): number | null => {
+    if (!bTimes.length) return null;
+    let lo = 0, hi = bTimes.length - 1, ans = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (bTimes[mid] <= t) { ans = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    return ans >= 0 ? bVals[ans] : null;
+  };
+  // Tier at t: unknown breadth is permissive (matches early-window behavior).
+  type Tier = "full" | "defensive" | "none";
+  const tierAt = (t: number): Tier => {
+    if (!tiersEnabled) return "full";
+    const b = breadthAt(t);
+    if (b == null) return "full";
+    const { full, defensive } = opts.breadthTiers as { full: number; defensive: number };
+    return b >= full ? "full" : b >= defensive ? "defensive" : "none";
+  };
+  const floorOkAt = (t: number): boolean => {
+    if (opts.breadthFloor == null) return true;
+    const b = breadthAt(t);
+    return b == null || b >= opts.breadthFloor;
+  };
+
+  for (const sym of symbols) {
+    const c1h = seriesBySym.get(sym);
+    if (!c1h) continue;
     symbolsWithData++;
     const closes = c1h.map((c) => c.close);
     const vols = c1h.map((c) => c.volume);
@@ -250,10 +335,34 @@ export async function runCoinEntryBacktest(opts: CoinBacktestOpts = {}) {
         supertrend: i > 0 && stUp[i] && !stUp[i - 1],
         // Connors RSI-2: deep short-term pullback inside a long-term uptrend.
         rsi2: s100 != null && closes[i] > s100 && r2 != null && r2 < 10,
+        // Placeholder — set below from the tier (needs the rows above).
+        switched: false,
       };
+      // Candidate live behavior: offense (donchian) when breadth is strong,
+      // guarded dip-buying (nfi_dip) in the middle band, nothing when red.
+      const tierBar = tierAt(c1h[i].time);
+      fires.switched = tiersEnabled
+        ? tierBar === "full"
+          ? fires.donchian
+          : tierBar === "defensive"
+            ? fires.nfi_dip
+            : false
+        : false;
 
       for (const st of strategies) {
-        if (!fires[st] || i < nextAllowed[st] || !regimeOkAt(c1h[i].time)) continue;
+        // Tier gate: in the defensive band only the dip-buy may enter
+        // (`switched` embeds its own tier logic above).
+        const tierOk = !tiersEnabled || st === "switched"
+          ? true
+          : tierBar === "full"
+            ? true
+            : tierBar === "defensive"
+              ? st === "nfi_dip"
+              : false;
+        if (
+          !fires[st] || i < nextAllowed[st] || !regimeOkAt(c1h[i].time) ||
+          !tierOk || !floorOkAt(c1h[i].time)
+        ) continue;
         // Enter next bar open; walk to stop/target/max-hold.
         const entry = c1h[i + 1].open;
         if (!entry) continue;
@@ -275,9 +384,42 @@ export async function runCoinEntryBacktest(opts: CoinBacktestOpts = {}) {
     }
   }
 
+  // Gate activity over the replayed window: how often the gate idled the bot
+  // entirely, and the average breadth (context for threshold placement).
+  let breadthStats: { avg: number; idle_share: number; defensive_share: number } | null = null;
+  if (breadthEnabled && bTimes.length) {
+    const maxT = bTimes[bTimes.length - 1];
+    const day = maxT > 1e12 ? 86_400_000 : 86_400;
+    const fromT = maxT - sinceDays * day;
+    let sum = 0, n = 0, idle = 0, def = 0;
+    for (let k = 0; k < bTimes.length; k++) {
+      if (bTimes[k] < fromT || bVals[k] == null) continue;
+      const b = bVals[k] as number;
+      sum += b;
+      n++;
+      if (tiersEnabled) {
+        const { full, defensive } = opts.breadthTiers as { full: number; defensive: number };
+        if (b < defensive) idle++;
+        else if (b < full) def++;
+      } else if (opts.breadthFloor != null && b < opts.breadthFloor) idle++;
+    }
+    breadthStats = n
+      ? {
+          avg: Number((sum / n).toFixed(3)),
+          idle_share: Number((idle / n).toFixed(3)),
+          defensive_share: Number((def / n).toFixed(3)),
+        }
+      : null;
+  }
+
   return {
     ok: true as const,
-    scope: { sinceDays, tpPct, slPct, maxHoldBars, feeRoundTripPct: fee, symbols: symbols.length, symbolsWithData, regimeGate: !!opts.regimeGate },
+    scope: {
+      sinceDays, tpPct, slPct, maxHoldBars, feeRoundTripPct: fee,
+      symbols: symbols.length, symbolsWithData, regimeGate: !!opts.regimeGate,
+      breadthFloor: opts.breadthFloor ?? null, breadthTiers: opts.breadthTiers ?? null,
+    },
+    breadth: breadthStats,
     strategies: Object.fromEntries(strategies.map((s) => [s, summarize(groups[s], fee)])),
     benchmarks: {
       hold_equal_weight_pct: holdBench.n ? Number((holdBench.sum / holdBench.n).toFixed(2)) : null,
