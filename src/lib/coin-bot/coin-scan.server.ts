@@ -264,13 +264,21 @@ export async function runCoinScanFor(
           // Fresh-high check for the donchian entry arm: price breaking above the
           // prior 20-bar high on the highest-timeframe series available (h4 in
           // swing mode, m30 fallback) — catches expansion early instead of buying
-          // stretched momentum late.
+          // stretched momentum late. Breakouts must be VOLUME-CONFIRMED (last bar
+          // >= 1.5x the prior-20 average): replay under the live breadth gate
+          // showed the confirmation is free in good tape (+30.79 vs +30.96 net)
+          // and cuts red-week fakeout losses ~85% (-21.4 -> -3.4, PF 0.85->1.17).
+          // Replay was on 1h bars; live applies the same rule shape on h4/m30.
           {
+            const DONCHIAN_VOL_MIN = 1.5;
             const series = h4.length >= 12 ? h4 : m30;
             if (series.length >= 12) {
               const prior = series.slice(0, -1).slice(-20);
               const hi = Math.max(...prior.map((c) => c.high));
-              freshHighOk.set(t.symbol, hi > 0 && t.price > hi);
+              const lastVol = series[series.length - 1].volume ?? 0;
+              const avgVol = prior.reduce((a, b) => a + (b.volume ?? 0), 0) / prior.length;
+              const volConfirmed = avgVol > 0 && lastVol / avgVol >= DONCHIAN_VOL_MIN;
+              freshHighOk.set(t.symbol, hi > 0 && t.price > hi && volConfirmed);
             } else {
               freshHighOk.set(t.symbol, false);
             }
