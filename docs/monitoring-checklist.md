@@ -24,6 +24,10 @@ Futures P&L is USD/USDT (never INR).
 
 ## Coins
 - Regime gate blocks (breadth <45%) vs buys; exits still managing holdings.
+  NOTE: on `coin_bot_events`, `kind` is a TOP-LEVEL COLUMN (`WHERE kind='regime_gate_skip'`),
+  NOT `meta->>'kind'` (that pattern silently returns 0 — it hid 27h of legitimate
+  regime blocking on 2026-07-13/14 until the block messages were read directly).
+  The gate messages carry the live breadth reading ("only 26% of universe positive").
 - Entry-rule arms: donchian (31fac812, e703d5bd) · nfi_dip (6163db97, 8a067000) ·
   control (rest) — trade counts + PnL per arm.
 - No cash drift; breakeven stops at avgBuy×1.002 behaving.
