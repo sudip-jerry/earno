@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, LineChart } from "lucide-react";
 import { type DashboardStats } from "@/lib/stats.functions";
 
 export type StatsExtras = DashboardStats & {
@@ -278,14 +278,23 @@ export function DailyChart({
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onToggleHide}
-          aria-label={hideBalance ? "Show balance" : "Hide balance"}
-          className="size-8 grid place-items-center rounded-full hover:bg-white/10 text-white/80"
-        >
-          {hideBalance ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <Link
+            to="/capital"
+            aria-label="Open capital chart"
+            className="size-8 grid place-items-center rounded-full hover:bg-white/10 text-white/80"
+          >
+            <LineChart className="size-4" />
+          </Link>
+          <button
+            type="button"
+            onClick={onToggleHide}
+            aria-label={hideBalance ? "Show balance" : "Hide balance"}
+            className="size-8 grid place-items-center rounded-full hover:bg-white/10 text-white/80"
+          >
+            {hideBalance ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </button>
+        </div>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">

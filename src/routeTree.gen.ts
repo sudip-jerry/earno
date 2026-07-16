@@ -24,6 +24,7 @@ import { Route as AuthenticatedMoreRouteImport } from './routes/_authenticated/m
 import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
 import { Route as AuthenticatedExitReplayRouteImport } from './routes/_authenticated/exit-replay'
 import { Route as AuthenticatedCoinBotRouteImport } from './routes/_authenticated/coin-bot'
+import { Route as AuthenticatedCapitalRouteImport } from './routes/_authenticated/capital'
 import { Route as AuthenticatedBotRouteImport } from './routes/_authenticated/bot'
 import { Route as AuthenticatedBetaReportRouteImport } from './routes/_authenticated/beta-report'
 import { Route as AuthenticatedAlgoConfigRouteImport } from './routes/_authenticated/algo-config'
@@ -113,6 +114,11 @@ const AuthenticatedExitReplayRoute = AuthenticatedExitReplayRouteImport.update({
 const AuthenticatedCoinBotRoute = AuthenticatedCoinBotRouteImport.update({
   id: '/coin-bot',
   path: '/coin-bot',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCapitalRoute = AuthenticatedCapitalRouteImport.update({
+  id: '/capital',
+  path: '/capital',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedBotRoute = AuthenticatedBotRouteImport.update({
@@ -213,6 +219,7 @@ export interface FileRoutesByFullPath {
   '/algo-config': typeof AuthenticatedAlgoConfigRoute
   '/beta-report': typeof AuthenticatedBetaReportRoute
   '/bot': typeof AuthenticatedBotRoute
+  '/capital': typeof AuthenticatedCapitalRoute
   '/coin-bot': typeof AuthenticatedCoinBotRoute
   '/exit-replay': typeof AuthenticatedExitReplayRoute
   '/help': typeof AuthenticatedHelpRoute
@@ -244,6 +251,7 @@ export interface FileRoutesByTo {
   '/algo-config': typeof AuthenticatedAlgoConfigRoute
   '/beta-report': typeof AuthenticatedBetaReportRoute
   '/bot': typeof AuthenticatedBotRoute
+  '/capital': typeof AuthenticatedCapitalRoute
   '/coin-bot': typeof AuthenticatedCoinBotRoute
   '/exit-replay': typeof AuthenticatedExitReplayRoute
   '/help': typeof AuthenticatedHelpRoute
@@ -278,6 +286,7 @@ export interface FileRoutesById {
   '/_authenticated/algo-config': typeof AuthenticatedAlgoConfigRoute
   '/_authenticated/beta-report': typeof AuthenticatedBetaReportRoute
   '/_authenticated/bot': typeof AuthenticatedBotRoute
+  '/_authenticated/capital': typeof AuthenticatedCapitalRoute
   '/_authenticated/coin-bot': typeof AuthenticatedCoinBotRoute
   '/_authenticated/exit-replay': typeof AuthenticatedExitReplayRoute
   '/_authenticated/help': typeof AuthenticatedHelpRoute
@@ -313,6 +322,7 @@ export interface FileRouteTypes {
     | '/algo-config'
     | '/beta-report'
     | '/bot'
+    | '/capital'
     | '/coin-bot'
     | '/exit-replay'
     | '/help'
@@ -344,6 +354,7 @@ export interface FileRouteTypes {
     | '/algo-config'
     | '/beta-report'
     | '/bot'
+    | '/capital'
     | '/coin-bot'
     | '/exit-replay'
     | '/help'
@@ -377,6 +388,7 @@ export interface FileRouteTypes {
     | '/_authenticated/algo-config'
     | '/_authenticated/beta-report'
     | '/_authenticated/bot'
+    | '/_authenticated/capital'
     | '/_authenticated/coin-bot'
     | '/_authenticated/exit-replay'
     | '/_authenticated/help'
@@ -524,6 +536,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCoinBotRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/capital': {
+      id: '/_authenticated/capital'
+      path: '/capital'
+      fullPath: '/capital'
+      preLoaderRoute: typeof AuthenticatedCapitalRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/bot': {
       id: '/_authenticated/bot'
       path: '/bot'
@@ -645,6 +664,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlgoConfigRoute: typeof AuthenticatedAlgoConfigRoute
   AuthenticatedBetaReportRoute: typeof AuthenticatedBetaReportRoute
   AuthenticatedBotRoute: typeof AuthenticatedBotRoute
+  AuthenticatedCapitalRoute: typeof AuthenticatedCapitalRoute
   AuthenticatedCoinBotRoute: typeof AuthenticatedCoinBotRoute
   AuthenticatedExitReplayRoute: typeof AuthenticatedExitReplayRoute
   AuthenticatedHelpRoute: typeof AuthenticatedHelpRoute
@@ -665,6 +685,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAlgoConfigRoute: AuthenticatedAlgoConfigRoute,
   AuthenticatedBetaReportRoute: AuthenticatedBetaReportRoute,
   AuthenticatedBotRoute: AuthenticatedBotRoute,
+  AuthenticatedCapitalRoute: AuthenticatedCapitalRoute,
   AuthenticatedCoinBotRoute: AuthenticatedCoinBotRoute,
   AuthenticatedExitReplayRoute: AuthenticatedExitReplayRoute,
   AuthenticatedHelpRoute: AuthenticatedHelpRoute,

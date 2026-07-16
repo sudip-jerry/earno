@@ -1,6 +1,13 @@
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { ChevronRight, Settings as Cog, FlaskConical, Info, BadgeCheck } from "lucide-react";
+import {
+  ChevronRight,
+  Settings as Cog,
+  FlaskConical,
+  Info,
+  BadgeCheck,
+  LineChart,
+} from "lucide-react";
 import earnoStacked from "@/assets/earno-stacked.jpg.asset.json";
 import earneyWave from "@/assets/earney-wave.png.asset.json";
 import { RecentActivityFeed } from "@/components/recent-activity";
@@ -203,8 +210,17 @@ export function SimpleView(props: SimpleViewProps) {
 
       <div className="px-5 mt-4">
         <section className="brand-hero rounded-2xl px-5 py-4 shadow-md">
-          <div className="text-[11px] uppercase tracking-wider text-white/60">
-            Your total balance
+          <div className="flex items-center gap-2">
+            <div className="text-[11px] uppercase tracking-wider text-white/60">
+              Your total balance
+            </div>
+            <Link
+              to="/capital"
+              aria-label="Open capital chart"
+              className="ml-auto size-7 grid place-items-center rounded-full hover:bg-white/10 text-white/80"
+            >
+              <LineChart className="size-4" />
+            </Link>
           </div>
           <div className="mt-1 text-3xl font-semibold tabular-nums text-white">
             {hideBalance ? "••••••" : fmt(totalValue)}

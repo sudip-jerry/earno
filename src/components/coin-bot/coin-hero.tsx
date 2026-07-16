@@ -1,6 +1,7 @@
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { Coins, TrendingUp, TrendingDown } from "lucide-react";
+import { Coins, TrendingUp, TrendingDown, LineChart } from "lucide-react";
 import { getCoinPortfolio, getCoinHoldings } from "@/lib/coin-bot/coin-bot.functions";
 import { useCurrency } from "@/hooks/use-currency";
 import { DailyBars } from "@/components/market/daily-bars";
@@ -51,6 +52,13 @@ export function CoinHero() {
         >
           Bot {p?.enabled ? "On" : "Off"}
         </span>
+        <Link
+          to="/capital"
+          aria-label="Open capital chart"
+          className="size-6 -my-1 grid place-items-center rounded-full hover:bg-white/10 text-white/80"
+        >
+          <LineChart className="size-3.5" />
+        </Link>
       </div>
       <div className="mt-2 flex items-end gap-3">
         <div className="text-3xl font-semibold tabular-nums text-white">{fmt(equity)}</div>
