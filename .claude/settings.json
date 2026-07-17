@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Lovable__query_database",
+      "mcp__353f15fb-efbb-4a20-be3d-892feacd3ebe__query_database"
+    ]
+  }
+}
