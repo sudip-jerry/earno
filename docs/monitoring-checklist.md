@@ -4,7 +4,17 @@ ANALYSIS ONLY — no code/config/flag/cron changes during the strategy freeze (u
 July 19) unless the user directs otherwise or a pre-registered bar below is crossed.
 Futures P&L is USD/USDT (never INR).
 
-## Futures
+## Futures (updated 2026-07-17: filters OFF everywhere; long-vetoes arm live on
+## 2ce184c8; universal intraday market-pause live)
+- **Long-vetoes passive tally** (the arm's pre-registered bar): across ALL cohorts'
+  closed longs, split by veto condition (market_regime='Bullish 24h' OR rsi>65 at
+  the booked signal). At n≥30 vetoed closures: kept must beat vetoed (win% AND net)
+  or flip `long_vetoes_enabled=false` on 2ce184c8 and report.
+- **Market-pause activity**: bot_events meta->>'kind'='long_market_pause' count +
+  down_share values; sanity: pauses should cluster in red hours, and shorts should
+  still book during pauses.
+- Filter-block events (structure_filter_blocked / short_filter_blocked) should now
+  be ZERO — nonzero means a flag got re-enabled unexpectedly.
 - 4h book net PnL by cohort/arm.
 - v2 arm (2ce184c8) out-of-sample tally: selected vs rejected since 2026-07-12 06:00
   (promotion bar: n≥30 selected; filter joins on `s.created_at >=` to hit the index).

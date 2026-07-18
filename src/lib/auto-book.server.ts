@@ -630,6 +630,9 @@ type BotConfig = {
   // 2nd look lands ~60s after the 1st instead of ~120s. Measured cost of the
   // wait: median 0.048% price adverse drift per booking (28/38 against).
   hotlist_enabled?: boolean | null;
+  // Long vetoes (v2's autopsy survivors: no Bullish-24h chase, no RSI>65 longs).
+  // Flagged live-arm test with a pre-registered bar — see the gate site.
+  long_vetoes_enabled?: boolean | null;
 };
 
 /**
@@ -818,7 +821,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,minimum_expected_edge_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms,structure_entry_filter_enabled,structure_short_filter_enabled,v2_long_gate_enabled,hotlist_enabled",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,minimum_expected_edge_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms,structure_entry_filter_enabled,structure_short_filter_enabled,v2_long_gate_enabled,hotlist_enabled,long_vetoes_enabled",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -951,6 +954,24 @@ export async function runAutoBookPass(
   const topConfidenceOverall = Array.from(analysesByTf.values())
     .flat()
     .reduce((m, a) => Math.max(m, a.confidence_pct), 0);
+
+  // Intraday market-pause for LONGS: when >= 50% of the scanned universe is in
+  // an intraday downtrend, stop opening NEW longs (shorts and all exits keep
+  // running — in red tape the book goes short-only, not dark). Replay on
+  // Jul 10-17: the >=50% band was net-negative for longs in BOTH the green
+  // window (−$41.87) and the red window (−$9.16); every other band was fine in
+  // normal tape. This is the market-level reflex the coin bot's breadth gate
+  // provides — built from the INTRADAY trend labels (the 24h labels lag a full
+  // day and pointed the wrong way in the Jul 15-17 rollover).
+  const LONG_PAUSE_DOWN_SHARE = 0.5;
+  const downShareByTf = new Map<string, number>();
+  for (const [tf, arr] of analysesByTf) {
+    const known = arr.filter((x) => x.trend_status && x.trend_status !== "Unknown");
+    const down = known.filter(
+      (x) => x.trend_status === "Downtrend" || x.trend_status === "Strong downtrend",
+    );
+    downShareByTf.set(tf, known.length ? down.length / known.length : 0);
+  }
 
   // Compute market regime once for the whole pass.
   const marketRegime = await fetchMarketRegime();
@@ -1237,6 +1258,11 @@ export async function runAutoBookPass(
     void openedToday;
 
     const cfgTimeframe = (cfg.timeframe && cfg.timeframe.trim()) || "5m";
+    // Intraday market-pause state for this cohort's timeframe (see the
+    // computation above the user loop). One event per cohort per pass.
+    const downShare = downShareByTf.get(cfgTimeframe) ?? 0;
+    const longsPaused = downShare >= LONG_PAUSE_DOWN_SHARE;
+    let longPauseLogged = false;
     let analyses = analysesByTf.get(cfgTimeframe) ?? [];
     if (hotSymbolsByUser) {
       // Each cohort re-checks only ITS OWN pending candidates — another
@@ -1954,10 +1980,61 @@ export async function runAutoBookPass(
             }
           }
 
-          // V2 confluence gate (dormant until enabled per cohort). Books a LONG
-          // only when the measured-component score clears the bar — composes on
-          // top of the structure filter (it separated 43.8% vs 33.6% even within
-          // filter survivors). See v2LongScore for weights and evidence.
+          // Intraday market-pause: no NEW longs while the universe is broadly
+          // rolling over intraday (see computation above the user loop).
+          if (!rejection && side === "long" && longsPaused) {
+            rejection = `Market pause: ${Math.round(downShare * 100)}% of universe in intraday downtrend`;
+            final = "skip";
+            if (!longPauseLogged) {
+              longPauseLogged = true;
+              void logEvent(
+                supabase,
+                cfg.user_id,
+                "info",
+                `Longs paused this scan: ${Math.round(downShare * 100)}% of universe in intraday downtrend (>= ${LONG_PAUSE_DOWN_SHARE * 100}%)`,
+                { kind: "long_market_pause", down_share: Number(downShare.toFixed(3)), timeframe: cfgTimeframe },
+              ).catch(() => {});
+            }
+          }
+
+          // Long vetoes (flagged live-arm test; v2's successor). The v2 score
+          // died at its out-of-sample bar (selected −$15.57 vs rejected +$64.59
+          // at n=32), but its AUTOPSY found exactly two components that
+          // replicated across two OPPOSITE regimes: (a) don't chase symbols
+          // already labeled Bullish-24h, (b) don't buy RSI>65. Longs surviving
+          // both vetoes ran 70.8% win +$70.41 (Jul 10-15) while every vetoed
+          // bucket was negative. Pre-registered bar: at n>=30 vetoed-long
+          // closures in the passive tally, kept must beat vetoed or this flag
+          // dies v2-style. NOT a crash-day defense (nothing symbol-local is) —
+          // that's the market-pause gate below.
+          if (!rejection && side === "long" && cfg.long_vetoes_enabled === true) {
+            const chasing = a.market_regime === REGIME_BULLISH_24H;
+            const overheated = a.rsi != null && a.rsi > 65;
+            if (chasing || overheated) {
+              rejection = chasing
+                ? `Long veto: already Bullish-24h (no chasing)`
+                : `Long veto: RSI ${Math.round(a.rsi as number)} > 65`;
+              final = "skip";
+              void logEvent(
+                supabase,
+                cfg.user_id,
+                "info",
+                `Auto-book skipped ${a.symbol}: ${rejection}`,
+                {
+                  kind: "long_veto_blocked",
+                  symbol: a.symbol,
+                  chasing,
+                  overheated,
+                  rsi: a.rsi,
+                  market_regime: a.market_regime,
+                },
+              ).catch(() => {});
+            }
+          }
+
+          // V2 confluence gate (KILLED at its pre-registered bar 2026-07-15;
+          // flag off everywhere — code kept for the record/re-test). Books a
+          // LONG only when the measured-component score clears the bar.
           if (!rejection && side === "long" && cfg.v2_long_gate_enabled === true) {
             const score = v2LongScore(a);
             if (score < 2) {
