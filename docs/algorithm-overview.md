@@ -58,7 +58,24 @@ A/B-tested, what's only backtested, and what's still a known weakness.
 4. **Freshness arm (`PROPOSED`)** — rank a universe arm by *recent* (1h/4h) momentum so fresh intraday breakouts get scanned before they clear the 24h gate (that's where the long edge is earliest). Cost: the futures ticker exposes no intraday field, so this needs a candle-fetch pass over the candidate pool (the universe is built before candle analysis today) — a heavier, deliberate change, not yet built.
 5. Add a funding-rate gate for shorts (crowded longs).
 6. **Side-aware stop geometry — SHIPPED for shorts (2026-07-12):** the fade-short sweep was monotonic (tight 0.85/1.45 → PF 0.90 vs the long-preset scale 1.5/2.55 → PF 0.61 at 26% win), and live shorts were inheriting the long geometry. `computeRiskPlan` now takes a `side`: shorts run each style's SAME R:R ratio at **60% of the long stop scale, capped at 1.3% price** (aggressive ≈ 1.1/2.2, balanced ≈ 0.9/1.5). Longs untouched (their retune is item 7, July-19). Note: the scanner RISK CHECK panel still displays long geometry (display-only; queued with scanner work). The mean-rev fade remains regime-cyclical (56–58% win in the pump week, negative in the soft week) — the live A/B judges the fade itself.
-7. **Long stop-geometry retune (July-19 agenda, replay-validated):** MAE analysis showed 95% of winners never dip below −2.2% ROE while stops sit at −3.6..−5.6% ROE. Replay sweep (longs, 30-symbol universe, both windows): the moderate **1.1%/1.9% price (≈ −3.3/+5.7 ROE)** geometry beat the current-scale baseline in BOTH windows (7d: net +78.9 vs +54.6, PF 1.18 vs 1.11 · 14d: +54.9 vs +28.4, PF 1.13 vs 1.06), while the naive MAE-fitted −2.5 ROE stop LOST to baseline (whipsaws dominate). Note the winning R:R ≈ 1.73:1 — the same ratio as the balanced preset's targetMult — so the candidate change is scaling DOWN the absolute stop (min_sl/atr_mult/max_auto_sl), not changing the ratio. |
+7. **Long stop-geometry retune — NOT SHIPPED (re-validation failed its bar, 2026-07-21):** the Jul-12 sweep's winner (**1.1%/1.9% price**, ≈ −3.3/+5.7 ROE, R:R ≈ 1.73:1) beat baseline in both of its original windows (7d +78.9 vs +54.6 · 14d +54.9 vs +28.4). The pre-registered ship condition was that this edge replicate on the freshest data in BOTH sub-windows. Fresh replay (350 real longs Jul 13–20, live exit stack incl. net-breakeven + micro-lock, deltas-only reading — absolute levels are pessimistic-convention artifacts and 157/411 rows carry breakeven-parked stops): retune +$74 better in Jul 13–16 but **−$12 WORSE in Jul 17–20** — the edge did not replicate in the freshest window, so the geometry stays as-is. Re-testable after the next few weeks of closed longs; the MAE observation (95% of winners never dip below −2.2% ROE) still stands as motivation. |
+
+## Go-live clock (restarted at the July-19 review)
+
+- **T0 = 2026-07-20 00:00 IST.** All go-live metrics (daily net P&L, max daily drawdown,
+  win rate, weekly totals) count from trades closed at/after T0 — no balance resets, no
+  history wipes; `paper_equity` is a fixed $1,000 per cohort so sizing never drifts.
+- **Champion config (frozen):** confidence thresholds per style · fade-only shorts with
+  side-aware short geometry · net breakeven + micro peak-lock · 2-scan entry confirmation
+  · structure filters OFF · intraday market-pause for longs (≥50% down-share) · coin
+  regime gate at 45% breadth. Long vetoes remain a flagged arm on 2ce184c8 only (bar:
+  n≥30 vetoed closures, kept must beat vetoed) — arm flags may flip at their bars without
+  restarting the clock; champion-config changes DO restart it.
+- **Bar:** 2 consecutive net-positive paper weeks (W1 ends Jul 26, W2 ends Aug 2 IST) with
+  max daily drawdown <5% of the $1,000 book. Earliest futures-only real-money pilot:
+  **Aug 3**, gated additionally on the pre-pilot P1 build (live TP1 orders,
+  order-before-insert, live daily caps, equity circuit breaker at −10% from peak, coin
+  phantom-buy fix). Coins stay paper until every entry arm reaches n≥30 entries.
 
 _Live = running in production. Shadow = live on a subset of cohorts for A/B. Backtested =
 validated on refetched CoinDCX candles, not yet trading. No live-trading change ships
