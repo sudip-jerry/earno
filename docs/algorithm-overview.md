@@ -22,7 +22,7 @@ A/B-tested, what's only backtested, and what's still a known weakness.
 | **Auto-book gate** | `LIVE` | Books only when confidence clears the cohort threshold (80–90). Below that, shown in the feed but not traded. |
 | **Entry gates** | `LIVE` | Regime filter · spread cap · momentum-exhaustion block · per-symbol post-stop cooldown · major-coin confidence floor · min-net-profit-to-enter · blocked session hours · **2-scan entry confirmation — all cohorts, both sides, final gate**: an entry must survive every other gate on two consecutive scans before booking (kills the single-lucky-tick whipsaw entry); the DB counter enforces a min-gap so overlapping scan passes can't double-count. A **1-minute hot-list pass** was tried on 2026-07-12 (shipped 17:00 UTC, killed ~18:40 same day by its pre-registered bar): re-checking pending candidates at +60s admitted 4 trades/hour whose next full-scan look fell BELOW the threshold (conf 88→64 flicker, −$23.6 aggregate) — and their volume spikes were 0.19–0.67×, so no climax guard could have caught them. Lesson kept: the 2-minute spacing is not dead latency, it IS the debounce — a 60s re-look is not an independent observation on fast indicators. Its honest cost stays measured (median 0.048% price adverse drift per booking, 28/38 against) and is accepted. Cron unscheduled, `hotlist_enabled=false` everywhere (default false); the `hotlistOnly` code path stays dormant for a possible post-July-19 redesign requiring look-to-look stability. The 2-scan debounce's rejects averaged +0.06% gross at 30m — below the 0.118% round-trip fee — so single-look booking stays off. In bearish regimes, surviving fade shorts are held to the counter-trend floor (the old with-trend short discount was removed — it was calibrated for shorting falling symbols, which the gainers-only universe no longer contains). |
 | **Structure filter — LONGS** | `OFF` (2026-07-17, A/B verdict) | The 10-day balanced-twin A/B reversed the early read decisively: control (filters OFF) +$85.69 at 50.3% win vs treatment −$26.47 at 41.7% — the filters cut trade volume 39% and their surviving shorts LOST while unfiltered shorts won. Both shadow filters (structure long + mean-rev short) set false everywhere; flags kept for re-test. |
-| **Long vetoes** | `SHADOW` (live on 1 arm) | v2's autopsy survivors — the only two components that replicated across two opposite regimes: no longs on symbols already labeled Bullish-24h (don't chase), no longs at RSI>65. Kept set ran 70.8% win +$70.41 (Jul 10–15) while every vetoed bucket was negative. Live on the 2ce184c8 arm (`long_vetoes_enabled`); pre-registered bar: at n≥30 vetoed-long closures in the passive tally, kept must beat vetoed or the flag dies v2-style. Explicitly NOT a crash-day defense — that's the market pause. |
+| **Long vetoes** | `LIVE` (all cohorts, promoted 2026-07-21 at its bar) | v2's autopsy survivors — the only two components that replicated across two opposite regimes: no longs on symbols already labeled Bullish-24h (don't chase), no longs at RSI>65. Arm test (2ce184c8 only, Jul 17–21) hit its pre-registered bar at n=52 vetoed closures: kept profile 58.9% win +$28.29 (n=253) vs vetoed profile 38.5% win **−$112.55** — kept beat vetoed on both win% and net, so the veto was promoted book-wide (`long_vetoes_enabled=true` everywhere; migration 20260721051500). One banked counter-example: a slow strong trender (XMR, Jul 18) can grind higher for hours while vetoed — accepted cost, dwarfed by the chase losses. Explicitly NOT a crash-day defense — that's the market pause. |
 | **Intraday market-pause — LONGS** | `LIVE` | No NEW longs while ≥50% of the scanned universe is in intraday downtrend (share of `trend_status` in Downtrend/Strong downtrend; labels the scan already computes — zero extra fetches). Shorts and all exits unaffected: in red tape the book goes short-only, not dark. Replay Jul 10–17: the ≥50% band was net-negative for longs in BOTH windows (green −$41.87, red −$9.16). Known limit: it cannot catch tops bought in the hour BEFORE a rollover becomes visible — that residual is contained by caps/circuit-breaker, and a sub-hour market-health signal is the post-review project. |
 | **V2 confluence gate — LONGS** | `KILLED` (2026-07-15, at its pre-registered bar) | Measured-component score (trend strength +2 · calm volume +1 / spike −2 · RSI 40–55 +1 / 55–65 −1 · sideways +1 / bullish −1, book at ≥2) that beat confidence in an IN-SAMPLE replay (selected +$32.74 vs rejected −$87.86 on the same 14d that trained the weights). Out-of-sample (n=32 selected at the bar): 46.9% win **−$15.57** vs rejected 63% **+$64.59** — inversion held in every universe-strength band (no regime where it worked), so neither promotion, sign-flip, nor regime-switching survived. Gate off everywhere; passive tally kept in monitoring so a true bull regime can still be tested. Lessons banked: in-sample replay is a hypothesis, not a verdict; the climax penalty (spike ≥1.5 → −2) remains independently validated and feeds the component autopsy for the confidence model's successor. | |
 | **Short logic** | `LIVE` + `SHADOW` | **Continuation-short gate (`LIVE`, all cohorts): shorts are fade-only.** Shorting a symbol already in a bearish 24h regime (34% win, −$72/14d) or with RSI<40 (32% win) is blocked outright; only fade-shaped shorts (bullish/sideways 24h symbol, RSI≥40 — 45.6% win, +$18/14d measured) may book. On top, the **mean-reversion fade filter** (`SHADOW`, treatment cohorts) requires an overextended, overbought, volume-spiking 15m move rolling over. Backtest: 56–58% win / PF 1.5–1.7. |
@@ -62,18 +62,21 @@ A/B-tested, what's only backtested, and what's still a known weakness.
 
 ## Go-live clock (restarted at the July-19 review)
 
-- **T0 = 2026-07-20 00:00 IST.** All go-live metrics (daily net P&L, max daily drawdown,
-  win rate, weekly totals) count from trades closed at/after T0 — no balance resets, no
-  history wipes; `paper_equity` is a fixed $1,000 per cohort so sizing never drifts.
+- **T0 = 2026-07-22 00:00 IST** (restarted 2026-07-21 when the long vetoes were promoted
+  book-wide — a champion-config change; the original Jul-20 T0's day 1 had already failed
+  the daily-drawdown cap at −$53.51 on one cohort, so the restart cost nothing). All
+  go-live metrics (daily net P&L, max daily drawdown, win rate, weekly totals) count from
+  trades closed at/after T0 — no balance resets, no history wipes; `paper_equity` is a
+  fixed $1,000 per cohort so sizing never drifts.
 - **Champion config (frozen):** confidence thresholds per style · fade-only shorts with
   side-aware short geometry · net breakeven + micro peak-lock · 2-scan entry confirmation
-  · structure filters OFF · intraday market-pause for longs (≥50% down-share) · coin
-  regime gate at 45% breadth. Long vetoes remain a flagged arm on 2ce184c8 only (bar:
-  n≥30 vetoed closures, kept must beat vetoed) — arm flags may flip at their bars without
-  restarting the clock; champion-config changes DO restart it.
-- **Bar:** 2 consecutive net-positive paper weeks (W1 ends Jul 26, W2 ends Aug 2 IST) with
-  max daily drawdown <5% of the $1,000 book. Earliest futures-only real-money pilot:
-  **Aug 3**, gated additionally on the pre-pilot P1 build (live TP1 orders,
+  · structure filters OFF · **long vetoes ALL cohorts** (no Bullish-24h chase, no RSI>65
+  longs) · intraday market-pause for longs (≥50% down-share) · coin regime gate at 45%
+  breadth. Champion-config changes restart the clock; arm-flag flips at pre-registered
+  bars on test arms do not.
+- **Bar:** 2 consecutive net-positive paper weeks (W1 ends Jul 28, W2 ends Aug 4 IST) with
+  max daily drawdown <5% of the $1,000 book per cohort. Earliest futures-only real-money
+  pilot: **Aug 5**, gated additionally on the pre-pilot P1 build (live TP1 orders,
   order-before-insert, live daily caps, equity circuit breaker at −10% from peak, coin
   phantom-buy fix). Coins stay paper until every entry arm reaches n≥30 entries.
 

@@ -6,10 +6,11 @@ Futures P&L is USD/USDT (never INR).
 
 ## Futures (updated 2026-07-17: filters OFF everywhere; long-vetoes arm live on
 ## 2ce184c8; universal intraday market-pause live)
-- **Long-vetoes passive tally** (the arm's pre-registered bar): across ALL cohorts'
-  closed longs, split by veto condition (market_regime='Bullish 24h' OR rsi>65 at
-  the booked signal). At n≥30 vetoed closures: kept must beat vetoed (win% AND net)
-  or flip `long_vetoes_enabled=false` on 2ce184c8 and report.
+- **Long vetoes: PROMOTED to all cohorts 2026-07-21** (bar crossed at n=52: kept
+  58.9%/+$28.29 vs vetoed 38.5%/−$112.55). Watch `long_veto_blocked` events (now
+  expected from every cohort) and keep the kept-vs-vetoed-profile tally as a
+  post-promotion sanity check — if the vetoed profile ever turns strongly positive
+  over a fresh n≥30 window, flag for re-review; do not flip flags silently.
 - **Market-pause activity**: bot_events meta->>'kind'='long_market_pause' count +
   down_share values; sanity: pauses should cluster in red hours, and shorts should
   still book during pauses.
