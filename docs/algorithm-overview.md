@@ -76,9 +76,22 @@ A/B-tested, what's only backtested, and what's still a known weakness.
   bars on test arms do not.
 - **Bar:** 2 consecutive net-positive paper weeks (W1 ends Jul 28, W2 ends Aug 4 IST) with
   max daily drawdown <5% of the $1,000 book per cohort. Earliest futures-only real-money
-  pilot: **Aug 5**, gated additionally on the pre-pilot P1 build (live TP1 orders,
-  order-before-insert, live daily caps, equity circuit breaker at −10% from peak, coin
-  phantom-buy fix). Coins stay paper until every entry arm reaches n≥30 entries.
+  pilot: **Aug 5**.
+- **Pre-pilot P1 build (shipped 2026-07-21):** ① live TP1 — the 50% partial close is a
+  real reduce-only order in live mode, booked only on order success (fails → retried next
+  pass); ② entry orphan reconciliation — a live fill whose row-insert fails is flattened
+  immediately (entry order-before-insert was already correct); ③ equity circuit breaker —
+  mark pass tracks an intraday (IST) equity peak per user (`equity_peak`), and at
+  `circuit_breaker_pct` (default 10%) below peak flattens the book (real orders in live;
+  rows whose live flatten fails stay OPEN rather than hiding exposure) and halts new
+  entries for the rest of the IST day (`halted_on`); ④ kill switch now flattens live
+  positions on the exchange, not just in the DB; ⑤ coin phantom-buy fix — atomic
+  buy/close RPCs (cash + row in one transaction), per-user scan lease against
+  overlapping scans, unique open-holding index, and live-order-BEFORE-commit with a
+  compensating sell if the local commit fails. Daily loss cap was already live-aware
+  (blocks new entries at `daily_loss_cap_pct` of resolved equity). Emergency
+  `circuit_breaker`/`kill_switch` closes book PnL without fee estimation — acceptable
+  for a brake, noted for reporting. Coins stay paper until every entry arm reaches n≥30 entries.
 
 _Live = running in production. Shadow = live on a subset of cohorts for A/B. Backtested =
 validated on refetched CoinDCX candles, not yet trading. No live-trading change ships

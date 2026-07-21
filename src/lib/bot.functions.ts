@@ -194,21 +194,60 @@ export const killAll = createServerFn({ method: "POST" })
       .from("bot_config")
       .update({ is_running: false })
       .eq("user_id", context.userId);
-    await supabaseAdmin
+
+    // LIVE positions must be flattened on the EXCHANGE, not just in the DB —
+    // a kill switch that closes rows while real exposure stays open is worse
+    // than no kill switch. Rows whose live flatten fails stay open (and the
+    // user sees it) rather than silently hiding exchange exposure.
+    const { data: openRows } = await supabaseAdmin
       .from("positions")
-      .update({
-        status: "closed",
-        closed_at: new Date().toISOString(),
-        exit_reason: "kill_switch",
-      })
+      .select("id,symbol,side,qty,remaining_qty,mode")
       .eq("user_id", context.userId)
       .eq("status", "open");
+    let flattenFailures = 0;
+    for (const r of openRows ?? []) {
+      if (r.mode === "live") {
+        const { loadLiveCreds, placeLiveExit } = await import("@/lib/futures/live-execution.server");
+        const creds = await loadLiveCreds(supabaseAdmin, context.userId);
+        const remainQ = Number(r.remaining_qty ?? r.qty);
+        const exec =
+          creds && remainQ > 0
+            ? await placeLiveExit({
+                creds,
+                symbol: r.symbol as string,
+                side: r.side as "long" | "short",
+                qty: remainQ,
+              })
+            : ({ ok: false as const, error: creds ? "zero qty" : "no API credentials" });
+        if (!exec.ok) {
+          flattenFailures++;
+          await supabaseAdmin.from("bot_events").insert({
+            user_id: context.userId,
+            level: "error",
+            message: `Kill switch: live flatten FAILED for ${r.symbol}: ${exec.error} — position left open, close it manually on CoinDCX`,
+            meta: { kind: "kill_switch_flatten_failed", symbol: r.symbol, position_id: r.id },
+          });
+          continue;
+        }
+      }
+      await supabaseAdmin
+        .from("positions")
+        .update({
+          status: "closed",
+          closed_at: new Date().toISOString(),
+          exit_reason: "kill_switch",
+        })
+        .eq("id", r.id as string)
+        .eq("status", "open");
+    }
     await supabaseAdmin.from("bot_events").insert({
       user_id: context.userId,
       level: "warn",
-      message: "Kill switch activated. All positions force-closed and bot stopped.",
+      message: flattenFailures
+        ? `Kill switch activated. Bot stopped; ${flattenFailures} live position(s) could NOT be flattened — close them manually.`
+        : "Kill switch activated. All positions force-closed and bot stopped.",
     });
-    return { ok: true };
+    return { ok: true, flatten_failures: flattenFailures };
   });
 
 const MANUAL_TRIGGER_PREFIX = "Manual trigger:";

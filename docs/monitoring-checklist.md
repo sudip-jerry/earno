@@ -22,6 +22,13 @@ Futures P&L is USD/USDT (never INR).
 - Filter A/B arms vs controls; conservative cohorts booking normally (no
   "Risk-reward weak" floods — that signature = targetMult/minRR incoherence).
 - Gates health: `entry_confirm_rpc_error` count, universe warnings, spread-skip volume.
+- P1 safety events (all should be RARE; any occurrence is worth a line in the report):
+  `circuit_breaker_tripped` / `circuit_breaker_flatten_failed` (flatten-failed = live
+  exposure left open deliberately — needs eyes), `live_tp1_failed`/`live_tp1_placed`,
+  `live_orphan_flattened`/`live_orphan_flatten_failed`, `kill_switch_flatten_failed`.
+  Coin side (kind is a COLUMN): `auto_buy_rejected` (lost race — occasional is fine),
+  `coin_close_rpc_error` (RPC broken, legacy fallback in use — fix the function),
+  `live_buy_orphan_flattened`/`live_buy_orphan_flatten_failed`.
 - Short bookings: tight fade geometry live (stop ≈0.9–1.3% price, per-style R:R
   unchanged); continuation-short gate holding (no bearish-24h/RSI<40 shorts).
 

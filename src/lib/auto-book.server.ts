@@ -633,6 +633,13 @@ type BotConfig = {
   // Long vetoes (v2's autopsy survivors: no Bullish-24h chase, no RSI>65 longs).
   // Flagged live-arm test with a pre-registered bar — see the gate site.
   long_vetoes_enabled?: boolean | null;
+  // Equity circuit breaker (pre-pilot P1). equity_peak = intraday (IST) equity
+  // high-water mark maintained by the mark pass; halted_on = the IST date the
+  // breaker tripped (book flattened + no new entries for the rest of that day).
+  equity_peak?: number | null;
+  equity_peak_date?: string | null;
+  halted_on?: string | null;
+  circuit_breaker_pct?: number | null;
 };
 
 /**
@@ -821,7 +828,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,minimum_expected_edge_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms,structure_entry_filter_enabled,structure_short_filter_enabled,v2_long_gate_enabled,hotlist_enabled,long_vetoes_enabled",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,minimum_expected_edge_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms,structure_entry_filter_enabled,structure_short_filter_enabled,v2_long_gate_enabled,hotlist_enabled,long_vetoes_enabled,halted_on",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -1164,7 +1171,13 @@ export async function runAutoBookPass(
     // Pause-level reasons → log but still emit per-symbol signals so the
     // operator sees why nothing was booked.
     let userBlockReason: string | null = null;
+    // Circuit-breaker halt: the mark pass flattened this user's book earlier
+    // today (IST) after a >=circuit_breaker_pct drop from the intraday equity
+    // peak. No new entries until the next IST day.
+    const istToday = istNow.toISOString().slice(0, 10);
     if (planDailyLimit <= 0) userBlockReason = "Plan does not allow auto-book";
+    else if ((cfg.halted_on ?? null) === istToday)
+      userBlockReason = "Circuit breaker tripped: halted for the day";
     else if (!dailyLossAvailable) userBlockReason = "Daily loss cap hit";
     else if (remainingToday <= 0)
       userBlockReason = `Daily auto-book limit reached (${todayAutoCount}/${dailyLimit})`;
@@ -2405,6 +2418,29 @@ export async function runAutoBookPass(
                   "error",
                   `Auto-book ${a.symbol} failed: ${rejection}`,
                 );
+                // LIVE orphan reconciliation: a real order already filled but
+                // the local row failed to write — the exchange holds a position
+                // the book doesn't know about. Flatten it immediately
+                // (reduce-only market) instead of leaving it to a human.
+                if (cfg.mode === "live" && liveOrderId) {
+                  const creds = await loadLiveCreds(supabase, cfg.user_id);
+                  const undo = creds
+                    ? await placeLiveExit({ creds, symbol: a.symbol, side, qty })
+                    : ({ ok: false as const, error: "no API credentials" });
+                  await logEvent(
+                    supabase,
+                    cfg.user_id,
+                    "error",
+                    `Live entry ${liveOrderId} for ${a.symbol} had no local row — compensating flatten ${undo.ok ? `placed (#${undo.orderId})` : `FAILED: ${undo.error} — MANUAL RECONCILE REQUIRED`}`,
+                    {
+                      kind: undo.ok ? "live_orphan_flattened" : "live_orphan_flatten_failed",
+                      symbol: a.symbol,
+                      side,
+                      order_id: liveOrderId,
+                      qty,
+                    },
+                  );
+                }
                 // Mark the pre-inserted signal as rejected.
                 await supabase
                   .from("bot_signals")
@@ -2550,7 +2586,7 @@ export async function runMarkPass(
   const { data: cfgRows } = await supabase
     .from("bot_config")
     .select(
-      "user_id,auto_close_minutes,trading_style,strategy,min_scalp_score,fee_aware_exits_enabled,minimum_net_profit_to_exit_pct,slippage_buffer_pct,minimum_gross_profit_before_profit_fade_exit_pct,minimum_gross_profit_before_weak_progress_exit_pct,breakeven_arm_roe_pct",
+      "user_id,auto_close_minutes,trading_style,strategy,min_scalp_score,fee_aware_exits_enabled,minimum_net_profit_to_exit_pct,slippage_buffer_pct,minimum_gross_profit_before_profit_fade_exit_pct,minimum_gross_profit_before_weak_progress_exit_pct,breakeven_arm_roe_pct,mode,paper_equity,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,equity_peak,equity_peak_date,halted_on,circuit_breaker_pct",
     )
 
     .in("user_id", userIds);
@@ -2906,6 +2942,37 @@ export async function runMarkPass(
       highest_unrealized_pnl: highPnl,
       lowest_unrealized_pnl: lowPnl,
     };
+    // LIVE TP1: the 50% partial close must be REAL in live mode — previously
+    // TP1 only booked in the DB while the exchange kept full size, so the
+    // "runner" carried twice the risk the book showed. Order first, book only
+    // on success; on failure TP1 stays unbooked and the next mark pass retries
+    // (price is still beyond tp1, so tp1JustHit fires again). When the final
+    // exit fires in the SAME pass, skip the partial — the final-exit branch
+    // flattens the still-full remaining_qty in one order.
+    if (tp1JustHit && finalExitReason == null && p.mode === "live") {
+      const creds = await loadLiveCreds(supabase, p.user_id as string);
+      const exec = creds
+        ? await placeLiveExit({ creds, symbol: p.symbol as string, side, qty: qty / 2 })
+        : ({ ok: false as const, error: "no API credentials" });
+      if (!exec.ok) {
+        await logEvent(
+          supabase,
+          p.user_id as string,
+          "error",
+          `Live TP1 partial for ${p.symbol} failed: ${exec.error} — TP1 not booked, retrying next pass`,
+          { kind: "live_tp1_failed", symbol: p.symbol, side },
+        );
+        tp1JustHit = false;
+      } else {
+        await logEvent(
+          supabase,
+          p.user_id as string,
+          "info",
+          `Live TP1 partial placed for ${p.symbol}: ${qty / 2} (#${exec.orderId})`,
+          { kind: "live_tp1_placed", symbol: p.symbol, order_id: exec.orderId },
+        );
+      }
+    }
     if (tp1JustHit) {
       const halfQty = qty / 2;
       const tp1AbsPnl = (mark - entry) * halfQty * sideMul;
@@ -3112,6 +3179,135 @@ export async function runMarkPass(
         .eq("id", p.id as string);
       void shadowPnlPct;
     }
+  }
+
+  // ---- Equity circuit breaker (pre-pilot P1) ----
+  // Hard floor under a runaway day: when a user's equity (wallet/paper base +
+  // today's realized + open PnL) falls circuit_breaker_pct below its intraday
+  // (IST) peak, flatten the whole book — real reduce-only orders in live mode —
+  // and halt NEW entries for the rest of the IST day (entry pass checks
+  // halted_on). The peak resets each IST day so one bad day can't arm a
+  // permanently unreachable high-water mark. If a live flatten order fails,
+  // the row is left OPEN so the normal exit stack keeps managing it — a DB
+  // close that hides real exchange exposure is worse than a lingering row.
+  try {
+    const istOffsetMs = 5.5 * 3600_000;
+    const istNowMark = new Date(Date.now() + istOffsetMs);
+    const istToday = istNowMark.toISOString().slice(0, 10);
+    const istDayStartIso = new Date(
+      Date.UTC(
+        istNowMark.getUTCFullYear(),
+        istNowMark.getUTCMonth(),
+        istNowMark.getUTCDate(),
+      ) - istOffsetMs,
+    ).toISOString();
+
+    for (const breakerUserId of userIds) {
+      const bCfg = cfgByUser.get(breakerUserId) as unknown as BotConfig | undefined;
+      if (!bCfg) continue;
+      if ((bCfg.halted_on ?? null) === istToday) continue; // already tripped today
+      const trippct = Number(bCfg.circuit_breaker_pct ?? 10);
+      if (!(trippct > 0)) continue; // explicit 0/negative disables the breaker
+
+      const base = await resolveEquity(supabase, bCfg);
+      if (!(base > 0)) continue;
+
+      const { data: todayClosed } = await supabase
+        .from("positions")
+        .select("pnl")
+        .eq("user_id", breakerUserId)
+        .eq("instrument", "futures")
+        .eq("status", "closed")
+        .gte("closed_at", istDayStartIso);
+      const realizedToday = (todayClosed ?? []).reduce((s, r) => s + Number(r.pnl ?? 0), 0);
+
+      const { data: openNow } = await supabase
+        .from("positions")
+        .select("id,symbol,side,qty,remaining_qty,pnl,mark_price,mode")
+        .eq("user_id", breakerUserId)
+        .eq("instrument", "futures")
+        .eq("status", "open");
+      const openPnl = (openNow ?? []).reduce((s, r) => s + Number(r.pnl ?? 0), 0);
+
+      const equityNow = base + realizedToday + openPnl;
+      const storedPeak =
+        bCfg.equity_peak != null && bCfg.equity_peak_date === istToday
+          ? Number(bCfg.equity_peak)
+          : null;
+      const peak = Math.max(storedPeak ?? equityNow, equityNow);
+      if (storedPeak == null || peak > storedPeak) {
+        await supabase
+          .from("bot_config")
+          .update({ equity_peak: peak, equity_peak_date: istToday } as never)
+          .eq("user_id", breakerUserId);
+      }
+
+      const floor = peak * (1 - trippct / 100);
+      if (equityNow > floor) continue;
+
+      // ---- TRIP: halt first (so a crash mid-flatten still blocks entries),
+      // then flatten every open position. ----
+      await supabase
+        .from("bot_config")
+        .update({ halted_on: istToday } as never)
+        .eq("user_id", breakerUserId);
+      await logEvent(
+        supabase,
+        breakerUserId,
+        "error",
+        `CIRCUIT BREAKER: equity ${equityNow.toFixed(2)} is ${trippct}% below today's peak ${peak.toFixed(2)} — flattening ${(openNow ?? []).length} position(s); no new entries until tomorrow (IST)`,
+        {
+          kind: "circuit_breaker_tripped",
+          equity: Number(equityNow.toFixed(2)),
+          peak: Number(peak.toFixed(2)),
+          trip_pct: trippct,
+          open_positions: (openNow ?? []).length,
+        },
+      );
+
+      for (const r of openNow ?? []) {
+        if (r.mode === "live") {
+          const creds = await loadLiveCreds(supabase, breakerUserId);
+          const remainQ = Number(r.remaining_qty ?? r.qty);
+          const exec =
+            creds && remainQ > 0
+              ? await placeLiveExit({
+                  creds,
+                  symbol: r.symbol as string,
+                  side: r.side as "long" | "short",
+                  qty: remainQ,
+                })
+              : ({ ok: false as const, error: creds ? "zero qty" : "no API credentials" });
+          if (!exec.ok) {
+            await logEvent(
+              supabase,
+              breakerUserId,
+              "error",
+              `Circuit-breaker flatten FAILED for ${r.symbol}: ${exec.error} — row left open for the exit stack`,
+              { kind: "circuit_breaker_flatten_failed", symbol: r.symbol, position_id: r.id },
+            );
+            continue; // do NOT close the DB row over live exposure we failed to flatten
+          }
+        }
+        await supabase
+          .from("positions")
+          .update({
+            status: "closed",
+            closed_at: new Date().toISOString(),
+            exit_price: r.mark_price ?? null,
+            exit_reason: "circuit_breaker",
+            final_exit_reason: "circuit_breaker",
+            estimated_net_pnl: Number(r.pnl ?? 0),
+            gross_pnl: Number(r.pnl ?? 0),
+          } as never)
+          .eq("id", r.id as string)
+          .eq("status", "open");
+        closed++;
+      }
+    }
+  } catch (e) {
+    // The breaker must never take down the mark pass itself.
+    console.error("circuit breaker sweep failed", e);
   }
 
   return { updated, closed };

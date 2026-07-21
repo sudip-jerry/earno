@@ -95,6 +95,75 @@ async function markSymbolInactive(supabase: SupabaseClient, symbol: string) {
   }
 }
 
+/**
+ * Close an open coin position and credit the proceeds back to the wallet in ONE
+ * transaction (`coin_close_atomic` RPC, CAS on status='open'). Returns the
+ * realized PnL, or null when the row was already closed by a concurrent pass —
+ * callers must skip their logging/counters on null so a scan overlapping the
+ * enforce pass can never double-close or double-credit cash.
+ *
+ * Exits must never fail closed: if the RPC itself errors (missing function,
+ * transient DB error) we fall back to the legacy CAS update + cash credit and
+ * log loudly — a stuck-open position on a crashing coin is worse than a rare
+ * non-atomic credit.
+ */
+async function closeCoinPosition(
+  supabase: SupabaseClient,
+  userId: string,
+  posId: string,
+  exitPrice: number,
+  exitReason: string,
+): Promise<number | null> {
+  const { data, error } = await supabase.rpc("coin_close_atomic", {
+    _pos_id: posId,
+    _exit_price: exitPrice,
+    _exit_reason: exitReason,
+  });
+  if (!error) return data == null ? null : Number(data);
+
+  await logCoinEvent(supabase, userId, "error", "coin_close_rpc_error",
+    `coin_close_atomic failed (${error.message}) — falling back to legacy close`,
+    { position_id: posId, error: error.message });
+  const { data: row } = await supabase
+    .from("coin_positions")
+    .select("qty, invested_usdt")
+    .eq("id", posId)
+    .maybeSingle();
+  if (!row) return null;
+  const proceeds = Number(row.qty) * exitPrice;
+  const realized =
+    proceeds - Number(row.invested_usdt) - Number(row.invested_usdt) * 0.001 - proceeds * 0.001;
+  const { data: updated } = await supabase
+    .from("coin_positions")
+    .update({
+      status: "closed",
+      closed_at: new Date().toISOString(),
+      exit_price: exitPrice,
+      exit_reason: exitReason,
+      last_price: exitPrice,
+      current_value_usdt: proceeds,
+      realized_pnl_usdt: realized,
+      unrealized_pnl_usdt: 0,
+    })
+    .eq("id", posId)
+    .eq("status", "open")
+    .select("id")
+    .maybeSingle();
+  if (!updated) return null;
+  const { data: cfgCash } = await supabase
+    .from("coin_bot_config")
+    .select("available_cash_usdt")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (cfgCash) {
+    await supabase
+      .from("coin_bot_config")
+      .update({ available_cash_usdt: Number(cfgCash.available_cash_usdt ?? 0) + proceeds })
+      .eq("user_id", userId);
+  }
+  return realized;
+}
+
 
 
 
@@ -136,11 +205,35 @@ export async function runCoinScanFor(
     }
   }
 
+  // Scan lease: two overlapping scans for the same user (a slow cron run
+  // overlapping the next fire, or cron + user-triggered) both read the same
+  // holdings/cash snapshot and double-buy — the root cause of phantom coin
+  // positions. CAS-acquire a short lease; a stale lease (crashed scan) expires
+  // on its own so a wedge can't outlive one interval.
+  const SCAN_LEASE_MS = 3 * 60_000;
+  const { data: lease } = await supabase
+    .from("coin_bot_config")
+    .update({ scan_lease_until: new Date(Date.now() + SCAN_LEASE_MS).toISOString() })
+    .eq("user_id", userId)
+    .or(`scan_lease_until.is.null,scan_lease_until.lt.${new Date().toISOString()}`)
+    .select("user_id")
+    .maybeSingle();
+  if (!lease) {
+    return { ok: false, error: "Scan already in progress for this user" };
+  }
+  const releaseLease = async () => {
+    await supabase
+      .from("coin_bot_config")
+      .update({ scan_lease_until: null })
+      .eq("user_id", userId);
+  };
+
   let tickers: NormalizedTicker[] = [];
   try {
     tickers = await fetchFuturesTickers();
   } catch {
     await logCoinEvent(supabase, userId, "error", "scan_error", "Public market data unavailable");
+    await releaseLease();
     return { ok: false, error: "Public market data unavailable" };
   }
 
@@ -352,7 +445,6 @@ export async function runCoinScanFor(
 
   // Auto-close on sell signals for held symbols
   let autoClosed = 0;
-  let cashDelta = 0;
   for (const sig of signalsToInsert) {
     const held = holdings.get(sig.symbol);
     if (!held || sig.action !== "sell") continue;
@@ -362,24 +454,17 @@ export async function runCoinScanFor(
       .eq("id", held.id)
       .maybeSingle();
     if (!row || row.status !== "open") continue;
-    const proceeds = Number(row.qty) * Number(sig.price);
-    const buyFee = Number(row.invested_usdt) * 0.001;
-    const sellFee = proceeds * 0.001;
-    const realized = proceeds - Number(row.invested_usdt) - buyFee - sellFee;
-    await supabase
-      .from("coin_positions")
-      .update({
-        status: "closed",
-        closed_at: new Date().toISOString(),
-        exit_price: sig.price,
-        exit_reason: `bot:${sig.reason_short}`,
-        last_price: sig.price,
-        current_value_usdt: proceeds,
-        realized_pnl_usdt: realized,
-        unrealized_pnl_usdt: 0,
-      })
-      .eq("id", row.id);
-    cashDelta += proceeds;
+    // Atomic close + cash credit (CAS on status): a concurrent enforce pass or
+    // overlapping scan closing the same row makes this return null — skip so
+    // proceeds are never credited twice.
+    const realized = await closeCoinPosition(
+      supabase,
+      userId,
+      row.id as string,
+      Number(sig.price),
+      `bot:${sig.reason_short}`,
+    );
+    if (realized == null) continue;
     autoClosed += 1;
     holdings.delete(sig.symbol);
     await logCoinEvent(
@@ -440,12 +525,7 @@ export async function runCoinScanFor(
 
     const stopPrice = row.stop_price != null ? Number(row.stop_price) : null;
     const targetPrice = row.target_price != null ? Number(row.target_price) : null;
-    const investedUsdt = Number(row.invested_usdt);
     const qty = Number(row.qty);
-    const proceeds = qty * currentPrice;
-    const buyFee = investedUsdt * 0.001;
-    const sellFee = proceeds * 0.001;
-    const realized = proceeds - investedUsdt - buyFee - sellFee;
 
     let exitReason: string | null = null;
     if (stopPrice !== null && currentPrice <= stopPrice) {
@@ -461,21 +541,12 @@ export async function runCoinScanFor(
 
     if (!exitReason) continue;
 
-    await supabase
-      .from("coin_positions")
-      .update({
-        status: "closed",
-        closed_at: new Date().toISOString(),
-        exit_price: currentPrice,
-        exit_reason: exitReason,
-        last_price: currentPrice,
-        current_value_usdt: proceeds,
-        realized_pnl_usdt: realized,
-        unrealized_pnl_usdt: 0,
-      })
-      .eq("id", row.id);
-
-    cashDelta += proceeds;
+    // Atomic close + cash credit (CAS on status) — see closeCoinPosition.
+    const realized = await closeCoinPosition(supabase, userId, row.id as string, currentPrice, exitReason);
+    if (realized == null) {
+      holdings.delete(sym);
+      continue;
+    }
     autoClosed += 1;
     holdings.delete(sym);
 
@@ -690,7 +761,15 @@ export async function runCoinScanFor(
     const slots = Math.max(0, cfg.max_holdings - currentlyOpen);
     const perTradeUsdt = cfg.allocated_capital_usdt / cfg.max_holdings;
 
-    let cash = Number(cfg.available_cash_usdt) + cashDelta;
+    // Refetch cash: this scan's closes credited the wallet atomically, so the
+    // cfg snapshot is stale. This value is only a fast-path estimate — the
+    // coin_buy_atomic RPC re-checks cash inside its own transaction.
+    const { data: cashRow } = await supabase
+      .from("coin_bot_config")
+      .select("available_cash_usdt")
+      .eq("user_id", userId)
+      .maybeSingle();
+    let cash = Number(cashRow?.available_cash_usdt ?? cfg.available_cash_usdt);
     for (const s of buys.slice(0, slots)) {
       if (cash < perTradeUsdt) {
         await logCoinEvent(
@@ -710,25 +789,76 @@ export async function runCoinScanFor(
         cfg.mode === "swing"
           ? new Date(Date.now() + cfg.max_holding_days * 24 * 60 * 60 * 1000).toISOString()
           : null;
-      await supabase.from("coin_positions").insert({
-        user_id: userId,
-        symbol: s.symbol,
-        display: s.display,
-        qty,
-        avg_buy_price: s.price,
-        last_price: s.price,
-        invested_usdt: perTradeUsdt,
-        current_value_usdt: perTradeUsdt,
-        status: "open",
-        mode: cfg.mode,
-        source: "bot",
-        target_price: s.target,
-        stop_price: s.stop,
-        max_holding_until: maxHoldUntil,
-        open_reason: `bot:${s.reason_short}`,
+
+      // LIVE mode: place the real order BEFORE committing the position. A
+      // rejected real buy must leave nothing behind — no row, no cash debit
+      // (previously the row+cash were committed first and a rejected order
+      // just logged, leaving a phantom holding).
+      let liveOrderId: string | null = null;
+      if (cfg.live_mode) {
+        const { loadCoinLiveCreds, placeCoinLiveBuy, toSpotPair } = await import("./coin-live-execution.server");
+        const creds = await loadCoinLiveCreds(supabase, userId);
+        if (!creds) {
+          await logCoinEvent(supabase, userId, "warn", "live_buy_no_creds",
+            `Live mode enabled but no API credentials for ${userId}`);
+          continue;
+        }
+        const exec = await placeCoinLiveBuy({
+          creds,
+          pair: toSpotPair(s.symbol),
+          totalQuantity: qty,
+        });
+        if (!exec.ok) {
+          await logCoinEvent(supabase, userId, "error", "live_buy_failed",
+            `Live buy failed for ${s.symbol}: ${exec.error}`,
+            { symbol: s.symbol, error: exec.error });
+          if (isDelistedError(exec.error)) {
+            await markSymbolInactive(supabase, s.symbol);
+            await logCoinEvent(supabase, userId, "warn", "symbol_auto_inactive",
+              `Auto-marked ${s.symbol} inactive after live-buy rejection: ${exec.error}`,
+              { symbol: s.symbol, error: exec.error });
+          }
+          continue;
+        }
+        liveOrderId = exec.orderId ?? null;
+      }
+
+      // Atomic commit: cash debit + position insert in ONE transaction; rejects
+      // (returns null) on insufficient cash or an existing open holding of the
+      // same symbol (unique index) — both are races another pass won.
+      const { data: posId, error: buyErr } = await supabase.rpc("coin_buy_atomic", {
+        _user_id: userId,
+        _symbol: s.symbol,
+        _display: s.display,
+        _qty: qty,
+        _price: s.price,
+        _invested: perTradeUsdt,
+        _mode: cfg.mode,
+        _target: s.target,
+        _stop: s.stop,
+        _max_holding_until: maxHoldUntil,
+        _open_reason: `bot:${s.reason_short}`,
       });
+      if (buyErr || !posId) {
+        await logCoinEvent(supabase, userId, buyErr ? "error" : "warn", "auto_buy_rejected",
+          `Buy of ${s.symbol} not committed: ${buyErr ? buyErr.message : "insufficient cash or already held (concurrent pass won the race)"}`,
+          { symbol: s.symbol, error: buyErr?.message ?? null, live_order_id: liveOrderId });
+        // A real purchase already filled but the local commit failed — reverse
+        // it immediately so the exchange and the book don't diverge.
+        if (liveOrderId) {
+          const { loadCoinLiveCreds, placeCoinLiveSell, toSpotPair } = await import("./coin-live-execution.server");
+          const creds = await loadCoinLiveCreds(supabase, userId);
+          const undo = creds
+            ? await placeCoinLiveSell({ creds, pair: toSpotPair(s.symbol), totalQuantity: qty })
+            : { ok: false as const, error: "no creds" };
+          await logCoinEvent(supabase, userId, "error",
+            undo.ok ? "live_buy_orphan_flattened" : "live_buy_orphan_flatten_failed",
+            `Live buy ${liveOrderId} for ${s.symbol} had no local commit — compensating sell ${undo.ok ? "placed" : `FAILED: ${undo.error}`}`,
+            { symbol: s.symbol, order_id: liveOrderId, qty });
+        }
+        continue;
+      }
       cash -= perTradeUsdt;
-      cashDelta -= perTradeUsdt;
       autoOpened += 1;
       await logCoinEvent(
         supabase,
@@ -743,52 +873,19 @@ export async function runCoinScanFor(
           invested_usdt: perTradeUsdt,
           confidence: s.confidence,
           mode: cfg.mode,
+          live_order_id: liveOrderId,
         },
       );
-
-      // Live execution for buy
-      if (cfg.live_mode) {
-        const { loadCoinLiveCreds, placeCoinLiveBuy, toSpotPair } = await import("./coin-live-execution.server");
-        const creds = await loadCoinLiveCreds(supabase, userId);
-        if (creds) {
-          const exec = await placeCoinLiveBuy({
-            creds,
-            pair: toSpotPair(s.symbol),
-            totalQuantity: qty,
-          });
-          if (!exec.ok) {
-            await logCoinEvent(supabase, userId, "error", "live_buy_failed",
-              `Live buy failed for ${s.symbol}: ${exec.error}`,
-              { symbol: s.symbol, error: exec.error });
-            if (isDelistedError(exec.error)) {
-              await markSymbolInactive(supabase, s.symbol);
-              await logCoinEvent(supabase, userId, "warn", "symbol_auto_inactive",
-                `Auto-marked ${s.symbol} inactive after live-buy rejection: ${exec.error}`,
-                { symbol: s.symbol, error: exec.error });
-            }
-          } else {
-            await logCoinEvent(supabase, userId, "info", "live_buy",
-              `Live buy placed for ${s.symbol} · order: ${exec.orderId}`,
-              { symbol: s.symbol, order_id: exec.orderId, qty });
-          }
-        } else {
-          await logCoinEvent(supabase, userId, "warn", "live_buy_no_creds",
-            `Live mode enabled but no API credentials for ${userId}`);
-        }
+      if (liveOrderId) {
+        await logCoinEvent(supabase, userId, "info", "live_buy",
+          `Live buy placed for ${s.symbol} · order: ${liveOrderId}`,
+          { symbol: s.symbol, order_id: liveOrderId, qty });
       }
     }
 
   }
 
-  if (cashDelta !== 0) {
-    await supabase
-      .from("coin_bot_config")
-      .update({
-        available_cash_usdt: Number(cfg.available_cash_usdt) + cashDelta,
-      })
-      .eq("user_id", userId);
-  }
-
+  await releaseLease();
   return {
     ok: true,
     scanned: universe.length,
@@ -936,46 +1033,18 @@ export async function runCoinEnforcePass(supabase: SupabaseClient): Promise<{
     if (!exitReason) continue;
 
     const qty = Number(row.qty);
-    const investedUsdt = Number(row.invested_usdt);
-    const proceeds = qty * currentPrice;
-    const buyFee = investedUsdt * 0.001;
-    const sellFee = proceeds * 0.001;
-    const realized = proceeds - investedUsdt - buyFee - sellFee;
 
-    // Atomic close: only update if still open, so a concurrent 5m scan
-    // can't double-close and double-count cash.
-    const { data: updated } = await supabase
-      .from("coin_positions")
-      .update({
-        status: "closed",
-        closed_at: new Date().toISOString(),
-        exit_price: currentPrice,
-        exit_reason: exitReason,
-        last_price: currentPrice,
-        current_value_usdt: proceeds,
-        realized_pnl_usdt: realized,
-        unrealized_pnl_usdt: 0,
-      })
-      .eq("id", row.id)
-      .eq("status", "open")
-      .select("id")
-      .maybeSingle();
-    if (!updated) continue;
-
-    // Credit cash back to the user's coin bot wallet.
-    const { data: cfgCash } = await supabase
-      .from("coin_bot_config")
-      .select("available_cash_usdt")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (cfgCash) {
-      await supabase
-        .from("coin_bot_config")
-        .update({
-          available_cash_usdt: Number(cfgCash.available_cash_usdt ?? 0) + proceeds,
-        })
-        .eq("user_id", userId);
-    }
+    // Atomic close + cash credit in one transaction (CAS on status): a
+    // concurrent 5m scan can't double-close, and a crash between close and
+    // credit can no longer strand the proceeds.
+    const realized = await closeCoinPosition(
+      supabase,
+      userId,
+      row.id as string,
+      currentPrice,
+      exitReason,
+    );
+    if (realized == null) continue;
 
     closed += 1;
 
