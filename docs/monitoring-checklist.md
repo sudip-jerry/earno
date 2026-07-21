@@ -31,6 +31,12 @@ Futures P&L is USD/USDT (never INR).
   `live_buy_orphan_flattened`/`live_buy_orphan_flatten_failed`.
 - Short bookings: tight fade geometry live (stop ≈0.9–1.3% price, per-style R:R
   unchanged); continuation-short gate holding (no bearish-24h/RSI<40 shorts).
+- **Aggressive-twins short A/B (2026-07-21):** 31fac812 is long-only
+  (`allow_short=false`); twin 6163db97 keeps shorts as control. Bar: at n≥25
+  further Kush shorts — still net-negative → recommend killing aggressive
+  shorts entirely; clearly positive → flag for re-examination. Track Kush's
+  short n/win%/net each pass. 31fac812 must book ZERO shorts (nonzero = flag
+  not being honored — alert).
 
 ## Hot-list pass — KILLED 2026-07-12 (bar crossed in 1st hour)
 - The 1-min hot pass admitted 4 flicker trades/hour (conf 88→64 at the next look,
