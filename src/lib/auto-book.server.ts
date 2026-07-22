@@ -220,7 +220,12 @@ function num(x: unknown, d = 0): number {
 async function fetchScanUniverse(
   nChange = 20,
   nVolume = 20,
-): Promise<Array<{ symbol: string; price: number; change24h: number; volume24h: number }> | null> {
+): Promise<{
+  arms: Array<{ symbol: string; price: number; change24h: number; volume24h: number }>;
+  /** Top-150-by-volume liquid pool (any 24h direction) — feeds the freshness
+   * arm's 4h-momentum ranking + price snapshots. NOT the scan universe. */
+  pool: Array<{ symbol: string; price: number; change24h: number; volume24h: number }>;
+} | null> {
   let raw: { prices: Record<string, TickerEntry> } | Record<string, TickerEntry> | TickerEntry[];
   try {
     const res = await fetch(FUTURES_TICKER, { headers: PUB_HEADERS, cache: "no-store" });
@@ -284,7 +289,8 @@ async function fetchScanUniverse(
     seen.add(r.symbol);
     union.push(r);
   }
-  return union;
+  const pool = [...liquid].sort((a, b) => b.volume24h - a.volume24h).slice(0, 150);
+  return { arms: union, pool };
 }
 
 /**
@@ -633,6 +639,10 @@ type BotConfig = {
   // Long vetoes (v2's autopsy survivors: no Bullish-24h chase, no RSI>65 longs).
   // Flagged live-arm test with a pre-registered bar — see the gate site.
   long_vetoes_enabled?: boolean | null;
+  // Freshness arm (shadow): LONGS only from the top-decile 4h movers not yet
+  // labeled Bullish-24h. Bar: n>=30 closed arm longs must beat same-window
+  // non-arm longs on win% AND net/trade, or the flag dies.
+  freshness_arm_enabled?: boolean | null;
   // Equity circuit breaker (pre-pilot P1). equity_peak = intraday (IST) equity
   // high-water mark maintained by the mark pass; halted_on = the IST date the
   // breaker tripped (book flattened + no new entries for the rest of that day).
@@ -828,7 +838,7 @@ export async function runAutoBookPass(
   let q = supabase
     .from("bot_config")
     .select(
-      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,minimum_expected_edge_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms,structure_entry_filter_enabled,structure_short_filter_enabled,v2_long_gate_enabled,hotlist_enabled,long_vetoes_enabled,halted_on",
+      "user_id,mode,auto_book,is_running,leverage,risk_per_trade_pct,paper_equity,max_open_positions,cooldown_minutes,max_trades_per_day,auto_close_minutes,daily_loss_cap_pct,min_scalp_score,allow_short,allow_long,strategy,trading_style,min_sl_pct,atr_multiplier,max_auto_sl_pct,target_multiplier,min_rr,symbol_sl_cooldown_minutes,symbol_blacklist_threshold,regime_filter_enabled,auto_book_confidence_threshold,display_confidence_threshold,symbol_blocklist,live_wallet_source,live_allocation_mode,live_allocation_amount,live_allocation_pct,timeframe,minimum_net_profit_to_enter_pct,minimum_expected_edge_pct,max_sl_atr_pct,min_ev_ratio,slippage_buffer_pct,blocked_session_hours_ist,major_coin_confidence_floor,maker_entry_enabled,maker_entry_wait_ms,structure_entry_filter_enabled,structure_short_filter_enabled,v2_long_gate_enabled,hotlist_enabled,long_vetoes_enabled,halted_on,freshness_arm_enabled",
     )
     .eq("auto_book", true)
     .eq("is_running", true);
@@ -905,7 +915,8 @@ export async function runAutoBookPass(
 
   // Universe + per-timeframe per-symbol analysis (shared across users with the same timeframe).
   const universeFetched = await fetchScanUniverse(25, 25); // null = ticker unreachable
-  const universeRaw = universeFetched ?? [];
+  const universeRaw = universeFetched?.arms ?? [];
+  const tickerPool = universeFetched?.pool ?? [];
   // Quality gate: drop coins that have been persistently wide-spread lately. A
   // one-off wide tick is fine; a coin that keeps tripping the spread block across
   // scans is illiquid junk that otherwise slips in on a lucky sub-cap tick.
@@ -930,6 +941,85 @@ export async function runAutoBookPass(
     // ticker fetch failed — exit quietly; the full scan owns alerting.
     if (!universe.length) return result;
   }
+  // ---- 4h freshness arm (shadow; flagged per cohort) ----
+  // Hypothesis test (14d × 137 syms × 15m closes, two opposite-regime weeks):
+  // top-decile 4h movers NOT yet labeled Bullish-24h were the only bucket with
+  // positive 2h forward returns in the red week and the best bucket in the
+  // green week (+0.20%/2h vs +0.05% base; fee-clear rate 33-35% vs 25%), while
+  // top 1h movers were NEGATIVE both weeks (1h spikes mean-revert — refuted).
+  // The arm: rank the liquid pool by 4h momentum from price snapshots the pass
+  // itself maintains (zero extra API calls), and for arm cohorts allow LONGS
+  // only from the fresh set. Fresh symbols outside the normal universe arms are
+  // added to the scan but stay invisible to non-arm cohorts (clean control).
+  const fresh4hSet = new Set<string>();
+  const freshExtras = new Set<string>();
+  if (!hotSymbolsByUser && tickerPool.length) {
+    try {
+      // Snapshot maintenance: at most one snapshot per ~14 min, pruned at 30h.
+      const { data: lastSnap } = await supabase
+        .from("futures_price_snaps")
+        .select("snapped_at")
+        .order("snapped_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const lastMs = lastSnap ? new Date(lastSnap.snapped_at as string).getTime() : 0;
+      if (Date.now() - lastMs >= 14 * 60_000) {
+        const snapAt = new Date().toISOString();
+        await supabase.from("futures_price_snaps").insert(
+          tickerPool.map((u) => ({ snapped_at: snapAt, symbol: u.symbol, price: u.price })) as never,
+        );
+        await supabase
+          .from("futures_price_snaps")
+          .delete()
+          .lt("snapped_at", new Date(Date.now() - 30 * 3600_000).toISOString());
+      }
+
+      const anyFreshArm = users.some(
+        (u) => (u as BotConfig).freshness_arm_enabled === true,
+      );
+      if (anyFreshArm) {
+        const { data: snaps } = await supabase
+          .from("futures_price_snaps")
+          .select("symbol,price")
+          .gte("snapped_at", new Date(Date.now() - 4 * 3600_000 - 12 * 60_000).toISOString())
+          .lte("snapped_at", new Date(Date.now() - 4 * 3600_000 + 12 * 60_000).toISOString());
+        const past = new Map((snaps ?? []).map((r) => [r.symbol as string, Number(r.price)]));
+        const ranked: Array<{ symbol: string; r4h: number; change24h: number; row: (typeof tickerPool)[number] }> = [];
+        for (const u of tickerPool) {
+          const p0 = past.get(u.symbol);
+          if (p0 && p0 > 0 && u.price > 0) {
+            ranked.push({ symbol: u.symbol, r4h: u.price / p0 - 1, change24h: u.change24h, row: u });
+          }
+        }
+        // Need a broad enough pool for a meaningful decile; on cold start
+        // (< 4h of snapshots) the arm simply books nothing.
+        if (ranked.length >= 40) {
+          const cut = [...ranked].sort((a, b) => a.r4h - b.r4h)[Math.floor(ranked.length * 0.9)].r4h;
+          for (const r of ranked) {
+            if (r.r4h >= cut && r.r4h > 0 && r.change24h < 1) {
+              fresh4hSet.add(r.symbol);
+            }
+          }
+          // Admit up to 8 fresh movers that the normal arms missed (flat on
+          // 24h + not top-volume). They are analyzed like any symbol but gated
+          // to arm cohorts only.
+          const inUniverse = new Set(universe.map((u) => u.symbol));
+          const missing = ranked
+            .filter((r) => fresh4hSet.has(r.symbol) && !inUniverse.has(r.symbol))
+            .sort((a, b) => b.r4h - a.r4h)
+            .slice(0, 8);
+          for (const m of missing) {
+            universe.push(m.row);
+            freshExtras.add(m.symbol);
+          }
+        }
+      }
+    } catch (e) {
+      // Freshness is strictly additive — any failure must not touch the normal scan.
+      console.error("[auto-book] freshness arm precompute failed", e);
+    }
+  }
+
   // An empty universe is ambiguous without this: "ticker API down" and "broad
   // red day (no gainers, nothing flat-to-up)" both used to look like scanned=0.
   const universeEmptyReason =
@@ -1290,6 +1380,9 @@ export async function runAutoBookPass(
 
     for (const a of analyses) {
       const sym = a.symbol;
+      // Freshness-arm universe extras exist only for arm cohorts — silently
+      // invisible to everyone else so the control stays uncontaminated.
+      if (freshExtras.has(sym) && cfg.freshness_arm_enabled !== true) continue;
       const signalId = crypto.randomUUID();
       const cooldownActive =
         (lastOpen.get(sym) != null && Date.now() - (lastOpen.get(sym) as number) < cooldownMs) ||
@@ -2042,6 +2135,19 @@ export async function runAutoBookPass(
                   market_regime: a.market_regime,
                 },
               ).catch(() => {});
+            }
+          }
+
+          // Freshness arm (shadow): arm cohorts take LONGS only from the
+          // top-decile 4h movers not yet labeled Bullish-24h (see the fresh-set
+          // computation above the user loop; empty set on cold start = arm
+          // books no longs). Shorts and exits are untouched. No per-symbol
+          // event — the rejection lands on the signal row; bookings are the
+          // measured quantity.
+          if (!rejection && side === "long" && cfg.freshness_arm_enabled === true) {
+            if (!fresh4hSet.has(sym)) {
+              rejection = "Freshness arm: not a fresh 4h mover";
+              final = "skip";
             }
           }
 

@@ -31,6 +31,12 @@ Futures P&L is USD/USDT (never INR).
   `live_buy_orphan_flattened`/`live_buy_orphan_flatten_failed`.
 - Short bookings: tight fade geometry live (stop ≈0.9–1.3% price, per-style R:R
   unchanged); continuation-short gate holding (no bearish-24h/RSI<40 shorts).
+- **Freshness arm (2026-07-22, 2ce184c8):** arm longs only from top-decile 4h
+  movers (24h < +1%). Watch: `futures_price_snaps` growing (~150 rows/15min,
+  pruned at 30h — a stale max(snapped_at) >20min = snapshot writes broken);
+  arm bookings tally toward the bar (n≥30 closed arm longs vs same-window
+  non-arm longs on win% AND net/trade); first 4h after deploy the arm books no
+  longs (cold start — expected, not a failure).
 - **Aggressive-twins short A/B (2026-07-21):** 31fac812 is long-only
   (`allow_short=false`); twin 6163db97 keeps shorts as control. Bar: at n≥25
   further Kush shorts — still net-negative → recommend killing aggressive
