@@ -22,6 +22,12 @@ Futures P&L is USD/USDT (never INR).
 - Filter A/B arms vs controls; conservative cohorts booking normally (no
   "Risk-reward weak" floods — that signature = targetMult/minRR incoherence).
 - Gates health: `entry_confirm_rpc_error` count, universe warnings, spread-skip volume.
+- **Overnight session block (2026-07-24, all cohorts):** no NEW entries 23:00–04:59
+  IST (`blocked_session_hours_ist`; kind `session_hour_skip`). Sanity: zero
+  entries opened in that window; skips clustering there overnight is correct.
+  Parked-but-validated next lever for shorts: funding-rate gate (strong-negative
+  funding held 24/25 full-stop squeezes; blocked pending the micro-lock readout
+  so the two changes don't confound one measurement).
 - P1 safety events (all should be RARE; any occurrence is worth a line in the report):
   `circuit_breaker_tripped` / `circuit_breaker_flatten_failed` (flatten-failed = live
   exposure left open deliberately — needs eyes), `live_tp1_failed`/`live_tp1_placed`,
