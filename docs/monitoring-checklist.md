@@ -37,12 +37,14 @@ Futures P&L is USD/USDT (never INR).
   arm bookings tally toward the bar (n≥30 closed arm longs vs same-window
   non-arm longs on win% AND net/trade); first 4h after deploy the arm books no
   longs (cold start — expected, not a failure).
-- **Aggressive-twins short A/B (2026-07-21):** 31fac812 is long-only
-  (`allow_short=false`); twin 6163db97 keeps shorts as control. Bar: at n≥25
-  further Kush shorts — still net-negative → recommend killing aggressive
-  shorts entirely; clearly positive → flag for re-examination. Track Kush's
-  short n/win%/net each pass. 31fac812 must book ZERO shorts (nonzero = flag
-  not being honored — alert).
+- **Short micro-lock, side-aware (2026-07-24):** shorts arm 0.6% ROE / floor
+  0.5% (longs unchanged 1.2/0.35). Both aggressive cohorts are two-sided again
+  (the Jul-21 side-off A/B is CLOSED — Kush's control hit its bar at n=35,
+  −$16.79, and the mechanical fix shipped instead of a side kill). Watch:
+  micro_peak_lock exits should rise on shorts; if the twins' short lane is
+  still clearly negative over the next n≥25 closed shorts WITH the lock live,
+  the problem is entry-side — flag for the signal-rebuild list, don't flip
+  side flags.
 
 ## Hot-list pass — KILLED 2026-07-12 (bar crossed in 1st hour)
 - The 1-min hot pass admitted 4 flicker trades/hour (conf 88→64 at the next look,

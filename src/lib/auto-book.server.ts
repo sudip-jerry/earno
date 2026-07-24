@@ -2897,8 +2897,16 @@ export async function runMarkPass(
     // +1.6-1.7% ROE (≈₹400 unrealized) round-tripping to net ≈ 0. Once peak ROE
     // >= 1.2, lock ~40% of the peak (floor 0.35% ROE); the net-breakeven stop
     // above backstops the worst case.
+    // SIDE-AWARE thresholds (2026-07-24 sweep on 334 real shorts, deltas vs
+    // live): shorts peak ~1.2 ROE on average — just under the 1.2 arm — so 42%
+    // round-tripped to the full stop with no ratchet. Arming shorts at 0.6
+    // (lock floor 0.5) improved BOTH groups: aggressive twins +$81.5/10d,
+    // all other cohorts +$208.1/10d (locks 47→80) with no damage to the
+    // profit-fade harvest. Longs keep the original 1.2/0.35 (untested lower).
+    const mlArm = side === "short" ? 0.6 : 1.2;
+    const mlFloor = side === "short" ? 0.5 : 0.35;
     const hitMicroLock =
-      !postTp1 && peakRoe >= 1.2 && currentRoe <= Math.max(0.35, peakRoe * 0.4);
+      !postTp1 && peakRoe >= mlArm && currentRoe <= Math.max(mlFloor, peakRoe * 0.4);
 
     // 5a) Price-% profit fade: only allowed after TP1 has been hit.
     const hitProfitFade =

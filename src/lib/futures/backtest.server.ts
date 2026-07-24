@@ -180,6 +180,15 @@ export type BacktestVariant = {
    */
   microPeakLock?: boolean;
   /**
+   * Micro peak-lock threshold overrides (sweep knobs, 2026-07-24). Live values
+   * are arm 1.2 / floor 0.35 / frac 0.4; the aggressive twins' shorts peak at
+   * ~1.2 ROE on average — just under the arm — so 42% round-trip to the full
+   * stop with no ratchet. Defaults preserve live behavior exactly.
+   */
+  microLockArmRoe?: number;
+  microLockFloor?: number;
+  microLockFrac?: number;
+  /**
    * 2026-07-12 change: side-aware stop geometry. Shorts' SL/TP distances scale
    * to 60% of the stored (long-preset) plan, SL capped at 1.3% price — exactly
    * what computeRiskPlan(side:"short") now produces, since the stored TP is
@@ -390,11 +399,17 @@ export function replayPosition(
 
       // §4c micro peak-lock (2026-07-12, variant-gated): pre-TP1 giveback
       // protection — mirrors runMarkPass thresholds exactly.
+      // Defaults mirror the LIVE side-aware thresholds (2026-07-24): shorts
+      // arm 0.6 / floor 0.5, longs 1.2 / 0.35. Variant knobs override for sweeps.
       const hitMicroLock =
         !!variant.microPeakLock &&
         !postTp1 &&
-        peakRoe >= 1.2 &&
-        currentRoe <= Math.max(0.35, peakRoe * 0.4);
+        peakRoe >= (variant.microLockArmRoe ?? (side === "short" ? 0.6 : 1.2)) &&
+        currentRoe <=
+          Math.max(
+            variant.microLockFloor ?? (side === "short" ? 0.5 : 0.35),
+            peakRoe * (variant.microLockFrac ?? 0.4),
+          );
 
       // §5a profit fade (post-TP1).
       const giveback = peak >= preset.profitFadeMinPct ? Math.max(0, peak - currentRoe) : 0;
